@@ -6,6 +6,8 @@ ERP web para comunicação visual, gráfica e personalizados: orçamentos, pedid
 
 Documentação: [docs/ARQUITETURA.md](docs/ARQUITETURA.md) · [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/DECISOES.md](docs/DECISOES.md) · [docs/DEPLOY_VPS.md](docs/DEPLOY_VPS.md)
 
+**Guia rápido (configurar, usar e testar):** [docs/GUIA_RAPIDO.md](docs/GUIA_RAPIDO.md) · [versão web para compartilhar](https://claude.ai/artifact/U8xpJr5E8wRfVGwTKNimRe)
+
 ## Pré-requisitos
 
 - **Docker Desktop** (em execução)

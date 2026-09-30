@@ -1,0 +1,71 @@
+# Produção (VPS) — passo a passo em docs/DEPLOY_VPS.md.
+# Subir:    docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+# Só 3 containers: db (sem porta exposta), api (só na rede interna) e web (Caddy: 80/443 + HTTPS automático).
+name: onprint-control-prod
+
+x-logs: &logs
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  db:
+    image: postgres:16-alpine
+    env_file: .env.prod
+    restart: unless-stopped
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    <<: *logs
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: prod
+    env_file: .env.prod
+    environment:
+      NODE_ENV: production
+      UPLOAD_DIR: /app/uploads
+    restart: unless-stopped
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3333/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    <<: *logs
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: prod
+    env_file: .env.prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    <<: *logs
+
+volumes:
+  pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,68 @@
+import { describe, expect, it } from 'vitest'
+import { aplicarBaixa, calcularVendaPdv, statusFinanceiroPedido, statusTitulo, taxaDaForma } from './financeiro'
+
+describe('aplicarBaixa', () => {
+  it('baixa total quita o título', () => {
+    expect(aplicarBaixa({ valor: '240', valorPago: '0' }, { valorRecebido: '240' })).toEqual({ ok: true, principal: '240.00', valorPago: '240.00', saldo: '0.00', quitado: true })
+  })
+
+  it('baixa parcial abate só o principal', () => {
+    const r = aplicarBaixa({ valor: '240', valorPago: '0' }, { valorRecebido: '100' })
+    expect(r).toMatchObject({ ok: true, principal: '100.00', saldo: '140.00', quitado: false })
+  })
+
+  it('juros e multa não abatem o título; desconto abate', () => {
+    // recebeu 150 com 5 de juros e 3 de multa → principal 142
+    expect(aplicarBaixa({ valor: '142', valorPago: '0' }, { valorRecebido: '150', juros: '5', multa: '3' })).toMatchObject({ ok: true, principal: '142.00', quitado: true })
+    // recebeu 90 com 10 de desconto → quitou 100
+    expect(aplicarBaixa({ valor: '100', valorPago: '0' }, { valorRecebido: '90', desconto: '10' })).toMatchObject({ ok: true, principal: '100.00', quitado: true })
+  })
+
+  it('recusa valor acima do saldo, zerado ou título quitado', () => {
+    expect(aplicarBaixa({ valor: '100', valorPago: '60' }, { valorRecebido: '50' }).ok).toBe(false)
+    expect(aplicarBaixa({ valor: '100', valorPago: '0' }, { valorRecebido: '5', juros: '5' }).ok).toBe(false)
+    expect(aplicarBaixa({ valor: '100', valorPago: '100' }, { valorRecebido: '1' }).ok).toBe(false)
+  })
+})
+
+describe('statusTitulo', () => {
+  it('pago, parcial, vencido e aberto', () => {
+    expect(statusTitulo('100', '100', '2026-09-01', '2026-09-30')).toBe('pago')
+    expect(statusTitulo('100', '40', '2026-09-01', '2026-09-30')).toBe('parcial')
+    expect(statusTitulo('100', '0', '2026-09-29', '2026-09-30')).toBe('vencido')
+    expect(statusTitulo('100', '0', '2026-09-30', '2026-09-30')).toBe('aberto')
+  })
+})
+
+describe('statusFinanceiroPedido', () => {
+  it('ignora cancelados; pago só com tudo quitado', () => {
+    expect(statusFinanceiroPedido([{ valor: '120', valorPago: '120', status: 'pago' }, { valor: '120', valorPago: '0', status: 'aberto' }])).toBe('parcial')
+    expect(statusFinanceiroPedido([{ valor: '120', valorPago: '120', status: 'pago' }, { valor: '120', valorPago: '120', status: 'pago' }])).toBe('pago')
+    expect(statusFinanceiroPedido([{ valor: '120', valorPago: '0', status: 'aberto' }, { valor: '50', valorPago: '0', status: 'cancelado' }])).toBe('pendente')
+  })
+})
+
+describe('calcularVendaPdv', () => {
+  const itens = [{ quantidade: '2', precoUnitario: '25' }, { quantidade: '1', precoUnitario: '10.5' }]
+
+  it('troco em dinheiro', () => {
+    expect(calcularVendaPdv(itens, '0.5', [{ valor: '100', dinheiro: true }])).toEqual({ ok: true, subtotal: '60.50', desconto: '0.50', total: '60.00', recebido: '100.00', troco: '40.00' })
+  })
+
+  it('várias formas sem troco', () => {
+    expect(calcularVendaPdv(itens, '0', [{ valor: '40', dinheiro: false }, { valor: '20.5', dinheiro: true }])).toMatchObject({ ok: true, troco: '0.00' })
+  })
+
+  it('recusa falta de pagamento e troco sem dinheiro', () => {
+    expect(calcularVendaPdv(itens, '0', [{ valor: '60', dinheiro: true }])).toMatchObject({ ok: false, erro: 'Falta receber R$ 0,50.' })
+    expect(calcularVendaPdv(itens, '0', [{ valor: '70', dinheiro: false }]).ok).toBe(false)
+    expect(calcularVendaPdv([], '0', []).ok).toBe(false)
+  })
+})
+
+describe('taxaDaForma', () => {
+  it('percentual com arredondamento', () => {
+    expect(taxaDaForma('100', '3.5')).toBe('3.50')
+    expect(taxaDaForma('33.33', '1.5')).toBe('0.50')
+  })
+})

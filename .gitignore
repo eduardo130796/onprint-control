@@ -1,0 +1,12 @@
+node_modules
+dist
+*.local
+.env
+backups/*
+!backups/.gitkeep
+uploads
+*.tsbuildinfo
+*.log
+.vscode/*
+!.vscode/extensions.json
+.env.prod

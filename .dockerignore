@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+backups
+uploads
+.env
+.git
+*.log
+.env.prod

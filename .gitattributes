@@ -1,0 +1,5 @@
+# Repositório sempre com LF (scripts e Caddyfile rodam no Linux da VPS)
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

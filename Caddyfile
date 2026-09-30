@@ -1,0 +1,35 @@
+# Produção: defina DOMINIO no .env.prod (ex.: erp.suaempresa.com.br) para HTTPS automático (Let's Encrypt).
+# Sem DOMINIO, atende em https://localhost com certificado local (teste do compose de produção).
+{$DOMINIO:localhost} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# Uploads grandes (artes até UPLOAD_MAX_MB) vão direto para a API
+	handle /api/* {
+		reverse_proxy api:3333
+	}
+
+	handle /socket.io/* {
+		reverse_proxy api:3333
+	}
+
+	# Arquivos com hash no nome podem ficar em cache "para sempre"; o index.html nunca
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+	@paginas not path /assets/* /api/* /socket.io/*
+	header @paginas Cache-Control "no-cache"
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { NIVEIS_ACESSO } from '../assinatura'
 
 export const SENHA_MIN = 8
 
@@ -54,6 +55,19 @@ export const usuarioLogadoSchema = z.object({
   permissoes: z.array(z.string()),
   /** Empresa assinante do usuário (o slug identifica os links públicos) */
   empresa: z.object({ id: z.string().uuid(), nome: z.string(), slug: z.string() }),
+  /** Situação da assinatura para avisos e bloqueio na tela (as permissões já vêm filtradas por ela) */
+  assinatura: z
+    .object({
+      plano: z.string(),
+      nivel: z.enum(NIVEIS_ACESSO),
+      motivo: z.string(),
+      mensagem: z.string(),
+      diasAtraso: z.number(),
+      diasRestantesTeste: z.number().nullable(),
+      diasParaSomenteLeitura: z.number().nullable(),
+      diasParaBloqueio: z.number().nullable(),
+    })
+    .nullable(),
 })
 export type UsuarioLogado = z.infer<typeof usuarioLogadoSchema>
 

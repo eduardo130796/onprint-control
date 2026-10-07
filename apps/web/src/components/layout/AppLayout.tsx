@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useTempoReal } from '@/hooks/useTempoReal'
 import { cn } from '@/lib/utils'
+import { BannerAssinatura } from './BannerAssinatura'
 import { FloatingActionButton } from './FloatingActionButton'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
@@ -56,6 +57,7 @@ export function AppLayout() {
         )}
       >
         <div className={larga ? 'w-full' : 'mx-auto max-w-7xl'}>
+          <BannerAssinatura />
           {/* As telas são carregadas sob demanda (app/paginas.ts) */}
           <Suspense
             fallback={

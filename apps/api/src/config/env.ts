@@ -17,6 +17,8 @@ const envSchema = z.object({
   DB_CONEXOES_POR_EMPRESA: z.coerce.number().int().min(1).max(20).default(3),
   /** Empresas com pool aberto ao mesmo tempo; as menos usadas são fechadas */
   DB_MAX_EMPRESAS_ABERTAS: z.coerce.number().int().min(1).default(60),
+  /** Por quanto tempo a empresa e a assinatura ficam em cache (0 = sempre consulta; usado nos testes) */
+  CACHE_EMPRESAS_SEGUNDOS: z.coerce.number().int().min(0).default(30),
   JWT_ACCESS_SECRET: z.string().min(8),
   JWT_REFRESH_SECRET: z.string().min(8),
   JWT_ACCESS_EXPIRES: duracao('15m'),
@@ -36,6 +38,8 @@ const envSchema = z.object({
   EMAIL_REMETENTE: z.string().default('ONPrint Control <nao-responda@onprint.local>'),
   /** Desenvolvimento/testes: também grava cada e-mail como JSON nesta pasta */
   EMAIL_PASTA: z.string().default(''),
+  /** Contato do suporte mostrado em "Minha assinatura" (WhatsApp, e-mail…) */
+  SUPORTE_CONTATO: z.string().default(''),
 })
 
 /** Em produção, segredos fracos ou de exemplo impedem a API de subir. */

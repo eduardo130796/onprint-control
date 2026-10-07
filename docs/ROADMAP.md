@@ -145,9 +145,16 @@ Decisões do usuário: todas as empresas no mesmo sistema; bloqueio escalonado (
 - [x] Verificado: testes unitários (api 47: modelos, escape de HTML, hash, provedores) e e2e `fase10` (29 verificações, inclusive empresa B) + fases 1 e 9
 - [ ] Aceite validado pelo usuário
 
-### Fase 11 — Planos, módulos e bloqueio
-- [ ] Planos com módulos liberados e limite de usuários; módulo fora do plano some do menu e é recusado pela API
-- [ ] Bloqueio escalonado: aviso → só leitura → bloqueio total (só a tela de pagamento); tela "Minha assinatura"
+### Fase 11 — Planos, módulos e bloqueio ✅ (aguardando OK)
+- [x] Planos na plataforma (Essencial, Profissional, Completo criados no seed): módulos, limite de usuários, dias de teste e prazos do bloqueio por plano; uma assinatura por empresa (teste/ativa/cancelada, atraso desde, liberação e bloqueio manuais, módulos extras) com histórico
+- [x] Regra única `calcularAcesso` no shared (normal → aviso → só leitura → bloqueado; fim do teste conta como vencimento; liberação manual vence o atraso; bloqueio manual vence tudo), com 17 testes
+- [x] API: módulo fora do plano → `MODULO_NAO_CONTRATADO`; só leitura → nada além de GET (`ASSINATURA_SOMENTE_LEITURA`); bloqueado → só `/assinatura`, login e troca de senha (`ASSINATURA_BLOQUEADA`); links públicos param no bloqueio; limite de usuários ao criar e reativar
+- [x] `/auth/me` traz as permissões já filtradas pela assinatura (menus e botões somem sozinhos) e o resumo da situação
+- [x] Tela: faixa de aviso no topo (teste, atraso, só leitura, liberação), redirecionamento para "Minha assinatura" quando bloqueado, situação atualizada ao voltar à aba, a cada 10 min e quando a API recusa
+- [x] "Minha assinatura" (Configurações): situação e o porquê, datas, usuários x limite, o que acontece em cada degrau do atraso, módulos (incluídos e em quais planos estão) e planos
+- [x] Comando `assinatura` (listar, ativar, atraso, liberar, bloquear, plano, cancelar, módulos extras) até o painel da Fase 13
+- [x] Verificado: testes unitários (shared 106, api 52) e e2e `fase11` (37 verificações) + regressão das fases 1–10
+- [ ] Aceite validado pelo usuário
 
 ### Fase 12 — Asaas
 - [ ] Cliente e assinatura (PIX, cartão, boleto), webhook idempotente, NFS-e automática, sandbox, conferência diária; modo manual sem chave

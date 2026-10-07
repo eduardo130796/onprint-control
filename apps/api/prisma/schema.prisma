@@ -1662,6 +1662,8 @@ model Assinante {
 
   logins      IndiceLogin[]
   tokensSenha TokenSenha[]
+  assinatura  Assinatura?
+  eventos     EventoAssinatura[]
 
   @@map("assinantes")
 }
@@ -1700,4 +1702,77 @@ model TokenSenha {
 
   @@index([usuarioId])
   @@map("tokens_senha")
+}
+
+/** Plano vendido: módulos liberados, limite de usuários, teste grátis e prazos do bloqueio. */
+model Plano {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  codigo                String   @unique
+  nome                  String
+  descricao             String?
+  valorMensal           Decimal  @map("valor_mensal") @db.Decimal(10, 2)
+  /** Códigos de módulo (MODULOS); os essenciais entram sempre */
+  modulos               String[]
+  /** null = sem limite */
+  limiteUsuarios        Int?     @map("limite_usuarios")
+  diasTeste             Int      @default(14) @map("dias_teste")
+  /** Dias de atraso até o sistema ficar só para consulta */
+  diasAteSomenteLeitura Int      @default(5) @map("dias_ate_somente_leitura")
+  /** Dias de atraso até o bloqueio total */
+  diasAteBloqueio       Int      @default(15) @map("dias_ate_bloqueio")
+  /** Aparece na página de cadastro e na troca de plano */
+  publico               Boolean  @default(true)
+  ativo                 Boolean  @default(true)
+  ordem                 Int      @default(0)
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  assinaturas Assinatura[]
+
+  @@map("planos")
+}
+
+/** Assinatura de uma empresa (uma por empresa). O nível de acesso é calculado (calcularAcesso). */
+model Assinatura {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assinanteId       String    @unique @map("assinante_id") @db.Uuid
+  planoId           String    @map("plano_id") @db.Uuid
+  /** teste | ativa | cancelada */
+  situacao          String    @default("teste")
+  testeAte          DateTime? @map("teste_ate") @db.Date
+  /** Vencimento da cobrança mais antiga ainda não paga (null = em dia) */
+  atrasoDesde       DateTime? @map("atraso_desde") @db.Date
+  proximoVencimento DateTime? @map("proximo_vencimento") @db.Date
+  /** Liberação manual: acesso normal até esta data, mesmo com atraso */
+  liberadoAte       DateTime? @map("liberado_ate") @db.Date
+  bloqueioManual    Boolean   @default(false) @map("bloqueio_manual")
+  motivoBloqueio    String?   @map("motivo_bloqueio")
+  /** Módulos contratados além dos do plano */
+  modulosExtras     String[]  @default([]) @map("modulos_extras")
+  canceladaEm       DateTime? @map("cancelada_em") @db.Timestamptz(3)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  assinante Assinante @relation(fields: [assinanteId], references: [id], onDelete: Cascade)
+  plano     Plano     @relation(fields: [planoId], references: [id], onDelete: Restrict)
+
+  @@index([planoId])
+  @@map("assinaturas")
+}
+
+/** Histórico da assinatura (troca de plano, liberação, bloqueio, pagamentos…), para o suporte. */
+model EventoAssinatura {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assinanteId String   @map("assinante_id") @db.Uuid
+  tipo        String
+  descricao   String
+  dados       Json?
+  /** Quem fez: "sistema", "cli", e-mail do suporte… */
+  autor       String   @default("sistema")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  assinante Assinante @relation(fields: [assinanteId], references: [id], onDelete: Cascade)
+
+  @@index([assinanteId, createdAt])
+  @@map("eventos_assinatura")
 }

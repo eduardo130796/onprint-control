@@ -18,6 +18,7 @@ export const EmpresaPage = carregar(() => import('@/features/configuracoes/pages
 export const PermissoesPage = carregar(() => import('@/features/configuracoes/pages/PermissoesPage'), 'PermissoesPage')
 export const StatusPage = carregar(() => import('@/features/configuracoes/pages/StatusPage'), 'StatusPage')
 export const TemplatesPage = carregar(() => import('@/features/configuracoes/pages/TemplatesPage'), 'TemplatesPage')
+export const MinhaAssinaturaPage = carregar(() => import('@/features/assinatura/pages/MinhaAssinaturaPage'), 'MinhaAssinaturaPage')
 export const UsuariosPage = carregar(() => import('@/features/configuracoes/pages/UsuariosPage'), 'UsuariosPage')
 export const FornecedorPage = carregar(() => import('@/features/fornecedores/pages/FornecedorPage'), 'FornecedorPage')
 export const FornecedoresPage = carregar(() => import('@/features/fornecedores/pages/FornecedoresPage'), 'FornecedoresPage')

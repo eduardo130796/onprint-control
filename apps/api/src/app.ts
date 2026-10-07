@@ -12,6 +12,7 @@ import { orcamentosRoutes } from './modules/orcamentos/routes'
 import { publicoRoutes } from './modules/publico/routes'
 import { healthRoutes } from './modules/health/routes'
 import { artesRoutes } from './modules/artes/routes'
+import { assinaturaRoutes } from './modules/assinatura/routes'
 import { pedidosRoutes } from './modules/pedidos/routes'
 import { permissoesRoutes } from './modules/permissoes/routes'
 import { producaoRoutes } from './modules/producao/routes'
@@ -70,6 +71,7 @@ export async function buildApp(config: Env) {
     async (v1) => {
       await v1.register(healthRoutes)
       await v1.register(authRoutes, { prefix: '/auth' })
+      await v1.register(assinaturaRoutes)
       await v1.register(usuariosRoutes, { prefix: '/usuarios' })
       await v1.register(permissoesRoutes, { prefix: '/permissoes' })
       await v1.register(empresaRoutes, { prefix: '/empresa' })

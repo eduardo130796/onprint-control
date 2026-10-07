@@ -43,7 +43,7 @@ function rodarFase(fase) {
     exec(
       'api',
       // E-mails da API temporária vão para /tmp/e2e-emails (a Fase 10 lê os links de senha dali)
-      'rm -rf /tmp/e2e-emails ; (cd apps/api && PORT=3334 LOG_LEVEL=warn EMAIL_PASTA=/tmp/e2e-emails npx tsx src/server.ts --e2e-temporario > /tmp/e2e-api.log 2>&1 &) ; ' +
+      'rm -rf /tmp/e2e-emails ; (cd apps/api && PORT=3334 LOG_LEVEL=warn EMAIL_PASTA=/tmp/e2e-emails CACHE_EMPRESAS_SEGUNDOS=0 npx tsx src/server.ts --e2e-temporario > /tmp/e2e-api.log 2>&1 &) ; ' +
         'for i in $(seq 1 30); do wget -qO- http://127.0.0.1:3334/health > /dev/null 2>&1 && exit 0; sleep 1; done; cat /tmp/e2e-api.log; exit 1',
       { DATABASE_URL: URL_BANCO },
     ),

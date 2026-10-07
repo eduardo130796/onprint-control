@@ -58,6 +58,16 @@ export function criarUsuariosService(app: FastifyInstance) {
     if (outros === 0) throw AppError.regraNegocio('O sistema precisa de pelo menos um administrador ativo.')
   }
 
+  /** Limite de usuários ativos do plano (desativados não contam). */
+  async function garantirVaga() {
+    const assinatura = contextoEmpresa.exigir().assinatura
+    if (assinatura?.limiteUsuarios == null) return
+    const ativos = await prisma.usuario.count({ where: { ativo: true } })
+    if (ativos >= assinatura.limiteUsuarios) {
+      throw AppError.regraNegocio(`O plano ${assinatura.plano.nome} permite até ${assinatura.limiteUsuarios} usuários ativos. Desative alguém ou mude de plano.`)
+    }
+  }
+
   async function revogarSessoes(tx: Prisma.TransactionClient, usuarioId: string) {
     await tx.sessao.updateMany({ where: { usuarioId, revogada: false }, data: { revogada: true } })
   }
@@ -97,6 +107,7 @@ export function criarUsuariosService(app: FastifyInstance) {
     /** Cria o usuário e manda o convite por e-mail (link para criar a senha). */
     async criar(dados: Criar, autorId: string) {
       await validarPapel(dados.papelId)
+      await garantirVaga()
       const { senhaProvisoria, ...resto } = dados
       if (!senhaProvisoria && !app.email.configurado) {
         throw AppError.regraNegocio('O envio de e-mails ainda não está configurado: informe uma senha provisória.', { campo: 'senhaProvisoria' })
@@ -142,6 +153,7 @@ export function criarUsuariosService(app: FastifyInstance) {
       const deixaDeSerAdmin = antes.papel.codigo === 'admin' && (papel.codigo !== 'admin' || !dados.ativo)
       if (deixaDeSerAdmin) await garantirOutroAdmin(id)
       if (id === autorId && !dados.ativo) throw AppError.regraNegocio('Você não pode desativar o próprio usuário.')
+      if (dados.ativo && !antes.ativo) await garantirVaga()
 
       const gravar = () =>
         comConflitoAmigavel(

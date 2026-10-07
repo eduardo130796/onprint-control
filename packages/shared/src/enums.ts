@@ -53,6 +53,12 @@ export const CODIGOS_ERRO = {
   CONFLITO: 'CONFLITO',
   REGRA_NEGOCIO: 'REGRA_NEGOCIO',
   MUITAS_TENTATIVAS: 'MUITAS_TENTATIVAS',
+  /** Assinatura: bloqueio total (só a tela de assinatura funciona) */
+  ASSINATURA_BLOQUEADA: 'ASSINATURA_BLOQUEADA',
+  /** Assinatura: modo só leitura (nada é gravado) */
+  ASSINATURA_SOMENTE_LEITURA: 'ASSINATURA_SOMENTE_LEITURA',
+  /** O módulo não faz parte do plano da empresa */
+  MODULO_NAO_CONTRATADO: 'MODULO_NAO_CONTRATADO',
   ERRO_INTERNO: 'ERRO_INTERNO',
 } as const
 export type CodigoErro = (typeof CODIGOS_ERRO)[keyof typeof CODIGOS_ERRO]

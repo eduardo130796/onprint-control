@@ -15,6 +15,10 @@ export function ProtectedRoute() {
   if (usuario.deveTrocarSenha && location.pathname !== '/trocar-senha') {
     return <Navigate to="/trocar-senha" replace />
   }
+  // Assinatura bloqueada: só a tela da assinatura (onde se regulariza)
+  if (usuario.assinatura?.nivel === 'bloqueado' && location.pathname !== '/assinatura' && location.pathname !== '/trocar-senha') {
+    return <Navigate to="/assinatura" replace />
+  }
 
   return <Outlet />
 }

@@ -1,8 +1,9 @@
 import { AsyncResource } from 'node:async_hooks'
 import fp from 'fastify-plugin'
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, type Assinante, type Assinatura, type Plano } from '@prisma/client'
 import { SCHEMA_PLATAFORMA, urlDoSchema } from '../core/banco'
 import { contextoEmpresa, type EmpresaAtual } from '../core/contexto-empresa'
+import { resumirAssinatura } from '../plataforma/assinaturas'
 
 export interface RegistroEmpresas {
   /** Empresa ativa pelo id (com cache curto); null se não existe ou foi desativada. */
@@ -28,20 +29,30 @@ declare module 'fastify' {
 }
 
 /** Tabelas que só existem de verdade no schema da plataforma. */
-const MODELOS_PLATAFORMA = new Set(['assinante', 'indiceLogin', 'tokenSenha'])
+const MODELOS_PLATAFORMA = new Set(['assinante', 'indiceLogin', 'tokenSenha', 'plano', 'assinatura', 'eventoAssinatura'])
 /** Propriedades sondadas por bibliotecas (await, Fastify, inspeção) que não devem exigir empresa. */
 const SONDAGENS = new Set(['then', 'getter', 'setter', 'toJSON', 'constructor', 'asymmetricMatch', '$$typeof', 'inspect'])
-const CACHE_MS = 60_000
 const RECURSO = Symbol('onprint.contextoEmpresa')
 
-const paraContexto = (a: { id: string; nome: string; slug: string; schema: string }): EmpresaAtual => ({ id: a.id, nome: a.nome, slug: a.slug, schema: a.schema })
+type AssinanteCompleto = Assinante & { assinatura: (Assinatura & { plano: Plano }) | null }
+const comAssinatura = { assinatura: { include: { plano: true } } } as const
+
+const paraContexto = (a: AssinanteCompleto): EmpresaAtual => ({
+  id: a.id,
+  nome: a.nome,
+  slug: a.slug,
+  schema: a.schema,
+  assinatura: a.assinatura ? resumirAssinatura(a.assinatura) : undefined,
+})
 
 /**
  * Multiempresa (schema por empresa). `app.prisma` é um proxy: cada acesso usa o cliente
  * do schema da empresa do contexto (definida pela autenticação), então os services não mudam.
  */
 export const prismaPlugin = fp(async (app) => {
-  const { DATABASE_URL, DB_CONEXOES_POR_EMPRESA, DB_MAX_EMPRESAS_ABERTAS, NODE_ENV } = app.config
+  const { DATABASE_URL, DB_CONEXOES_POR_EMPRESA, DB_MAX_EMPRESAS_ABERTAS, NODE_ENV, CACHE_EMPRESAS_SEGUNDOS } = app.config
+  // Empresa + assinatura ficam em cache por pouco tempo: pagamento ou bloqueio valem em segundos
+  const CACHE_MS = CACHE_EMPRESAS_SEGUNDOS * 1000
   const log: ('warn' | 'error')[] = NODE_ENV === 'development' ? ['warn', 'error'] : ['error']
   const plataforma = new PrismaClient({ log, datasourceUrl: urlDoSchema(DATABASE_URL, SCHEMA_PLATAFORMA, 5) })
 
@@ -68,7 +79,7 @@ export const prismaPlugin = fp(async (app) => {
   async function buscar(chave: string, where: { id: string } | { slug: string }) {
     const guardado = cache.get(chave)
     if (guardado && guardado.expira > Date.now()) return guardado.empresa
-    const a = await plataforma.assinante.findUnique({ where })
+    const a = await plataforma.assinante.findUnique({ where, include: comAssinatura })
     const empresa = a?.ativo ? paraContexto(a) : null
     cache.set(chave, { empresa, expira: Date.now() + CACHE_MS })
     return empresa
@@ -77,7 +88,7 @@ export const prismaPlugin = fp(async (app) => {
   const empresas: RegistroEmpresas = {
     porId: (id) => (id ? buscar(`id:${id}`, { id }) : Promise.resolve(null)),
     porSlug: (slug) => buscar(`slug:${slug}`, { slug }),
-    listar: async () => (await plataforma.assinante.findMany({ where: { ativo: true }, orderBy: { createdAt: 'asc' } })).map(paraContexto),
+    listar: async () => (await plataforma.assinante.findMany({ where: { ativo: true }, include: comAssinatura, orderBy: { createdAt: 'asc' } })).map(paraContexto),
     clienteDe,
     esquecer: () => cache.clear(),
   }

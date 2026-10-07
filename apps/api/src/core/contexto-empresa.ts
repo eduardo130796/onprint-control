@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
+import type { AssinaturaContexto } from '../plataforma/assinaturas'
 
 /** Empresa assinante em uso: define o schema do banco e a pasta de arquivos. */
 export interface EmpresaAtual {
@@ -6,6 +7,8 @@ export interface EmpresaAtual {
   nome: string
   slug: string
   schema: string
+  /** Plano, módulos liberados e nível de acesso (ausente só em empresas ainda sem assinatura) */
+  assinatura?: AssinaturaContexto
 }
 
 interface Armazenamento {

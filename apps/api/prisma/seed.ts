@@ -12,6 +12,7 @@ import { join, resolve } from 'node:path'
 import type { PrismaClient } from '@prisma/client'
 import { SCHEMA_LEGADO } from '../src/core/banco'
 import { StoragePorEmpresa } from '../src/core/storage/por-empresa'
+import { criarAssinatura, semearPlanos } from '../src/plataforma/assinaturas'
 import { semearEmpresa } from './seed/empresa'
 import { conexoesDosScripts, executarScript } from './scripts-banco'
 
@@ -21,6 +22,7 @@ const ADMIN_SENHA = process.env.ADMIN_SENHA_INICIAL || 'admin123'
 const EXEMPLOS = (process.env.SEED_EXEMPLOS ?? (PRODUCAO ? 'false' : 'true')) === 'true'
 const SLUG_PADRAO = process.env.EMPRESA_PADRAO_SLUG || 'principal'
 const UPLOAD_DIR = resolve(process.env.UPLOAD_DIR || './uploads')
+const PLANO_PADRAO = process.env.PLANO_PADRAO || 'profissional'
 
 const banco = conexoesDosScripts()
 
@@ -53,8 +55,20 @@ async function sincronizarIndice(empresaId: string, prisma: PrismaClient) {
   }
 }
 
+/** Toda empresa tem assinatura: a padrão (dona do sistema) no plano completo, ativa; as demais em teste. */
+async function garantirAssinaturas() {
+  const sem = await banco.plataforma.assinante.findMany({ where: { assinatura: null } })
+  for (const empresa of sem) {
+    const padrao = empresa.schema === SCHEMA_LEGADO
+    await criarAssinatura(banco.plataforma, empresa.id, padrao ? 'completo' : PLANO_PADRAO, padrao ? 'ativa' : 'teste', 'seed')
+    console.log(`[${empresa.slug}] Assinatura criada (${padrao ? 'completo, ativa' : `${PLANO_PADRAO}, teste grátis`}).`)
+  }
+}
+
 executarScript(async () => {
+  if (await semearPlanos(banco.plataforma)) console.log('Planos padrão criados (Essencial, Profissional, Completo).')
   await registrarEmpresaPadrao()
+  await garantirAssinaturas()
   const empresas = await banco.plataforma.assinante.findMany({ where: { ativo: true }, orderBy: { createdAt: 'asc' } })
   for (const empresa of empresas) {
     const prisma = banco.clienteDe(empresa.schema)

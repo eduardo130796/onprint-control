@@ -1,6 +1,6 @@
 import fp from 'fastify-plugin'
 import type { FastifyRequest } from 'fastify'
-import type { Acao, Modulo } from '@onprint/shared'
+import { ACOES_LEITURA, CODIGOS_ERRO, MODULO_ROTULOS, type Acao, type Modulo } from '@onprint/shared'
 import { AppError } from '../core/AppError'
 import { contextoEmpresa } from '../core/contexto-empresa'
 
@@ -37,12 +37,24 @@ export const permissionsPlugin = fp(async (app) => {
     return carregando
   }
 
+  /** A assinatura limita o papel: módulos fora do plano e, no modo só leitura, ações de escrita. */
+  function assinaturaPermite(modulo: Modulo, acao: Acao) {
+    const assinatura = contextoEmpresa.exigir().assinatura
+    if (!assinatura) return true
+    if (!assinatura.modulos.includes(modulo) || assinatura.acesso.nivel === 'bloqueado') return false
+    return assinatura.acesso.nivel !== 'somente_leitura' || ACOES_LEITURA.includes(acao)
+  }
+
   app.decorate('temPermissao', async (request: FastifyRequest, modulo: Modulo, acao: Acao) => {
-    return (await permissoesDoPapel(request.user.papelId)).has(`${modulo}:${acao}`)
+    return assinaturaPermite(modulo, acao) && (await permissoesDoPapel(request.user.papelId)).has(`${modulo}:${acao}`)
   })
 
   app.decorate('exigirPermissao', (modulo: Modulo, acao: Acao) => async (request: FastifyRequest) => {
     await app.autenticar(request)
+    const assinatura = contextoEmpresa.exigir().assinatura
+    if (assinatura && !assinatura.modulos.includes(modulo)) {
+      throw new AppError(403, CODIGOS_ERRO.MODULO_NAO_CONTRATADO, `O módulo ${MODULO_ROTULOS[modulo]} não faz parte do plano ${assinatura.plano.nome}.`)
+    }
     if (!(await app.temPermissao(request, modulo, acao))) throw AppError.semPermissao()
   })
 

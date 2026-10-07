@@ -50,6 +50,13 @@ export function aoSessaoExpirar(callback: () => void) {
   aoExpirarSessao = callback
 }
 
+// A API recusou por causa da assinatura (bloqueio, só leitura, módulo fora do plano): a tela atualiza o usuário
+const ERROS_ASSINATURA = new Set(['ASSINATURA_BLOQUEADA', 'ASSINATURA_SOMENTE_LEITURA', 'MODULO_NAO_CONTRATADO'])
+let aoMudarAssinatura: (() => void) | null = null
+export function aoAssinaturaMudar(callback: () => void) {
+  aoMudarAssinatura = callback
+}
+
 async function lerErro(resposta: Response): Promise<ErroApi> {
   try {
     const corpo = (await resposta.json()) as CorpoErroApi
@@ -114,7 +121,11 @@ export async function http<T>(caminho: string, opcoes: OpcoesHttp = {}, jaRenovo
     aoExpirarSessao?.()
   }
 
-  if (!resposta.ok) throw await lerErro(resposta)
+  if (!resposta.ok) {
+    const erro = await lerErro(resposta)
+    if (ERROS_ASSINATURA.has(erro.code)) aoMudarAssinatura?.()
+    throw erro
+  }
   if (resposta.status === 204) return undefined as T
   return (await resposta.json()) as T
 }

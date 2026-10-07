@@ -61,6 +61,7 @@ import {
   StatusPage,
   TemplatesPage,
   TrocarSenhaPage,
+  MinhaAssinaturaPage,
   EsqueciSenhaPage,
   RedefinirSenhaPage,
   UsuariosPage,
@@ -160,6 +161,8 @@ function protegida(path: string, modulo: Modulo, elemento: ReactElement, acao: '
 
 const rotasInternas: RouteObject[] = paginas.flatMap((p) => {
   if (p.path === '/') return [{ path: '/', element: <InicioPage /> }]
+  // Sem exigir permissão: com a assinatura bloqueada, é a única tela que funciona
+  if (p.path === '/assinatura') return [{ path: '/assinatura', element: <MinhaAssinaturaPage /> }]
   const rotas = [protegida(p.path, p.modulo, telas[p.path] ?? <PlaceholderPage />)]
   if (p.novo) rotas.push(protegida(`${p.path}/novo`, p.modulo, telas[`${p.path}/novo`] ?? <PlaceholderPage />, 'criar'))
   return rotas

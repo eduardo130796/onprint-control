@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto'
 import type { PrismaClient } from '@prisma/client'
 import { semearEmpresa, type AdminInicial } from '../../prisma/seed/empresa'
 import { AppError } from '../core/AppError'
+import { criarAssinatura, planoPorCodigo, semearPlanos } from './assinaturas'
 import { criarIndiceLogin } from './indice-login'
 import { migrarSchema } from './migracoes'
 
@@ -13,6 +14,10 @@ export interface DadosNovaEmpresa {
   cnpj?: string
   admin: AdminInicial
   exemplos?: boolean
+  /** Código do plano (padrão: profissional) */
+  plano?: string
+  /** Começa em teste grátis (padrão) ou já ativa */
+  situacao?: 'teste' | 'ativa'
 }
 
 export interface DependenciasProvisionamento {
@@ -53,6 +58,11 @@ export async function provisionarEmpresa(deps: DependenciasProvisionamento, dado
   if (await plataforma.indiceLogin.findUnique({ where: { email } })) {
     throw AppError.conflito('Este e-mail já é usado por outro usuário. Cada e-mail entra em uma única empresa.', { campo: 'email' })
   }
+  await semearPlanos(plataforma)
+  const codigoPlano = dados.plano ?? 'profissional'
+  await planoPorCodigo(plataforma, codigoPlano).catch((erro: Error) => {
+    throw AppError.regraNegocio(erro.message)
+  })
   const slug = await slugDisponivel(plataforma, gerarSlug(dados.slug || dados.nome))
   const schema = `emp_${randomBytes(6).toString('hex')}`
   // Inativa até terminar: ninguém entra numa empresa pela metade
@@ -67,9 +77,11 @@ export async function provisionarEmpresa(deps: DependenciasProvisionamento, dado
     })
     if (!resultado.adminCriado) throw new Error('O administrador da empresa nova não foi criado.')
     await criarIndiceLogin(plataforma).reservar(email, assinante.id, resultado.adminCriado.id)
+    await criarAssinatura(plataforma, assinante.id, codigoPlano, dados.situacao ?? 'teste')
     return await plataforma.assinante.update({ where: { id: assinante.id }, data: { ativo: true } })
   } catch (erro) {
     await plataforma.indiceLogin.deleteMany({ where: { assinanteId: assinante.id } })
+    // Assinatura e eventos saem junto com a empresa (cascata)
     await plataforma.assinante.delete({ where: { id: assinante.id } })
     await plataforma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`)
     throw erro

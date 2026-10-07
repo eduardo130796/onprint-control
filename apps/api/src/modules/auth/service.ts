@@ -1,6 +1,6 @@
 import argon2 from 'argon2'
 import type { FastifyInstance } from 'fastify'
-import type { LoginInput, TrocarSenhaInput, UsuarioLogado } from '@onprint/shared'
+import { filtrarPermissoes, type LoginInput, type TrocarSenhaInput, type UsuarioLogado } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { contextoEmpresa, type EmpresaAtual } from '../../core/contexto-empresa'
 import { empresaDoRefreshToken, gerarRefreshToken, hashRefreshToken } from '../../core/tokens'
@@ -31,6 +31,8 @@ export function criarAuthService(app: FastifyInstance) {
     })
     if (!usuario || !usuario.ativo) throw AppError.naoAutenticado()
     const empresa = contextoEmpresa.exigir()
+    const permissoes = usuario.papel.permissoes.map((pp) => `${pp.permissao.modulo}:${pp.permissao.acao}`).sort()
+    const assinatura = empresa.assinatura
     return {
       id: usuario.id,
       nome: usuario.nome,
@@ -38,8 +40,10 @@ export function criarAuthService(app: FastifyInstance) {
       avatar: usuario.avatar,
       deveTrocarSenha: usuario.deveTrocarSenha,
       papel: { id: usuario.papel.id, codigo: usuario.papel.codigo, nome: usuario.papel.nome },
-      permissoes: usuario.papel.permissoes.map((pp) => `${pp.permissao.modulo}:${pp.permissao.acao}`).sort(),
+      // Módulos fora do plano, ações de escrita no modo só leitura e tudo no bloqueio saem da lista
+      permissoes: assinatura ? filtrarPermissoes(permissoes, assinatura.modulos, assinatura.acesso.nivel) : permissoes,
       empresa: { id: empresa.id, nome: empresa.nome, slug: empresa.slug },
+      assinatura: assinatura ? { plano: assinatura.plano.nome, ...assinatura.acesso } : null,
     }
   }
 

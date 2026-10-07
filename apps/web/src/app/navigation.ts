@@ -164,6 +164,7 @@ export const navegacao: NavModulo[] = [
       { titulo: 'Máquinas', path: '/configuracoes/maquinas', fase: 2, novo: 'Nova máquina', modulo: 'produtos' },
       { titulo: 'Processos', path: '/configuracoes/processos', fase: 2, novo: 'Novo processo', modulo: 'produtos' },
       { titulo: 'Status do sistema', path: '/configuracoes/status', fase: 1 },
+      { titulo: 'Minha assinatura', path: '/assinatura', fase: 11 },
       { titulo: 'WhatsApp', path: '/configuracoes/whatsapp', fase: 9 },
     ],
   },

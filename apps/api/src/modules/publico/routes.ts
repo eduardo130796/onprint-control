@@ -16,7 +16,8 @@ export const publicoRoutes: FastifyPluginAsyncZod = async (app) => {
   // Registradas sob /publico/:empresa: o slug da empresa no link escolhe o schema
   app.addHook('onRequest', async (req) => {
     const empresa = await app.empresas.porSlug(String((req.params as { empresa?: string }).empresa ?? ''))
-    if (!empresa) throw AppError.naoEncontrado('Link inválido ou expirado.')
+    // Empresa bloqueada (atraso, cancelamento ou suspensão): os links dela param de funcionar
+    if (!empresa || empresa.assinatura?.acesso.nivel === 'bloqueado') throw AppError.naoEncontrado('Link inválido ou expirado.')
     contextoEmpresa.definir(empresa)
   })
 

@@ -222,6 +222,19 @@ Registro das escolhas feitas onde o [ARQUITETURA.md](ARQUITETURA.md) era ambígu
 | D159 | Senha nova pelo link **encerra as outras sessões** (refresh tokens revogados) e manda o aviso "sua senha foi alterada"; não pede troca de senha no login seguinte. | Quem perdeu o acesso por invasão retoma o controle; o aviso denuncia troca indevida. |
 | D160 | **Convite de usuário**: com e-mail ativo, a senha provisória fica opcional (sem ela, a senha inicial é aleatória e ninguém a conhece; o acesso começa pelo link). Sem e-mail, a API exige a senha provisória. O admin também pode mandar o link de senha em vez de definir uma provisória. | O admin não precisa inventar nem repassar senhas; sem SMTP nada fica sem acesso. |
 
+## Assinaturas — Fase 11 (planos, módulos e bloqueio)
+
+| # | Decisão | Motivo |
+|---|---|---|
+| D161 | **O nível de acesso é calculado, não guardado**: a assinatura guarda fatos (situação, `atraso_desde` = vencimento da cobrança mais antiga não paga, fim do teste, liberação até, bloqueio manual) e `calcularAcesso` (shared, testada) decide o nível no dia. Prazos por plano (padrão 5 dias até só leitura, 15 até bloqueio). | Nada de tarefa noturna "virando" status; mudar um prazo ou registrar um pagamento vale na hora. |
+| D162 | Ordem das regras: bloqueio manual → cancelada → liberação manual → teste grátis (aviso nos 3 últimos dias) → atraso. O **fim do teste conta como vencimento** (mesma escada de aviso → leitura → bloqueio). | Escolha do usuário (escalonado); quem testou ganha alguns dias para assinar sem perder nada. |
+| D163 | **Só leitura = nada além de GET** na API (com exceção marcada nas rotas que só calculam, como a simulação de preço: `config.semEscrita`). **Bloqueado = só rotas `config.assinaturaLivre`** (Minha assinatura) + login, sessão e troca de senha. Os links públicos de aprovação param no bloqueio. Os dados nunca são apagados. | Regra simples de verificar e que não depende de cada tela. |
+| D164 | **Permissões filtradas pela assinatura em um só lugar**: `temPermissao` e o `/auth/me` aplicam `filtrarPermissoes` (módulos do plano + extras + essenciais; no só leitura só visualizar/exportar/ver_todos; bloqueado nada). O front já escondia menus e botões pelas permissões, então o modo leitura e os módulos do plano aparecem sem mudar as telas. | Nenhuma tela precisou saber de planos. |
+| D165 | Módulos **essenciais** em qualquer plano: dashboard, configurações, usuários e permissões. Automação interna continua rodando mesmo sem o módulo (ex.: pedido gera OPs no plano Essencial; a produção só não aparece). | Sem eles não dá para administrar a empresa; desligar automação quebraria o fluxo do pedido. |
+| D166 | A assinatura vai junto da empresa no contexto da requisição, com **cache de 30 s** (`CACHE_EMPRESAS_SEGUNDOS`; 0 nos testes). A tela atualiza a situação ao voltar para a aba, a cada 10 min e quando a API recusa por assinatura. "Minha assinatura" lê sempre sem cache. | Pagamento ou bloqueio valem em segundos sem uma consulta extra à plataforma a cada requisição. |
+| D167 | **Limite de usuários conta só os ativos** e vale ao criar e ao reativar; trocar para um plano menor não desativa ninguém (só impede novos). | Cliente não perde acesso de surpresa; o suporte resolve caso a caso. |
+| D168 | Até o painel (Fase 13), as assinaturas são operadas pelo comando `assinatura` (também usado no e2e). Toda alteração grava um evento em `eventos_assinatura` com autor. A empresa padrão (dona do sistema) fica no plano Completo, ativa. | Operação possível desde já, com histórico para o suporte. |
+
 ## Fora do escopo registrado
 
 - **Emissão de nota fiscal para os clientes das empresas:** fora do escopo. A NFS-e da mensalidade da assinatura fica com o Asaas (Fase 12).

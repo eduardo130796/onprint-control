@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildApp } from '../src/app'
 import { carregarEnv } from '../src/config/env'
+import { calcularAcesso, modulosLiberados } from '@onprint/shared'
 import { contextoEmpresa } from '../src/core/contexto-empresa'
+import type { AssinaturaContexto } from '../src/plataforma/assinaturas'
 
 // Estes testes não tocam o banco: validam contrato de erros e proteção das rotas.
 const config = carregarEnv({
@@ -22,6 +24,9 @@ beforeAll(async () => {
   const empresaDoContexto = async () => ({ ok: true, empresa: contextoEmpresa.atual()?.slug ?? null })
   app.get('/teste/protegida', { onRequest: [app.autenticar] }, empresaDoContexto)
   app.post('/teste/protegida', { onRequest: [app.autenticar] }, empresaDoContexto)
+  app.get('/teste/livre', { onRequest: [app.autenticar], config: { assinaturaLivre: true } }, empresaDoContexto)
+  app.post('/teste/sem-escrita', { onRequest: [app.autenticar], config: { semEscrita: true } }, empresaDoContexto)
+  app.get('/teste/estoque', { onRequest: [app.exigirPermissao('estoque', 'visualizar')] }, empresaDoContexto)
   await app.ready()
 })
 
@@ -106,5 +111,57 @@ describe('API — multiempresa', () => {
     app.empresas.porSlug = async () => null
     const res = await app.inject({ method: 'GET', url: '/api/v1/publico/nao-existe/orcamentos/abcdefghijklmnopqrstuvwxyz' })
     expect(res.statusCode).toBe(404)
+  })
+})
+
+describe('API — assinatura', () => {
+  const HOJE = '2026-10-20'
+  /** Empresa e1 com assinatura no plano Essencial (sem estoque), em atraso desde a data dada. */
+  function empresaComAtraso(atrasoDesde: string | null, extra: { bloqueioManual?: boolean } = {}) {
+    const assinatura: AssinaturaContexto = {
+      plano: { codigo: 'essencial', nome: 'Essencial' },
+      modulos: modulosLiberados(['pedidos', 'clientes']),
+      limiteUsuarios: 3,
+      acesso: calcularAcesso({ situacao: 'ativa', atrasoDesde, diasAteSomenteLeitura: 5, diasAteBloqueio: 15, ...extra }, HOJE),
+    }
+    app.empresas.porId = async (id) => (id === 'e1' ? { id: 'e1', nome: 'Gráfica Teste', slug: 'grafica-teste', schema: 'emp_teste', assinatura } : null)
+  }
+  const pedir = (method: 'GET' | 'POST', url: string) => app.inject({ method, url, headers: bearer(false), ...(method === 'POST' ? { payload: {} } : {}) })
+
+  it('em dia e com aviso: tudo liberado', async () => {
+    empresaComAtraso(null)
+    expect((await pedir('POST', '/teste/protegida')).statusCode).toBe(200)
+    empresaComAtraso('2026-10-18')
+    expect((await pedir('POST', '/teste/protegida')).statusCode).toBe(200)
+  })
+
+  it('só leitura: consulta sim, gravação não (exceto POST que não grava)', async () => {
+    empresaComAtraso('2026-10-10')
+    expect((await pedir('GET', '/teste/protegida')).statusCode).toBe(200)
+    const post = await pedir('POST', '/teste/protegida')
+    expect(post.statusCode).toBe(403)
+    expect(post.json().error.code).toBe('ASSINATURA_SOMENTE_LEITURA')
+    expect(post.json().error.message).toContain('só para consulta')
+    expect((await pedir('POST', '/teste/sem-escrita')).statusCode).toBe(200)
+  })
+
+  it('bloqueado: só as rotas da assinatura', async () => {
+    empresaComAtraso('2026-09-01')
+    const res = await pedir('GET', '/teste/protegida')
+    expect(res.statusCode).toBe(403)
+    expect(res.json().error.code).toBe('ASSINATURA_BLOQUEADA')
+    expect((await pedir('GET', '/teste/livre')).statusCode).toBe(200)
+  })
+
+  it('bloqueio manual vale mesmo em dia', async () => {
+    empresaComAtraso(null, { bloqueioManual: true })
+    expect((await pedir('GET', '/teste/protegida')).json().error.code).toBe('ASSINATURA_BLOQUEADA')
+  })
+
+  it('módulo fora do plano: recusado com mensagem clara', async () => {
+    empresaComAtraso(null)
+    const res = await pedir('GET', '/teste/estoque')
+    expect(res.statusCode).toBe(403)
+    expect(res.json().error).toMatchObject({ code: 'MODULO_NAO_CONTRATADO', message: 'O módulo Estoque não faz parte do plano Essencial.' })
   })
 })

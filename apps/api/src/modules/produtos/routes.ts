@@ -111,7 +111,8 @@ export const produtosRoutes: FastifyPluginAsyncZod = async (app) => {
   )
   app.post(
     '/produtos/:id/simular',
-    { ...pode('visualizar'), schema: { tags, summary: 'Calcula o preço na API (motor compartilhado)', params: idParamSchema, body: simulacaoSchema } },
+    // Só calcula, não grava: continua liberado no modo só leitura da assinatura
+    { ...pode('visualizar'), config: { semEscrita: true }, schema: { tags, summary: 'Calcula o preço na API (motor compartilhado)', params: idParamSchema, body: simulacaoSchema } },
     (req) => c.simular(req, req.params.id, req.body),
   )
 }

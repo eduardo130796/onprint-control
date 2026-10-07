@@ -257,7 +257,8 @@ O script pede para digitar `RESTAURAR`, para a API, restaura o banco (e os arqui
 | Liberar imagens antigas | `docker image prune -f` |
 | Abrir o banco (psql) | `onprint exec db psql -U onprint -d onprint` |
 | Criar uma empresa assinante | `onprint exec api node dist/criar-empresa.js --nome "Gráfica X" --email dono@graficax.com.br --senha SenhaProvisoria1` |
-| Listar as empresas | `onprint exec db psql -U onprint -d onprint -c "select nome, slug, schema, ativo from plataforma.assinantes"` |
+| Listar as empresas e a situação da assinatura | `onprint exec api node dist/assinatura.js --listar` |
+| Operar uma assinatura (ativar, atraso, liberar, bloquear, plano…) | `onprint exec api node dist/assinatura.js --empresa SLUG --ativar` (opções no README) |
 
 Os logs de cada container são limitados a 3 arquivos de 10 MB, para não lotar o disco.
 

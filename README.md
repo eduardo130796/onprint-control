@@ -82,6 +82,30 @@ Com o e-mail ativo:
 - **Redefinir senha** (Configurações → Usuários): o admin pode mandar o link por e-mail em vez de inventar uma senha.
 - Toda troca de senha pelo link encerra as outras sessões e manda um aviso "sua senha foi alterada".
 
+## Assinaturas (planos e bloqueio)
+
+Cada empresa tem uma assinatura com plano (módulos liberados e limite de usuários), situação (teste grátis, ativa, cancelada) e nível de acesso calculado todo dia:
+
+| Atraso da mensalidade (padrão) | O que acontece |
+|---|---|
+| Até 4 dias | Tudo funciona, com aviso no topo |
+| 5 a 14 dias | **Só leitura**: consulta e exportação; nada é gravado (os botões de criar/editar somem) |
+| 15 dias ou mais | **Bloqueado**: só a tela "Minha assinatura"; links públicos de aprovação param |
+
+Os prazos são de cada plano. O fim do teste grátis conta como vencimento. Módulos fora do plano somem do menu e a API recusa.
+
+Até o painel da plataforma (Fase 13), as assinaturas são operadas pela linha de comando:
+
+```bash
+docker compose exec api npm run assinatura -w @onprint/api -- --listar
+docker compose exec api npm run assinatura -w @onprint/api -- --empresa grafica-x --ativar --proximo-vencimento 2026-11-10
+docker compose exec api npm run assinatura -w @onprint/api -- --empresa grafica-x --atraso-desde 2026-10-01
+docker compose exec api npm run assinatura -w @onprint/api -- --empresa grafica-x --liberar-ate 2026-10-25
+docker compose exec api npm run assinatura -w @onprint/api -- --empresa grafica-x --plano completo
+```
+
+Outras opções: `--teste-ate`, `--bloquear "motivo"` / `--desbloquear`, `--cancelar` / `--reativar`, `--modulos-extras estoque,relatorios`. Toda alteração fica no histórico (`plataforma.eventos_assinatura`). A empresa nova nasce em teste grátis no plano `PLANO_PADRAO` (ou `--plano` no `empresa:criar`).
+
 ## Portas
 
 | Serviço | URL |

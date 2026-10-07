@@ -10,7 +10,9 @@ import {
   recusaSchema,
   solicitacaoSchema,
   solicitacoesQuerySchema,
+  statusPersonalizadoSchema,
 } from '@onprint/shared'
+import { validarStatusPersonalizado } from '../../core/status-personalizado'
 import { criarCatalogoService } from './catalogo.service'
 import { criarOrcamentosController } from './controller'
 import { criarConversaoService } from './conversao.service'
@@ -91,6 +93,16 @@ export const orcamentosRoutes: FastifyPluginAsyncZod = async (app) => {
   )
   app.post('/orcamentos/:id/reabrir', { ...pode('editar'), schema: { tags, summary: 'Reabre para negociação', params: idParamSchema } }, (req) =>
     c.reabrir(req, req.params.id),
+  )
+  app.post(
+    '/orcamentos/:id/status-personalizado',
+    { ...pode('editar'), schema: { tags, summary: 'Coluna própria no kanban (status próprio da mesma base)', params: idParamSchema, body: statusPersonalizadoSchema } },
+    async (req) => {
+      const o = await c.obter(req, req.params.id)
+      const id = await validarStatusPersonalizado(app.prisma, 'orcamento', req.body.statusPersonalizadoId, o.status)
+      await app.prisma.orcamento.update({ where: { id: o.id }, data: { statusPersonalizadoId: id } })
+      return c.obter(req, req.params.id)
+    },
   )
   app.post('/orcamentos/:id/duplicar', { ...pode('criar'), schema: { tags, summary: 'Duplica como novo rascunho', params: idParamSchema } }, async (req, reply) =>
     reply.status(201).send(await c.duplicar(req, req.params.id)),

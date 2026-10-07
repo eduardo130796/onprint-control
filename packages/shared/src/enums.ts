@@ -103,6 +103,17 @@ export const TIPO_ENDERECO_ROTULOS: Record<TipoEndereco, string> = {
 export const ENTIDADES_STATUS = ['cliente', 'solicitacao', 'orcamento', 'pedido', 'producao', 'arte', 'conta'] as const
 export type EntidadeStatus = (typeof ENTIDADES_STATUS)[number]
 
+/** Entidades com kanban: aceitam status próprios (colunas extras que "contam como" um status do sistema). */
+export const ENTIDADES_COM_STATUS_PROPRIO = ['orcamento', 'pedido', 'producao'] as const
+export type EntidadeComStatusProprio = (typeof ENTIDADES_COM_STATUS_PROPRIO)[number]
+
+/** Bases que não aceitam status próprio (status que só a regra de negócio define). */
+export const BASES_SEM_STATUS_PROPRIO: Record<EntidadeComStatusProprio, readonly string[]> = {
+  orcamento: ['convertido', 'expirado'],
+  pedido: ['cancelado'],
+  producao: [],
+}
+
 export const ENTIDADE_STATUS_ROTULOS: Record<EntidadeStatus, string> = {
   cliente: 'Clientes',
   solicitacao: 'Solicitações',

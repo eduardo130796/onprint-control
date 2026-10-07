@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { SENHA_MIN } from './auth'
-import { CATEGORIAS_TEMPLATE, ENTIDADES_STATUS } from '../enums'
+import { CATEGORIAS_TEMPLATE, ENTIDADES_COM_STATUS_PROPRIO, ENTIDADES_STATUS } from '../enums'
 import { paginacaoQuerySchema } from './comum'
 import {
   camposEndereco,
@@ -72,8 +72,21 @@ export const statusConfigSchema = z.object({
   rotulo: z.string().trim().min(1, 'Informe o rótulo.').max(60),
   cor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Cor no formato #RRGGBB.'),
   ordem: z.coerce.number().int().min(0).max(999),
+  /** false = oculto (some do kanban quando a coluna está vazia) */
+  ativo: z.boolean().optional(),
 })
 export type StatusConfigInput = z.input<typeof statusConfigSchema>
+
+/** Novo status próprio: nome, cor e o status do sistema que ele "conta como". */
+export const novoStatusSchema = statusConfigSchema.extend({
+  entidade: z.enum(ENTIDADES_COM_STATUS_PROPRIO, { message: 'Status próprios só existem em orçamentos, pedidos e produção.' }),
+  base: z.string().trim().min(1, 'Escolha a qual status do sistema ele corresponde.'),
+  ordem: z.coerce.number().int().min(0).max(999).optional(),
+})
+export type NovoStatusInput = z.input<typeof novoStatusSchema>
+
+/** Coloca o registro numa coluna própria (ou volta para a do sistema com null). */
+export const statusPersonalizadoSchema = z.object({ statusPersonalizadoId: z.string().uuid().nullable() })
 
 export const statusQuerySchema = z.object({ entidade: z.enum(ENTIDADES_STATUS).optional() })
 

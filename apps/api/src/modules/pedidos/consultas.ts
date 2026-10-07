@@ -6,7 +6,7 @@ export const incluirResumo = {
   cliente: { select: { id: true, nome: true, whatsapp: true, telefone: true } },
   vendedor: { select: { id: true, nome: true } },
   orcamento: { select: { id: true, numero: true } },
-  itens: { select: { artes: { orderBy: { versao: 'desc' }, take: 1, select: { status: true } } } },
+  itens: { orderBy: { ordem: 'asc' }, select: { descricao: true, quantidade: true, artes: { orderBy: { versao: 'desc' }, take: 1, select: { status: true } } } },
   ordensProducao: { where: { cancelada: false }, select: { etapaAtual: true } },
 } satisfies Prisma.PedidoInclude
 
@@ -46,6 +46,8 @@ export function formatarResumo(p: Resumo) {
       artesAprovadas: itens.filter((i) => i.artes[0]?.status === 'aprovada').length,
       ops: ordensProducao.length,
       opsConcluidas: ordensProducao.filter((o) => o.etapaAtual === 'concluido').length,
+      /** Os 3 primeiros itens ("2 × Banner 2×1 m") para o cartão do kanban */
+      principais: itens.slice(0, 3).map((i) => `${Number(i.quantidade).toLocaleString('pt-BR')} × ${i.descricao}`),
     },
   }
 }

@@ -71,6 +71,30 @@ export function aplicarBaixa(titulo: { valor: Valor; valorPago: Valor }, b: Baix
   return { ok: true, principal: moeda(principal), valorPago: moeda(valorPago), saldo: moeda(dec(titulo.valor).minus(valorPago)), quitado: valorPago.gte(dec(titulo.valor)) }
 }
 
+export type ResultadoDistribuicao = { ok: true; partes: { id: string; valor: string }[] } | { ok: false; erro: string }
+
+/**
+ * Valor avulso recebido de um pedido: abate nos títulos em aberto na ordem dada
+ * (do vencimento mais antigo ao mais novo), quitando um antes de passar ao próximo.
+ */
+export function distribuirValor(titulos: { id: string; saldo: Valor }[], valor: Valor): ResultadoDistribuicao {
+  let resta = dec(valor)
+  if (resta.lte(0)) return { ok: false, erro: 'Informe um valor maior que zero.' }
+  const emAberto = titulos.reduce((s, t) => s.plus(Decimal.max(dec(t.saldo), 0)), new Decimal(0))
+  if (emAberto.lte(0)) return { ok: false, erro: 'Este pedido não tem parcelas em aberto.' }
+  if (resta.gt(emAberto)) return { ok: false, erro: `O valor passa do que está em aberto (R$ ${moeda(emAberto).replace('.', ',')}).` }
+  const partes: { id: string; valor: string }[] = []
+  for (const t of titulos) {
+    if (resta.lte(0)) break
+    const saldo = dec(t.saldo)
+    if (saldo.lte(0)) continue
+    const parte = Decimal.min(saldo, resta)
+    partes.push({ id: t.id, valor: moeda(parte) })
+    resta = resta.minus(parte)
+  }
+  return { ok: true, partes }
+}
+
 /** Status financeiro do pedido pelos títulos não cancelados. */
 export function statusFinanceiroPedido(titulos: { valor: Valor; valorPago: Valor; status: StatusConta }[]): StatusFinanceiroPedido {
   const ativos = titulos.filter((t) => t.status !== 'cancelado')

@@ -1,26 +1,11 @@
-import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
-import {
-  formatarCpfCnpj,
-  formatarDataHora,
-  formatarDataSimples,
-  formatarMoeda,
-  formatarTelefone,
-  type EmpresaConfig,
-  type OrcamentoDetalhe,
-} from '@onprint/shared'
+import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
+import { formatarCpfCnpj, formatarDataHora, formatarDataSimples, formatarMoeda, formatarTelefone, type EmpresaConfig, type OrcamentoDetalhe } from '@onprint/shared'
+import { AssinaturaPdf, CabecalhoPdf } from '@/features/impressao/PecasPdf'
+import { CINZA, PETROLEO, TURQUESA, dadosEmpresa } from '@/features/impressao/pdfComum'
 import { linkAprovacao } from '../../mensagem'
-
-const PETROLEO = '#0B4F5C'
-const TURQUESA = '#14B8A6'
-const CINZA = '#6B7280'
 
 const s = StyleSheet.create({
   pagina: { padding: 36, fontSize: 9.5, fontFamily: 'Helvetica', color: '#1F2937' },
-  topo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
-  logo: { maxWidth: 140, maxHeight: 60, objectFit: 'contain' },
-  empresa: { fontSize: 13, fontFamily: 'Helvetica-Bold', color: PETROLEO },
-  sub: { color: CINZA, marginTop: 2 },
-  titulo: { fontSize: 16, fontFamily: 'Helvetica-Bold', color: PETROLEO, textAlign: 'right' },
   caixa: { backgroundColor: '#F1F4F6', borderRadius: 6, padding: 10, marginBottom: 14, flexDirection: 'row', justifyContent: 'space-between' },
   rotulo: { color: CINZA, fontSize: 8, marginBottom: 2 },
   forte: { fontFamily: 'Helvetica-Bold' },
@@ -41,31 +26,14 @@ const s = StyleSheet.create({
 
 const metros = (v: string | null) => (v ? Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 3 }) : '')
 
-/** Documento A4 do orçamento (logo, cliente, itens, totais, condições e link de aprovação). */
+/** Documento A4 do orçamento (logo, cliente, itens, totais, condições, link de aprovação e assinatura do cliente). */
 export function DocumentoOrcamento({ o, empresa, logo }: { o: OrcamentoDetalhe; empresa: EmpresaConfig; logo: string | null }) {
-  const nomeEmpresa = empresa.nomeFantasia || empresa.razaoSocial
-  const contato = [formatarTelefone(empresa.whatsapp ?? empresa.telefone), empresa.email, empresa.site].filter(Boolean).join('  ·  ')
-  const endereco = [empresa.logradouro && `${empresa.logradouro}${empresa.numero ? `, ${empresa.numero}` : ''}`, empresa.bairro, empresa.cidade && `${empresa.cidade}/${empresa.uf ?? ''}`]
-    .filter(Boolean)
-    .join(' - ')
+  const nomeEmpresa = dadosEmpresa(empresa).nome
 
   return (
     <Document title={`Orçamento ${o.numero}`} author={nomeEmpresa}>
       <Page size="A4" style={s.pagina}>
-        <View style={s.topo}>
-          <View>
-            {logo ? <Image src={logo} style={s.logo} /> : <Text style={s.empresa}>{nomeEmpresa}</Text>}
-            {logo && <Text style={[s.empresa, { fontSize: 10, marginTop: 4 }]}>{nomeEmpresa}</Text>}
-            {empresa.cnpj ? <Text style={s.sub}>CNPJ {formatarCpfCnpj(empresa.cnpj)}</Text> : null}
-            {endereco ? <Text style={s.sub}>{endereco}</Text> : null}
-            {contato ? <Text style={s.sub}>{contato}</Text> : null}
-          </View>
-          <View>
-            <Text style={s.titulo}>ORÇAMENTO</Text>
-            <Text style={[s.forte, { textAlign: 'right', fontSize: 11 }]}>{o.numero}</Text>
-            <Text style={[s.sub, { textAlign: 'right' }]}>Emitido em {formatarDataHora(o.createdAt)}</Text>
-          </View>
-        </View>
+        <CabecalhoPdf empresa={empresa} logo={logo} titulo="ORÇAMENTO" numero={o.numero} data={`Emitido em ${formatarDataHora(o.createdAt)}`} />
 
         <View style={s.caixa}>
           <View>
@@ -159,6 +127,7 @@ export function DocumentoOrcamento({ o, empresa, logo }: { o: OrcamentoDetalhe; 
           <Text style={s.forte}>Para aprovar online, acesse:</Text>
           <Text style={{ color: TURQUESA, marginTop: 2 }}>{linkAprovacao(o.tokenPublico)}</Text>
         </View>
+        <AssinaturaPdf nome={o.cliente.nome} documento={o.cliente.cpfCnpj} rotulo="De acordo com este orçamento" />
 
         <Text style={s.rodape} render={({ pageNumber, totalPages }) => `${nomeEmpresa} · Orçamento ${o.numero} · página ${pageNumber} de ${totalPages}`} fixed />
       </Page>

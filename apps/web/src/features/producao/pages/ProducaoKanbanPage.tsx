@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { Radio } from 'lucide-react'
 import { PRIORIDADES, PRIORIDADE_ROTULOS, type EtapaProducao, type OrdemProducao, type Prioridade } from '@onprint/shared'
 import { opsApi } from '@/api/producao'
@@ -12,18 +13,23 @@ import { Card } from '@/components/ui/card'
 import { Checkbox, Select } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useImpressao } from '@/features/impressao/useImpressao'
 import { useDebounce } from '@/hooks/useDebounce'
+import { destinoDaColuna, montarColunas, personalizadoValido } from '@/lib/colunasStatus'
 import { usePermission } from '@/hooks/usePermission'
 import { useStatusDaEntidade } from '@/hooks/useStatusConfig'
 import { buscarTodasPaginas } from '@/lib/paginacao'
 import { CartaoOp } from '../components/CartaoOp'
 import { OverrideDialog } from '../components/OverrideDialog'
+import { PainelOp } from '../components/PainelOp'
+import { ReprogramarOpDialog } from '../components/ReprogramarOpDialog'
 import { useMaquinasOpcoes, useMoverOp, useUsuariosOpcoes } from '../hooks'
 
 const idDaOp = (op: OrdemProducao) => op.id
 
 /** Kanban de produção: colunas = etapas (status_config "producao"), arraste com histórico e tempo real. */
 export function ProducaoKanbanPage() {
+  const queryClient = useQueryClient()
   const etapas = useStatusDaEntidade('producao')
   const podeMover = usePermission('producao', 'editar')
   const [filtros, setFiltros] = useState<{ maquinaId?: string; responsavelId?: string; prioridade?: Prioridade; atrasadas?: boolean }>({})
@@ -48,16 +54,46 @@ export function ProducaoKanbanPage() {
 
   const colunas = useMemo<ColunaDef<OrdemProducao>[]>(
     () =>
-      etapas.map((e) => {
-        const itens = (consulta.data ?? []).filter((op) => op.etapaAtual === e.codigo)
-        const horas = itens.reduce((s, op) => s + Number(op.horasEstimadas), 0)
-        return { id: e.codigo, titulo: e.rotulo, cor: e.cor, itens, extra: horas > 0 && e.codigo !== 'concluido' ? `${horas.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} h` : undefined }
+      montarColunas(etapas, consulta.data ?? [], (op) => op.etapaAtual, (op) => op.etapaPersonalizadaId).map((c) => {
+        const horas = c.itens.reduce((s, op) => s + Number(op.horasEstimadas), 0)
+        const concluida = destinoDaColuna(etapas, c.id).base === 'concluido'
+        return { ...c, extra: horas > 0 && !concluida ? `${horas.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} h` : undefined }
       }),
     [etapas, consulta.data],
   )
 
-  const onMover = useCallback((op: OrdemProducao, destino: string, ordemIds: string[]) => mover(op, destino as EtapaProducao, ordemIds), [mover])
-  const renderCartao = useCallback((op: OrdemProducao) => <CartaoOp op={op} />, [])
+  // Etapa própria = etapa do sistema (base) + o id dela: muda a base pelo movimento normal (regras e histórico)
+  // e depois a coluna própria; na mesma coluna, só reordena
+  const onMover = useCallback(
+    async (op: OrdemProducao, destino: string, ordemIds: string[]) => {
+      const { base, personalizadoId } = destinoDaColuna(etapas, destino)
+      const atual = personalizadoValido(etapas, op.etapaAtual, op.etapaPersonalizadaId)
+      const mudouBase = base !== op.etapaAtual
+      if (mudouBase || personalizadoId === atual) await mover(op, base as EtapaProducao, ordemIds)
+      if (personalizadoId !== (mudouBase ? null : atual)) {
+        try {
+          await opsApi.etapaPersonalizada(op.id, personalizadoId)
+        } catch (e) {
+          toast.error((e as Error).message)
+          throw e
+        }
+        await queryClient.invalidateQueries({ queryKey: ['ops'] })
+      }
+    },
+    [mover, etapas, queryClient],
+  )
+  const [editando, setEditando] = useState<OrdemProducao | null>(null)
+  const [aberta, setAberta] = useState<OrdemProducao | null>(null)
+  const { etiquetas, ocupado } = useImpressao()
+  const renderCartao = useCallback(
+    (op: OrdemProducao) => (
+      <CartaoOp
+        op={op}
+        acoes={{ onAbrir: setAberta, onEditar: podeMover ? setEditando : undefined, onEtiqueta: (o) => void etiquetas(o.pedidoId, [o.id]), imprimindoEtiqueta: ocupado === `etiquetas:${op.id}` }}
+      />
+    ),
+    [podeMover, etiquetas, ocupado],
+  )
 
   return (
     <>
@@ -65,7 +101,7 @@ export function ProducaoKanbanPage() {
         titulo="Produção"
         subtitulo={
           <span className="inline-flex items-center gap-1.5">
-            <Radio className="h-3.5 w-3.5 text-verde" /> Atualiza sozinho quando alguém move uma OP.
+            <Radio className="h-3.5 w-3.5 text-verde" /> Atualiza sozinho quando alguém move uma OP. Clique no cartão para ver detalhes e ações.
           </span>
         }
       />
@@ -112,9 +148,11 @@ export function ProducaoKanbanPage() {
           <EstadoErro erro={consulta.error} onTentarNovamente={() => void consulta.refetch()} />
         </Card>
       ) : (
-        <Kanban colunas={colunas} idDe={idDaOp} renderCartao={renderCartao} podeArrastar={() => podeMover} onMover={onMover} />
+        <Kanban colunas={colunas} idDe={idDaOp} renderCartao={renderCartao} podeArrastar={() => podeMover} onMover={onMover} onAbrir={setAberta} />
       )}
       <OverrideDialog op={override} onConfirmar={confirmarOverride} onCancelar={cancelarOverride} />
+      {aberta && <PainelOp op={aberta} onFechar={() => setAberta(null)} onEditar={podeMover ? setEditando : undefined} />}
+      {editando && <ReprogramarOpDialog op={editando} onFechar={() => setEditando(null)} />}
     </>
   )
 }

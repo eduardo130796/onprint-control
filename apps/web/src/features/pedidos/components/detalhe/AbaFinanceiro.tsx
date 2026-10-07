@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import { CircleDollarSign } from 'lucide-react'
+import { CircleDollarSign, ReceiptText } from 'lucide-react'
 import { formatarDataSimples, formatarMoeda, type ContaReceberResumo, type PedidoDetalhe } from '@onprint/shared'
 import { Can } from '@/components/shared/Can'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BaixaDialog } from '@/features/financeiro/components/BaixaDialog'
+import { ReceberValorDialog } from '@/features/financeiro/components/ReceberValorDialog'
 import { TituloDetalheDialog } from '@/features/financeiro/components/TituloDetalheDialog'
 import { usePermission } from '@/hooks/usePermission'
 import { cn } from '@/lib/utils'
+import { ReciboDialog } from './ReciboDialog'
 
 const STATUS_FINANCEIRO = { pendente: 'Pendente', parcial: 'Pago em parte', pago: 'Pago' } as const
 const COMISSAO = { prevista: 'prevista (libera quando o pedido estiver pago)', liberada: 'liberada para pagamento', paga: 'paga' } as const
@@ -18,14 +20,30 @@ export function AbaFinanceiro({ pedido }: { pedido: PedidoDetalhe }) {
   const podeVer = usePermission('financeiro')
   const [receber, setReceber] = useState<ContaReceberResumo | null>(null)
   const [detalhe, setDetalhe] = useState<string | null>(null)
+  const [avulso, setAvulso] = useState(false)
+  const [recibo, setRecibo] = useState(false)
   const aberto = Number(pedido.total) - Number(pedido.valorPago)
   const saldoDe = (c: ContaReceberResumo) => (Number(c.valor) - Number(c.valorPago ?? 0)).toFixed(2)
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <Card className="lg:col-span-2">
-        <CardHeader className="pb-3">
+        <CardHeader className="flex-row items-center justify-between gap-2 space-y-0 pb-3">
           <CardTitle className="text-base">Contas a receber</CardTitle>
+          <div className="flex flex-wrap gap-2">
+            {Number(pedido.valorPago) > 0 && (
+              <Button size="sm" variant="outline" onClick={() => setRecibo(true)}>
+                <ReceiptText /> Recibo
+              </Button>
+            )}
+            {aberto > 0.004 && pedido.contasReceber.some((c) => ['aberto', 'parcial', 'vencido'].includes(c.status)) && (
+              <Can modulo="financeiro" acao="editar">
+                <Button size="sm" onClick={() => setAvulso(true)}>
+                  <CircleDollarSign /> Receber valor
+                </Button>
+              </Can>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {pedido.contasReceber.length === 0 ? (
@@ -93,6 +111,8 @@ export function AbaFinanceiro({ pedido }: { pedido: PedidoDetalhe }) {
       </Card>
       {receber && <BaixaDialog tipo="receber" titulo={{ ...receber, valorPago: receber.valorPago ?? '0', saldo: saldoDe(receber) }} onFechar={() => setReceber(null)} />}
       <TituloDetalheDialog tipo="receber" id={detalhe} onFechar={() => setDetalhe(null)} />
+      {recibo && <ReciboDialog pedidoId={pedido.id} numero={pedido.numero} onFechar={() => setRecibo(false)} />}
+      {avulso && <ReceberValorDialog pedidoId={pedido.id} numero={pedido.numero} contas={pedido.contasReceber} onFechar={() => setAvulso(false)} />}
     </div>
   )
 }

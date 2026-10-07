@@ -57,6 +57,7 @@ Com `SEED_EXEMPLOS=true`, já existe um catálogo de exemplo e dá para pular di
 - [ ] **Produtos → Acabamentos** (ilhós, bainha, laminação…) e **Produtos → Máquinas** / processos, com a velocidade de cada máquina.
 - [ ] **Estoque → Entradas → Nova entrada**: o estoque inicial de insumos e produtos de revenda, com custo.
 - [ ] **Financeiro → Formas de pagamento**: confira a **taxa do cartão**. Ajuste o saldo inicial das contas (caixa da loja e banco).
+- [ ] **Configurações → Status**: renomeie, mude a cor, a ordem ou **oculte** os status que não usa. Nos quadros (orçamentos, pedidos, produção) dá para **criar status próprios** — ex.: "Laminação" contando como "Acabamento" — que viram colunas no kanban sem quebrar as regras automáticas.
 - [ ] **Configurações → Templates de mensagens**: os textos de WhatsApp enviados ao cliente (orçamento, arte, pedido pronto).
 
 ---
@@ -94,12 +95,17 @@ O caminho de um trabalho, na ordem em que acontece:
 2. **Adicionar item**: produto, quantidade, medidas e acabamentos. O preço é calculado na hora.
 3. Salve e use **Enviar ao cliente** → **Copiar mensagem com link** para mandar pelo WhatsApp. O cliente vê o orçamento e aprova pelo link, sem precisar de login.
 4. Se ele aprovar por telefone ou no balcão, use **Registrar aprovação**. Se recusar, **Registrar recusa** com o motivo.
+5. **Imprimir** abre a impressão direto, sem baixar arquivo; **PDF** baixa. O orçamento sai com uma linha para o cliente assinar.
+
+> **Kanban de orçamentos** (Orçamentos → Kanban): arraste o cartão para enviar, negociar, aprovar, recusar ou converter em pedido. **Clique no cartão** para abrir um painel com os detalhes e todas as ações (imprimir, PDF, mensagem, link, converter); o cartão também tem atalhos **Abrir**, **Imprimir** e **Link**.
 
 **2. Converter em pedido** · *Vendedor*
 No orçamento aprovado, clique em **Converter em pedido** e informe o sinal (%) e em quantas parcelas o restante será pago. O sistema cria:
 - o pedido;
 - as contas a receber;
 - as ordens de produção (OPs), uma por item.
+
+> No pedido, o botão **Imprimir** tem: o pedido (com linha de assinatura de recebimento), as **etiquetas de entrega** e **Baixar PDF**. No **Kanban de pedidos** dá para arrastar o pedido para qualquer coluna; **clicando no cartão** abre um painel com tudo do pedido (itens, OPs, parcelas) e as ações: abrir, editar, imprimir, etiquetas, recibo, receber valor.
 
 **3. Arte** · *Designer*
 1. Abra o pedido → aba **Arte** e envie o arquivo. Cada novo envio vira uma nova versão (v1, v2…).
@@ -112,6 +118,8 @@ No orçamento aprovado, clique em **Converter em pedido** e informe o sinal (%) 
 - Na **Ficha da OP**: **Apontar** o tempo trabalhado, a quantidade e a perda.
 - Ao concluir a OP, o estoque dos insumos **baixa sozinho**.
 - Quando todas as OPs terminam, o pedido vira **Pronto** e o vendedor é avisado.
+- **Clique no cartão da OP** para ver a arte, medidas, máquina, prazos e etapas, com acesso rápido à OP, ao pedido, à arte, à ficha e à etiqueta.
+- No cartão da OP: **Editar** (máquina, responsável, datas, prioridade), **Ficha** (folha da OP para a produção) e **Etiqueta** (etiqueta de entrega em folha A4, 4 por folha, com a imagem da arte e os dados do cliente).
 - **PCP / Cockpit** mostra a carga por máquina, os gargalos e as OPs atrasadas.
 
 **5. Entrega** · *Vendedor*
@@ -119,6 +127,8 @@ No pedido → aba **Entrega** → **Nova entrega**: retirada, entrega ou instala
 
 **6. Recebimento** · *Financeiro*
 - **Financeiro → A receber** → **Receber**: valor, data e forma de pagamento. Aceita pagamento parcial, juros, multa e desconto. Se errar, use **Estornar** no pagamento.
+- No pedido → aba **Financeiro** → **Receber valor**: digite quanto o cliente pagou e o sistema abate nas parcelas em aberto, da mais antiga para a mais nova (mostra a divisão antes de confirmar).
+- **Recibo**: no pedido → **Imprimir → Recibo** (ou aba Financeiro → **Recibo**). Marque os pagamentos que entram; sai com o valor por extenso, em duas vias na mesma folha (cliente e empresa).
 - Quando todas as parcelas estão pagas, o pedido fica **Pago** e a comissão do vendedor é **liberada**. Para pagá-la: **Financeiro → Comissões**.
 - Despesas em **Financeiro → A pagar**. A visão do mês está em **Fluxo de caixa** e **Calendário**.
 
@@ -155,6 +165,9 @@ O ideal é cada pessoa fazer a parte do seu papel no **mesmo pedido**, na ordem 
 - [ ] **Vendedor:** registrar a retirada e ver o pedido como Entregue.
 - [ ] **Financeiro:** receber uma parcela em parte, estornar, receber tudo e conferir o pedido Pago e a comissão liberada.
 - [ ] **Caixa:** abrir o caixa, vender com troco, vender com duas formas, fazer uma sangria e fechar o caixa.
+- [ ] **Impressões:** imprimir um orçamento e um pedido sem baixar (conferir a linha de assinatura) e as etiquetas de entrega pelo pedido e pelo cartão da OP.
+- [ ] **Kanbans:** arrastar um orçamento até Aprovado e um pedido entre colunas; usar os atalhos Editar e Imprimir dos cartões.
+- [ ] **Financeiro:** em um pedido com parcelas, usar **Receber valor** com um valor que cubra mais de uma parcela e depois imprimir o **Recibo** só do sinal.
 - [ ] **Gerente:** conferir se o dashboard e os relatórios batem com o que foi feito, e exportar um PDF.
 - [ ] **Todos:** usar pelo celular também e tentar abrir telas que o seu papel não deveria ver.
 
@@ -175,4 +188,4 @@ Celular ou computador:
 
 ---
 
-*ONPrint Control · versão de testes (fases 0 a 8). Integrações com WhatsApp, CEP e e-mail ainda não estão ativas: as mensagens são copiadas e enviadas manualmente.*
+*ONPrint Control · versão de testes (fases 0 a 8 + ajustes do lote 1). Integrações com WhatsApp, CEP e e-mail ainda não estão ativas: as mensagens são copiadas e enviadas manualmente.*

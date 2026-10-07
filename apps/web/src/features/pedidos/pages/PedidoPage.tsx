@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Ban, Copy, History, Pencil } from 'lucide-react'
+import { ArrowLeft, Ban, ChevronDown, Copy, FileDown, History, Loader2, Pencil, Printer, ReceiptText, Tags } from 'lucide-react'
 import { toast } from 'sonner'
 import { TIPO_ENTREGA_ROTULOS, formatarData, formatarDataSimples, formatarMoeda } from '@onprint/shared'
 import { pedidosApi } from '@/api/producao'
@@ -15,8 +15,11 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Timeline } from '@/components/shared/Timeline'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useImpressao } from '@/features/impressao/useImpressao'
+import { usePermission } from '@/hooks/usePermission'
 import { messagingProvider } from '@/integrations/messaging'
 import { AbaEntrega } from '../components/detalhe/AbaEntrega'
 import { AbaFinanceiro } from '../components/detalhe/AbaFinanceiro'
@@ -24,6 +27,7 @@ import { AbaItens } from '../components/detalhe/AbaItens'
 import { AbaProducao } from '../components/detalhe/AbaProducao'
 import { ArteDoItem } from '../components/detalhe/ArteDoItem'
 import { CancelarPedidoDialog, EditarPedidoDialog } from '../components/detalhe/PedidoDialogs'
+import { ReciboDialog } from '../components/detalhe/ReciboDialog'
 import { usePedido, useTemplates } from '../hooks'
 import { mensagemPedidoPronto } from '../mensagens'
 
@@ -43,8 +47,17 @@ export function PedidoPage() {
   const [params, setParams] = useSearchParams()
   const consulta = usePedido(id)
   const templates = useTemplates()
-  const [dialogo, setDialogo] = useState<'editar' | 'cancelar' | null>(null)
+  const podeEditar = usePermission('pedidos', 'editar')
+  const impressao = useImpressao()
+  // ?editar=1 (atalho "Editar" do kanban) já abre o diálogo de edição
+  const [dialogo, setDialogo] = useState<'editar' | 'cancelar' | 'recibo' | null>(() => (params.get('editar') === '1' && podeEditar ? 'editar' : null))
   const aba = ABAS.find((a) => a === params.get('aba')) ?? 'itens'
+  useEffect(() => {
+    if (params.get('editar') === null) return
+    const resto = new URLSearchParams(params)
+    resto.delete('editar')
+    setParams(resto, { replace: true })
+  }, [params, setParams])
 
   if (consulta.isPending) {
     return (
@@ -95,6 +108,31 @@ export function PedidoPage() {
                 <ArrowLeft /> Pedidos
               </Link>
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" disabled={Boolean(impressao.ocupado)}>
+                  {impressao.ocupado ? <Loader2 className="animate-spin" /> : <Printer />} Imprimir <ChevronDown />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => void impressao.pedido(pedido.id, 'imprimir')}>
+                  <Printer /> Pedido
+                </DropdownMenuItem>
+                {pedido.itens.some((i) => i.ordensProducao.some((o) => !o.cancelada)) && (
+                  <DropdownMenuItem onSelect={() => void impressao.etiquetas(pedido.id)}>
+                    <Tags /> Etiquetas de entrega
+                  </DropdownMenuItem>
+                )}
+                {Number(pedido.valorPago) > 0 && (
+                  <DropdownMenuItem onSelect={() => setDialogo('recibo')}>
+                    <ReceiptText /> Recibo
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onSelect={() => void impressao.pedido(pedido.id, 'baixar')}>
+                  <FileDown /> Baixar PDF do pedido
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {pedido.status === 'pronto' && (
               <Button variant="secondary" onClick={() => void avisarPronto()}>
                 <Copy /> Avisar cliente
@@ -188,7 +226,8 @@ export function PedidoPage() {
         </TabsContent>
       </Tabs>
 
-      {dialogo === 'editar' && <EditarPedidoDialog pedido={pedido} onFechar={() => setDialogo(null)} />}
+      {dialogo === 'recibo' && <ReciboDialog pedidoId={pedido.id} numero={pedido.numero} onFechar={() => setDialogo(null)} />}
+      {dialogo === 'editar' && !encerrado && <EditarPedidoDialog pedido={pedido} onFechar={() => setDialogo(null)} />}
       {dialogo === 'cancelar' && <CancelarPedidoDialog pedido={pedido} onFechar={() => setDialogo(null)} />}
     </>
   )

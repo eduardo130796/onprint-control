@@ -111,4 +111,72 @@ const receitas = Number(dre.resumo.find((x) => x.rotulo === 'Receitas').valor)
 conferir('DRE: receitas do dia = pedido + balcão + avulso', receitas, Number(pago.total) + 15 + 80)
 conferir('vendedora vê a notificação de pedido pronto', (await chamar('GET', '/notificacoes/contagem', { token: t.vendedor })).json.naoLidas > 0, true)
 
+console.log('\n— Ajustes pós-testes: valor avulso, kanban de pedidos e de orçamentos —')
+const orc2 = (await chamar('POST', '/orcamentos', { token: t.vendedor, body: { clienteId: cli.id, itens: [{ produtoId: cat.find((p) => p.nome.startsWith('Caneca')).id, quantidade: 20 }] } })).json
+await chamar('POST', `/orcamentos/${orc2.id}/aprovar`, { token: t.vendedor, body: { nome: 'Cliente' } })
+const ped2 = (await chamar('POST', `/orcamentos/${orc2.id}/converter`, { token: t.vendedor, body: { sinalPercentual: '50', parcelas: 1 } })).json.pedidoId
+const tit2 = (await chamar('GET', `/financeiro/receber?pedidoId=${ped2}&sort=vencimento:asc`, { token: t.financeiro })).json.data
+const total2 = tit2.reduce((s, x) => s + Number(x.valor), 0)
+const metade = Number(tit2[0].valor)
+const avulso2 = (metade + 10).toFixed(2)
+const receberAvulso = (valor, token = t.financeiro) => chamar('POST', `/financeiro/receber/pedido/${ped2}`, { token, body: { valorRecebido: valor, data: hoje, formaPagamentoId: forma('pix').id } })
+conferir('valor acima do aberto é recusado', (await receberAvulso((total2 + 1).toFixed(2))).status, 422)
+conferir('vendedora não recebe valor avulso', (await receberAvulso('10', t.vendedor)).status, 403)
+r = await receberAvulso(avulso2)
+conferir('valor avulso abate em 2 parcelas', `${r.status} ${r.json.parcelasAbatidas}`, '200 2')
+const tit2b = (await chamar('GET', `/financeiro/receber?pedidoId=${ped2}&sort=vencimento:asc`, { token: t.financeiro })).json.data
+conferir('sinal quitado e R$ 10 na parcela seguinte', `${tit2b[0].status} ${Number(tit2b[1].valorPago)}`, 'pago 10')
+conferir('pedido fica pago em parte', (await chamar('GET', `/pedidos/${ped2}`, { token: t.gerente })).json.statusFinanceiro, 'parcial')
+r = await receberAvulso((total2 - metade - 10).toFixed(2))
+conferir('o restante quita o pedido', (await chamar('GET', `/pedidos/${ped2}`, { token: t.gerente })).json.statusFinanceiro, 'pago')
+
+let rec = (await chamar('GET', `/pedidos/${ped2}/recebimentos`, { token: t.vendedor })).json
+conferir('recibo: 3 pagamentos somando o total', `${rec.pagamentos.length} ${rec.pagamentos.reduce((s, x) => s + Number(x.valor), 0).toFixed(2)}`, `3 ${total2.toFixed(2)}`)
+conferir('caixa não acessa recebimentos do pedido', (await chamar('GET', `/pedidos/${ped2}/recebimentos`, { token: t.caixa })).status, 403)
+const estornar = rec.pagamentos[2]
+const tituloDoPagamento = tit2b.find((x) => x.descricao === estornar.descricao)
+await chamar('POST', `/financeiro/receber/${tituloDoPagamento.id}/movimentos/${estornar.id}/estornar`, { token: t.financeiro, body: { motivo: 'Teste do recibo' } })
+rec = (await chamar('GET', `/pedidos/${ped2}/recebimentos`, { token: t.vendedor })).json
+conferir('recibo: pagamento estornado não entra', rec.pagamentos.some((x) => x.id === estornar.id), false)
+
+const mudar = (id, status) => chamar('POST', `/pedidos/${id}/status`, { token: t.vendedor, body: { status } })
+conferir('kanban: arrastar para "em produção" à mão', (await mudar(ped2, 'em_producao')).json.status, 'em_producao')
+conferir('kanban: voltar para "aguardando arte"', (await mudar(ped2, 'aguardando_arte')).json.status, 'aguardando_arte')
+conferir('kanban: cancelar arrastando é recusado', (await mudar(ped2, 'cancelado')).status, 422)
+conferir('kanban: pedido entregue não sai da coluna', (await mudar(pedidoId, 'pronto')).status, 422)
+
+const orc3 = (await chamar('POST', '/orcamentos', { token: t.vendedor, body: { clienteId: cli.id, itens: [{ produtoId: cat.find((p) => p.nome.startsWith('Caneca')).id, quantidade: 5 }] } })).json
+const kanbanOrc = (await chamar('GET', '/orcamentos?kanban=true&pageSize=100', { token: t.vendedor })).json.data
+conferir('kanban de orçamentos lista o rascunho novo', kanbanOrc.some((o) => o.id === orc3.id), true)
+conferir('cartão do orçamento traz os itens principais', kanbanOrc.find((o) => o.id === orc3.id)?.resumo?.principais[0], '5 × Caneca personalizada')
+const kanbanPed = (await chamar('GET', '/pedidos?kanban=true&pageSize=100', { token: t.gerente })).json.data
+conferir('cartão do pedido traz os itens principais', kanbanPed.find((p) => p.id === ped2)?.resumo?.principais[0], '20 × Caneca personalizada')
+
+console.log('\n— Status próprios (Configurações → Status) —')
+const novoStatus = (body, token = t.gerente) => chamar('POST', '/status', { token, body: { cor: '#0EA5E9', ordem: 3, ...body } })
+r = await novoStatus({ entidade: 'pedido', rotulo: 'Aguardando pagamento', base: 'pronto' })
+conferir('gerente cria status próprio de pedido', `${r.status} ${r.json.sistema} ${r.json.base}`, '201 false pronto')
+const aguardandoPgto = r.json
+conferir('base "cancelado" não aceita status próprio', (await novoStatus({ entidade: 'pedido', rotulo: 'X', base: 'cancelado' })).status, 422)
+conferir('status próprio em clientes não existe', (await novoStatus({ entidade: 'cliente', rotulo: 'X', base: 'ativo' })).status, 400)
+conferir('vendedora não cria status', (await novoStatus({ entidade: 'pedido', rotulo: 'Y', base: 'pronto' }, t.vendedor)).status, 403)
+const colocar = (status) => chamar('POST', `/pedidos/${ped2}/status-personalizado`, { token: t.vendedor, body: { statusPersonalizadoId: status } })
+conferir('coluna própria só vale para pedido na base', (await colocar(aguardandoPgto.id)).status, 422)
+await mudar(ped2, 'pronto')
+r = await colocar(aguardandoPgto.id)
+conferir('pedido "pronto" vai para "Aguardando pagamento"', `${r.status} ${r.json.statusPersonalizadoId === aguardandoPgto.id}`, '200 true')
+await mudar(ped2, 'em_entrega')
+conferir('mudou o status: a coluna própria é limpa', (await chamar('GET', `/pedidos/${ped2}`, { token: t.vendedor })).json.statusPersonalizadoId, null)
+await mudar(ped2, 'pronto')
+await colocar(aguardandoPgto.id)
+const sistemaPronto = (await chamar('GET', '/status?entidade=pedido', { token: t.gerente })).json.find((x) => x.codigo === 'pronto')
+conferir('status do sistema não pode ser excluído', (await chamar('DELETE', `/status/${sistemaPronto.id}`, { token: t.gerente })).status, 422)
+r = await chamar('PUT', `/status/${sistemaPronto.id}`, { token: t.gerente, body: { rotulo: sistemaPronto.rotulo, cor: sistemaPronto.cor, ordem: sistemaPronto.ordem, ativo: false } })
+conferir('status do sistema pode ser ocultado', r.json.ativo, false)
+conferir('excluir status próprio', (await chamar('DELETE', `/status/${aguardandoPgto.id}`, { token: t.gerente })).status, 204)
+conferir('pedido volta para a coluna da base', (await chamar('GET', `/pedidos/${ped2}`, { token: t.vendedor })).json.statusPersonalizadoId, null)
+r = await novoStatus({ entidade: 'producao', rotulo: 'Laminação', base: 'acabamento' })
+const opFila = (await chamar('GET', `/producao/ops?pedidoId=${ped2}`, { token: t.producao })).json.data[0]
+conferir('etapa própria só vale para OP na etapa base', (await chamar('POST', `/producao/ops/${opFila.id}/etapa-personalizada`, { token: t.producao, body: { statusPersonalizadoId: r.json.id } })).status, 422)
+
 finalizar()

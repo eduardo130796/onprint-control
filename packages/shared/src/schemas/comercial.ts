@@ -96,6 +96,8 @@ export const orcamentosQuerySchema = paginacaoQuerySchema.extend({
   status: z.enum(STATUS_ORCAMENTO).optional(),
   clienteId: z.string().uuid().optional(),
   vendedorId: z.string().uuid().optional(),
+  /** Kanban: esconde convertidos, recusados e expirados parados há mais de 30 dias */
+  kanban: z.enum(['true', 'false']).optional(),
 })
 export type OrcamentosQuery = z.input<typeof orcamentosQuerySchema>
 

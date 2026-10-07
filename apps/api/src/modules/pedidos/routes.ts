@@ -9,11 +9,14 @@ import {
   pedidoStatusSchema,
   pedidosQuerySchema,
   realizarEntregaSchema,
+  statusPersonalizadoSchema,
 } from '@onprint/shared'
+import { validarStatusPersonalizado } from '../../core/status-personalizado'
 import { contextoUsuario } from '../../core/escopo'
 import { criarArquivosService } from '../arquivos/service'
 import { criarEntregasService } from './entregas.service'
 import { historicoDoPedido } from './historico'
+import { recebimentosDoPedido } from './recebimentos'
 import { estornoAoCancelarPedido } from '../estoque/ganchos'
 import { criarPedidosService } from './pedidos.service'
 
@@ -57,10 +60,21 @@ export const pedidosRoutes: FastifyPluginAsyncZod = async (app) => {
     await pedidos.atualizar(req.params.id, req.body, await ctx(req))
     return detalhe(req, req.params.id)
   })
-  app.post('/pedidos/:id/status', { ...pode('editar'), schema: { tags, summary: 'Mudança manual de status (entrega)', params: idParamSchema, body: pedidoStatusSchema } }, async (req) => {
+  app.post('/pedidos/:id/status', { ...pode('editar'), schema: { tags, summary: 'Mudança manual de status (kanban)', params: idParamSchema, body: pedidoStatusSchema } }, async (req) => {
     await pedidos.mudarStatus(req.params.id, req.body.status, await ctx(req))
     return detalhe(req, req.params.id)
   })
+  app.post(
+    '/pedidos/:id/status-personalizado',
+    { ...pode('editar'), schema: { tags, summary: 'Coluna própria no kanban (status próprio da mesma base)', params: idParamSchema, body: statusPersonalizadoSchema } },
+    async (req) => {
+      const p = await pedidos.obter(req.params.id, await ctx(req))
+      const id = await validarStatusPersonalizado(app.prisma, 'pedido', req.body.statusPersonalizadoId, p.status)
+      await app.prisma.pedido.update({ where: { id: p.id }, data: { statusPersonalizadoId: id } })
+      app.tempoReal.emitir('pedidos', 'pedido:atualizado', { id: p.id, status: p.status })
+      return detalhe(req, req.params.id)
+    },
+  )
   app.post('/pedidos/:id/cancelar', { ...pode('excluir'), schema: { tags, summary: 'Cancela o pedido (motivo obrigatório)', params: idParamSchema, body: cancelarPedidoSchema } }, async (req) => {
     await pedidos.cancelar(req.params.id, req.body.motivo, req.body.estornarEstoque, await ctx(req))
     return detalhe(req, req.params.id)
@@ -68,6 +82,10 @@ export const pedidosRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get('/pedidos/:id/historico', { ...pode('visualizar'), schema: { tags, summary: 'Linha do tempo do pedido', params: idParamSchema } }, async (req) => {
     await pedidos.obter(req.params.id, await ctx(req)) // valida o escopo
     return historicoDoPedido(app.prisma, req.params.id)
+  })
+  app.get('/pedidos/:id/recebimentos', { ...pode('visualizar'), schema: { tags, summary: 'Pagamentos recebidos (para o recibo)', params: idParamSchema } }, async (req) => {
+    await pedidos.obter(req.params.id, await ctx(req)) // valida o escopo
+    return recebimentosDoPedido(app.prisma, req.params.id)
   })
 
   // Entregas

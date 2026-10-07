@@ -98,6 +98,10 @@ export const baixaSchema = z.object({
 })
 export type BaixaInput = z.input<typeof baixaSchema>
 
+/** Valor avulso recebido de um pedido: o sistema abate nas parcelas em aberto, da mais antiga à mais nova. */
+export const receberPedidoSchema = baixaSchema.pick({ valorRecebido: true, data: true, formaPagamentoId: true, contaFinanceiraId: true, observacao: true })
+export type ReceberPedidoInput = z.input<typeof receberPedidoSchema>
+
 export const cancelarTituloSchema = z.object({ motivo })
 export const estornoSchema = z.object({ motivo })
 

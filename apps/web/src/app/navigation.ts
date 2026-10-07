@@ -52,6 +52,7 @@ export const navegacao: NavModulo[] = [
     filhos: [
       { titulo: 'Solicitações', path: '/orcamentos/solicitacoes', fase: 3, novo: 'Nova solicitação' },
       { titulo: 'Orçamentos', path: '/orcamentos', fase: 3, novo: 'Novo orçamento' },
+      { titulo: 'Kanban de orçamentos', path: '/orcamentos/kanban', fase: 3 },
     ],
   },
   {

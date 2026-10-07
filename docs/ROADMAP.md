@@ -91,7 +91,7 @@ Referência completa: [ARQUITETURA.md](ARQUITETURA.md) (seção 14). Decisões: 
 - [x] Aceite verificado pela API (`npm run e2e -- fase7`, 40 verificações comparando cada KPI e relatório com SQL direto no banco) e pelo navegador (dashboard admin/vendedora, todas as visões, CSV/PDF baixados, busca, notificações, celular)
 - [x] Aceite validado pelo usuário ("OK, próxima fase")
 
-## Fase 8 — Polimento e preparação para produção ✅ (aguardando OK)
+## Fase 8 — Polimento e preparação para produção ✅
 - [x] `docker-compose.prod.yml` (3 containers, só 80/443 abertos, healthcheck, logs com rotação), `Caddyfile` (HTTPS automático, cabeçalhos de segurança, cache dos assets) e `.env.prod.example`
 - [x] Imagem da API roda migrations + seed idempotente ao subir; admin inicial e catálogo de exemplo configuráveis por variável; API recusa segredos fracos em produção
 - [x] `docs/DEPLOY_VPS.md`: Docker, domínio, HTTPS, segredos, firewall 22/80/443, SSH por chave, backup diário com cópia externa (rclone), atualização e restauração
@@ -102,6 +102,19 @@ Referência completa: [ARQUITETURA.md](ARQUITETURA.md) (seção 14). Decisões: 
 - [x] Ajustes vistos no tour: filtro de máquinas da produção sem exigir o módulo Produtos; papel Caixa sem o módulo Produtos; sem tentativa de renovar sessão (401) antes do primeiro login
 - [x] Testes das regras críticas: 99 unitários (preço, parcelas, estoque, baixa financeira, PDV, status do pedido, matriz de permissões de todos os papéis, segredos de produção, limite de login) + e2e das fases 1–8
 - [x] Aceite verificado: compose de produção subiu localmente (https://localhost, ~155 MB de RAM); fluxo completo com cada papel fazendo sua parte (`npm run e2e -- fase8`, 31 verificações) contra a produção e o banco descartável; tour no navegador por 156 telas dos 7 papéis sem erros e sem violações sérias de acessibilidade
+- [ ] Aceite validado pelo usuário
+
+## Ajustes pós-testes — lote 1 ✅ (aguardando OK)
+- [x] Orçamentos: **kanban** (arrastar envia, negocia, aprova, recusa, reabre ou converte, com os mesmos diálogos das ações); **Imprimir** sem baixar o PDF; **linha de assinatura** do cliente no fim do orçamento
+- [x] Pedidos: **PDF do pedido** (imprimir ou baixar) com itens, totais, parcelas e assinatura de recebimento; menu Imprimir no pedido (pedido, etiquetas, baixar PDF)
+- [x] **Recibo do pedido** (menu Imprimir e aba Financeiro): escolhe os pagamentos recebidos, valor por extenso, duas vias na mesma folha (cliente e empresa)
+- [x] Financeiro do pedido: **Receber valor** avulso, abatendo nas parcelas em aberto da mais antiga para a mais nova (prévia da divisão no diálogo)
+- [x] Kanban de pedidos: **arrastar livre** entre colunas (exceto sair de Entregue/Cancelado ou cancelar arrastando); atalhos **Editar** e **Imprimir** no cartão
+- [x] Produção: **etiquetas de entrega** em folha A4 (4 por folha) com a imagem da arte e os dados do cliente; atalhos **Editar**, **Ficha** e **Etiqueta** no cartão da OP
+- [x] **Kanbans estilo Trello**: largura toda da tela, colunas mais largas que preenchem o espaço e vão até o fim da tela (cada coluna rola sozinha); cartões com mais informação (itens principais, andamento de arte/OPs, pagamento, entrega, vendedor; na produção a arte como capa, medidas, horas e tempo na etapa; no orçamento contato, envio e aprovação/recusa)
+- [x] **Clique no cartão abre um painel lateral** com os detalhes e todas as ações (pedido: abrir, editar, imprimir, etiquetas, recibo, receber valor, financeiro e OPs de cada item; OP: abrir, pedido, editar, ficha, etiqueta, arte; orçamento: abrir, imprimir, PDF, mensagem, link, converter, pedido)
+- [x] **Status gerenciáveis** (Configurações → Status): criar e excluir status próprios em orçamentos, pedidos e produção (cada um "conta como" um status do sistema e vira coluna no kanban); renomear, recolorir, reordenar e **ocultar** os do sistema (não podem ser excluídos); migrations `status_personalizados` e `status_personalizados_gatilhos`
+- [x] Verificado: testes unitários (shared 82, api 32, web 16), e2e das fases 1–8 (a fase 8 ganhou 28 verificações destes ajustes) e navegador (arrastes, diálogos, PDFs gerados conferidos)
 - [ ] Aceite validado pelo usuário
 
 ## Fase 9 — Integrações (somente sob pedido)

@@ -1,10 +1,12 @@
+import { randomBytes } from 'node:crypto'
 import type { FastifyInstance } from 'fastify'
-import type { statusConfigSchema, templateSchema } from '@onprint/shared'
+import { BASES_SEM_STATUS_PROPRIO, type novoStatusSchema, type statusConfigSchema, type templateSchema } from '@onprint/shared'
 import type { z } from 'zod'
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
 
 type Status = z.output<typeof statusConfigSchema>
+type NovoStatus = z.output<typeof novoStatusSchema>
 type Template = z.output<typeof templateSchema>
 
 /** Status do sistema (cor/rótulo) e templates de mensagens. */
@@ -25,7 +27,37 @@ export function criarConfiguracoesService(app: FastifyInstance) {
       })
     },
 
-    /** Só rótulo, cor e ordem são editáveis: os códigos são usados pelas regras de negócio. */
+    /**
+     * Status próprio (seção Configurações → Status): nasce logo depois da base no kanban.
+     * O código é gerado (os do sistema são fixos e usados pelas regras de negócio).
+     */
+    async criarStatus(dados: NovoStatus, usuarioId: string) {
+      const base = await prisma.statusConfig.findUnique({ where: { entidade_codigo: { entidade: dados.entidade, codigo: dados.base } } })
+      if (!base?.sistema) throw AppError.regraNegocio('Escolha um status do sistema como base.')
+      if (BASES_SEM_STATUS_PROPRIO[dados.entidade].includes(dados.base)) throw AppError.regraNegocio(`"${base.rotulo}" não aceita status próprio.`)
+      const slug = dados.rotulo.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30)
+      const codigo = `p_${slug || 'status'}_${randomBytes(2).toString('hex')}`
+      return prisma.$transaction(async (tx) => {
+        const status = await tx.statusConfig.create({
+          data: { entidade: dados.entidade, codigo, rotulo: dados.rotulo, cor: dados.cor.toUpperCase(), ordem: dados.ordem ?? base.ordem, ehFinal: base.ehFinal, sistema: false, base: base.codigo, ativo: dados.ativo ?? true },
+        })
+        await registrarAuditoria(tx, { tabela: 'status_config', registroId: status.id, acao: 'criar', depois: status, usuarioId })
+        return status
+      })
+    },
+
+    /** Só status próprios podem ser excluídos; os registros nele voltam para a coluna da base. */
+    async removerStatus(id: string, usuarioId: string) {
+      const antes = await prisma.statusConfig.findUnique({ where: { id } })
+      if (!antes) throw AppError.naoEncontrado('Status não encontrado.')
+      if (antes.sistema) throw AppError.regraNegocio('Status do sistema não pode ser excluído; use "Ocultar".')
+      await prisma.$transaction(async (tx) => {
+        await tx.statusConfig.delete({ where: { id } })
+        await registrarAuditoria(tx, { tabela: 'status_config', registroId: id, acao: 'excluir', antes, usuarioId })
+      })
+    },
+
+    /** Rótulo, cor, ordem e oculto/visível. Os códigos são usados pelas regras de negócio. */
     async atualizarStatus(id: string, dados: Status, usuarioId: string) {
       const antes = await prisma.statusConfig.findUnique({ where: { id } })
       if (!antes) throw AppError.naoEncontrado('Status não encontrado.')

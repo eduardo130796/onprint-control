@@ -1,62 +1,38 @@
 import { useCallback, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarClock, Info } from 'lucide-react'
+import { Info } from 'lucide-react'
 import { toast } from 'sonner'
-import { TRANSICOES_MANUAIS_PEDIDO, formatarDataSimples, formatarMoeda, type Pedido, type StatusPedido } from '@onprint/shared'
+import { STATUS_PEDIDO_FINAIS, podeMudarStatusPedido, type Pedido, type StatusPedido } from '@onprint/shared'
 import { pedidosApi } from '@/api/producao'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ABAS_PEDIDOS } from '@/app/abas'
 import { AbasNavegacao } from '@/components/shared/AbasNavegacao'
 import { EstadoErro } from '@/components/shared/EstadoErro'
 import { Kanban, type ColunaDef } from '@/components/shared/kanban/Kanban'
-import { SeloAtraso, SeloPrioridade } from '@/components/shared/Selos'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useImpressao } from '@/features/impressao/useImpressao'
+import { destinoDaColuna, montarColunas, personalizadoValido } from '@/lib/colunasStatus'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePermission } from '@/hooks/usePermission'
 import { useStatusDaEntidade } from '@/hooks/useStatusConfig'
 import { buscarTodasPaginas } from '@/lib/paginacao'
-import { cn } from '@/lib/utils'
-
-function CartaoPedido({ pedido: p }: { pedido: Pedido }) {
-  return (
-    <article className={cn('rounded-xl border bg-card p-3 text-sm shadow-sm', p.atrasado ? 'border-coral/60' : 'border-transparent')}>
-      <div className="flex items-center justify-between gap-2">
-        <Link to={`/pedidos/${p.id}`} className="font-mono text-xs font-semibold text-petroleo hover:underline" onPointerDown={(e) => e.stopPropagation()}>
-          {p.numero}
-        </Link>
-        <span className="text-xs font-medium">{formatarMoeda(p.total)}</span>
-      </div>
-      <p className="truncate font-medium" title={p.cliente.nome}>
-        {p.cliente.nome}
-      </p>
-      {p.resumo && (
-        <p className="text-xs text-texto-secundario">
-          Arte {p.resumo.artesAprovadas}/{p.resumo.artes} · OP {p.resumo.opsConcluidas}/{p.resumo.ops}
-        </p>
-      )}
-      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-        <span className={cn('inline-flex items-center gap-1 text-texto-secundario', p.atrasado && 'font-medium text-coral-escuro')}>
-          <CalendarClock className="h-3 w-3" /> {formatarDataSimples(p.dataPrevistaEntrega)}
-        </span>
-        {p.atrasado && <SeloAtraso />}
-        <SeloPrioridade prioridade={p.prioridade} />
-      </div>
-    </article>
-  )
-}
+import { CartaoPedido } from '../components/kanban/CartaoPedido'
+import { PainelPedido } from '../components/kanban/PainelPedido'
 
 const idDoPedido = (p: Pedido) => p.id
-const podeSoltar = (p: Pedido, destino: string) => Boolean(TRANSICOES_MANUAIS_PEDIDO[p.status]?.includes(destino as StatusPedido))
 
 /**
- * Kanban de pedidos: a maioria das mudanças é automática (arte e produção); à mão só
- * pronto ⇄ em entrega → entregue. Colunas que não aceitam o cartão ficam apagadas ao arrastar.
+ * Kanban de pedidos: arrastar muda o status (livre, exceto sair de entregue/cancelado). A arte e a
+ * produção continuam mudando o status sozinhas depois. Cada cartão tem atalhos para editar e imprimir.
  */
 export function PedidosKanbanPage() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const impressao = useImpressao()
+  const [aberto, setAberto] = useState<Pedido | null>(null)
   const status = useStatusDaEntidade('pedido')
   const podeEditar = usePermission('pedidos', 'editar')
   const [busca, setBusca] = useState('')
@@ -69,26 +45,57 @@ export function PedidosKanbanPage() {
 
   const colunas = useMemo<ColunaDef<Pedido>[]>(
     () =>
-      status
-        .filter((s) => s.codigo !== 'cancelado')
-        .map((s) => ({ id: s.codigo, titulo: s.rotulo, cor: s.cor, itens: (consulta.data ?? []).filter((p) => p.status === s.codigo) })),
+      montarColunas(
+        status.filter((s) => (s.base ?? s.codigo) !== 'cancelado'),
+        consulta.data ?? [],
+        (p) => p.status,
+        (p) => p.statusPersonalizadoId,
+      ),
     [status, consulta.data],
+  )
+
+  // Coluna própria = status do sistema (base) + o id dela; mesma base só troca a coluna
+  const podeSoltar = useCallback(
+    (p: Pedido, destino: string) => {
+      const { base } = destinoDaColuna(status, destino)
+      return base === p.status || podeMudarStatusPedido(p.status, base as StatusPedido)
+    },
+    [status],
   )
 
   const onMover = useCallback(
     async (p: Pedido, destino: string) => {
       try {
-        await pedidosApi.mudarStatus(p.id, destino as StatusPedido)
+        const { base, personalizadoId } = destinoDaColuna(status, destino)
+        const mudouBase = base !== p.status
+        if (mudouBase) await pedidosApi.mudarStatus(p.id, base as StatusPedido)
+        if (personalizadoId !== (mudouBase ? null : personalizadoValido(status, p.status, p.statusPersonalizadoId))) {
+          await pedidosApi.statusPersonalizado(p.id, personalizadoId)
+        }
         await queryClient.invalidateQueries({ queryKey: ['pedidos'] })
       } catch (e) {
         toast.error((e as Error).message)
         throw e
       }
     },
-    [queryClient],
+    [queryClient, status],
   )
-  const renderCartao = useCallback((p: Pedido) => <CartaoPedido pedido={p} />, [])
-  const podeArrastar = useCallback((p: Pedido) => podeEditar && Boolean(TRANSICOES_MANUAIS_PEDIDO[p.status]), [podeEditar])
+  const { pedido: imprimirPedido, ocupado } = impressao
+  const renderCartao = useCallback(
+    (p: Pedido) => (
+      <CartaoPedido
+        pedido={p}
+        acoes={{
+          onAbrir: setAberto,
+          onEditar: (x) => navigate(`/pedidos/${x.id}?editar=1`),
+          onImprimir: (x) => void imprimirPedido(x.id, 'imprimir'),
+          imprimindo: ocupado === `pedido:${p.id}:imprimir`,
+        }}
+      />
+    ),
+    [navigate, imprimirPedido, ocupado],
+  )
+  const podeArrastar = useCallback((p: Pedido) => podeEditar && !STATUS_PEDIDO_FINAIS.includes(p.status), [podeEditar])
 
   return (
     <>
@@ -96,7 +103,7 @@ export function PedidosKanbanPage() {
         titulo="Kanban de pedidos"
         subtitulo={
           <span className="inline-flex items-center gap-1.5">
-            <Info className="h-3.5 w-3.5" /> O status anda sozinho com a arte e a produção. Arraste só para registrar a saída e a entrega.
+            <Info className="h-3.5 w-3.5" /> Clique no cartão para ver detalhes e ações. Arraste para mudar o status (a arte e a produção continuam atualizando sozinhas).
           </span>
         }
       />
@@ -115,8 +122,9 @@ export function PedidosKanbanPage() {
           <EstadoErro erro={consulta.error} onTentarNovamente={() => void consulta.refetch()} />
         </Card>
       ) : (
-        <Kanban colunas={colunas} idDe={idDoPedido} renderCartao={renderCartao} podeArrastar={podeArrastar} podeSoltar={podeSoltar} onMover={onMover} reordenavel={false} />
+        <Kanban colunas={colunas} idDe={idDoPedido} renderCartao={renderCartao} podeArrastar={podeArrastar} podeSoltar={podeSoltar} onMover={onMover} reordenavel={false} onAbrir={setAberto} />
       )}
+      {aberto && <PainelPedido pedido={aberto} onFechar={() => setAberto(null)} />}
     </>
   )
 }

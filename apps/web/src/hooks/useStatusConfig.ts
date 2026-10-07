@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { StatusConfig } from '@onprint/shared'
 import { statusApi } from '@/api/configuracoes'
+import { ordenarStatus } from '@/lib/colunasStatus'
 
 export const CHAVE_STATUS = ['status-config'] as const
 
@@ -16,8 +17,8 @@ export function useStatusConfig() {
   return { ...query, mapa }
 }
 
-/** Status de uma entidade na ordem configurada (colunas dos kanbans). */
+/** Status de uma entidade (do sistema e próprios, inclusive ocultos) na ordem do quadro: colunas dos kanbans. */
 export function useStatusDaEntidade(entidade: string) {
   const { data } = useStatusConfig()
-  return useMemo(() => (data ?? []).filter((s) => s.entidade === entidade).sort((a, b) => a.ordem - b.ordem), [data, entidade])
+  return useMemo(() => ordenarStatus((data ?? []).filter((s) => s.entidade === entidade)), [data, entidade])
 }

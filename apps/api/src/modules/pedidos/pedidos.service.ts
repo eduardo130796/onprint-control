@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
 import {
-  TRANSICOES_MANUAIS_PEDIDO,
+  podeMudarStatusPedido,
   hojeISO,
   type StatusPedido,
   type pedidoAtualizacaoSchema,
@@ -77,12 +77,12 @@ export function criarPedidosService(app: FastifyInstance, aoCancelar: AoCancelar
       return obter(id, ctx)
     },
 
-    /** Mudanças manuais permitidas (entrega). As demais são automáticas. */
+    /** Mudança manual (kanban): livre entre colunas, exceto sair de entregue/cancelado ou cancelar arrastando. */
     async mudarStatus(id: string, status: StatusPedido, ctx: ContextoUsuario) {
       const antes = await obter(id, ctx)
       if (antes.status === status) return antes
-      if (!TRANSICOES_MANUAIS_PEDIDO[antes.status]?.includes(status)) {
-        throw AppError.regraNegocio('Essa mudança de status acontece automaticamente (arte, produção ou entrega).')
+      if (!podeMudarStatusPedido(antes.status, status)) {
+        throw AppError.regraNegocio(status === 'cancelado' ? 'Para cancelar, use o botão Cancelar do pedido (pede o motivo).' : 'Pedido entregue ou cancelado não muda de status.')
       }
       await prisma.$transaction(async (tx) => {
         await tx.pedido.update({ where: { id }, data: { status } })

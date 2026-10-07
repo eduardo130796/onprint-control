@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -37,9 +37,30 @@ interface KanbanProps<T> {
   onMover: (item: T, destino: string, ordemIds: string[]) => Promise<unknown>
   /** false: a ordem dentro da coluna não é salva (só muda de coluna) */
   reordenavel?: boolean
+  /** Clique no cartão: abre o painel de detalhes e ações */
+  onAbrir?: (item: T) => void
 }
 
 type Mapa = Record<string, string[]>
+
+/**
+ * Quadro ocupando a tela até embaixo (como o Trello): cada coluna rola sozinha.
+ * No celular a altura fica livre (a página rola normalmente).
+ */
+function useAlturaDoQuadro() {
+  const quadro = useRef<HTMLDivElement>(null)
+  const [altura, setAltura] = useState<number | null>(null)
+  useLayoutEffect(() => {
+    const medir = () => {
+      const topo = quadro.current?.getBoundingClientRect().top ?? 0
+      setAltura(window.innerWidth >= 640 ? Math.max(360, window.innerHeight - topo - window.scrollY - 16) : null)
+    }
+    medir()
+    window.addEventListener('resize', medir)
+    return () => window.removeEventListener('resize', medir)
+  }, [])
+  return { quadro, altura }
+}
 
 /**
  * Colisão pelo ponteiro (coluna ou cartão sob o cursor); sem ponteiro (teclado), pela área.
@@ -57,7 +78,7 @@ const montarMapa = <T,>(colunas: ColunaDef<T>[], idDe: (i: T) => string): Mapa =
  * Quadro kanban genérico (@dnd-kit): arrastar com mouse, toque (segurar) ou teclado (espaço + setas).
  * O estado local só existe durante o arraste; a verdade vem sempre da API (refetch/tempo real).
  */
-export function Kanban<T>({ colunas, idDe, renderCartao, podeArrastar, podeSoltar, onMover, reordenavel = true }: KanbanProps<T>) {
+export function Kanban<T>({ colunas, idDe, renderCartao, podeArrastar, podeSoltar, onMover, reordenavel = true, onAbrir }: KanbanProps<T>) {
   const [mapa, setMapa] = useState<Mapa>(() => montarMapa(colunas, idDe))
   const [ativoId, setAtivoId] = useState<string | null>(null)
   const origem = useRef<string | null>(null)
@@ -119,6 +140,7 @@ export function Kanban<T>({ colunas, idDe, renderCartao, podeArrastar, podeSolta
   }
 
   const ativo = ativoId ? porId.get(ativoId) : undefined
+  const { quadro, altura } = useAlturaDoQuadro()
   return (
     <DndContext
       sensors={sensores}
@@ -131,7 +153,7 @@ export function Kanban<T>({ colunas, idDe, renderCartao, podeArrastar, podeSolta
         setMapa(montarMapa(colunas, idDe))
       }}
     >
-      <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">
+      <div ref={quadro} style={altura ? { height: altura } : undefined} className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-3 sm:mx-0 sm:px-0">
         {colunas.map((c) => {
           const bloqueada = Boolean(ativo && podeSoltar && c.id !== origem.current && !podeSoltar(ativo, c.id))
           return (
@@ -143,6 +165,7 @@ export function Kanban<T>({ colunas, idDe, renderCartao, podeArrastar, podeSolta
                 renderCartao={renderCartao}
                 podeArrastar={podeArrastar}
                 bloqueada={bloqueada}
+                onAbrir={onAbrir}
               />
             </SortableContext>
           )

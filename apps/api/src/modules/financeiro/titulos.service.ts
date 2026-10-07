@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- contas a receber e a pagar compartilham o mesmo fluxo; os delegates do Prisma diferem só no tipo */
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { z } from 'zod'
-import { Decimal, gerarParcelas, hojeISO, statusTitulo, type baixaSchema, type contaPagarSchema, type contaReceberSchema, type tituloAtualizacaoSchema, type titulosQuerySchema } from '@onprint/shared'
+import { Decimal, distribuirValor, gerarParcelas, hojeISO, statusTitulo, type baixaSchema, type receberPedidoSchema, type contaPagarSchema, type contaReceberSchema, type tituloAtualizacaoSchema, type titulosQuerySchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
 import { paginacao, paginado } from '../../core/paginacao'
@@ -14,6 +14,7 @@ type NovoReceber = z.output<typeof contaReceberSchema>
 type NovoPagar = z.output<typeof contaPagarSchema>
 type Atualizacao = z.output<typeof tituloAtualizacaoSchema>
 type Baixa = z.output<typeof baixaSchema>
+type ReceberPedido = z.output<typeof receberPedidoSchema>
 
 const dataBanco = (iso: string) => new Date(`${iso}T00:00:00Z`)
 
@@ -133,6 +134,35 @@ export function criarTitulosService(app: FastifyInstance, tipo: TipoTitulo, arqu
       })
       avisar(r.efeitos)
       return obter(id)
+    },
+
+    /**
+     * Valor avulso do pedido (só contas a receber): abate nas parcelas em aberto, da mais antiga à mais nova,
+     * uma baixa por parcela, tudo na mesma transação (ou entra tudo, ou nada).
+     */
+    async receberDoPedido(pedidoId: string, d: ReceberPedido, usuarioId: string) {
+      if (tipo !== 'receber') throw AppError.regraNegocio('Valor avulso só existe em contas a receber.')
+      const efeitos = await prisma.$transaction(async (tx) => {
+        await tx.$queryRawUnsafe('SELECT id FROM pedidos WHERE id = $1::uuid FOR UPDATE', pedidoId)
+        const titulos = await tx.contaReceber.findMany({
+          where: { pedidoId, status: { in: ['aberto', 'parcial', 'vencido'] } },
+          orderBy: [{ vencimento: 'asc' }, { parcela: 'asc' }],
+          select: { id: true, valor: true, valorPago: true },
+        })
+        const r = distribuirValor(titulos.map((t) => ({ id: t.id, saldo: new Decimal(t.valor.toString()).minus(t.valorPago.toString()) })), d.valorRecebido)
+        if (!r.ok) throw AppError.regraNegocio(r.erro)
+        let ultimo: EfeitosFinanceiros = { pedidoId, comissaoLiberadaPara: [] }
+        const liberadas: string[] = []
+        for (const parte of r.partes) {
+          const res = await baixarTitulo(tx, { tipo, tituloId: parte.id, valorRecebido: parte.valor, juros: '0', multa: '0', desconto: '0', data: d.data, formaPagamentoId: d.formaPagamentoId, contaFinanceiraId: d.contaFinanceiraId, observacao: d.observacao, usuarioId })
+          await registrarAuditoria(tx, { tabela, registroId: parte.id, acao: 'baixa', depois: { valor: parte.valor, data: d.data, movimento: res.movimentoId, valorAvulso: d.valorRecebido }, usuarioId })
+          liberadas.push(...res.efeitos.comissaoLiberadaPara)
+          ultimo = res.efeitos
+        }
+        return { ...ultimo, comissaoLiberadaPara: liberadas, partes: r.partes.length }
+      })
+      avisar(efeitos)
+      return { parcelasAbatidas: efeitos.partes }
     },
 
     async estornar(id: string, movimentoId: string, motivo: string, usuarioId: string) {

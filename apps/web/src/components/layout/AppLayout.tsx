@@ -1,5 +1,5 @@
 import { Suspense, useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useTempoReal } from '@/hooks/useTempoReal'
@@ -9,6 +9,9 @@ import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 
 const CHAVE_RECOLHIDA = 'onprint:sidebar-recolhida'
+
+/** Telas que usam a largura toda (quadros kanban); as demais ficam centralizadas em até 1280 px. */
+const TELAS_LARGAS = ['/producao', '/pedidos/kanban', '/orcamentos/kanban']
 
 function lerRecolhida() {
   try {
@@ -22,6 +25,8 @@ export function AppLayout() {
   const [recolhida, setRecolhida] = useState(lerRecolhida)
   const [mobileAberta, setMobileAberta] = useState(false)
   const { usuario } = useAuth()
+  const { pathname } = useLocation()
+  const larga = TELAS_LARGAS.includes(pathname)
   useTempoReal(Boolean(usuario) && !usuario?.deveTrocarSenha)
 
   function alternar() {
@@ -50,7 +55,7 @@ export function AppLayout() {
           recolhida ? 'lg:pl-[104px]' : 'lg:pl-[288px]',
         )}
       >
-        <div className="mx-auto max-w-7xl">
+        <div className={larga ? 'w-full' : 'mx-auto max-w-7xl'}>
           {/* As telas são carregadas sob demanda (app/paginas.ts) */}
           <Suspense
             fallback={

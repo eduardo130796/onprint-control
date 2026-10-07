@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aplicarBaixa, calcularVendaPdv, statusFinanceiroPedido, statusTitulo, taxaDaForma } from './financeiro'
+import { aplicarBaixa, calcularVendaPdv, distribuirValor, statusFinanceiroPedido, statusTitulo, taxaDaForma } from './financeiro'
 
 describe('aplicarBaixa', () => {
   it('baixa total quita o título', () => {
@@ -64,5 +64,26 @@ describe('taxaDaForma', () => {
   it('percentual com arredondamento', () => {
     expect(taxaDaForma('100', '3.5')).toBe('3.50')
     expect(taxaDaForma('33.33', '1.5')).toBe('0.50')
+  })
+})
+
+describe('distribuirValor (valor avulso do pedido)', () => {
+  const parcelas = [
+    { id: 'sinal', saldo: '250.00' },
+    { id: 'p2', saldo: '250.00' },
+  ]
+  it('quita a mais antiga e abate o resto na seguinte', () => {
+    expect(distribuirValor(parcelas, '300')).toEqual({ ok: true, partes: [{ id: 'sinal', valor: '250.00' }, { id: 'p2', valor: '50.00' }] })
+  })
+  it('valor menor que a primeira parcela fica só nela', () => {
+    expect(distribuirValor(parcelas, '99.90')).toEqual({ ok: true, partes: [{ id: 'sinal', valor: '99.90' }] })
+  })
+  it('pula títulos já quitados e quita tudo com o valor exato', () => {
+    expect(distribuirValor([{ id: 'a', saldo: 0 }, ...parcelas], '500')).toEqual({ ok: true, partes: [{ id: 'sinal', valor: '250.00' }, { id: 'p2', valor: '250.00' }] })
+  })
+  it('recusa valor acima do aberto, zerado ou sem parcelas', () => {
+    expect(distribuirValor(parcelas, '500.01').ok).toBe(false)
+    expect(distribuirValor(parcelas, '0').ok).toBe(false)
+    expect(distribuirValor([], '10').ok).toBe(false)
   })
 })

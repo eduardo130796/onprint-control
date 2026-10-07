@@ -38,8 +38,11 @@ export const empresaApi = {
 
 export const statusApi = {
   listar: () => http<StatusConfig[]>('/status'),
-  salvar: (id: string, dados: { rotulo: string; cor: string; ordem: number }) =>
+  salvar: (id: string, dados: { rotulo: string; cor: string; ordem: number; ativo?: boolean }) =>
     http<StatusConfig>(`/status/${id}`, { method: 'PUT', body: dados }),
+  /** Status próprio: conta como `base` (um status do sistema da mesma entidade) */
+  criar: (dados: { entidade: string; rotulo: string; cor: string; base: string; ordem?: number }) => http<StatusConfig>('/status', { method: 'POST', body: dados }),
+  remover: (id: string) => http<void>(`/status/${id}`, { method: 'DELETE' }),
 }
 
 export const templatesApi = {

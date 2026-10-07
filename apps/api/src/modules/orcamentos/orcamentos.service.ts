@@ -98,13 +98,22 @@ export function criarOrcamentosService(app: FastifyInstance) {
         ...(q.clienteId ? { clienteId: q.clienteId } : {}),
         ...(q.vendedorId && ctx.veTodos ? { vendedorId: q.vendedorId } : {}),
         ...(texto ? { OR: [{ numero: texto }, { cliente: { nome: texto } }, { cliente: { fantasia: texto } }] } : {}),
+        ...(q.kanban === 'true' ? { NOT: { status: { in: ['convertido', 'recusado', 'expirado'] }, updatedAt: { lt: new Date(Date.now() - 30 * 86_400_000) } } } : {}),
       }
       const pag = paginacao(q, ['createdAt', 'numero', 'total', 'validade'] as const, { campo: 'createdAt', direcao: 'desc' })
       const [total, data] = await prisma.$transaction([
         prisma.orcamento.count({ where }),
-        prisma.orcamento.findMany({ where, ...pag, include: incluirResumo }),
+        prisma.orcamento.findMany({
+          where,
+          ...pag,
+          include: { ...incluirResumo, itens: { orderBy: { ordem: 'asc' }, take: 3, select: { descricao: true, quantidade: true } }, _count: { select: { itens: true } } },
+        }),
       ])
-      return paginado(data, total, q)
+      const comResumo = data.map(({ itens, _count, ...o }) => ({
+        ...o,
+        resumo: { itens: _count.itens, principais: itens.map((i) => `${Number(i.quantidade).toLocaleString('pt-BR')} × ${i.descricao}`) },
+      }))
+      return paginado(comResumo, total, q)
     },
 
     async criar(dados: Dados, ctx: ContextoUsuario) {

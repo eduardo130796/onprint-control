@@ -20,11 +20,14 @@ export const STATUS_ENTREGA_ROTULOS: Record<StatusEntrega, string> = {
 /** Pedidos com estes status não contam como atrasados. */
 export const STATUS_PEDIDO_SEM_ATRASO: readonly StatusPedido[] = ['pronto', 'em_entrega', 'entregue', 'cancelado']
 
+/** Status finais do pedido: não saem pelo kanban (cancelado só pelo botão Cancelar, com motivo). */
+export const STATUS_PEDIDO_FINAIS: readonly StatusPedido[] = ['entregue', 'cancelado']
+
 /**
- * Mudanças de status do pedido que podem ser feitas à mão (kanban de pedidos).
- * As demais acontecem sozinhas: arte enviada, arte aprovada, OPs concluídas, entrega realizada.
+ * Mudança manual de status (kanban de pedidos): livre entre as colunas, exceto sair de um status final
+ * ou cancelar arrastando. A automação continua valendo: quando a arte ou as OPs mudarem depois,
+ * o status é recalculado (em entrega e entregue não são sobrescritos).
  */
-export const TRANSICOES_MANUAIS_PEDIDO: Partial<Record<StatusPedido, readonly StatusPedido[]>> = {
-  pronto: ['em_entrega', 'entregue'],
-  em_entrega: ['pronto', 'entregue'],
+export function podeMudarStatusPedido(de: StatusPedido, para: StatusPedido): boolean {
+  return de !== para && !STATUS_PEDIDO_FINAIS.includes(de) && para !== 'cancelado'
 }

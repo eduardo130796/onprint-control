@@ -16,6 +16,7 @@ import {
   idParamSchema,
   movimentosQuerySchema,
   pagarComissoesSchema,
+  receberPedidoSchema,
   tituloAtualizacaoSchema,
   titulosQuerySchema,
 } from '@onprint/shared'
@@ -70,7 +71,13 @@ export const financeiroRoutes: FastifyPluginAsyncZod = async (app) => {
       service.anexar(req, req.params.id, req.user.sub),
     )
   }
-  rotasTitulos('/financeiro/receber', criarTitulosService(app, 'receber', arquivos), contaReceberSchema)
+  const receber = criarTitulosService(app, 'receber', arquivos)
+  rotasTitulos('/financeiro/receber', receber, contaReceberSchema)
+  app.post(
+    '/financeiro/receber/pedido/:id',
+    { ...pode('editar'), schema: { tags, summary: 'Valor avulso do pedido: abate nas parcelas em aberto (mais antiga primeiro)', params: idParamSchema, body: receberPedidoSchema } },
+    (req) => receber.receberDoPedido(req.params.id, req.body, req.user.sub),
+  )
   rotasTitulos('/financeiro/pagar', criarTitulosService(app, 'pagar', arquivos), contaPagarSchema)
 
   app.get('/financeiro/fluxo', { ...pode('visualizar'), schema: { tags, summary: 'Fluxo de caixa realizado e previsto', querystring: fluxoQuerySchema } }, (req) => fluxo.fluxo(req.query))

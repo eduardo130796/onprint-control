@@ -13,15 +13,21 @@ interface ColunaKanbanProps<T> {
   podeArrastar?: (item: T) => boolean
   /** Durante um arraste: esta coluna não aceita o item */
   bloqueada: boolean
+  /** Clique no cartão (fora de links e botões): abre o painel com detalhes e ações */
+  onAbrir?: (item: T) => void
 }
 
-function CartaoArrastavel({ id, desabilitado, children }: { id: string; desabilitado: boolean; children: ReactNode }) {
+function CartaoArrastavel({ id, desabilitado, onAbrir, children }: { id: string; desabilitado: boolean; onAbrir?: () => void; children: ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled: desabilitado })
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn('touch-manipulation', isDragging && 'opacity-40', !desabilitado && 'cursor-grab')}
+      className={cn('touch-manipulation', isDragging && 'opacity-40', onAbrir ? 'cursor-pointer' : !desabilitado && 'cursor-grab')}
+      onClick={(e) => {
+        if (!onAbrir || (e.target as HTMLElement).closest('a, button, input')) return
+        onAbrir()
+      }}
       {...attributes}
       // O cartão contém links: "group" em vez de "button" evita controle interativo aninhado (teclado continua via tabIndex)
       role="group"
@@ -32,12 +38,12 @@ function CartaoArrastavel({ id, desabilitado, children }: { id: string; desabili
   )
 }
 
-export function ColunaKanban<T>({ coluna, ids, porId, renderCartao, podeArrastar, bloqueada }: ColunaKanbanProps<T>) {
+export function ColunaKanban<T>({ coluna, ids, porId, renderCartao, podeArrastar, bloqueada, onAbrir }: ColunaKanbanProps<T>) {
   const { setNodeRef, isOver } = useDroppable({ id: coluna.id })
   return (
     <section
       aria-label={coluna.titulo}
-      className={cn('flex w-72 shrink-0 flex-col rounded-2xl bg-slate-200/50 transition-opacity', bloqueada && 'opacity-40')}
+      className={cn('flex min-w-[300px] max-w-[460px] flex-1 flex-col rounded-2xl bg-slate-200/60 transition-opacity', bloqueada && 'opacity-40')}
     >
       <header className="flex items-center gap-2 px-3 pb-2 pt-3">
         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: coluna.cor }} />
@@ -47,13 +53,13 @@ export function ColunaKanban<T>({ coluna, ids, porId, renderCartao, podeArrastar
       </header>
       <div
         ref={setNodeRef}
-        className={cn('flex min-h-32 flex-1 flex-col gap-2 rounded-b-2xl p-2 transition-colors', isOver && !bloqueada && 'bg-turquesa/10')}
+        className={cn('flex min-h-32 flex-1 flex-col gap-2.5 overflow-y-auto rounded-b-2xl p-2.5 transition-colors', isOver && !bloqueada && 'bg-turquesa/10')}
       >
         {ids.map((id) => {
           const item = porId.get(id)
           if (!item) return null
           return (
-            <CartaoArrastavel key={id} id={id} desabilitado={podeArrastar ? !podeArrastar(item) : false}>
+            <CartaoArrastavel key={id} id={id} desabilitado={podeArrastar ? !podeArrastar(item) : false} onAbrir={onAbrir ? () => onAbrir(item) : undefined}>
               {renderCartao(item)}
             </CartaoArrastavel>
           )

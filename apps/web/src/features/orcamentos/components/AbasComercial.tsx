@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
-/** Abas "Solicitações | Orçamentos" do módulo Orçamentos. */
+/** Abas "Solicitações | Orçamentos | Kanban" do módulo Orçamentos. */
 export function AbasComercial() {
   const aba = ({ isActive }: { isActive: boolean }) =>
     cn(
@@ -15,6 +15,9 @@ export function AbasComercial() {
       </NavLink>
       <NavLink to="/orcamentos" end className={aba}>
         Orçamentos
+      </NavLink>
+      <NavLink to="/orcamentos/kanban" className={aba}>
+        Kanban
       </NavLink>
     </nav>
   )

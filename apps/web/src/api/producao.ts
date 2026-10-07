@@ -11,6 +11,7 @@ import type {
   PcpResumo,
   Pedido,
   PedidoDetalhe,
+  RecebimentosPedido,
   PedidosQuery,
   StatusPedido,
 } from '@onprint/shared'
@@ -20,6 +21,9 @@ import { http, qs, upload } from './http'
 export const pedidosApi = {
   listar: (q: PedidosQuery) => http<Paginado<Pedido>>(`/pedidos${qs(q)}`),
   obter: (id: string) => http<PedidoDetalhe>(`/pedidos/${id}`),
+  recebimentos: (id: string) => http<RecebimentosPedido>(`/pedidos/${id}/recebimentos`),
+  statusPersonalizado: (id: string, statusPersonalizadoId: string | null) =>
+    http<PedidoDetalhe>(`/pedidos/${id}/status-personalizado`, { method: 'POST', body: { statusPersonalizadoId } }),
   atualizar: (id: string, dados: unknown) => http<PedidoDetalhe>(`/pedidos/${id}`, { method: 'PUT', body: dados }),
   mudarStatus: (id: string, status: StatusPedido) => http<PedidoDetalhe>(`/pedidos/${id}/status`, { method: 'POST', body: { status } }),
   cancelar: (id: string, motivo: string, estornarEstoque = false) =>
@@ -49,6 +53,8 @@ export const entregasApi = {
 export const opsApi = {
   listar: (q: OpsQuery) => http<Paginado<OrdemProducao>>(`/producao/ops${qs(q)}`),
   maquinas: () => http<{ id: string; nome: string }[]>('/producao/maquinas'),
+  etapaPersonalizada: (id: string, statusPersonalizadoId: string | null) =>
+    http<OrdemProducaoDetalhe>(`/producao/ops/${id}/etapa-personalizada`, { method: 'POST', body: { statusPersonalizadoId } }),
   obter: (id: string) => http<OrdemProducaoDetalhe>(`/producao/ops/${id}`),
   mover: (id: string, dados: { etapa: string; ordemIds: string[]; override?: boolean; motivo?: string }) =>
     http<{ op: OrdemProducao }>(`/producao/ops/${id}/mover`, { method: 'POST', body: dados }),

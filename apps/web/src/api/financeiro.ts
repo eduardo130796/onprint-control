@@ -40,6 +40,10 @@ export const titulosApi = (tipo: TipoTitulo) => {
   }
 }
 
+/** Valor avulso do pedido: a API abate nas parcelas em aberto (mais antiga primeiro). */
+export const receberPedidoApi = (pedidoId: string, dados: unknown) =>
+  http<{ parcelasAbatidas: number }>(`/financeiro/receber/pedido/${pedidoId}`, { method: 'POST', body: dados })
+
 export const formasApi = recursoCrud<FormaPagamento>('/financeiro/formas')
 export const contasFinanceirasApi = recursoCrud<ContaFinanceira>('/financeiro/contas')
 export const categoriasFinanceirasApi = recursoCrud<CategoriaFinanceira>('/financeiro/categorias')

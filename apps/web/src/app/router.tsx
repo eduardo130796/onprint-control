@@ -47,6 +47,7 @@ import {
   OpPage,
   OpsPage,
   OrcamentoEditorPage,
+  OrcamentosKanbanPage,
   OrcamentosPage,
   PcpPage,
   PedidoPage,
@@ -68,6 +69,7 @@ import {
 const telas: Record<string, ReactElement> = {
   '/orcamentos': <OrcamentosPage />,
   '/orcamentos/novo': <OrcamentoEditorPage />,
+  '/orcamentos/kanban': <OrcamentosKanbanPage />,
   '/orcamentos/solicitacoes': <SolicitacoesPage />,
   '/orcamentos/solicitacoes/novo': <SolicitacoesPage />,
   '/pedidos': <PedidosPage />,

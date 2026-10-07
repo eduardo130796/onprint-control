@@ -97,6 +97,8 @@ export interface Orcamento extends Auditavel {
   solicitacao: { id: string; numero: string } | null
   validade: string
   status: StatusOrcamento
+  /** Coluna própria do kanban (status próprio com base = status) */
+  statusPersonalizadoId: string | null
   subtotal: string
   desconto: string
   acrescimo: string
@@ -114,6 +116,8 @@ export interface Orcamento extends Auditavel {
   recusadoEm: string | null
   motivoRecusa: string | null
   pedidoId: string | null
+  /** Lista/kanban: quantidade de itens e os 3 primeiros ("10 × Caneca") */
+  resumo?: { itens: number; principais: string[] }
 }
 
 export interface OrcamentoDetalhe extends Orcamento {

@@ -152,6 +152,12 @@ export interface StatusConfig {
   cor: string
   ordem: number
   ehFinal: boolean
+  /** false = status próprio criado pelo usuário */
+  sistema: boolean
+  /** Status próprio: código do status do sistema que ele "conta como" */
+  base: string | null
+  /** false = oculto */
+  ativo: boolean
 }
 
 export interface MensagemTemplate extends Auditavel {

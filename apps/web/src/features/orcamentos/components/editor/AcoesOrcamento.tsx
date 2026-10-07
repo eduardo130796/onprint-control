@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle2, ChevronDown, Copy, FileDown, Link2, Loader2, MessageSquareText, RotateCcw, Save, Send, ShoppingCart, ThumbsDown, Handshake } from 'lucide-react'
+import { CheckCircle2, ChevronDown, Copy, FileDown, Link2, Loader2, MessageSquareText, Printer, RotateCcw, Save, Send, ShoppingCart, ThumbsDown, Handshake } from 'lucide-react'
 import { toast } from 'sonner'
 import type { OrcamentoDetalhe } from '@onprint/shared'
 import { orcamentosApi, templatesLeituraApi } from '@/api/comercial'
@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/form-controls'
-import { useEmpresa } from '@/features/configuracoes/hooks'
+import { useImpressao } from '@/features/impressao/useImpressao'
 import { useMutacao } from '@/hooks/useMutacao'
 import { usePermissoes } from '@/hooks/usePermission'
 import { messagingProvider } from '@/integrations/messaging'
@@ -31,11 +31,10 @@ type Dialogo = 'aprovar' | 'recusar' | 'converter' | null
 export function AcoesOrcamento({ orcamento: o, editavel, alterado, salvando, onSalvar }: AcoesProps) {
   const navigate = useNavigate()
   const pode = usePermissoes()
-  const empresa = useEmpresa()
+  const impressao = useImpressao()
   const templates = useQuery({ queryKey: ['templates', 'ativos'], queryFn: templatesLeituraApi.listar, staleTime: 5 * 60 * 1000 })
   const [dialogo, setDialogo] = useState<Dialogo>(null)
   const [texto, setTexto] = useState('')
-  const [gerandoPdf, setGerandoPdf] = useState(false)
   const acao = useMutacao(['orcamentos', 'solicitacoes'], (f: () => Promise<OrcamentoDetalhe>) => f())
 
   function executar(f: () => Promise<OrcamentoDetalhe>, sucesso: string, depois?: (r: OrcamentoDetalhe) => void) {
@@ -56,19 +55,6 @@ export function AcoesOrcamento({ orcamento: o, editavel, alterado, salvando, onS
     })
   }
 
-  async function baixarPdf() {
-    if (!o || !empresa.data) return
-    setGerandoPdf(true)
-    try {
-      const { baixarPdfOrcamento } = await import('../pdf/gerarPdf')
-      await baixarPdfOrcamento(o, empresa.data)
-    } catch (e) {
-      toast.error(`Não foi possível gerar o PDF: ${(e as Error).message}`)
-    } finally {
-      setGerandoPdf(false)
-    }
-  }
-
   const status = o?.status
   const podeEditar = pode('orcamentos', 'editar')
   const ocupado = acao.isPending
@@ -85,8 +71,11 @@ export function AcoesOrcamento({ orcamento: o, editavel, alterado, salvando, onS
           <Button variant="outline" onClick={() => void copiarMensagem()} disabled={alterado}>
             <MessageSquareText /> Copiar mensagem
           </Button>
-          <Button variant="outline" onClick={() => void baixarPdf()} disabled={gerandoPdf || alterado}>
-            {gerandoPdf ? <Loader2 className="animate-spin" /> : <FileDown />} PDF
+          <Button variant="outline" onClick={() => void impressao.orcamento(o, 'imprimir')} disabled={Boolean(impressao.ocupado) || alterado} title={alterado ? 'Salve antes de imprimir' : undefined}>
+            {impressao.ocupado === `orcamento:${o.id}:imprimir` ? <Loader2 className="animate-spin" /> : <Printer />} Imprimir
+          </Button>
+          <Button variant="outline" onClick={() => void impressao.orcamento(o, 'baixar')} disabled={Boolean(impressao.ocupado) || alterado}>
+            {impressao.ocupado === `orcamento:${o.id}:baixar` ? <Loader2 className="animate-spin" /> : <FileDown />} PDF
           </Button>
           {status === 'aprovado' && pode('pedidos', 'criar') && podeEditar && (
             <Button variant="secondary" onClick={() => setDialogo('converter')}>

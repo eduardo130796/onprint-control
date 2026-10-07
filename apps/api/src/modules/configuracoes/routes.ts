@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import type { FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { CATEGORIAS_TEMPLATE, idParamSchema, statusConfigSchema, statusQuerySchema, templateSchema } from '@onprint/shared'
+import { CATEGORIAS_TEMPLATE, idParamSchema, novoStatusSchema, statusConfigSchema, statusQuerySchema, templateSchema } from '@onprint/shared'
 import { criarConfiguracoesService } from './service'
 
 type Service = ReturnType<typeof criarConfiguracoesService>
@@ -12,6 +12,8 @@ function criarConfiguracoesController(service: Service) {
     listarStatus: (entidade?: string) => service.listarStatus(entidade),
     atualizarStatus: (request: FastifyRequest, id: string, dados: z.output<typeof statusConfigSchema>) =>
       service.atualizarStatus(id, dados, autor(request)),
+    criarStatus: (request: FastifyRequest, dados: z.output<typeof novoStatusSchema>) => service.criarStatus(dados, autor(request)),
+    removerStatus: (request: FastifyRequest, id: string) => service.removerStatus(id, autor(request)),
     listarTemplates: (q: { categoria?: string; ativos?: 'true' | 'false' }) =>
       service.listarTemplates({ categoria: q.categoria, somenteAtivos: q.ativos === 'true' }),
     criarTemplate: (request: FastifyRequest, dados: z.output<typeof templateSchema>) =>
@@ -36,9 +38,18 @@ export const configuracoesRoutes: FastifyPluginAsyncZod = async (app) => {
   )
   app.put(
     '/status/:id',
-    { ...pode('editar'), schema: { tags: ['status'], summary: 'Atualiza rótulo, cor e ordem', params: idParamSchema, body: statusConfigSchema } },
+    { ...pode('editar'), schema: { tags: ['status'], summary: 'Atualiza rótulo, cor, ordem e oculto', params: idParamSchema, body: statusConfigSchema } },
     (req) => c.atualizarStatus(req, req.params.id, req.body),
   )
+  app.post(
+    '/status',
+    { ...pode('criar'), schema: { tags: ['status'], summary: 'Cria status próprio (conta como um status do sistema)', body: novoStatusSchema } },
+    async (req, reply) => reply.status(201).send(await c.criarStatus(req, req.body)),
+  )
+  app.delete('/status/:id', { ...pode('excluir'), schema: { tags: ['status'], summary: 'Exclui status próprio', params: idParamSchema } }, async (req, reply) => {
+    await c.removerStatus(req, req.params.id)
+    return reply.status(204).send()
+  })
 
   const templatesQuery = z.object({ categoria: z.enum(CATEGORIAS_TEMPLATE).optional(), ativos: z.enum(['true', 'false']).optional() })
   app.get('/templates', { ...logado, schema: { tags: ['templates'], summary: 'Templates de mensagens', querystring: templatesQuery } }, (req) =>

@@ -27,6 +27,7 @@ export const ProdutosPage = carregar(() => import('@/features/produtos/pages/Pro
 export const AprovarOrcamentoPage = carregar(() => import('@/features/publico/pages/AprovarOrcamentoPage'), 'AprovarOrcamentoPage')
 export const OrcamentoEditorPage = carregar(() => import('@/features/orcamentos/pages/OrcamentoEditorPage'), 'OrcamentoEditorPage')
 export const OrcamentosPage = carregar(() => import('@/features/orcamentos/pages/OrcamentosPage'), 'OrcamentosPage')
+export const OrcamentosKanbanPage = carregar(() => import('@/features/orcamentos/pages/OrcamentosKanbanPage'), 'OrcamentosKanbanPage')
 export const SolicitacoesPage = carregar(() => import('@/features/orcamentos/pages/SolicitacoesPage'), 'SolicitacoesPage')
 export const EntregasPage = carregar(() => import('@/features/pedidos/pages/EntregasPage'), 'EntregasPage')
 export const PedidoPage = carregar(() => import('@/features/pedidos/pages/PedidoPage'), 'PedidoPage')

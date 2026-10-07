@@ -32,6 +32,7 @@ export const orcamentosApi = {
   aprovar: (id: string, nome: string) => acao(id, 'aprovar', { nome }),
   recusar: (id: string, motivo: string) => acao(id, 'recusar', { motivo }),
   reabrir: (id: string) => acao(id, 'reabrir'),
+  statusPersonalizado: (id: string, statusPersonalizadoId: string | null) => acao(id, 'status-personalizado', { statusPersonalizadoId }),
   duplicar: (id: string) => acao(id, 'duplicar'),
   converter: (id: string, dados: unknown) => acao(id, 'converter', dados),
   catalogo: (busca: string) => http<ProdutoCatalogo[]>(`/orcamentos/catalogo${qs({ busca })}`),

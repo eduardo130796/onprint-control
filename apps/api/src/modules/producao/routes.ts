@@ -1,9 +1,10 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import type { FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { apontamentoSchema, idParamSchema, moverOpSchema, opAtualizacaoSchema, opsQuerySchema } from '@onprint/shared'
+import { apontamentoSchema, idParamSchema, moverOpSchema, opAtualizacaoSchema, opsQuerySchema, statusPersonalizadoSchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { contextoUsuario } from '../../core/escopo'
+import { validarStatusPersonalizado } from '../../core/status-personalizado'
 import { baixaAoConcluirOp } from '../estoque/ganchos'
 import { criarOpsService } from './ops.service'
 import { criarPcpService } from './pcp.service'
@@ -38,6 +39,17 @@ export const producaoRoutes: FastifyPluginAsyncZod = async (app) => {
     '/producao/ops/:id/mover',
     { ...pode('editar'), schema: { tags, summary: 'Move a OP no kanban (histórico + tempo na etapa)', params: idParamSchema, body: moverOpSchema } },
     async (req) => ops.mover(req.params.id, req.body, await ctx(req)),
+  )
+  app.post(
+    '/producao/ops/:id/etapa-personalizada',
+    { ...pode('editar'), schema: { tags, summary: 'Coluna própria no kanban (etapa própria da mesma base)', params: idParamSchema, body: statusPersonalizadoSchema } },
+    async (req) => {
+      const op = await ops.obter(req.params.id)
+      const id = await validarStatusPersonalizado(app.prisma, 'producao', req.body.statusPersonalizadoId, op.etapaAtual)
+      await app.prisma.ordemProducao.update({ where: { id: op.id }, data: { etapaPersonalizadaId: id } })
+      app.tempoReal.emitir('producao', 'op:atualizada', { id: op.id, pedidoId: op.pedidoId })
+      return ops.obter(req.params.id)
+    },
   )
   app.put(
     '/producao/ops/:id',

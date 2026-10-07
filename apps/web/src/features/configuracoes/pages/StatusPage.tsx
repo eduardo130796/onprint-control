@@ -1,122 +1,99 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Check, Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
-import { ENTIDADES_STATUS, ENTIDADE_STATUS_ROTULOS, type StatusConfig } from '@onprint/shared'
-import { statusApi } from '@/api/configuracoes'
+import { Info, Plus } from 'lucide-react'
+import { ENTIDADES_COM_STATUS_PROPRIO, ENTIDADES_STATUS, ENTIDADE_STATUS_ROTULOS, type EntidadeComStatusProprio, type EntidadeStatus } from '@onprint/shared'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { EstadoErro } from '@/components/shared/EstadoErro'
-import { StatusBadge } from '@/components/shared/StatusBadge'
-import { CHAVE_STATUS, useStatusConfig } from '@/hooks/useStatusConfig'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { usePermission } from '@/hooks/usePermission'
-import { fundoSuave, textoLegivel } from '@/lib/contraste'
+import { usePermissoes } from '@/hooks/usePermission'
+import { useStatusConfig } from '@/hooks/useStatusConfig'
+import { ordenarStatus } from '@/lib/colunasStatus'
+import { LinhaStatus } from '../components/LinhaStatus'
+import { NovoStatusDialog } from '../components/NovoStatusDialog'
 
-/** Uma linha editável: rótulo, cor e ordem. O código é fixo (usado pelas regras de negócio). */
-function LinhaStatus({ status, podeEditar }: { status: StatusConfig; podeEditar: boolean }) {
-  const queryClient = useQueryClient()
-  const [rotulo, setRotulo] = useState(status.rotulo)
-  const [cor, setCor] = useState(status.cor)
-  const [ordem, setOrdem] = useState(String(status.ordem))
-  const alterado = rotulo !== status.rotulo || cor.toUpperCase() !== status.cor.toUpperCase() || Number(ordem) !== status.ordem
-  const salvar = useMutation({
-    mutationFn: () => statusApi.salvar(status.id, { rotulo: rotulo.trim(), cor, ordem: Number(ordem) || 0 }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: CHAVE_STATUS })
-      toast.success('Status atualizado.')
-    },
-    onError: (e) => toast.error(e.message),
-  })
+const comQuadro = (e: EntidadeStatus): e is EntidadeComStatusProprio => (ENTIDADES_COM_STATUS_PROPRIO as readonly string[]).includes(e)
 
-  return (
-    <tr className="hover:bg-fundo/50">
-      <td className="px-4 py-2 font-mono text-xs text-texto-secundario">{status.codigo}</td>
-      <td className="px-4 py-2">
-        <Input value={rotulo} onChange={(e) => setRotulo(e.target.value)} disabled={!podeEditar} aria-label={`Rótulo de ${status.codigo}`} className="h-9" />
-      </td>
-      <td className="px-4 py-2">
-        <div className="flex items-center gap-2">
-          <input type="color" value={cor} onChange={(e) => setCor(e.target.value.toUpperCase())} disabled={!podeEditar} aria-label={`Cor de ${status.codigo}`} className="h-9 w-10 cursor-pointer rounded border border-input bg-card p-0.5" />
-          <span className="font-mono text-xs">{cor}</span>
-        </div>
-      </td>
-      <td className="px-4 py-2">
-        <Input value={ordem} onChange={(e) => setOrdem(e.target.value.replace(/\D/g, ''))} disabled={!podeEditar} aria-label={`Ordem de ${status.codigo}`} className="h-9 w-20" inputMode="numeric" />
-      </td>
-      <td className="px-4 py-2 text-xs text-texto-secundario">{status.ehFinal ? 'Sim' : '—'}</td>
-      <td className="px-4 py-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium" style={{ backgroundColor: fundoSuave(cor), color: textoLegivel(cor) }}>
-          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: cor }} />
-          {rotulo || status.codigo}
-        </span>
-      </td>
-      <td className="px-4 py-2 text-right">
-        {podeEditar && (
-          <Button size="sm" variant={alterado ? 'default' : 'ghost'} disabled={!alterado || salvar.isPending || !rotulo.trim()} onClick={() => salvar.mutate()}>
-            {salvar.isPending ? <Loader2 className="animate-spin" /> : <Check />} Salvar
-          </Button>
-        )}
-      </td>
-    </tr>
-  )
-}
-
+/**
+ * Status do sistema: nome, cor e ordem de todos; nas telas com kanban (orçamentos, pedidos, produção)
+ * também criar/excluir status próprios (que contam como um do sistema) e ocultar colunas.
+ */
 export function StatusPage() {
   const consulta = useStatusConfig()
-  const podeEditar = usePermission('configuracoes', 'editar')
+  const pode = usePermissoes()
+  const podeEditar = pode('configuracoes', 'editar')
+  const [novo, setNovo] = useState<EntidadeComStatusProprio | null>(null)
 
   return (
     <>
-      <PageHeader titulo="Status do sistema" subtitulo="Rótulos e cores exibidos nos badges de todo o sistema." />
+      <PageHeader titulo="Status do sistema" subtitulo="Nomes, cores e ordem dos status. Nos quadros (orçamentos, pedidos e produção), crie colunas próprias e oculte as que não usa." />
       {consulta.isPending ? (
         <Skeleton className="h-80 w-full" />
       ) : consulta.isError ? (
-        <Card><EstadoErro erro={consulta.error} onTentarNovamente={() => void consulta.refetch()} /></Card>
+        <Card>
+          <EstadoErro erro={consulta.error} onTentarNovamente={() => void consulta.refetch()} />
+        </Card>
       ) : (
         <Tabs defaultValue="orcamento">
-          <TabsList>
+          <TabsList className="flex-wrap">
             {ENTIDADES_STATUS.map((e) => (
               <TabsTrigger key={e} value={e}>
                 {ENTIDADE_STATUS_ROTULOS[e]}
               </TabsTrigger>
             ))}
           </TabsList>
-          {ENTIDADES_STATUS.map((entidade) => (
-            <TabsContent key={entidade} value={entidade}>
-              <Card className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-sm">
-                  <thead className="bg-fundo/60 text-left text-xs uppercase tracking-wide text-texto-secundario">
-                    <tr>
-                      <th className="px-4 py-3 font-medium">Código</th>
-                      <th className="px-4 py-3 font-medium">Rótulo</th>
-                      <th className="px-4 py-3 font-medium">Cor</th>
-                      <th className="px-4 py-3 font-medium">Ordem</th>
-                      <th className="px-4 py-3 font-medium">Final</th>
-                      <th className="px-4 py-3 font-medium">Prévia</th>
-                      <th className="px-4 py-3" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {consulta.data
-                      .filter((s) => s.entidade === entidade)
-                      .map((s) => (
-                        <LinhaStatus key={`${s.id}-${s.rotulo}-${s.cor}-${s.ordem}`} status={s} podeEditar={podeEditar} />
+          {ENTIDADES_STATUS.map((entidade) => {
+            const lista = ordenarStatus(consulta.data.filter((s) => s.entidade === entidade))
+            const quadro = comQuadro(entidade)
+            return (
+              <TabsContent key={entidade} value={entidade} className="space-y-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <p className="flex max-w-3xl items-start gap-2 text-sm text-texto-secundario">
+                    <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                    {quadro
+                      ? 'Os status do sistema não podem ser excluídos (as regras automáticas dependem deles), mas podem ser renomeados, reordenados e ocultados. Status próprios viram colunas no kanban e “contam como” um status do sistema; excluir um deles devolve os registros para a coluna da base.'
+                      : 'Estes status são definidos pelas regras do sistema: dá para mudar o nome, a cor e a ordem em que aparecem.'}
+                  </p>
+                  {quadro && pode('configuracoes', 'criar') && (
+                    <Button onClick={() => setNovo(entidade)}>
+                      <Plus /> Novo status
+                    </Button>
+                  )}
+                </div>
+                <Card className="overflow-x-auto">
+                  <table className="w-full min-w-[820px] text-sm">
+                    <thead className="bg-fundo/60 text-left text-xs uppercase tracking-wide text-texto-secundario">
+                      <tr>
+                        <th className="px-4 py-3 font-medium">Status</th>
+                        <th className="px-4 py-3 font-medium">Cor</th>
+                        <th className="px-4 py-3 font-medium">Ordem</th>
+                        {quadro && <th className="px-4 py-3 font-medium">No kanban</th>}
+                        <th className="px-4 py-3 font-medium">Prévia</th>
+                        <th className="px-4 py-3" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {lista.map((s) => (
+                        <LinhaStatus
+                          key={`${s.id}-${s.rotulo}-${s.cor}-${s.ordem}-${s.ativo}`}
+                          status={s}
+                          rotuloBase={s.base ? lista.find((b) => b.codigo === s.base)?.rotulo : undefined}
+                          podeEditar={podeEditar}
+                          podeExcluir={pode('configuracoes', 'excluir')}
+                          comQuadro={quadro}
+                        />
                       ))}
-                  </tbody>
-                </table>
-              </Card>
-              <p className="mt-3 text-xs text-texto-secundario">
-                Exemplo atual: {consulta.data.filter((s) => s.entidade === entidade).slice(0, 3).map((s) => (
-                  <StatusBadge key={s.id} entidade={entidade} codigo={s.codigo} className="ml-1" />
-                ))}
-              </p>
-            </TabsContent>
-          ))}
+                    </tbody>
+                  </table>
+                </Card>
+              </TabsContent>
+            )
+          })}
         </Tabs>
+      )}
+      {novo && (
+        <NovoStatusDialog entidade={novo} sistema={ordenarStatus(consulta.data?.filter((s) => s.entidade === novo && s.sistema) ?? [])} onFechar={() => setNovo(null)} />
       )}
     </>
   )

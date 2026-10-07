@@ -16,6 +16,8 @@ export interface Pedido {
   orcamento: { id: string; numero: string } | null
   dataPrevistaEntrega: string
   status: StatusPedido
+  /** Coluna própria do kanban (status próprio com base = status) */
+  statusPersonalizadoId: string | null
   statusFinanceiro: StatusFinanceiroPedido
   tipoEntrega: TipoEntrega
   enderecoEntrega: string | null
@@ -34,7 +36,7 @@ export interface Pedido {
   createdAt: string
   updatedAt: string
   /** Resumo para lista e kanban */
-  resumo?: { itens: number; artesAprovadas: number; artes: number; opsConcluidas: number; ops: number }
+  resumo?: { itens: number; artesAprovadas: number; artes: number; opsConcluidas: number; ops: number; principais: string[] }
 }
 
 export interface ArteComentario {
@@ -101,6 +103,12 @@ export interface PedidoDetalhe extends Pedido {
   entregas: Entrega[]
 }
 
+/** Pagamentos efetivos do pedido (recibo). */
+export interface RecebimentosPedido {
+  clienteDocumento: string | null
+  pagamentos: { id: string; data: string; valor: string; descricao: string; forma: string | null }[]
+}
+
 export interface EventoHistorico {
   id: string
   quando: string
@@ -122,6 +130,8 @@ export interface OrdemProducao {
   altura: string | null
   areaM2: string
   etapaAtual: EtapaProducao
+  /** Coluna própria do kanban (etapa própria com base = etapaAtual) */
+  etapaPersonalizadaId: string | null
   maquinaId: string | null
   maquina: Ref | null
   responsavelId: string | null

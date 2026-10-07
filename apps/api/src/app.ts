@@ -13,6 +13,7 @@ import { publicoRoutes } from './modules/publico/routes'
 import { healthRoutes } from './modules/health/routes'
 import { artesRoutes } from './modules/artes/routes'
 import { assinaturaRoutes } from './modules/assinatura/routes'
+import { webhooksRoutes } from './modules/plataforma/webhooks'
 import { pedidosRoutes } from './modules/pedidos/routes'
 import { permissoesRoutes } from './modules/permissoes/routes'
 import { producaoRoutes } from './modules/producao/routes'
@@ -25,7 +26,7 @@ import { produtosRoutes } from './modules/produtos/routes'
 import { usuariosRoutes } from './modules/usuarios/routes'
 import { authPlugin } from './plugins/auth'
 import { cronPlugin } from './plugins/cron'
-import { emailPlugin } from './plugins/email'
+import { integracoesPlugin } from './plugins/integracoes'
 import { errorsPlugin } from './plugins/errors'
 import { permissionsPlugin } from './plugins/permissions'
 import { prismaPlugin } from './plugins/prisma'
@@ -62,7 +63,7 @@ export async function buildApp(config: Env) {
   await app.register(authPlugin)
   await app.register(permissionsPlugin)
   await app.register(storagePlugin)
-  await app.register(emailPlugin)
+  await app.register(integracoesPlugin)
   await app.register(cronPlugin)
   await app.register(socketPlugin)
 
@@ -90,6 +91,7 @@ export async function buildApp(config: Env) {
       await v1.register(dashboardRoutes)
       await v1.register(relatoriosRoutes)
       await v1.register(publicoRoutes, { prefix: '/publico/:empresa' })
+      await v1.register(webhooksRoutes, { prefix: '/plataforma' })
     },
     { prefix: API_PREFIX },
   )

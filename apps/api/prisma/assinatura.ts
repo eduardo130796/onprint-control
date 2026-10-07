@@ -12,11 +12,19 @@
  *   --bloquear "motivo" | --desbloquear         suspensão manual
  *   --cancelar | --reativar
  *   --modulos-extras estoque,relatorios | nenhum
+ *   --cobranca-manual AAAA-MM-DD [--valor 279.00]   lança uma cobrança (modo manual; valor padrão = do plano)
+ *   --registrar-pagamento                       marca como paga a cobrança aberta mais antiga (modo manual)
+ * Sem --empresa:
+ *   --conciliar                                 confere todas as assinaturas com o Asaas e recalcula
  */
 import { parseArgs } from 'node:util'
 import type { Prisma } from '@prisma/client'
 import { MODULOS, NIVEL_ACESSO_ROTULOS, hojeISO } from '@onprint/shared'
+import type { FastifyInstance } from 'fastify'
+import { carregarEnv } from '../src/config/env'
+import { criarGateway } from '../src/integrations/pagamentos'
 import { alterarAssinatura, paraDia, planoPorCodigo, resumirAssinatura } from '../src/plataforma/assinaturas'
+import { conciliarAssinaturas, lancarCobrancaManual, registrarPagamentoManual } from '../src/plataforma/cobrancas'
 import { conexoesDosScripts, executarScript } from './scripts-banco'
 
 const { values: v } = parseArgs({
@@ -35,6 +43,10 @@ const { values: v } = parseArgs({
     reativar: { type: 'boolean', default: false },
     'modulos-extras': { type: 'string' },
     autor: { type: 'string', default: 'cli' },
+    'cobranca-manual': { type: 'string' },
+    valor: { type: 'string' },
+    'registrar-pagamento': { type: 'boolean', default: false },
+    conciliar: { type: 'boolean', default: false },
   },
 })
 
@@ -60,9 +72,28 @@ async function listar() {
 
 executarScript(async () => {
   if (v.listar) return listar()
-  if (!v.empresa) throw new Error('Informe --empresa <slug> ou --listar.')
-  const empresa = await banco.plataforma.assinante.findUnique({ where: { slug: v.empresa } })
-  if (!empresa) throw new Error(`Empresa "${v.empresa}" não encontrada.`)
+  if (v.conciliar) {
+    // O mesmo serviço da API, com o mínimo que ele usa (sem cache para limpar fora do servidor)
+    const config = carregarEnv()
+    const app = { plataforma: banco.plataforma, pagamentos: criarGateway(config), config, empresas: { esquecer: () => undefined }, log: console } as unknown as FastifyInstance
+    const r = await conciliarAssinaturas(app)
+    console.log(`Conferência: ${r.cobrancas} cobrança(s) do Asaas, ${r.assinaturas} assinatura(s) recalculada(s).`)
+    for (const falha of r.falhas) console.log(`Falha: ${falha}`)
+    return
+  }
+  if (!v.empresa) throw new Error('Informe --empresa <slug>, --listar ou --conciliar.')
+  const empresa = await banco.plataforma.assinante.findUnique({ where: { slug: v.empresa }, include: { assinatura: { include: { plano: true } } } })
+  if (!empresa?.assinatura) throw new Error(`Empresa "${v.empresa}" não encontrada ou sem assinatura.`)
+  if (v['cobranca-manual']) {
+    const c = await lancarCobrancaManual(banco.plataforma, empresa.id, dia(v['cobranca-manual'], 'cobranca-manual').toISOString().slice(0, 10), v.valor ?? empresa.assinatura.plano.valorMensal.toFixed(2))
+    console.log(`${empresa.slug}: cobrança manual de R$ ${c.valor.toFixed(2)} com vencimento ${v['cobranca-manual']}.`)
+    return
+  }
+  if (v['registrar-pagamento']) {
+    const c = await registrarPagamentoManual(banco.plataforma, empresa.id)
+    console.log(`${empresa.slug}: pagamento registrado (R$ ${c.valor.toFixed(2)}).`)
+    return
+  }
 
   const dados: Prisma.AssinaturaUncheckedUpdateInput = {}
   const feito: string[] = []

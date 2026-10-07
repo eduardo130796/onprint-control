@@ -152,4 +152,31 @@ export interface MinhaAssinatura {
   planos: { codigo: string; nome: string; descricao: string | null; valorMensal: string; limiteUsuarios: number | null; atual: boolean }[]
   /** Contato do suporte para pagar ou mudar de plano (vazio se não configurado) */
   suporte: string
+  /** Pagamento online (Asaas) disponível na plataforma */
+  pagamentoOnline: boolean
+  /** O usuário pode assinar, trocar plano/forma e cancelar (administrador da empresa) */
+  podeGerenciar: boolean
+  /** Já assinou pelo pagamento online (tem assinatura no gateway) */
+  assinadaOnline: boolean
+  formaPagamento: 'pix_boleto' | 'cartao' | null
+  /** Cancelamento pedido: o acesso segue até esta data */
+  cancelarEm: string | null
+  /** Para preencher o formulário de assinatura */
+  documentoSugerido: string | null
+  /** Cobrança em aberto mais antiga, com o link para pagar */
+  cobrancaAberta: CobrancaResumo | null
+  cobrancas: CobrancaResumo[]
+}
+
+export interface CobrancaResumo {
+  id: string
+  valor: string
+  vencimento: string
+  situacao: 'pendente' | 'paga' | 'vencida' | 'cancelada' | 'estornada'
+  forma: string | null
+  pagoEm: string | null
+  /** Só para cobranças em aberto */
+  linkPagamento: string | null
+  falha: string | null
+  notaFiscal: { situacao: string; numero: string | null; linkPdf: string | null } | null
 }

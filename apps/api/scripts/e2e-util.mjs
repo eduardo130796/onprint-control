@@ -2,8 +2,8 @@
 export const BASE = process.argv[2] ?? 'http://127.0.0.1:3334/api/v1'
 let falhas = 0
 
-export async function chamar(metodo, caminho, { token, body, form } = {}) {
-  const headers = {}
+export async function chamar(metodo, caminho, { token, body, form, headers: extras } = {}) {
+  const headers = { ...extras }
   if (token) headers.Authorization = `Bearer ${token}`
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   const r = await fetch(BASE + caminho, { method: metodo, headers, body: form ?? (body === undefined ? undefined : JSON.stringify(body)) })

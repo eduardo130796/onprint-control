@@ -1650,9 +1650,13 @@ model VendaPdvItem {
 model Assinante {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nome      String
-  /** Identificador curto e fixo, usado nos links públicos (/aprovar/{slug}/{token}) */
+  /**
+   * Identificador curto e fixo, usado nos links públicos (/aprovar/{slug}/{token})
+   */
   slug      String   @unique
-  /** Schema do PostgreSQL com os dados da empresa */
+  /**
+   * Schema do PostgreSQL com os dados da empresa
+   */
   schema    String   @unique
   email     String?
   cnpj      String?
@@ -1664,11 +1668,14 @@ model Assinante {
   tokensSenha TokenSenha[]
   assinatura  Assinatura?
   eventos     EventoAssinatura[]
+  cobrancas   Cobranca[]
 
   @@map("assinantes")
 }
 
-/** E-mail de login → empresa: o e-mail é único em toda a plataforma. */
+/**
+ * E-mail de login → empresa: o e-mail é único em toda a plataforma.
+ */
 model IndiceLogin {
   email       String   @id
   assinanteId String   @map("assinante_id") @db.Uuid
@@ -1691,7 +1698,9 @@ model TokenSenha {
   tokenHash   String    @unique @map("token_hash")
   assinanteId String    @map("assinante_id") @db.Uuid
   usuarioId   String    @map("usuario_id") @db.Uuid
-  /** redefinir | convite */
+  /**
+   * redefinir | convite
+   */
   finalidade  String
   expiraEm    DateTime  @map("expira_em") @db.Timestamptz(3)
   usadoEm     DateTime? @map("usado_em") @db.Timestamptz(3)
@@ -1704,23 +1713,35 @@ model TokenSenha {
   @@map("tokens_senha")
 }
 
-/** Plano vendido: módulos liberados, limite de usuários, teste grátis e prazos do bloqueio. */
+/**
+ * Plano vendido: módulos liberados, limite de usuários, teste grátis e prazos do bloqueio.
+ */
 model Plano {
   id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   codigo                String   @unique
   nome                  String
   descricao             String?
   valorMensal           Decimal  @map("valor_mensal") @db.Decimal(10, 2)
-  /** Códigos de módulo (MODULOS); os essenciais entram sempre */
+  /**
+   * Códigos de módulo (MODULOS); os essenciais entram sempre
+   */
   modulos               String[]
-  /** null = sem limite */
+  /**
+   * null = sem limite
+   */
   limiteUsuarios        Int?     @map("limite_usuarios")
   diasTeste             Int      @default(14) @map("dias_teste")
-  /** Dias de atraso até o sistema ficar só para consulta */
+  /**
+   * Dias de atraso até o sistema ficar só para consulta
+   */
   diasAteSomenteLeitura Int      @default(5) @map("dias_ate_somente_leitura")
-  /** Dias de atraso até o bloqueio total */
+  /**
+   * Dias de atraso até o bloqueio total
+   */
   diasAteBloqueio       Int      @default(15) @map("dias_ate_bloqueio")
-  /** Aparece na página de cadastro e na troca de plano */
+  /**
+   * Aparece na página de cadastro e na troca de plano
+   */
   publico               Boolean  @default(true)
   ativo                 Boolean  @default(true)
   ordem                 Int      @default(0)
@@ -1732,26 +1753,54 @@ model Plano {
   @@map("planos")
 }
 
-/** Assinatura de uma empresa (uma por empresa). O nível de acesso é calculado (calcularAcesso). */
+/**
+ * Assinatura de uma empresa (uma por empresa). O nível de acesso é calculado (calcularAcesso).
+ */
 model Assinatura {
-  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  assinanteId       String    @unique @map("assinante_id") @db.Uuid
-  planoId           String    @map("plano_id") @db.Uuid
-  /** teste | ativa | cancelada */
-  situacao          String    @default("teste")
-  testeAte          DateTime? @map("teste_ate") @db.Date
-  /** Vencimento da cobrança mais antiga ainda não paga (null = em dia) */
-  atrasoDesde       DateTime? @map("atraso_desde") @db.Date
-  proximoVencimento DateTime? @map("proximo_vencimento") @db.Date
-  /** Liberação manual: acesso normal até esta data, mesmo com atraso */
-  liberadoAte       DateTime? @map("liberado_ate") @db.Date
-  bloqueioManual    Boolean   @default(false) @map("bloqueio_manual")
-  motivoBloqueio    String?   @map("motivo_bloqueio")
-  /** Módulos contratados além dos do plano */
-  modulosExtras     String[]  @default([]) @map("modulos_extras")
-  canceladaEm       DateTime? @map("cancelada_em") @db.Timestamptz(3)
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assinanteId         String    @unique @map("assinante_id") @db.Uuid
+  planoId             String    @map("plano_id") @db.Uuid
+  /**
+   * teste | ativa | cancelada
+   */
+  situacao            String    @default("teste")
+  testeAte            DateTime? @map("teste_ate") @db.Date
+  /**
+   * Vencimento da cobrança mais antiga ainda não paga (null = em dia)
+   */
+  atrasoDesde         DateTime? @map("atraso_desde") @db.Date
+  proximoVencimento   DateTime? @map("proximo_vencimento") @db.Date
+  /**
+   * Liberação manual: acesso normal até esta data, mesmo com atraso
+   */
+  liberadoAte         DateTime? @map("liberado_ate") @db.Date
+  bloqueioManual      Boolean   @default(false) @map("bloqueio_manual")
+  motivoBloqueio      String?   @map("motivo_bloqueio")
+  /**
+   * Módulos contratados além dos do plano
+   */
+  modulosExtras       String[]  @default([]) @map("modulos_extras")
+  canceladaEm         DateTime? @map("cancelada_em") @db.Timestamptz(3)
+  /**
+   * Cancelamento pedido pela empresa: vale a partir desta data (fim do período pago)
+   */
+  cancelarEm          DateTime? @map("cancelar_em") @db.Date
+  /**
+   * asaas | manual (sem gateway: o suporte registra as cobranças)
+   */
+  gateway             String    @default("manual")
+  gatewayClienteId    String?   @map("gateway_cliente_id")
+  gatewayAssinaturaId String?   @unique @map("gateway_assinatura_id")
+  /**
+   * pix_boleto (o cliente escolhe na fatura) | cartao (cobrança automática)
+   */
+  formaPagamento      String?   @map("forma_pagamento")
+  /**
+   * CPF/CNPJ usado na cobrança e na nota fiscal
+   */
+  documentoCobranca   String?   @map("documento_cobranca")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   assinante Assinante @relation(fields: [assinanteId], references: [id], onDelete: Cascade)
   plano     Plano     @relation(fields: [planoId], references: [id], onDelete: Restrict)
@@ -1760,14 +1809,18 @@ model Assinatura {
   @@map("assinaturas")
 }
 
-/** Histórico da assinatura (troca de plano, liberação, bloqueio, pagamentos…), para o suporte. */
+/**
+ * Histórico da assinatura (troca de plano, liberação, bloqueio, pagamentos…), para o suporte.
+ */
 model EventoAssinatura {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   assinanteId String   @map("assinante_id") @db.Uuid
   tipo        String
   descricao   String
   dados       Json?
-  /** Quem fez: "sistema", "cli", e-mail do suporte… */
+  /**
+   * Quem fez: "sistema", "cli", e-mail do suporte…
+   */
   autor       String   @default("sistema")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
@@ -1775,4 +1828,67 @@ model EventoAssinatura {
 
   @@index([assinanteId, createdAt])
   @@map("eventos_assinatura")
+}
+
+/**
+ * Mensalidade da assinatura (do Asaas ou lançada pelo suporte no modo manual).
+ */
+model Cobranca {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assinanteId   String    @map("assinante_id") @db.Uuid
+  gateway       String
+  /**
+   * Id da cobrança no gateway (pay_…); vazio no modo manual
+   */
+  gatewayId     String?   @unique @map("gateway_id")
+  valor         Decimal   @db.Decimal(10, 2)
+  vencimento    DateTime  @db.Date
+  /**
+   * pendente | paga | vencida | cancelada | estornada
+   */
+  situacao      String    @default("pendente")
+  /**
+   * PIX, BOLETO, CREDIT_CARD…
+   */
+  forma         String?
+  pagoEm        DateTime? @map("pago_em") @db.Timestamptz(3)
+  /**
+   * Página de pagamento (fatura do Asaas)
+   */
+  linkPagamento String?   @map("link_pagamento")
+  /**
+   * Última recusa do cartão (para o suporte e o aviso na tela)
+   */
+  falha         String?
+  /**
+   * Nota fiscal: agendada | emitida | erro | cancelada
+   */
+  nfSituacao    String?   @map("nf_situacao")
+  nfNumero      String?   @map("nf_numero")
+  nfLinkPdf     String?   @map("nf_link_pdf")
+  nfErro        String?   @map("nf_erro")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  assinante Assinante @relation(fields: [assinanteId], references: [id], onDelete: Cascade)
+
+  @@index([assinanteId, vencimento])
+  @@map("cobrancas")
+}
+
+/**
+ * Aviso recebido do gateway (webhook): guardado antes de processar; o id do evento evita processar duas vezes.
+ */
+model EventoGateway {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gateway      String
+  eventoId     String    @unique @map("evento_id")
+  tipo         String
+  payload      Json
+  recebidoEm   DateTime  @default(now()) @map("recebido_em") @db.Timestamptz(3)
+  processadoEm DateTime? @map("processado_em") @db.Timestamptz(3)
+  erro         String?
+
+  @@index([recebidoEm])
+  @@map("eventos_gateway")
 }

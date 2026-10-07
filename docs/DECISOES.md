@@ -235,6 +235,19 @@ Registro das escolhas feitas onde o [ARQUITETURA.md](ARQUITETURA.md) era ambígu
 | D167 | **Limite de usuários conta só os ativos** e vale ao criar e ao reativar; trocar para um plano menor não desativa ninguém (só impede novos). | Cliente não perde acesso de surpresa; o suporte resolve caso a caso. |
 | D168 | Até o painel (Fase 13), as assinaturas são operadas pelo comando `assinatura` (também usado no e2e). Toda alteração grava um evento em `eventos_assinatura` com autor. A empresa padrão (dona do sistema) fica no plano Completo, ativa. | Operação possível desde já, com histórico para o suporte. |
 
+## Assinaturas — Fase 12 (Asaas)
+
+| # | Decisão | Motivo |
+|---|---|---|
+| D169 | **Asaas atrás de uma interface** (`GatewayPagamentos`); sem `ASAAS_API_KEY` o sistema roda em **modo manual** (o suporte lança e baixa cobranças pelo comando). | Escolha do usuário (Asaas faz cobrança e NFS-e); trocar de gateway no futuro não mexe no resto; ambiente local continua offline. |
+| D170 | Assinatura mensal no Asaas com `billingType` **UNDEFINED** ("PIX ou boleto": o cliente escolhe na fatura, inclusive cartão avulso) ou **CREDIT_CARD** ("cartão automático": informa o cartão no 1º pagamento e as próximas são cobradas sozinhas). O cartão nunca passa pelo nosso servidor (página do Asaas). | Menos atrito para pagar; nada de dados de cartão no sistema (sem escopo PCI). |
+| D171 | **A assinatura é recalculada a partir das cobranças** (`recalcularAssinatura`): atraso = vencimento da cobrança aberta mais antiga; teste/cancelada → ativa no primeiro pagamento; cancelamento agendado entra em vigor na data. Sem nenhuma cobrança registrada, vale o atraso lançado à mão (Fase 11). | Uma regra só para webhook, conferência, modo manual e tela. |
+| D172 | **Webhook**: token em tempo constante; aviso gravado em `eventos_gateway` antes de aplicar; `evento_id` único descarta repetidos (o Asaas entrega "pelo menos uma vez"); resposta **sempre 200** depois de gravar — erro ao aplicar fica no evento. **Conferência diária** (06:30 e ao subir a API) busca cobranças e notas no Asaas e corrige o que um aviso perdido deixou. | Depois de 15 falhas seguidas o Asaas pausa a fila; com a conferência, nenhum pagamento se perde. |
+| D173 | No **teste grátis, a 1ª cobrança vence no fim do teste**; fora dele, vence no dia. A assinatura só vira "ativa" quando o pagamento é confirmado. | Quem assina cedo não perde dias grátis. |
+| D174 | **Cancelar** remove a recorrência no Asaas (e as cobranças em aberto) e agenda o fim do acesso para o próximo vencimento (período pago) ou o fim do teste. Para voltar, assina de novo (reaproveita o cliente no Asaas e desfaz o cancelamento agendado). | Sem reembolso proporcional nem cobrança de período não usado; caminho de volta simples. |
+| D175 | **Só quem tem `configuracoes:editar` (o admin) gerencia** a assinatura, conferido nas permissões do papel *sem* o filtro da assinatura: bloqueado, o admin ainda consegue pagar. Os demais veem a situação e o link de pagamento. Plano menor que o número de usuários ativos é recusado. | Pagar é justamente o que precisa funcionar no bloqueio. |
+| D176 | **NFS-e só depois do pagamento confirmado** (`ON_PAYMENT_CONFIRMATION`), configurada em cada assinatura nova a partir das variáveis `ASAAS_NF_*`. Falha na configuração não impede a assinatura: vira evento para o suporte. | Nada de nota para cobrança não paga; a venda não trava por um problema fiscal. |
+
 ## Fora do escopo registrado
 
 - **Emissão de nota fiscal para os clientes das empresas:** fora do escopo. A NFS-e da mensalidade da assinatura fica com o Asaas (Fase 12).

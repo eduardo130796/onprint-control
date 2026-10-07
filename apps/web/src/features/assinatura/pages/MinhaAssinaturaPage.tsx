@@ -1,13 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
 import { Check, Clock, Eye, Lock, MessageCircle, ShieldCheck, Users } from 'lucide-react'
-import { NIVEL_ACESSO_ROTULOS, SITUACAO_ASSINATURA_ROTULOS, formatarDataSimples, formatarMoeda, type MinhaAssinatura, type NivelAcesso } from '@onprint/shared'
-import { http } from '@/api/http'
+import { NIVEL_ACESSO_ROTULOS, SITUACAO_ASSINATURA_ROTULOS, formatarDataSimples, formatarMoeda, type NivelAcesso } from '@onprint/shared'
+import { assinaturaApi } from '@/api/assinatura'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { EstadoErro } from '@/components/shared/EstadoErro'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils'
+import { AssinarCard } from '../components/AssinarCard'
+import { HistoricoCobrancas } from '../components/HistoricoCobrancas'
+import { PagamentoCard } from '../components/PagamentoCard'
 
 const NIVEL: Record<NivelAcesso, { cor: string; Icone: typeof Check }> = {
   normal: { cor: 'bg-marca-suave text-grafite ring-marca/40', Icone: ShieldCheck },
@@ -28,7 +31,7 @@ function Dado({ rotulo, children }: { rotulo: string; children: React.ReactNode 
 /** Plano, situação (com o porquê), módulos e planos. Acessível mesmo com o sistema bloqueado. */
 export function MinhaAssinaturaPage() {
   const { usuario } = useAuth()
-  const consulta = useQuery({ queryKey: ['assinatura'], queryFn: () => http<MinhaAssinatura>('/assinatura') })
+  const consulta = useQuery({ queryKey: ['assinatura'], queryFn: assinaturaApi.obter })
   const a = consulta.data
 
   return (
@@ -64,6 +67,7 @@ export function MinhaAssinaturaPage() {
                 {a.proximoVencimento && <Dado rotulo="Próximo vencimento">{formatarDataSimples(a.proximoVencimento)}</Dado>}
                 {a.atrasoDesde && <Dado rotulo="Em atraso desde">{formatarDataSimples(a.atrasoDesde)}</Dado>}
                 {a.liberadoAte && <Dado rotulo="Liberado até">{formatarDataSimples(a.liberadoAte)}</Dado>}
+                {a.cancelarEm && <Dado rotulo="Cancelada: acesso até">{formatarDataSimples(a.cancelarEm)}</Dado>}
                 <Dado rotulo="Usuários ativos">
                   <span className="inline-flex items-center gap-1">
                     <Users className="h-4 w-4 text-texto-secundario" aria-hidden="true" />
@@ -87,14 +91,25 @@ export function MinhaAssinaturaPage() {
                 </ol>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-4 text-sm">
-                <MessageCircle className="h-5 w-5 shrink-0 text-marca-escuro" aria-hidden="true" />
-                <p className="min-w-0 flex-1">
-                  Para pagar, mudar de plano ou tirar dúvidas, fale com o suporte{a.suporte ? ':' : '.'} {a.suporte && <strong className="text-grafite">{a.suporte}</strong>}
-                </p>
-              </div>
+              {(!a.pagamentoOnline || !a.podeGerenciar || a.suporte) && (
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-4 text-sm">
+                  <MessageCircle className="h-5 w-5 shrink-0 text-marca-escuro" aria-hidden="true" />
+                  <p className="min-w-0 flex-1">
+                    {!a.pagamentoOnline
+                      ? 'Para pagar ou mudar de plano, fale com o suporte'
+                      : !a.podeGerenciar
+                        ? 'Só o administrador da empresa assina, troca de plano ou cancela. Dúvidas? Fale com o suporte'
+                        : 'Dúvidas sobre a assinatura? Fale com o suporte'}
+                    {a.suporte ? ': ' : '.'}
+                    {a.suporte && <strong className="text-grafite">{a.suporte}</strong>}
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
+
+          {a.assinadaOnline ? <PagamentoCard a={a} /> : a.pagamentoOnline && a.podeGerenciar && <AssinarCard a={a} />}
+          <HistoricoCobrancas cobrancas={a.cobrancas} />
 
           <Card>
             <CardHeader className="pb-3">

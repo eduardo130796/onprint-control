@@ -106,6 +106,30 @@ docker compose exec api npm run assinatura -w @onprint/api -- --empresa grafica-
 
 Outras opções: `--teste-ate`, `--bloquear "motivo"` / `--desbloquear`, `--cancelar` / `--reativar`, `--modulos-extras estoque,relatorios`. Toda alteração fica no histórico (`plataforma.eventos_assinatura`). A empresa nova nasce em teste grátis no plano `PLANO_PADRAO` (ou `--plano` no `empresa:criar`).
 
+## Pagamento online (Asaas)
+
+Sem `ASAAS_API_KEY`, o sistema fica no **modo manual**: as cobranças são lançadas e baixadas pelo suporte (`--cobranca-manual AAAA-MM-DD` e `--registrar-pagamento` no comando `assinatura`). Com a chave, o administrador de cada empresa assina, paga, troca de plano/forma e cancela em **Configurações → Minha assinatura**.
+
+**Ligar o sandbox (testes, sem dinheiro de verdade):**
+
+1. Crie a conta em <https://sandbox.asaas.com> e gere a chave em **Integrações → Chaves de API**.
+2. No `.env`: `ASAAS_API_KEY=<chave>`, `ASAAS_AMBIENTE=sandbox` e `ASAAS_WEBHOOK_TOKEN=<openssl rand -hex 32>`. Recrie a API (`docker compose up -d --force-recreate api`).
+3. No Asaas, em **Integrações → Webhooks**, crie um webhook:
+   - URL: `https://SEU_DOMINIO/api/v1/plataforma/webhooks/asaas`
+   - Token de autenticação: o mesmo `ASAAS_WEBHOOK_TOKEN`
+   - Versão da API: v3; tipo de envio: sequencial
+   - Eventos: **todos de Cobranças** (`PAYMENT_*`) e **todos de Notas fiscais** (`INVOICE_*`)
+4. No computador local o Asaas não alcança `localhost`. Use um túnel (ex.: `cloudflared tunnel --url http://localhost:5173`) e cadastre a URL dele, ou rode a conferência na mão depois de pagar: `docker compose exec api npm run assinatura -w @onprint/api -- --conciliar`.
+5. No sandbox, pague a fatura pelo link "Pagar agora" (o Asaas tem dados de cartão e PIX de teste) ou confirme o recebimento no painel.
+
+**Nota fiscal (NFS-e) da mensalidade:** configure os dados fiscais da sua empresa no Asaas (**Notas fiscais → Configurações**), depois `ASAAS_NF_ATIVA=true`, o serviço (`ASAAS_NF_SERVICO_ID` ou `ASAAS_NF_SERVICO_CODIGO`) e as alíquotas (`ASAAS_NF_ISS`…). Cada assinatura nova passa a emitir a nota sozinha quando o pagamento é confirmado. A nota aparece na lista de mensalidades.
+
+**O que o sistema faz sozinho:**
+- Cada aviso do Asaas é guardado e aplicado uma única vez. Avisos repetidos são ignorados.
+- Pagamento confirmado: a assinatura sai do teste (ou do atraso) e o acesso volta ao normal em segundos.
+- Atraso e cartão recusado aparecem na tela, com o link para pagar.
+- Às 06:30 (e a cada subida da API), uma **conferência** busca no Asaas as cobranças e notas de todas as assinaturas e corrige o que algum aviso perdido deixou para trás.
+
 ## Portas
 
 | Serviço | URL |

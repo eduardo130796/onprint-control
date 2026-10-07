@@ -107,6 +107,13 @@ describe('API — multiempresa', () => {
     expect(respostas.map((r) => r.json().empresa)).toEqual(['slug-e1', 'slug-e2', 'slug-e1', 'slug-e3'])
   })
 
+  it('webhook do Asaas sem o token certo é recusado (antes de tocar no banco)', async () => {
+    const semToken = await app.inject({ method: 'POST', url: '/api/v1/plataforma/webhooks/asaas', payload: { id: 'evt_1', event: 'PAYMENT_RECEIVED' } })
+    expect(semToken.statusCode).toBe(401)
+    const errado = await app.inject({ method: 'POST', url: '/api/v1/plataforma/webhooks/asaas', headers: { 'asaas-access-token': 'qualquer' }, payload: {} })
+    expect(errado.statusCode).toBe(401)
+  })
+
   it('link público com empresa inexistente responde 404', async () => {
     app.empresas.porSlug = async () => null
     const res = await app.inject({ method: 'GET', url: '/api/v1/publico/nao-existe/orcamentos/abcdefghijklmnopqrstuvwxyz' })

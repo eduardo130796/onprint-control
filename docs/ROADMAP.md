@@ -156,8 +156,16 @@ Decisões do usuário: todas as empresas no mesmo sistema; bloqueio escalonado (
 - [x] Verificado: testes unitários (shared 106, api 52) e e2e `fase11` (37 verificações) + regressão das fases 1–10
 - [ ] Aceite validado pelo usuário
 
-### Fase 12 — Asaas
-- [ ] Cliente e assinatura (PIX, cartão, boleto), webhook idempotente, NFS-e automática, sandbox, conferência diária; modo manual sem chave
+### Fase 12 — Asaas ✅ (aguardando OK; falta testar com a conta sandbox real)
+- [x] Gateway atrás de uma interface (`integrations/pagamentos`): cliente, assinatura mensal (PIX/boleto à escolha na fatura ou cartão automático), troca de valor/forma (cobranças em aberto acompanham), cancelamento, cobranças e notas da assinatura
+- [x] Cobranças da mensalidade na plataforma (`cobrancas`) e avisos recebidos (`eventos_gateway`); a assinatura é recalculada a partir das cobranças (atraso, próximo vencimento, teste → ativa no 1º pagamento, cancelamento agendado)
+- [x] Webhook `/api/v1/plataforma/webhooks/asaas`: token conferido em tempo constante, aviso guardado antes de aplicar, id do evento impede processar duas vezes, sempre 200 (erro fica registrado); pagamento, atraso, recusa do cartão, estorno, remoção e notas fiscais
+- [x] NFS-e automática por assinatura (`invoiceSettings`, emitida na confirmação do pagamento), com número e PDF na lista de mensalidades
+- [x] Conferência diária (06:30 e ao subir) e `--conciliar` no comando; modo manual sem chave (`--cobranca-manual`, `--registrar-pagamento`)
+- [x] "Minha assinatura": assinar (plano, forma, CNPJ/CPF; no teste a 1ª cobrança vence no fim do teste), pagar agora, recusa do cartão, trocar plano/forma, cancelar (acesso até o fim do período) e assinar de novo, histórico com nota fiscal; só o administrador gerencia
+- [x] Verificado: testes unitários (api 60) e e2e `fase12` (42 verificações contra um Asaas falso) + regressão das fases 1–11
+- [ ] Teste com a conta sandbox real do Asaas (chave e webhook do usuário)
+- [ ] Aceite validado pelo usuário
 
 ### Fase 13 — Painel da plataforma
 - [ ] Super-admin, indicadores (ativos, teste, inadimplentes, só leitura, bloqueados, cancelados, receita mensal), lista de problemas, ficha da empresa com ações, cadastro de planos, página pública "Criar conta" com teste grátis

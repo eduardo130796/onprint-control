@@ -40,10 +40,35 @@ const envSchema = z.object({
   EMAIL_PASTA: z.string().default(''),
   /** Contato do suporte mostrado em "Minha assinatura" (WhatsApp, e-mail…) */
   SUPORTE_CONTATO: z.string().default(''),
+  /** Asaas: sem chave, o pagamento online fica desligado (modo manual, o suporte registra as cobranças) */
+  ASAAS_API_KEY: z.string().default(''),
+  ASAAS_AMBIENTE: z.enum(['sandbox', 'producao']).default('sandbox'),
+  /** Só para testes (servidor falso); vazio = endereço oficial do ambiente */
+  ASAAS_API_URL: z.string().default(''),
+  /** Token que o Asaas manda no cabeçalho asaas-access-token de cada webhook */
+  ASAAS_WEBHOOK_TOKEN: z.string().default(''),
+  /** NFS-e automática da mensalidade (a conta Asaas precisa estar habilitada para notas) */
+  ASAAS_NF_ATIVA: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  ASAAS_NF_SERVICO_ID: z.string().default(''),
+  ASAAS_NF_SERVICO_CODIGO: z.string().default(''),
+  ASAAS_NF_SERVICO_NOME: z.string().default('Licença de uso de software (ONPrint Control)'),
+  ASAAS_NF_OBSERVACOES: z.string().default(''),
+  ASAAS_NF_RETER_ISS: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  /** Alíquotas em % (Simples Nacional normalmente só o ISS) */
+  ASAAS_NF_ISS: z.coerce.number().min(0).default(0),
+  ASAAS_NF_PIS: z.coerce.number().min(0).default(0),
+  ASAAS_NF_COFINS: z.coerce.number().min(0).default(0),
+  ASAAS_NF_CSLL: z.coerce.number().min(0).default(0),
+  ASAAS_NF_INSS: z.coerce.number().min(0).default(0),
+  ASAAS_NF_IR: z.coerce.number().min(0).default(0),
 })
 
 /** Em produção, segredos fracos ou de exemplo impedem a API de subir. */
 const envProducao = envSchema.superRefine((env, ctx) => {
+  // Com o Asaas ligado, o webhook precisa de um token forte (senão qualquer um "confirma" pagamentos)
+  if (env.ASAAS_API_KEY && env.ASAAS_WEBHOOK_TOKEN.length < 32) {
+    ctx.addIssue({ code: 'custom', path: ['ASAAS_WEBHOOK_TOKEN'], message: 'com ASAAS_API_KEY, defina um token de webhook com 32+ caracteres (openssl rand -hex 32)' })
+  }
   if (env.NODE_ENV !== 'production') return
   for (const chave of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'] as const) {
     if (env[chave].length < 32 || env[chave].includes('troque')) {

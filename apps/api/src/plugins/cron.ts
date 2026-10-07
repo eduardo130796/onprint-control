@@ -1,6 +1,7 @@
 import fp from 'fastify-plugin'
 import cron from 'node-cron'
 import { contextoEmpresa } from '../core/contexto-empresa'
+import { conciliarAssinaturas } from '../plataforma/cobrancas'
 import { avisosDoDia } from '../jobs/avisos-do-dia'
 import { expirarOrcamentos } from '../jobs/expirar-orcamentos'
 import { marcarContasVencidas } from '../jobs/marcar-vencidas'
@@ -37,12 +38,25 @@ export const cronPlugin = fp(async (app) => {
     }),
     cron.schedule('10 0 * * *', () => executar('marcar-vencidas', () => marcarContasVencidas(app.prisma)), { timezone: 'America/Sao_Paulo' }),
     cron.schedule('0 7 * * *', () => executar('avisos-do-dia', () => avisosDoDia(app.prisma)), { timezone: 'America/Sao_Paulo' }),
+    // Plataforma: confere as cobranças no Asaas e recalcula as assinaturas (cancelamentos agendados, atrasos)
+    cron.schedule('30 6 * * *', () => void conciliar(), { timezone: 'America/Sao_Paulo' }),
   ]
+
+  async function conciliar() {
+    try {
+      const r = await conciliarAssinaturas(app)
+      app.log.info({ job: 'conciliar-assinaturas', ...r }, 'Conferência das assinaturas concluída')
+    } catch (erro) {
+      app.log.error({ err: erro, job: 'conciliar-assinaturas' }, 'Conferência das assinaturas falhou')
+    }
+  }
 
   // Ao subir, recupera o que ficou para trás se a API estava desligada à meia-noite
   app.addHook('onReady', async () => {
     await executar('expirar-orcamentos (início)', () => expirarOrcamentos(app.prisma))
     await executar('marcar-vencidas (início)', () => marcarContasVencidas(app.prisma))
+    // Em segundo plano: não atrasa a subida se o Asaas estiver lento
+    void conciliar()
   })
   app.addHook('onClose', async () => {
     for (const t of tarefas) await t.stop()

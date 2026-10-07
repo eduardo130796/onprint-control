@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
 import { CalendarClock, ExternalLink, MapPin, Pencil, Printer, Store, User, Wrench } from 'lucide-react'
-import { formatarDataSimples, formatarMoeda, type Pedido } from '@onprint/shared'
+import { formatarDataSimples, formatarMoeda, saldoPedido, type Pedido } from '@onprint/shared'
 import { BotaoCartao } from '@/components/shared/kanban/BotaoCartao'
 import { SeloAtraso, SeloPrioridade } from '@/components/shared/Selos'
 import { cn } from '@/lib/utils'
+import { ValorPedido } from '@/components/shared/ValorComSaldo'
 
 export interface AcoesCartaoPedido {
   onAbrir: (p: Pedido) => void
@@ -37,15 +38,15 @@ function Progresso({ rotulo, feito, total, cor = 'bg-marca' }: { rotulo: string;
 export function CartaoPedido({ pedido: p, acoes }: { pedido: Pedido; acoes: AcoesCartaoPedido }) {
   const [rotuloFin, corFin] = FINANCEIRO[p.statusFinanceiro]
   const [IconeEntrega, rotuloEntrega] = ENTREGA[p.tipoEntrega]
-  const pctPago = Number(p.total) > 0 ? Math.min(100, (Number(p.valorPago) / Number(p.total)) * 100) : 0
+  const saldo = saldoPedido(p.total, p.valorPago)
   const r = p.resumo
   return (
     <article className={cn('rounded-xl border bg-card p-3.5 text-sm shadow-sm transition-shadow hover:shadow-md', p.atrasado ? 'border-coral/60' : 'border-transparent')}>
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-start justify-between gap-2">
         <Link to={`/pedidos/${p.id}`} className="font-mono text-xs font-semibold text-grafite hover:underline" onPointerDown={(e) => e.stopPropagation()}>
           {p.numero}
         </Link>
-        <span className="font-semibold tabular-nums">{formatarMoeda(p.total)}</span>
+        <ValorPedido pedido={p} />
       </div>
       <p className="mt-0.5 truncate text-[15px] font-semibold" title={p.cliente.nome}>
         {p.cliente.nome}
@@ -68,9 +69,10 @@ export function CartaoPedido({ pedido: p, acoes }: { pedido: Pedido; acoes: Acoe
       )}
       <div className="mt-2.5 flex items-center gap-2">
         <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', corFin)}>{rotuloFin}</span>
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-fundo" title={`Pago ${formatarMoeda(p.valorPago)} de ${formatarMoeda(p.total)}`}>
-          <div className="h-full rounded-full bg-green-500" style={{ width: `${pctPago}%` }} />
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-fundo" title={`Pago ${formatarMoeda(saldo.pago)} de ${formatarMoeda(p.total)}`}>
+          <div className="h-full rounded-full bg-green-500" style={{ width: `${saldo.percentual}%` }} />
         </div>
+        {p.statusFinanceiro === 'parcial' && <span className="text-[11px] tabular-nums text-texto-secundario">pago {formatarMoeda(saldo.pago)}</span>}
       </div>
       <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-texto-secundario">
         <span className={cn('inline-flex items-center gap-1', p.atrasado && 'font-medium text-coral-escuro')}>

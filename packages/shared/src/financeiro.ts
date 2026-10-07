@@ -103,6 +103,23 @@ export function statusFinanceiroPedido(titulos: { valor: Valor; valorPago: Valor
   return ativos.some((t) => dec(t.valorPago).gt(0)) ? 'parcial' : 'pendente'
 }
 
+export interface SaldoPedido {
+  pago: string
+  /** Quanto ainda falta receber (nunca negativo) */
+  falta: string
+  /** 0 a 100, inteiro */
+  percentual: number
+}
+
+/** Quanto do pedido já foi recebido e quanto falta, para as listas e cartões. */
+export function saldoPedido(total: Valor, valorPago: Valor): SaldoPedido {
+  const t = dec(total)
+  const pago = Decimal.max(dec(valorPago), 0)
+  const falta = Decimal.max(t.minus(pago), 0)
+  const percentual = t.gt(0) ? Decimal.min(pago.div(t).mul(100), 100).floor().toNumber() : 0
+  return { pago: moeda(pago), falta: moeda(falta), percentual }
+}
+
 /** Taxa da operadora sobre um recebimento (2 casas). */
 export function taxaDaForma(valor: Valor, taxaPercentual: Valor): string {
   return moeda(dec(valor).mul(dec(taxaPercentual)).div(100))

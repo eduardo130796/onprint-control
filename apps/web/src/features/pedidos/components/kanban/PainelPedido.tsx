@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CircleDollarSign, ExternalLink, Factory, ImageOff, Pencil, Printer, ReceiptText, Tags, User, Wallet } from 'lucide-react'
-import { TIPO_ENTREGA_ROTULOS, formatarDataSimples, formatarMoeda, type Pedido } from '@onprint/shared'
+import { TIPO_ENTREGA_ROTULOS, formatarDataSimples, formatarMoeda, saldoPedido, type Pedido } from '@onprint/shared'
 import { EstadoErro } from '@/components/shared/EstadoErro'
 import { AcaoPainel, DadoPainel, PainelCartao } from '@/components/shared/kanban/PainelCartao'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { ValorComSaldo } from '@/components/shared/ValorComSaldo'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ReceberValorDialog } from '@/features/financeiro/components/ReceberValorDialog'
 import { useImpressao } from '@/features/impressao/useImpressao'
@@ -42,6 +43,7 @@ export function PainelPedido({ pedido: resumo, onFechar }: { pedido: Pedido; onF
           <span className="flex flex-wrap items-center gap-2">
             <StatusBadge entidade="pedido" codigo={resumo.status} />
             <span>{formatarMoeda(resumo.total)}</span>
+            {resumo.statusFinanceiro === 'parcial' && <span className="font-medium text-amber-800">falta {formatarMoeda(saldoPedido(resumo.total, resumo.valorPago).falta)}</span>}
             {resumo.vendedor && (
               <span className="inline-flex items-center gap-1">
                 <User className="h-3.5 w-3.5" /> {resumo.vendedor.nome}
@@ -120,7 +122,7 @@ export function PainelPedido({ pedido: resumo, onFechar }: { pedido: Pedido; onF
                     <li key={c.id} className="flex items-center gap-2 px-3 py-2">
                       <span className="min-w-0 flex-1 truncate">{c.descricao}</span>
                       <span className="text-xs text-texto-secundario">{formatarDataSimples(c.vencimento)}</span>
-                      <span className="font-medium tabular-nums">{formatarMoeda(c.valor)}</span>
+                      <ValorComSaldo total={c.valor} pago={c.valorPago} cancelado={c.status === 'cancelado'} className="font-medium" />
                       <StatusBadge entidade="conta" codigo={c.status} className="text-[11px]" />
                     </li>
                   ))}

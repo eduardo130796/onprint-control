@@ -2,7 +2,7 @@
 COMPOSE = docker compose
 API = $(COMPOSE) exec api
 
-.PHONY: up down logs migrate reset seed test e2e backup restore
+.PHONY: up down logs migrate reset seed test e2e dados-teste backup restore
 
 up:
 	$(COMPOSE) up -d --build
@@ -38,3 +38,6 @@ restore:
 # Teste ponta a ponta num banco descartável (onprint_e2e). Uso: make e2e
 e2e:
 	node scripts/e2e.mjs
+
+dados-teste:
+	$(API) node apps/api/scripts/dados-teste.mjs $(EMAIL) $(SENHA)

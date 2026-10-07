@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Ban, ChevronDown, Copy, FileDown, History, Loader2, Pencil, Printer, ReceiptText, Tags } from 'lucide-react'
 import { toast } from 'sonner'
-import { TIPO_ENTREGA_ROTULOS, formatarData, formatarDataSimples, formatarMoeda } from '@onprint/shared'
+import { TIPO_ENTREGA_ROTULOS, formatarData, formatarDataSimples, formatarMoeda, saldoPedido } from '@onprint/shared'
 import { pedidosApi } from '@/api/producao'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Anexos } from '@/components/shared/Anexos'
@@ -185,6 +185,11 @@ export function PedidoPage() {
           <div>
             <p className="text-xs text-texto-secundario">Total</p>
             <p className="text-base font-semibold text-grafite">{formatarMoeda(pedido.total)}</p>
+            {pedido.statusFinanceiro === 'parcial' && (
+              <p className="text-xs text-texto-secundario">
+                pago {formatarMoeda(pedido.valorPago)} · <span className="font-medium text-amber-800">falta {formatarMoeda(saldoPedido(pedido.total, pedido.valorPago).falta)}</span>
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

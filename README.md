@@ -50,6 +50,7 @@ No primeiro login o sistema **obriga a troca de senha**. Para voltar ao estado i
 | `make seed` | `npm run seed` | Roda o seed (idempotente) |
 | `make test` | `npm test` | Testes unitários (shared, api e web) |
 | `make e2e` | `npm run e2e` | Testes ponta a ponta de todas as fases num banco descartável (`onprint_e2e`), sem tocar nos seus dados (`npm run e2e -- fase2` roda só uma) |
+| `make dados-teste EMAIL=… SENHA=…` | `npm run dados-teste -- <e-mail> <senha>` | Preenche o banco **local** com clientes, fornecedores, orçamentos, pedidos em cada situação de pagamento (nada pago, parcial, pago, atrasado, cancelado) e contas a pagar. Roda uma vez só (não duplica) |
 | `make backup` | `npm run backup` | Dump compactado do banco + uploads em `backups/` |
 | `make restore ARQ=…` | `npm run restore -- backups/…dump` | Restaura um dump do banco |
 

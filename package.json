@@ -22,7 +22,8 @@
     "seed": "docker compose exec api npm run prisma:seed -w @onprint/api",
     "backup": "node scripts/backup.mjs",
     "restore": "node scripts/restore.mjs",
-    "e2e": "node scripts/e2e.mjs"
+    "e2e": "node scripts/e2e.mjs",
+    "dados-teste": "docker compose exec api node apps/api/scripts/dados-teste.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

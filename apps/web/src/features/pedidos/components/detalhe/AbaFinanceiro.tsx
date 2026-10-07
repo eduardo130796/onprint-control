@@ -3,6 +3,7 @@ import { CircleDollarSign, ReceiptText } from 'lucide-react'
 import { formatarDataSimples, formatarMoeda, type ContaReceberResumo, type PedidoDetalhe } from '@onprint/shared'
 import { Can } from '@/components/shared/Can'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { ValorComSaldo } from '@/components/shared/ValorComSaldo'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BaixaDialog } from '@/features/financeiro/components/BaixaDialog'
@@ -56,7 +57,7 @@ export function AbaFinanceiro({ pedido }: { pedido: PedidoDetalhe }) {
                     {c.descricao} <span className="text-texto-secundario">({c.parcela}/{c.totalParcelas})</span>
                   </button>
                   <span className="text-texto-secundario">vence {formatarDataSimples(c.vencimento)}</span>
-                  <span className="font-medium">{formatarMoeda(c.valor)}</span>
+                  <ValorComSaldo total={c.valor} pago={c.valorPago} cancelado={c.status === 'cancelado'} className="font-medium" />
                   <StatusBadge entidade="conta" codigo={c.status} />
                   {['aberto', 'parcial', 'vencido'].includes(c.status) && (
                     <Can modulo="financeiro" acao="editar">

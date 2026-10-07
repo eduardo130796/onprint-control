@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ShoppingCart } from 'lucide-react'
-import { formatarDataSimples, formatarMoeda } from '@onprint/shared'
+import { formatarDataSimples } from '@onprint/shared'
 import { pedidosApi } from '@/api/producao'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { EstadoErro } from '@/components/shared/EstadoErro'
@@ -9,6 +9,7 @@ import { SeloAtraso } from '@/components/shared/Selos'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ValorPedido } from '@/components/shared/ValorComSaldo'
 
 /** Aba "Pedidos" da ficha do cliente (respeita o escopo "só os meus" da API). */
 export function PedidosDoCliente({ clienteId }: { clienteId: string }) {
@@ -33,7 +34,7 @@ export function PedidosDoCliente({ clienteId }: { clienteId: string }) {
               <StatusBadge entidade="pedido" codigo={p.status} />
               {p.atrasado && <SeloAtraso />}
               <span className="text-texto-secundario">entrega {formatarDataSimples(p.dataPrevistaEntrega)}</span>
-              <span className="ml-auto font-medium">{formatarMoeda(p.total)}</span>
+              <ValorPedido pedido={p} className="ml-auto font-medium" />
             </Link>
           </li>
         ))}

@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
-import { STATUS_PEDIDO, formatarData, formatarDataSimples, formatarMoeda, type Pedido, type StatusPedido } from '@onprint/shared'
+import { STATUS_PEDIDO, formatarData, formatarDataSimples, saldoPedido, type Pedido, type StatusPedido } from '@onprint/shared'
 import { pedidosApi } from '@/api/producao'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ABAS_PEDIDOS } from '@/app/abas'
@@ -15,6 +15,7 @@ import { useListagem } from '@/hooks/useListagem'
 import { useStatusConfig } from '@/hooks/useStatusConfig'
 import { buscarTodasPaginas } from '@/lib/paginacao'
 import { cn } from '@/lib/utils'
+import { ValorPedido } from '@/components/shared/ValorComSaldo'
 
 /** Progresso do pedido: artes aprovadas e OPs concluídas. */
 function Progresso({ pedido }: { pedido: Pedido }) {
@@ -61,7 +62,7 @@ export function PedidosPage() {
           </div>
         ),
       },
-      { id: 'total', header: 'Total', meta: { ordenavel: 'total', className: 'text-right' }, cell: ({ row }) => <span className="font-medium">{formatarMoeda(row.original.total)}</span> },
+      { id: 'total', header: 'Total', meta: { ordenavel: 'total', className: 'text-right' }, cell: ({ row }) => <ValorPedido pedido={row.original} className="font-medium" /> },
       { id: 'status', header: 'Status', cell: ({ row }) => <StatusBadge entidade="pedido" codigo={row.original.status} /> },
     ],
     [],
@@ -118,6 +119,8 @@ export function PedidosPage() {
             { titulo: 'Entrega prevista', valor: (p) => formatarDataSimples(p.dataPrevistaEntrega) },
             { titulo: 'Status', valor: (p) => mapa.get(`pedido:${p.status}`)?.rotulo ?? p.status },
             { titulo: 'Total', valor: (p) => Number(p.total).toFixed(2).replace('.', ',') },
+            { titulo: 'Pago', valor: (p) => saldoPedido(p.total, p.valorPago).pago.replace('.', ',') },
+            { titulo: 'A receber', valor: (p) => saldoPedido(p.total, p.valorPago).falta.replace('.', ',') },
           ],
         }}
         vazio={{ titulo: 'Nenhum pedido', descricao: 'Converta um orçamento aprovado para criar o primeiro pedido.' }}

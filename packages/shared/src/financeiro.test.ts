@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aplicarBaixa, calcularVendaPdv, distribuirValor, statusFinanceiroPedido, statusTitulo, taxaDaForma } from './financeiro'
+import { aplicarBaixa, calcularVendaPdv, distribuirValor, saldoPedido, statusFinanceiroPedido, statusTitulo, taxaDaForma } from './financeiro'
 
 describe('aplicarBaixa', () => {
   it('baixa total quita o título', () => {
@@ -85,5 +85,29 @@ describe('distribuirValor (valor avulso do pedido)', () => {
     expect(distribuirValor(parcelas, '500.01').ok).toBe(false)
     expect(distribuirValor(parcelas, '0').ok).toBe(false)
     expect(distribuirValor([], '10').ok).toBe(false)
+  })
+})
+
+describe('saldoPedido (o que falta receber no cartão/lista)', () => {
+  it('sem pagamento: falta o total', () => {
+    expect(saldoPedido('1000', '0')).toEqual({ pago: '0.00', falta: '1000.00', percentual: 0 })
+  })
+  it('sinal de 40%: abate do total', () => {
+    expect(saldoPedido('1000', '400')).toEqual({ pago: '400.00', falta: '600.00', percentual: 40 })
+  })
+  it('vários abatimentos com centavos', () => {
+    expect(saldoPedido('333.33', '111.11')).toEqual({ pago: '111.11', falta: '222.22', percentual: 33 })
+  })
+  it('quase quitado não arredonda para 100%', () => {
+    expect(saldoPedido('100', '99.99')).toMatchObject({ falta: '0.01', percentual: 99 })
+  })
+  it('quitado: nada falta', () => {
+    expect(saldoPedido('250', '250')).toEqual({ pago: '250.00', falta: '0.00', percentual: 100 })
+  })
+  it('nunca fica negativo nem passa de 100% (pedido editado para menos)', () => {
+    expect(saldoPedido('200', '250')).toEqual({ pago: '250.00', falta: '0.00', percentual: 100 })
+  })
+  it('pedido de valor zero', () => {
+    expect(saldoPedido('0', '0')).toEqual({ pago: '0.00', falta: '0.00', percentual: 0 })
   })
 })

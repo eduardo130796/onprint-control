@@ -2,6 +2,7 @@ import fp from 'fastify-plugin'
 import type { FastifyRequest } from 'fastify'
 import type { Acao, Modulo } from '@onprint/shared'
 import { AppError } from '../core/AppError'
+import { contextoEmpresa } from '../core/contexto-empresa'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -17,20 +18,21 @@ declare module 'fastify' {
 }
 
 /**
- * Permissões por papel com cache em memória. O cache é carregado sob demanda
+ * Permissões por papel com cache em memória (por empresa). O cache é carregado sob demanda
  * e invalidado quando a matriz é alterada em Configurações → Permissões.
  */
 export const permissionsPlugin = fp(async (app) => {
   const cache = new Map<string, Promise<Set<string>>>()
 
   function permissoesDoPapel(papelId: string): Promise<Set<string>> {
-    let carregando = cache.get(papelId)
+    const chave = `${contextoEmpresa.exigir().id}:${papelId}`
+    let carregando = cache.get(chave)
     if (!carregando) {
       carregando = app.prisma.papelPermissao
         .findMany({ where: { papelId, papel: { ativo: true } }, include: { permissao: true } })
         .then((lista) => new Set(lista.map((pp) => `${pp.permissao.modulo}:${pp.permissao.acao}`)))
-      carregando.catch(() => cache.delete(papelId))
-      cache.set(papelId, carregando)
+      carregando.catch(() => cache.delete(chave))
+      cache.set(chave, carregando)
     }
     return carregando
   }

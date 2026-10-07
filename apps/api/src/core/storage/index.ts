@@ -6,7 +6,8 @@ export interface ArquivoSalvo {
 }
 
 /**
- * Armazenamento de arquivos. Implementação atual: DiscoLocalStorage (volume "uploads").
+ * Armazenamento de arquivos da empresa do contexto. Implementação atual: StoragePorEmpresa
+ * (uma pasta por empresa no volume "uploads", gravada com DiscoLocalStorage).
  * No futuro basta criar uma implementação S3 com esta mesma interface.
  */
 export interface StorageService {
@@ -15,8 +16,9 @@ export interface StorageService {
   remover(caminho: string): Promise<void>
   /** URL assinada e com validade, para acesso sem login (ex.: arte no link público). */
   gerarUrlTemporaria(arquivoId: string, validadeSegundos?: number): string
-  /** Valida o token de uma URL temporária e devolve o id do arquivo (ou null). */
-  validarTokenTemporario(token: string): string | null
+  /** Valida o token de uma URL temporária e devolve a empresa e o arquivo (ou null). */
+  validarTokenTemporario(token: string): { empresaId: string; arquivoId: string } | null
 }
 
 export { DiscoLocalStorage } from './disco-local'
+export { StoragePorEmpresa } from './por-empresa'

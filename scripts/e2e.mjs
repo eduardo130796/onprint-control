@@ -35,7 +35,7 @@ function rodarFase(fase) {
     'criar banco',
   )
   obrigatorio(
-    exec('api', 'cd apps/api && npx prisma migrate deploy > /dev/null && npx tsx prisma/seed.ts > /dev/null', { DATABASE_URL: URL_BANCO }),
+    exec('api', 'cd apps/api && npx tsx prisma/migrar.ts > /dev/null && npx tsx prisma/seed.ts > /dev/null', { DATABASE_URL: URL_BANCO }),
     'migrations + seed',
   )
   // O argumento --e2e-temporario marca os processos para encerrar só eles (a API de dev tem a mesma linha de comando)

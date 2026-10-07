@@ -119,5 +119,33 @@ Referência completa: [ARQUITETURA.md](ARQUITETURA.md) (seção 14). Decisões: 
 - [x] Verificado: testes unitários (shared 82, api 32, web 16), e2e das fases 1–8 (a fase 8 ganhou 28 verificações destes ajustes) e navegador (arrastes, diálogos, PDFs gerados conferidos)
 - [ ] Aceite validado pelo usuário
 
-## Fase 9 — Integrações (somente sob pedido)
-- [ ] WhatsApp, CEP, e-mail, armazenamento em nuvem, pagamentos
+## Ajustes pós-testes — lote 2 ✅
+- [x] Pagamento parcial visível fora do pedido: cartão do kanban, lista de pedidos, ficha do cliente, painel lateral, cabeçalho do pedido e parcelas da aba Financeiro mostram **"Falta R$ X de R$ Y"** (`saldoPedido` no shared, com testes; componente `ValorComSaldo`)
+- [x] `npm run dados-teste`: clientes, fornecedores, orçamentos, pedidos em cada situação de pagamento e contas a pagar no banco local, pela API
+
+## Assinaturas (venda do sistema como serviço)
+Decisões do usuário: todas as empresas no mesmo sistema; bloqueio escalonado (aviso → só leitura → bloqueio total); NFS-e só da mensalidade (Asaas); e-mail por SMTP genérico. Padrões aprovados: teste grátis de 14 dias, só leitura com 5 dias de atraso, bloqueio total com 15.
+
+### Fase 9 — Multiempresa ✅ (aguardando OK)
+- [x] Um schema do PostgreSQL por empresa + schema `plataforma` (assinantes e índice de login); `app.prisma` escolhe o schema pela empresa da requisição, então os módulos não mudaram (D149–D150)
+- [x] Login pelo e-mail (único na plataforma) encontra a empresa; access token e refresh token levam a empresa; empresa desativada encerra as sessões
+- [x] Empresa nova pela linha de comando (`npm run empresa:criar`): schema, migrations, dados padrão, admin e índice de login, desfazendo tudo se falhar
+- [x] Banco existente virou a empresa padrão (`/principal`, schema `public`), com os arquivos movidos para a pasta dela
+- [x] Separados por empresa: tarefas agendadas, tempo real (salas), uploads (pasta própria; link temporário assinado com a empresa), links públicos de aprovação (`/aprovar/{empresa}/{token}`, `/arte/{empresa}/{token}`) e cache de permissões
+- [x] Subida: `migrar` (plataforma + todos os schemas, pulando os que estão em dia) → `seed` (todas as empresas) → API; `make reset` zera todos os schemas
+- [x] Verificado: testes unitários (api 40, incluindo requisições simultâneas de empresas diferentes), e2e `fase9` (28 verificações de isolamento: dados, numeração, e-mail único, sessão, links públicos, arquivos, tempo real) e regressão das fases 1–8
+- [ ] Aceite validado pelo usuário
+
+### Fase 10 — E-mail e recuperação de senha
+- [ ] Envio por SMTP genérico (`.env`); sem SMTP, só registra no log
+- [ ] "Esqueci a senha" com link de uso único (1 h); boas-vindas e convite de usuário
+
+### Fase 11 — Planos, módulos e bloqueio
+- [ ] Planos com módulos liberados e limite de usuários; módulo fora do plano some do menu e é recusado pela API
+- [ ] Bloqueio escalonado: aviso → só leitura → bloqueio total (só a tela de pagamento); tela "Minha assinatura"
+
+### Fase 12 — Asaas
+- [ ] Cliente e assinatura (PIX, cartão, boleto), webhook idempotente, NFS-e automática, sandbox, conferência diária; modo manual sem chave
+
+### Fase 13 — Painel da plataforma
+- [ ] Super-admin, indicadores (ativos, teste, inadimplentes, só leitura, bloqueados, cancelados, receita mensal), lista de problemas, ficha da empresa com ações, cadastro de planos, página pública "Criar conta" com teste grátis

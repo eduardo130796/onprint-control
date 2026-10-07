@@ -45,6 +45,8 @@ export async function buildApp(config: Env) {
   const app = Fastify({
     logger: { level: config.LOG_LEVEL },
     trustProxy: true,
+    // URL temporária de arquivo: {empresa}~{arquivo}.{validade}.{assinatura} passa do padrão (100)
+    routerOptions: { maxParamLength: 300 },
   }).withTypeProvider<ZodTypeProvider>()
 
   app.setValidatorCompiler(validatorCompiler)
@@ -83,7 +85,7 @@ export async function buildApp(config: Env) {
       await v1.register(caixaRoutes)
       await v1.register(dashboardRoutes)
       await v1.register(relatoriosRoutes)
-      await v1.register(publicoRoutes, { prefix: '/publico' })
+      await v1.register(publicoRoutes, { prefix: '/publico/:empresa' })
     },
     { prefix: API_PREFIX },
   )

@@ -1642,3 +1642,38 @@ model VendaPdvItem {
   @@index([vendaId])
   @@map("vendas_pdv_itens")
 }
+
+// ─── Plataforma: empresas assinantes e índice de login ──────────────────────
+// Usadas só no schema "plataforma". Cada empresa tem o próprio schema com as demais tabelas;
+// como todos os schemas recebem as mesmas migrations, estas tabelas também existem (vazias) neles.
+
+model Assinante {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome      String
+  /** Identificador curto e fixo, usado nos links públicos (/aprovar/{slug}/{token}) */
+  slug      String   @unique
+  /** Schema do PostgreSQL com os dados da empresa */
+  schema    String   @unique
+  email     String?
+  cnpj      String?
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  logins IndiceLogin[]
+
+  @@map("assinantes")
+}
+
+/** E-mail de login → empresa: o e-mail é único em toda a plataforma. */
+model IndiceLogin {
+  email       String   @id
+  assinanteId String   @map("assinante_id") @db.Uuid
+  usuarioId   String   @map("usuario_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  assinante Assinante @relation(fields: [assinanteId], references: [id], onDelete: Cascade)
+
+  @@index([assinanteId])
+  @@map("indice_login")
+}

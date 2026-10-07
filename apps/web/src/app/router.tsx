@@ -167,8 +167,8 @@ export const router = createBrowserRouter(
   [
   // Rotas públicas
   { path: '/login', element: <LoginPage /> },
-  { path: '/aprovar/:token', element: comCarregamento(<AprovarOrcamentoPage />) },
-  { path: '/arte/:token', element: comCarregamento(<AprovarArtePage />) },
+  { path: '/aprovar/:empresa/:token', element: comCarregamento(<AprovarOrcamentoPage />) },
+  { path: '/arte/:empresa/:token', element: comCarregamento(<AprovarArtePage />) },
   // Rotas protegidas
   {
     element: <ProtectedRoute />,

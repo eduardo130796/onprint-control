@@ -1,7 +1,8 @@
 import { formatarDataSimples, preencherTemplate, type MensagemTemplate, type PedidoDetalhe } from '@onprint/shared'
+import { linkPublico } from '@/lib/empresaAtual'
 
 export function linkArte(token: string): string {
-  return `${window.location.origin}/arte/${token}`
+  return linkPublico('arte', token)
 }
 
 const primeiroNome = (nome: string) => nome.split(' ')[0] ?? nome

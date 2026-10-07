@@ -28,6 +28,8 @@ export const usuarioLogadoSchema = z.object({
   papel: z.object({ id: z.string().uuid(), codigo: z.string(), nome: z.string() }),
   /** Lista de permissões no formato "modulo:acao" */
   permissoes: z.array(z.string()),
+  /** Empresa assinante do usuário (o slug identifica os links públicos) */
+  empresa: z.object({ id: z.string().uuid(), nome: z.string(), slug: z.string() }),
 })
 export type UsuarioLogado = z.infer<typeof usuarioLogadoSchema>
 

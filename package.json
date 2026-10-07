@@ -23,6 +23,7 @@
     "backup": "node scripts/backup.mjs",
     "restore": "node scripts/restore.mjs",
     "e2e": "node scripts/e2e.mjs",
+    "empresa:criar": "docker compose exec api npm run empresa:criar -w @onprint/api --",
     "dados-teste": "docker compose exec api node apps/api/scripts/dados-teste.mjs"
   },
   "devDependencies": {

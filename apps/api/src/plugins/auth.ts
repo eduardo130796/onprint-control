@@ -3,6 +3,7 @@ import jwt from '@fastify/jwt'
 import type { FastifyRequest } from 'fastify'
 import { CODIGOS_ERRO } from '@onprint/shared'
 import { AppError } from '../core/AppError'
+import { contextoEmpresa } from '../core/contexto-empresa'
 
 /** Conteúdo do access token (JWT curto). */
 export interface AccessTokenPayload {
@@ -10,6 +11,8 @@ export interface AccessTokenPayload {
   papelId: string
   /** true enquanto o usuário precisa trocar a senha */
   dts: boolean
+  /** Empresa assinante (id em plataforma.assinantes) */
+  emp: string
 }
 
 declare module '@fastify/jwt' {
@@ -28,15 +31,19 @@ declare module 'fastify' {
   }
 }
 
-async function verificarToken(request: FastifyRequest) {
-  try {
-    await request.jwtVerify()
-  } catch {
-    throw AppError.naoAutenticado()
-  }
-}
-
 export const authPlugin = fp(async (app) => {
+  /** Valida o token e entra no schema da empresa dele (desativada = sessão encerrada). */
+  async function verificarToken(request: FastifyRequest) {
+    try {
+      await request.jwtVerify()
+    } catch {
+      throw AppError.naoAutenticado()
+    }
+    const empresa = await app.empresas.porId(request.user.emp)
+    if (!empresa) throw AppError.naoAutenticado()
+    contextoEmpresa.definir(empresa)
+  }
+
   await app.register(jwt, {
     secret: app.config.JWT_ACCESS_SECRET,
     sign: { expiresIn: app.config.JWT_ACCESS_EXPIRES.texto },

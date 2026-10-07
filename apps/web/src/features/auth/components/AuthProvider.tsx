@@ -3,12 +3,14 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { LoginInput, TrocarSenhaInput, UsuarioLogado } from '@onprint/shared'
 import { authApi } from '@/api/auth'
 import { aoSessaoExpirar, renovarSessao, talvezHajaSessao } from '@/api/http'
+import { definirEmpresaAtual } from '@/lib/empresaAtual'
 import { AuthContext } from '../authContext'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
   const [usuario, setUsuario] = useState<UsuarioLogado | null>(null)
   const [carregando, setCarregando] = useState(true)
+  definirEmpresaAtual(usuario?.empresa.slug ?? '')
 
   // Ao abrir o app, tenta recuperar a sessão pelo cookie de refresh
   useEffect(() => {

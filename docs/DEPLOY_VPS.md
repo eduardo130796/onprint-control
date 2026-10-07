@@ -225,7 +225,7 @@ O script:
 1. faz um backup;
 2. baixa a versão nova com `git pull`, se houver repositório (sem git, **copie os arquivos novos antes**, como no passo 6, sem apagar `.env.prod` e `backups/`);
 3. reconstrói as imagens;
-4. sobe os containers: as migrations novas são aplicadas sozinhas;
+4. sobe os containers: as migrations novas são aplicadas sozinhas, na plataforma e no schema de cada empresa;
 5. limpa imagens antigas.
 
 O sistema fica fora do ar por menos de um minuto durante a troca.
@@ -255,8 +255,12 @@ O script pede para digitar `RESTAURAR`, para a API, restaura o banco (e os arqui
 | Espaço em disco | `df -h` e `docker system df` |
 | Liberar imagens antigas | `docker image prune -f` |
 | Abrir o banco (psql) | `onprint exec db psql -U onprint -d onprint` |
+| Criar uma empresa assinante | `onprint exec api node dist/criar-empresa.js --nome "Gráfica X" --email dono@graficax.com.br --senha SenhaProvisoria1` |
+| Listar as empresas | `onprint exec db psql -U onprint -d onprint -c "select nome, slug, schema, ativo from plataforma.assinantes"` |
 
 Os logs de cada container são limitados a 3 arquivos de 10 MB, para não lotar o disco.
+
+Cada empresa assinante tem o próprio schema no mesmo banco (`plataforma` guarda a lista de empresas). O backup diário (`pg_dump` do banco inteiro) já inclui todos eles, e os arquivos ficam em `uploads/empresas/{id}`.
 
 ## 13. Checklist de segurança
 

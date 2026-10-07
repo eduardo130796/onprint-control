@@ -13,6 +13,10 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().default(3333),
   HOST: z.string().default('0.0.0.0'),
   DATABASE_URL: z.string().url(),
+  /** Conexões abertas por empresa (cada empresa tem o próprio pool) */
+  DB_CONEXOES_POR_EMPRESA: z.coerce.number().int().min(1).max(20).default(3),
+  /** Empresas com pool aberto ao mesmo tempo; as menos usadas são fechadas */
+  DB_MAX_EMPRESAS_ABERTAS: z.coerce.number().int().min(1).default(60),
   JWT_ACCESS_SECRET: z.string().min(8),
   JWT_REFRESH_SECRET: z.string().min(8),
   JWT_ACCESS_EXPIRES: duracao('15m'),

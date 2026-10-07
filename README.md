@@ -45,8 +45,9 @@ No primeiro login o sistema **obriga a troca de senha**. Para voltar ao estado i
 | `make up` | `npm run up` | Sobe db, api e web |
 | `make down` | `npm run down` | Para os containers (os dados ficam nos volumes) |
 | `make logs` | `npm run logs` | Logs de todos os serviços |
-| `make migrate NOME=x` | `npm run migrate -- --name x` | Cria e aplica uma migration a partir do `schema.prisma` |
-| `make reset` | `npm run reset` | Recria o banco do zero (migrations + seed) |
+| `make migrate NOME=x` | `npm run migrate -- --name x` | Cria e aplica uma migration a partir do `schema.prisma` (no schema `public`; as outras empresas recebem na próxima subida da API) |
+| `make reset` | `npm run reset` | Recria o banco do zero: apaga a plataforma e todas as empresas, aplica migrations e seed |
+| | `npm run empresa:criar -- --nome "Gráfica X" --email dono@x.com --senha Inicial123` | Cria uma empresa assinante (schema próprio, dados padrão e admin, com troca de senha no 1º login). `--exemplos` traz o catálogo de exemplo |
 | `make seed` | `npm run seed` | Roda o seed (idempotente) |
 | `make test` | `npm test` | Testes unitários (shared, api e web) |
 | `make e2e` | `npm run e2e` | Testes ponta a ponta de todas as fases num banco descartável (`onprint_e2e`), sem tocar nos seus dados (`npm run e2e -- fase2` roda só uma) |

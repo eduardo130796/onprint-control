@@ -13,7 +13,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
-    "prisma:reset": "prisma migrate reset --force",
+    "prisma:migrar": "tsx prisma/migrar.ts",
+    "prisma:reset": "tsx prisma/resetar.ts && tsx prisma/migrar.ts && tsx prisma/seed.ts",
+    "empresa:criar": "tsx prisma/criar-empresa.ts",
     "prisma:seed": "prisma db seed"
   },
   "prisma": {

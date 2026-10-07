@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { EntidadeArquivo } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
+import { contextoEmpresa } from '../../core/contexto-empresa'
 import type { ArquivosService } from './service'
 
 export function criarArquivosController(app: FastifyInstance, service: ArquivosService) {
@@ -66,9 +67,11 @@ export function criarArquivosController(app: FastifyInstance, service: ArquivosS
     },
 
     async baixarPublico(reply: FastifyReply, token: string) {
-      const id = app.storage.validarTokenTemporario(token)
-      if (!id) throw AppError.naoEncontrado('Link expirado ou inválido.')
-      return enviarConteudo(reply, await service.obter(id))
+      const ref = app.storage.validarTokenTemporario(token)
+      const empresa = ref && (await app.empresas.porId(ref.empresaId))
+      if (!ref || !empresa) throw AppError.naoEncontrado('Link expirado ou inválido.')
+      contextoEmpresa.definir(empresa)
+      return enviarConteudo(reply, await service.obter(ref.arquivoId))
     },
 
     async remover(request: FastifyRequest, id: string) {

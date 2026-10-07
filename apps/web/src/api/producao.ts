@@ -16,6 +16,7 @@ import type {
   StatusPedido,
 } from '@onprint/shared'
 import { http, qs, upload } from './http'
+import type { LinkPublico } from './comercial'
 
 /** Pedidos, artes, entregas, produção e PCP (Fase 4). */
 export const pedidosApi = {
@@ -68,10 +69,12 @@ export const pcpApi = {
 }
 
 /** Link público da arte (sem login). */
+const artePublica = (l: LinkPublico) => `/publico/${encodeURIComponent(l.empresa)}/artes/${encodeURIComponent(l.token)}`
+
 export const artePublicaApi = {
-  obter: (token: string) => http<ArtePublica>(`/publico/artes/${token}`, { autenticado: false }),
-  aprovar: (token: string, nome: string) =>
-    http<ArtePublica>(`/publico/artes/${token}/aprovar`, { method: 'POST', body: { nome, aceite: true }, autenticado: false }),
-  pedirAjuste: (token: string, nome: string, comentario: string) =>
-    http<ArtePublica>(`/publico/artes/${token}/ajuste`, { method: 'POST', body: { nome, comentario }, autenticado: false }),
+  obter: (l: LinkPublico) => http<ArtePublica>(artePublica(l), { autenticado: false }),
+  aprovar: (l: LinkPublico, nome: string) =>
+    http<ArtePublica>(`${artePublica(l)}/aprovar`, { method: 'POST', body: { nome, aceite: true }, autenticado: false }),
+  pedirAjuste: (l: LinkPublico, nome: string, comentario: string) =>
+    http<ArtePublica>(`${artePublica(l)}/ajuste`, { method: 'POST', body: { nome, comentario }, autenticado: false }),
 }

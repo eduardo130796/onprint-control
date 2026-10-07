@@ -4,7 +4,7 @@ import { mkdir, rm, stat } from 'node:fs/promises'
 import { dirname, join, normalize, sep } from 'node:path'
 import type { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import type { ArquivoSalvo, StorageService } from './index'
+import type { ArquivoSalvo } from './index'
 
 /** Nome seguro para disco: sem acentos, espaços ou caracteres especiais. */
 export function nomeSeguro(nome: string): string {
@@ -17,8 +17,8 @@ export function nomeSeguro(nome: string): string {
   return (limpo || 'arquivo').slice(-120)
 }
 
-/** Grava em {raiz}/{categoria}/{ano}/{mes}/{uuid}-{nome}. */
-export class DiscoLocalStorage implements StorageService {
+/** Grava em {raiz}/{categoria}/{ano}/{mes}/{uuid}-{nome}; assina links temporários com um id opaco. */
+export class DiscoLocalStorage {
   constructor(
     private readonly raiz: string,
     private readonly segredo: string,

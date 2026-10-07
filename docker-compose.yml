@@ -31,7 +31,7 @@ services:
     command: >
       sh -c "npm install --no-audit --no-fund &&
              npm run prisma:generate -w @onprint/api &&
-             npm run prisma:deploy -w @onprint/api &&
+             npm run prisma:migrar -w @onprint/api &&
              npm run prisma:seed -w @onprint/api &&
              npm run dev -w @onprint/api"
     ports:

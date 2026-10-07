@@ -7,9 +7,10 @@ import {
   type MensagemTemplate,
   type OrcamentoDetalhe,
 } from '@onprint/shared'
+import { linkPublico } from '@/lib/empresaAtual'
 
 export function linkAprovacao(token: string): string {
-  return `${window.location.origin}/aprovar/${token}`
+  return linkPublico('aprovar', token)
 }
 
 const PADRAO =

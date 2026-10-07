@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildApp } from '../src/app'
 import { carregarEnv } from '../src/config/env'
+import { contextoEmpresa } from '../src/core/contexto-empresa'
 
 // Estes testes não tocam o banco: validam contrato de erros e proteção das rotas.
 const config = carregarEnv({
@@ -15,13 +16,17 @@ let app: Awaited<ReturnType<typeof buildApp>>
 
 beforeAll(async () => {
   app = await buildApp(config)
-  // Rota protegida por `autenticar` registrada só para os testes
-  app.get('/teste/protegida', { onRequest: [app.autenticar] }, async () => ({ ok: true }))
+  // Sem banco: só a empresa "e1" existe (as demais contam como inexistentes ou desativadas)
+  app.empresas.porId = async (id) => (id === 'e1' ? { id: 'e1', nome: 'Gráfica Teste', slug: 'grafica-teste', schema: 'emp_teste' } : null)
+  // Rotas protegidas por `autenticar` registradas só para os testes; devolvem a empresa vista pelo handler
+  const empresaDoContexto = async () => ({ ok: true, empresa: contextoEmpresa.atual()?.slug ?? null })
+  app.get('/teste/protegida', { onRequest: [app.autenticar] }, empresaDoContexto)
+  app.post('/teste/protegida', { onRequest: [app.autenticar] }, empresaDoContexto)
   await app.ready()
 })
 
-function bearer(dts: boolean) {
-  return { authorization: `Bearer ${app.jwt.sign({ sub: 'u1', papelId: 'p1', dts })}` }
+function bearer(dts: boolean, emp = 'e1') {
+  return { authorization: `Bearer ${app.jwt.sign({ sub: 'u1', papelId: 'p1', dts, emp })}` }
 }
 afterAll(() => app.close())
 
@@ -72,5 +77,34 @@ describe('API — contrato de erros', () => {
   it('libera a rota protegida com token válido e senha já trocada', async () => {
     const res = await app.inject({ method: 'GET', url: '/teste/protegida', headers: bearer(false) })
     expect(res.statusCode).toBe(200)
+  })
+})
+
+describe('API — multiempresa', () => {
+  it('o handler enxerga a empresa do token (GET e POST com corpo)', async () => {
+    const get = await app.inject({ method: 'GET', url: '/teste/protegida', headers: bearer(false) })
+    expect(get.json().empresa).toBe('grafica-teste')
+    const post = await app.inject({ method: 'POST', url: '/teste/protegida', headers: bearer(false), payload: { qualquer: 'coisa' } })
+    expect(post.json().empresa).toBe('grafica-teste')
+  })
+
+  it('401 se a empresa do token não existe ou foi desativada', async () => {
+    const res = await app.inject({ method: 'GET', url: '/teste/protegida', headers: bearer(false, 'e2') })
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('requisições simultâneas de empresas diferentes não se misturam', async () => {
+    app.empresas.porId = async (id) => {
+      await new Promise((r) => setTimeout(r, id === 'e1' ? 30 : 5))
+      return id ? { id, nome: id, slug: `slug-${id}`, schema: `emp_${id}` } : null
+    }
+    const respostas = await Promise.all(['e1', 'e2', 'e1', 'e3'].map((emp) => app.inject({ method: 'POST', url: '/teste/protegida', headers: bearer(false, emp), payload: {} })))
+    expect(respostas.map((r) => r.json().empresa)).toEqual(['slug-e1', 'slug-e2', 'slug-e1', 'slug-e3'])
+  })
+
+  it('link público com empresa inexistente responde 404', async () => {
+    app.empresas.porSlug = async () => null
+    const res = await app.inject({ method: 'GET', url: '/api/v1/publico/nao-existe/orcamentos/abcdefghijklmnopqrstuvwxyz' })
+    expect(res.statusCode).toBe(404)
   })
 })

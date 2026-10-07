@@ -37,5 +37,5 @@ RUN npm run prisma:generate -w @onprint/api
 COPY --from=build /app/apps/api/dist apps/api/dist
 WORKDIR /app/apps/api
 EXPOSE 3333
-# Migrations pendentes → seed idempotente (papéis, permissões, status, admin inicial) → API
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/seed.js && exec node dist/server.js"]
+# Migrations (plataforma + schema de cada empresa) → seed idempotente de cada empresa → API
+CMD ["sh", "-c", "node dist/migrar.js && node dist/seed.js && exec node dist/server.js"]

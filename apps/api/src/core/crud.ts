@@ -50,11 +50,12 @@ export function criarCrud<TDados extends object, TQuery extends QueryCadastro>(
   cfg: ConfigCrud<TDados, TQuery>,
 ) {
   const { prisma } = app
-  const db = cfg.delegate(prisma)
+  // Resolvido a cada chamada: `prisma` aponta para o schema da empresa da requisição
+  const db = () => cfg.delegate(prisma)
   const incluir = cfg.include ? { include: cfg.include } : {}
 
   async function obter(id: string) {
-    const registro = await db.findUnique({ where: { id }, ...incluir })
+    const registro = await db().findUnique({ where: { id }, ...incluir })
     if (!registro) throw AppError.naoEncontrado(`${cfg.rotulo} não encontrado(a).`)
     return registro
   }
@@ -70,7 +71,7 @@ export function criarCrud<TDados extends object, TQuery extends QueryCadastro>(
         ...(texto ? { OR: cfg.busca.map((campo) => ({ [campo]: texto })) } : {}),
       }
       const pag = paginacao(q, cfg.ordenaveis, cfg.padrao)
-      const [total, data] = await Promise.all([db.count({ where }), db.findMany({ where, ...pag, ...incluir })])
+      const [total, data] = await Promise.all([db().count({ where }), db().findMany({ where, ...pag, ...incluir })])
       return paginado(data, total, q)
     },
 

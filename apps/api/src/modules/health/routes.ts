@@ -16,7 +16,7 @@ export const healthRoutes: FastifyPluginAsyncZod = async (app) => {
     async (_request, reply) => {
       const horario = new Date().toISOString()
       try {
-        await app.prisma.$queryRaw`SELECT 1`
+        await app.plataforma.$queryRaw`SELECT 1`
         return { status: 'ok' as const, banco: 'ok' as const, horario }
       } catch (erro) {
         app.log.error({ err: erro }, 'Banco indisponível')

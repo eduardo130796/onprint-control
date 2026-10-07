@@ -44,10 +44,18 @@ export const templatesLeituraApi = {
 }
 
 /** Rotas públicas do link de aprovação (sem login). */
+export interface LinkPublico {
+  /** Slug da empresa (o link público diz de qual empresa é o documento) */
+  empresa: string
+  token: string
+}
+
+const orcamentoPublico = (l: LinkPublico) => `/publico/${encodeURIComponent(l.empresa)}/orcamentos/${encodeURIComponent(l.token)}`
+
 export const publicoApi = {
-  obter: (token: string) => http<OrcamentoPublico>(`/publico/orcamentos/${token}`, { autenticado: false }),
-  aprovar: (token: string, nome: string) =>
-    http<OrcamentoPublico>(`/publico/orcamentos/${token}/aprovar`, { method: 'POST', body: { nome, aceite: true }, autenticado: false }),
-  recusar: (token: string, motivo: string) =>
-    http<OrcamentoPublico>(`/publico/orcamentos/${token}/recusar`, { method: 'POST', body: { motivo }, autenticado: false }),
+  obter: (l: LinkPublico) => http<OrcamentoPublico>(orcamentoPublico(l), { autenticado: false }),
+  aprovar: (l: LinkPublico, nome: string) =>
+    http<OrcamentoPublico>(`${orcamentoPublico(l)}/aprovar`, { method: 'POST', body: { nome, aceite: true }, autenticado: false }),
+  recusar: (l: LinkPublico, motivo: string) =>
+    http<OrcamentoPublico>(`${orcamentoPublico(l)}/recusar`, { method: 'POST', body: { motivo }, autenticado: false }),
 }

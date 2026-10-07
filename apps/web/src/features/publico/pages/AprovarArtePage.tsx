@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, Download, History, Loader2, Palette, PencilLine } from 'lucide-react'
 import { formatarDataHora, type ArtePublica } from '@onprint/shared'
+import type { LinkPublico } from '@/api/comercial'
 import { artePublicaApi } from '@/api/producao'
 import { Logo } from '@/components/layout/Logo'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
@@ -29,7 +30,7 @@ function Visualizacao({ arte }: { arte: ArtePublica }) {
   )
 }
 
-function Resposta({ token, arte }: { token: string; arte: ArtePublica }) {
+function Resposta({ link, arte }: { link: LinkPublico; arte: ArtePublica }) {
   const queryClient = useQueryClient()
   const [modo, setModo] = useState<'aprovar' | 'ajuste'>('aprovar')
   const [nome, setNome] = useState('')
@@ -37,8 +38,8 @@ function Resposta({ token, arte }: { token: string; arte: ArtePublica }) {
   const [comentario, setComentario] = useState('')
   const [erro, setErro] = useState<string>()
   const enviar = useMutation({
-    mutationFn: () => (modo === 'aprovar' ? artePublicaApi.aprovar(token, nome) : artePublicaApi.pedirAjuste(token, nome, comentario)),
-    onSuccess: (r) => queryClient.setQueryData(['publico', 'arte', token], r),
+    mutationFn: () => (modo === 'aprovar' ? artePublicaApi.aprovar(link, nome) : artePublicaApi.pedirAjuste(link, nome, comentario)),
+    onSuccess: (r) => queryClient.setQueryData(['publico', 'arte', link.empresa, link.token], r),
     onError: (e) => setErro(e.message),
   })
 
@@ -115,10 +116,11 @@ function Situacao({ arte }: { arte: ArtePublica }) {
   return null
 }
 
-/** Página pública /arte/:token: o cliente vê a arte e aprova ou pede ajuste, sem login. */
+/** Página pública /arte/:empresa/:token: o cliente vê a arte e aprova ou pede ajuste, sem login. */
 export function AprovarArtePage() {
-  const { token = '' } = useParams()
-  const consulta = useQuery({ queryKey: ['publico', 'arte', token], queryFn: () => artePublicaApi.obter(token), retry: false })
+  const { empresa = '', token = '' } = useParams()
+  const link = { empresa, token }
+  const consulta = useQuery({ queryKey: ['publico', 'arte', empresa, token], queryFn: () => artePublicaApi.obter(link), retry: false })
   const a = consulta.data
 
   return (
@@ -157,7 +159,7 @@ export function AprovarArtePage() {
             </div>
             <Situacao arte={a} />
             <Visualizacao arte={a} />
-            <Resposta token={token} arte={a} />
+            <Resposta link={link} arte={a} />
             {a.comentarios.length > 0 && (
               <Card>
                 <CardContent className="space-y-2 pt-6">

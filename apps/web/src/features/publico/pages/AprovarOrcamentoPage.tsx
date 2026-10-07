@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, Clock, FileSearch, Loader2, MessageCircle, ThumbsDown, XCircle } from 'lucide-react'
 import { formatarDataHora, formatarDataSimples, formatarMoeda, formatarTelefone, type OrcamentoPublico } from '@onprint/shared'
-import { publicoApi } from '@/api/comercial'
+import { publicoApi, type LinkPublico } from '@/api/comercial'
 import { Logo } from '@/components/layout/Logo'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 const metros = (v: string | null) => (v ? Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 3 }) : '')
 
-function Resposta({ token, orcamento }: { token: string; orcamento: OrcamentoPublico }) {
+function Resposta({ link, orcamento }: { link: LinkPublico; orcamento: OrcamentoPublico }) {
   const queryClient = useQueryClient()
   const [modo, setModo] = useState<'aprovar' | 'recusar'>('aprovar')
   const [nome, setNome] = useState('')
@@ -23,8 +23,8 @@ function Resposta({ token, orcamento }: { token: string; orcamento: OrcamentoPub
   const [motivo, setMotivo] = useState('')
   const [erro, setErro] = useState<string>()
   const enviar = useMutation({
-    mutationFn: () => (modo === 'aprovar' ? publicoApi.aprovar(token, nome) : publicoApi.recusar(token, motivo)),
-    onSuccess: (r) => queryClient.setQueryData(['publico', token], r),
+    mutationFn: () => (modo === 'aprovar' ? publicoApi.aprovar(link, nome) : publicoApi.recusar(link, motivo)),
+    onSuccess: (r) => queryClient.setQueryData(['publico', link.empresa, link.token], r),
     onError: (e) => setErro(e.message),
   })
 
@@ -104,8 +104,9 @@ function Situacao({ o }: { o: OrcamentoPublico }) {
 
 /** Página pública: o cliente vê o orçamento e aprova ou recusa, sem login. */
 export function AprovarOrcamentoPage() {
-  const { token = '' } = useParams()
-  const consulta = useQuery({ queryKey: ['publico', token], queryFn: () => publicoApi.obter(token), retry: false })
+  const { empresa = '', token = '' } = useParams()
+  const link = { empresa, token }
+  const consulta = useQuery({ queryKey: ['publico', empresa, token], queryFn: () => publicoApi.obter(link), retry: false })
   const o = consulta.data
 
   return (
@@ -163,7 +164,7 @@ export function AprovarOrcamentoPage() {
                 </CardContent>
               </Card>
             )}
-            <Resposta token={token} orcamento={o} />
+            <Resposta link={link} orcamento={o} />
             {(o.empresa.whatsapp || o.empresa.telefone || o.vendedor) && (
               <p className="flex items-center justify-center gap-2 pb-8 text-sm text-texto-secundario">
                 <MessageCircle className="h-4 w-4" /> Dúvidas? {o.vendedor ? `Fale com ${o.vendedor.nome}` : 'Fale com a gente'}

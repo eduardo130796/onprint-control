@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import argon2 from 'argon2'
 import type { Prisma } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
@@ -6,7 +7,9 @@ import type { z } from 'zod'
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
 import { filtroAtivo, paginacao, paginado } from '../../core/paginacao'
+import { contextoEmpresa } from '../../core/contexto-empresa'
 import { comConflitoAmigavel } from '../../core/prisma-erros'
+import { criarIndiceLogin } from '../../plataforma/indice-login'
 
 type Criar = z.output<typeof criarUsuarioSchema>
 type Editar = z.output<typeof editarUsuarioSchema>
@@ -31,6 +34,7 @@ const selecionar = {
 
 export function criarUsuariosService(app: FastifyInstance) {
   const { prisma } = app
+  const indice = criarIndiceLogin(app.plataforma)
 
   async function obter(id: string) {
     const usuario = await prisma.usuario.findUnique({ where: { id }, select: selecionar })
@@ -92,17 +96,21 @@ export function criarUsuariosService(app: FastifyInstance) {
       await validarPapel(dados.papelId)
       const { senhaProvisoria, ...resto } = dados
       const senhaHash = await argon2.hash(senhaProvisoria)
-      return comConflitoAmigavel(
-        () =>
-          prisma.$transaction(async (tx) => {
-            const usuario = await tx.usuario.create({
-              data: { ...resto, senhaHash, deveTrocarSenha: true, createdBy: autorId },
-              select: selecionar,
-            })
-            await registrarAuditoria(tx, { tabela: 'usuarios', registroId: usuario.id, acao: 'criar', depois: usuario, usuarioId: autorId })
-            return usuario
-          }),
-        CONFLITOS,
+      const id = randomUUID()
+      // O e-mail de login é único na plataforma inteira, não só nesta empresa
+      return indice.comReserva(resto.email, contextoEmpresa.exigir().id, id, () =>
+        comConflitoAmigavel(
+          () =>
+            prisma.$transaction(async (tx) => {
+              const usuario = await tx.usuario.create({
+                data: { ...resto, id, senhaHash, deveTrocarSenha: true, createdBy: autorId },
+                select: selecionar,
+              })
+              await registrarAuditoria(tx, { tabela: 'usuarios', registroId: usuario.id, acao: 'criar', depois: usuario, usuarioId: autorId })
+              return usuario
+            }),
+          CONFLITOS,
+        ),
       )
     },
 
@@ -113,16 +121,23 @@ export function criarUsuariosService(app: FastifyInstance) {
       if (deixaDeSerAdmin) await garantirOutroAdmin(id)
       if (id === autorId && !dados.ativo) throw AppError.regraNegocio('Você não pode desativar o próprio usuário.')
 
-      return comConflitoAmigavel(
-        () =>
-          prisma.$transaction(async (tx) => {
-            const usuario = await tx.usuario.update({ where: { id }, data: dados, select: selecionar })
-            if (!dados.ativo) await revogarSessoes(tx, id)
-            await registrarAuditoria(tx, { tabela: 'usuarios', registroId: id, acao: 'editar', antes, depois: usuario, usuarioId: autorId })
-            return usuario
-          }),
-        CONFLITOS,
-      )
+      const gravar = () =>
+        comConflitoAmigavel(
+          () =>
+            prisma.$transaction(async (tx) => {
+              const usuario = await tx.usuario.update({ where: { id }, data: dados, select: selecionar })
+              if (!dados.ativo) await revogarSessoes(tx, id)
+              await registrarAuditoria(tx, { tabela: 'usuarios', registroId: id, acao: 'editar', antes, depois: usuario, usuarioId: autorId })
+              return usuario
+            }),
+          CONFLITOS,
+        )
+      if (dados.email === antes.email) return gravar()
+      // Troca de e-mail: reserva o novo no índice de login e só então libera o antigo
+      const empresaId = contextoEmpresa.exigir().id
+      const usuario = await indice.comReserva(dados.email, empresaId, id, gravar)
+      await indice.liberar(antes.email, empresaId)
+      return usuario
     },
 
     /** O admin define uma senha provisória; o usuário é obrigado a trocá-la no próximo login. */

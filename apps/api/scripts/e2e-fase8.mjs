@@ -55,7 +55,7 @@ for (const item of (await pedido()).itens) {
   form.append('arquivo', new Blob([PNG], { type: 'image/png' }), `arte-${item.id}.png`)
   const arte = (await chamar('POST', `/pedidos/itens/${item.id}/artes`, { token: t.designer, form })).json
   await chamar('POST', `/artes/${arte.id}/enviar`, { token: t.designer })
-  r = await chamar('POST', `/publico/artes/${arte.tokenPublico}/aprovar`, { body: { nome: 'Carlos Mercado', aceite: true } })
+  r = await chamar('POST', `/publico/principal/artes/${arte.tokenPublico}/aprovar`, { body: { nome: 'Carlos Mercado', aceite: true } })
   conferir(`cliente aprova a arte (${item.descricao.split(' ')[0]})`, r.json.status, 'aprovada')
 }
 conferir('designer não edita o pedido', (await chamar('POST', `/pedidos/${pedidoId}/cancelar`, { token: t.designer, body: { motivo: 'teste de permissão' } })).status, 403)

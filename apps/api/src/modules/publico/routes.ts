@@ -1,5 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { aprovacaoPublicaSchema, arteAjustePublicoSchema, arteAprovacaoPublicaSchema, recusaSchema, tokenPublicoParamSchema } from '@onprint/shared'
+import { AppError } from '../../core/AppError'
+import { contextoEmpresa } from '../../core/contexto-empresa'
 import { criarArtesPublicoService } from './artes.service'
 import { criarPublicoService } from './service'
 
@@ -10,6 +12,13 @@ const limite = { rateLimit: { max: 30, timeWindow: '1 minute' } }
 export const publicoRoutes: FastifyPluginAsyncZod = async (app) => {
   const service = criarPublicoService(app)
   const artes = criarArtesPublicoService(app)
+
+  // Registradas sob /publico/:empresa: o slug da empresa no link escolhe o schema
+  app.addHook('onRequest', async (req) => {
+    const empresa = await app.empresas.porSlug(String((req.params as { empresa?: string }).empresa ?? ''))
+    if (!empresa) throw AppError.naoEncontrado('Link inválido ou expirado.')
+    contextoEmpresa.definir(empresa)
+  })
 
   // "controller": só repassa token, corpo e IP ao service
   app.get(

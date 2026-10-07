@@ -110,7 +110,7 @@ export function AprovarOrcamentoPage() {
 
   return (
     <div className="min-h-screen bg-fundo">
-      <header className="flex h-16 items-center bg-petroleo px-4">
+      <header className="flex h-16 items-center bg-grafite px-4">
         {o?.empresa.logoUrl ? <img src={o.empresa.logoUrl} alt={o.empresa.nome} className="h-10 max-w-[180px] rounded bg-white/90 object-contain p-1" /> : <Logo claro />}
         {o && <span className="ml-3 font-semibold text-white">{o.empresa.nome}</span>}
       </header>
@@ -125,7 +125,7 @@ export function AprovarOrcamentoPage() {
           <>
             <div>
               <p className="text-sm text-texto-secundario">Orçamento para {o.cliente.nome}</p>
-              <h1 className="text-2xl font-semibold text-petroleo">{o.numero}</h1>
+              <h1 className="text-2xl font-semibold text-grafite">{o.numero}</h1>
               <p className="text-sm text-texto-secundario">Válido até {formatarDataSimples(o.validade)} · produção em {o.prazoDias} dia(s) úteis após a aprovação</p>
             </div>
             <Situacao o={o} />
@@ -150,8 +150,8 @@ export function AprovarOrcamentoPage() {
                 {Number(o.acrescimo) > 0 && <p className="flex justify-between"><span>Acréscimo</span><span>{formatarMoeda(o.acrescimo)}</span></p>}
                 {Number(o.frete) > 0 && <p className="flex justify-between"><span>Frete / instalação</span><span>{formatarMoeda(o.frete)}</span></p>}
                 <p className="flex items-baseline justify-between pt-1">
-                  <span className="font-semibold text-petroleo">Total</span>
-                  <span className="text-2xl font-bold text-petroleo">{formatarMoeda(o.total)}</span>
+                  <span className="font-semibold text-grafite">Total</span>
+                  <span className="text-2xl font-bold text-grafite">{formatarMoeda(o.total)}</span>
                 </p>
               </div>
             </Card>

@@ -48,7 +48,7 @@ export function GanttSimples({ ops, inicio, onSelecionar }: GanttProps) {
         <div className="grid border-b border-border pb-1" style={grade}>
           <span />
           {dias.map((d) => (
-            <span key={d} className={cn('text-center', diaDaSemana(d) % 6 === 0 && 'text-texto-secundario/60', d === hoje && 'font-bold text-turquesa-escuro')}>
+            <span key={d} className={cn('text-center', diaDaSemana(d) % 6 === 0 && 'text-texto-secundario/60', d === hoje && 'font-bold text-marca-escuro')}>
               {SIGLAS[diaDaSemana(d)]}
               <br />
               {d.slice(8, 10)}
@@ -57,7 +57,7 @@ export function GanttSimples({ ops, inicio, onSelecionar }: GanttProps) {
         </div>
         {grupos.map(([maquina, lista]) => (
           <div key={maquina} className="border-b border-border py-1">
-            <p className="py-1 font-semibold text-petroleo">{maquina}</p>
+            <p className="py-1 font-semibold text-grafite">{maquina}</p>
             {lista.map((op) => {
               const p = periodo(op, hoje)
               const col = Math.max(0, diferenca(inicio, p.inicio))

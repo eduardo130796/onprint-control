@@ -47,13 +47,13 @@ export function ColunaKanban<T>({ coluna, ids, porId, renderCartao, podeArrastar
     >
       <header className="flex items-center gap-2 px-3 pb-2 pt-3">
         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: coluna.cor }} />
-        <h2 className="text-sm font-semibold text-petroleo">{coluna.titulo}</h2>
+        <h2 className="text-sm font-semibold text-grafite">{coluna.titulo}</h2>
         <span className="rounded-full bg-white px-2 text-xs text-texto-secundario">{ids.length}</span>
         {coluna.extra && <span className="ml-auto text-xs text-texto-secundario">{coluna.extra}</span>}
       </header>
       <div
         ref={setNodeRef}
-        className={cn('flex min-h-32 flex-1 flex-col gap-2.5 overflow-y-auto rounded-b-2xl p-2.5 transition-colors', isOver && !bloqueada && 'bg-turquesa/10')}
+        className={cn('flex min-h-32 flex-1 flex-col gap-2.5 overflow-y-auto rounded-b-2xl p-2.5 transition-colors', isOver && !bloqueada && 'bg-marca/10')}
       >
         {ids.map((id) => {
           const item = porId.get(id)

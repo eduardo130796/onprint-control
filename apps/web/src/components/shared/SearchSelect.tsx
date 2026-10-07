@@ -53,7 +53,7 @@ export function SearchSelect({ chave, buscar, valor, onChange, placeholder = 'Bu
   return (
     <div ref={raiz} className="relative">
       {aberto ? (
-        <div className="flex h-10 items-center gap-2 rounded-lg border border-turquesa bg-card px-3 ring-2 ring-ring">
+        <div className="flex h-10 items-center gap-2 rounded-lg border border-marca bg-card px-3 ring-2 ring-ring">
           <Search className="h-4 w-4 shrink-0 text-texto-secundario" />
           <input
             id={id}
@@ -129,13 +129,13 @@ export function SearchSelect({ chave, buscar, valor, onChange, placeholder = 'Bu
                   type="button"
                   onMouseEnter={() => setAtivo(i)}
                   onClick={() => escolher(o)}
-                  className={cn('flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm', i === ativo && 'bg-accent text-petroleo')}
+                  className={cn('flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm', i === ativo && 'bg-accent text-grafite')}
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">{o.rotulo}</span>
                     {o.detalhe && <span className="block truncate text-xs text-texto-secundario">{o.detalhe}</span>}
                   </span>
-                  {valor?.id === o.id && <Check className="h-4 w-4 text-turquesa-escuro" />}
+                  {valor?.id === o.id && <Check className="h-4 w-4 text-marca-escuro" />}
                 </button>
               </li>
             ))}

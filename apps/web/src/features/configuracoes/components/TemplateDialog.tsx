@@ -90,7 +90,7 @@ export function TemplateDialog({ template, onFechar }: { template?: MensagemTemp
       <CampoFormulario id="tp-conteudo" rotulo="Mensagem *" erro={errors.conteudo?.message}>
         <div className="mb-2 flex flex-wrap gap-1.5">
           {VARIAVEIS_TEMPLATE.map((v) => (
-            <button key={v} type="button" onClick={() => inserir(v)} className="rounded-full border border-border px-2.5 py-0.5 font-mono text-xs hover:border-turquesa hover:text-turquesa-escuro">
+            <button key={v} type="button" onClick={() => inserir(v)} className="rounded-full border border-border px-2.5 py-0.5 font-mono text-xs hover:border-marca hover:text-marca-escuro">
               {`{{${v}}}`}
             </button>
           ))}

@@ -22,12 +22,12 @@ const horas = (h: number) => `${h.toLocaleString('pt-BR', { maximumFractionDigit
 function Indicador({ icone: Icone, titulo, valor, alerta }: { icone: typeof Clock; titulo: string; valor: string; alerta?: boolean }) {
   return (
     <Card className="flex items-center gap-3 p-4">
-      <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', alerta ? 'bg-coral/10 text-coral-escuro' : 'bg-accent text-petroleo')}>
+      <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', alerta ? 'bg-coral/10 text-coral-escuro' : 'bg-accent text-grafite')}>
         <Icone className="h-5 w-5" />
       </div>
       <div>
         <p className="text-xs text-texto-secundario">{titulo}</p>
-        <p className={cn('text-xl font-semibold', alerta ? 'text-coral-escuro' : 'text-petroleo')}>{valor}</p>
+        <p className={cn('text-xl font-semibold', alerta ? 'text-coral-escuro' : 'text-grafite')}>{valor}</p>
       </div>
     </Card>
   )
@@ -71,7 +71,7 @@ export function PcpPage() {
                     </span>
                   </div>
                   <div className="mt-1 h-2.5 overflow-hidden rounded-full bg-fundo">
-                    <div className={cn('h-full rounded-full', m.ocupacao > 100 ? 'bg-coral' : m.ocupacao > 80 ? 'bg-ambar' : 'bg-turquesa')} style={{ width: `${pct}%` }} />
+                    <div className={cn('h-full rounded-full', m.ocupacao > 100 ? 'bg-coral' : m.ocupacao > 80 ? 'bg-ambar' : 'bg-marca')} style={{ width: `${pct}%` }} />
                   </div>
                   <p className="mt-1 text-xs text-texto-secundario">
                     {horas(m.horasSemana)} de {horas(m.capacidadeSemana)} · {m.opsNaFila} OP(s) na fila ({horas(m.horasEstimadas)} no total)
@@ -112,7 +112,7 @@ export function PcpPage() {
             <ul className="divide-y divide-border text-sm">
               {r.atrasadas.map((op) => (
                 <li key={op.id} className="flex flex-wrap items-center gap-3 py-2.5">
-                  <Link to={`/producao/ordens/${op.id}`} className="font-mono text-xs font-semibold text-petroleo hover:underline">
+                  <Link to={`/producao/ordens/${op.id}`} className="font-mono text-xs font-semibold text-grafite hover:underline">
                     {op.numero}
                   </Link>
                   <span className="min-w-0 flex-1 truncate">

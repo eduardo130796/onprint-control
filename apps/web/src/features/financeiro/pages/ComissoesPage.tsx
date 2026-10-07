@@ -116,7 +116,7 @@ export function ComissoesPage() {
         header: 'Pedido',
         cell: ({ row: { original: c } }) => (
           <div className="min-w-0">
-            <Link to={`/pedidos/${c.pedido.id}?aba=financeiro`} className="font-mono text-xs font-semibold text-petroleo hover:underline">
+            <Link to={`/pedidos/${c.pedido.id}?aba=financeiro`} className="font-mono text-xs font-semibold text-grafite hover:underline">
               {c.pedido.numero}
             </Link>
             <p className="truncate text-xs text-texto-secundario">{c.pedido.cliente.nome}</p>
@@ -149,7 +149,7 @@ export function ComissoesPage() {
         {(['prevista', 'liberada', 'paga'] as const).map((s) => (
           <Card key={s} className="p-4">
             <p className="text-xs text-texto-secundario">{ROTULO[s]}s</p>
-            <p className="text-xl font-semibold text-petroleo">{formatarMoeda(resumo[s] ?? '0')}</p>
+            <p className="text-xl font-semibold text-grafite">{formatarMoeda(resumo[s] ?? '0')}</p>
           </Card>
         ))}
       </div>

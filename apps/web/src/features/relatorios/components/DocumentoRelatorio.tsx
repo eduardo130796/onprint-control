@@ -1,62 +1,60 @@
 import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { formatarDataHora, formatarDataSimples, type Relatorio } from '@onprint/shared'
+import { FaixaMarca, RodapePdf, TabelaPdf } from '@/features/impressao/PecasPdf'
+import { COR, base } from '@/features/impressao/tema'
 import { formatarValor } from '@/lib/formatoValor'
 
-const PETROLEO = '#0B4F5C'
-const CINZA = '#6B7280'
-
 const s = StyleSheet.create({
-  pagina: { padding: 30, fontSize: 8.5, fontFamily: 'Helvetica', color: '#1F2937' },
-  empresa: { color: CINZA, fontSize: 8 },
-  titulo: { fontSize: 15, fontFamily: 'Helvetica-Bold', color: PETROLEO, marginTop: 2 },
-  periodo: { color: CINZA, marginBottom: 12 },
-  resumo: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12 },
-  caixa: { backgroundColor: '#F1F4F6', borderRadius: 4, padding: 6, marginRight: 6, marginBottom: 6, minWidth: 110 },
-  rotulo: { color: CINZA, fontSize: 7.5 },
-  valor: { fontFamily: 'Helvetica-Bold', fontSize: 11, color: PETROLEO },
-  cab: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: PETROLEO, paddingBottom: 3, fontFamily: 'Helvetica-Bold', color: PETROLEO },
-  linha: { flexDirection: 'row', paddingVertical: 3, borderBottomWidth: 0.5, borderBottomColor: '#E5E7EB' },
-  celula: { flex: 1, paddingRight: 4 },
-  numero: { flex: 1, textAlign: 'right', paddingRight: 4 },
-  obs: { marginTop: 10, color: CINZA, fontSize: 7.5 },
-  rodape: { position: 'absolute', bottom: 16, left: 30, right: 30, textAlign: 'center', color: CINZA, fontSize: 7 },
+  topo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingTop: 34, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: COR.linha, marginBottom: 14 },
+  tipo: { fontSize: 7.5, fontWeight: 700, color: COR.destaqueTexto, letterSpacing: 2, textTransform: 'uppercase' },
+  titulo: { fontFamily: 'Manrope', fontWeight: 800, fontSize: 18, color: COR.principal, marginTop: 2 },
+  resumo: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  cartao: { flexGrow: 1, minWidth: 110, backgroundColor: COR.fundo, borderRadius: 6, paddingVertical: 8, paddingHorizontal: 10, borderLeftWidth: 3, borderLeftColor: COR.destaque },
+  valor: { fontFamily: 'Manrope', fontWeight: 800, fontSize: 13, color: COR.principal, marginTop: 1 },
+  vazio: { marginTop: 12, color: COR.suave },
+  obs: { marginTop: 12, fontSize: 7.5, color: COR.suave },
 })
 
+/** Relatório em PDF (retrato; paisagem quando há muitas colunas): resumo em cartões, tabela e nota. */
 export function DocumentoRelatorio({ r, empresa }: { r: Relatorio; empresa: string }) {
   const numerico = (f: string) => !['texto', 'data'].includes(f)
+  const periodo = r.periodo ? `${formatarDataSimples(r.periodo.de)} a ${formatarDataSimples(r.periodo.ate)}` : 'Posição atual'
   return (
-    <Document title={r.titulo}>
-      <Page size="A4" orientation={r.colunas.length > 6 ? 'landscape' : 'portrait'} style={s.pagina}>
-        <Text style={s.empresa}>{empresa}</Text>
-        <Text style={s.titulo}>{r.titulo}</Text>
-        <Text style={s.periodo}>{r.periodo ? `Período: ${formatarDataSimples(r.periodo.de)} a ${formatarDataSimples(r.periodo.ate)}` : 'Posição atual'}</Text>
-        <View style={s.resumo}>
-          {r.resumo.map((x) => (
-            <View key={x.rotulo} style={s.caixa}>
-              <Text style={s.rotulo}>{x.rotulo}</Text>
-              <Text style={s.valor}>{formatarValor(x.valor, x.formato)}</Text>
-            </View>
-          ))}
+    <Document title={r.titulo} author={empresa}>
+      <Page size="A4" orientation={r.colunas.length > 6 ? 'landscape' : 'portrait'} style={base.pagina}>
+        <FaixaMarca />
+        <View style={s.topo}>
+          <View>
+            <Text style={s.tipo}>Relatório · {empresa}</Text>
+            <Text style={s.titulo}>{r.titulo}</Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={base.rotulo}>Período</Text>
+            <Text style={base.forte}>{periodo}</Text>
+          </View>
         </View>
-        <View style={s.cab} fixed>
-          {r.colunas.map((c) => (
-            <Text key={c.chave} style={numerico(c.formato) ? s.numero : s.celula}>
-              {c.titulo}
-            </Text>
-          ))}
-        </View>
-        {r.linhas.map((l, i) => (
-          <View key={i} style={s.linha} wrap={false}>
-            {r.colunas.map((c) => (
-              <Text key={c.chave} style={numerico(c.formato) ? s.numero : s.celula}>
-                {formatarValor(l[c.chave], c.formato)}
-              </Text>
+
+        {r.resumo.length > 0 && (
+          <View style={s.resumo} wrap={false}>
+            {r.resumo.map((x) => (
+              <View key={x.rotulo} style={s.cartao}>
+                <Text style={base.rotulo}>{x.rotulo}</Text>
+                <Text style={s.valor}>{formatarValor(x.valor, x.formato)}</Text>
+              </View>
             ))}
           </View>
-        ))}
-        {r.linhas.length === 0 ? <Text style={s.obs}>Nenhum registro no período.</Text> : null}
+        )}
+
+        {r.linhas.length === 0 ? (
+          <Text style={s.vazio}>Nenhum registro no período.</Text>
+        ) : (
+          <TabelaPdf
+            colunas={r.colunas.map((c, i) => ({ titulo: c.titulo, largura: i === 0 ? 2.2 : 1, numero: numerico(c.formato) }))}
+            linhas={r.linhas.map((l) => r.colunas.map((c) => formatarValor(l[c.chave], c.formato)))}
+          />
+        )}
         {r.observacao ? <Text style={s.obs}>{r.observacao}</Text> : null}
-        <Text style={s.rodape} render={({ pageNumber, totalPages }) => `Gerado em ${formatarDataHora(new Date())} · página ${pageNumber} de ${totalPages}`} fixed />
+        <RodapePdf empresa={empresa} documento={`${r.titulo} · gerado em ${formatarDataHora(new Date())}`} />
       </Page>
     </Document>
   )

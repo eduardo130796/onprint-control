@@ -12,8 +12,8 @@ const AZUL = '#0EA5E9'
 const AMBAR = '#F59E0B'
 const VERDE = '#22C55E'
 const CORAL = '#EF5A57'
-const PETROLEO = '#0B4F5C'
-const TURQUESA = '#14B8A6'
+const GRAFITE = '#2B3036'
+const MARCA = '#25D366'
 const ROXO = '#8B5CF6'
 
 export const STATUS_PADRAO: Record<EntidadeStatus, StatusPadrao[]> = {
@@ -36,14 +36,14 @@ export const STATUS_PADRAO: Record<EntidadeStatus, StatusPadrao[]> = {
     { codigo: 'aprovado', rotulo: 'Aprovado', cor: VERDE },
     { codigo: 'recusado', rotulo: 'Recusado', cor: CORAL, final: true },
     { codigo: 'expirado', rotulo: 'Expirado', cor: '#9CA3AF', final: true },
-    { codigo: 'convertido', rotulo: 'Convertido', cor: PETROLEO, final: true },
+    { codigo: 'convertido', rotulo: 'Convertido', cor: GRAFITE, final: true },
   ],
   pedido: [
     { codigo: 'aguardando_arte', rotulo: 'Aguardando arte', cor: AMBAR },
     { codigo: 'arte_em_aprovacao', rotulo: 'Arte em aprovação', cor: ROXO },
     { codigo: 'em_producao', rotulo: 'Em produção', cor: AZUL },
-    { codigo: 'pronto', rotulo: 'Pronto', cor: TURQUESA },
-    { codigo: 'em_entrega', rotulo: 'Em entrega', cor: PETROLEO },
+    { codigo: 'pronto', rotulo: 'Pronto', cor: MARCA },
+    { codigo: 'em_entrega', rotulo: 'Em entrega', cor: GRAFITE },
     { codigo: 'entregue', rotulo: 'Entregue', cor: VERDE, final: true },
     { codigo: 'cancelado', rotulo: 'Cancelado', cor: CORAL, final: true },
   ],
@@ -52,7 +52,7 @@ export const STATUS_PADRAO: Record<EntidadeStatus, StatusPadrao[]> = {
     { codigo: 'pre_impressao', rotulo: 'Pré-impressão', cor: ROXO },
     { codigo: 'impressao', rotulo: 'Impressão', cor: AZUL },
     { codigo: 'acabamento', rotulo: 'Acabamento', cor: AMBAR },
-    { codigo: 'conferencia', rotulo: 'Conferência', cor: TURQUESA },
+    { codigo: 'conferencia', rotulo: 'Conferência', cor: MARCA },
     { codigo: 'concluido', rotulo: 'Concluído', cor: VERDE, final: true },
   ],
   arte: [

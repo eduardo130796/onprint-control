@@ -22,7 +22,7 @@ export function CartaoOrcamento({ o, acoes }: { o: Orcamento; acoes: AcoesCartao
   return (
     <article className="rounded-xl border border-transparent bg-card p-3.5 text-sm shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-center justify-between gap-2">
-        <Link to={`/orcamentos/${o.id}`} className="font-mono text-xs font-semibold text-petroleo hover:underline" onPointerDown={(e) => e.stopPropagation()}>
+        <Link to={`/orcamentos/${o.id}`} className="font-mono text-xs font-semibold text-grafite hover:underline" onPointerDown={(e) => e.stopPropagation()}>
           {o.numero}
         </Link>
         <span className="font-semibold tabular-nums">{formatarMoeda(o.total)}</span>

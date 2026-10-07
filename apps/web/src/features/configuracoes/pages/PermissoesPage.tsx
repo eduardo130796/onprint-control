@@ -91,7 +91,7 @@ export function PermissoesPage() {
             onClick={() => setPapelId(p.id)}
             className={cn(
               'shrink-0 rounded-xl border px-4 py-2 text-sm transition-colors',
-              p.id === papel?.id ? 'border-petroleo bg-petroleo text-white' : 'border-border bg-card hover:border-turquesa',
+              p.id === papel?.id ? 'border-grafite bg-grafite text-white' : 'border-border bg-card hover:border-marca',
             )}
           >
             {p.nome}
@@ -101,7 +101,7 @@ export function PermissoesPage() {
       </div>
 
       {papel?.codigo === 'admin' && (
-        <p className="mb-4 flex items-center gap-2 rounded-xl bg-accent p-3 text-sm text-petroleo">
+        <p className="mb-4 flex items-center gap-2 rounded-xl bg-accent p-3 text-sm text-grafite">
           <Lock className="h-4 w-4" /> O administrador sempre tem acesso a tudo; esta matriz não pode ser alterada.
         </p>
       )}
@@ -122,7 +122,7 @@ export function PermissoesPage() {
             {modulos.map((m) => (
               <tr key={m} className="hover:bg-fundo/50">
                 <th scope="row" className="sticky left-0 bg-card px-4 py-2.5 text-left font-medium">
-                  <button type="button" disabled={bloqueado} onClick={() => alternarLinha(m, acoes)} className="text-left hover:text-turquesa-escuro disabled:hover:text-inherit" title="Marcar/desmarcar a linha">
+                  <button type="button" disabled={bloqueado} onClick={() => alternarLinha(m, acoes)} className="text-left hover:text-marca-escuro disabled:hover:text-inherit" title="Marcar/desmarcar a linha">
                     {MODULO_ROTULOS[m as Modulo] ?? m}
                   </button>
                 </th>

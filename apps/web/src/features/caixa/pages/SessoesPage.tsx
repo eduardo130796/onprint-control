@@ -56,7 +56,7 @@ export function SessoesPage() {
       { id: 'numero', header: 'Caixa', meta: { ordenavel: 'numero' }, cell: ({ row }) => <span className="font-mono text-xs">{row.original.numero}</span> },
       { id: 'operador', header: 'Operador', cell: ({ row }) => row.original.usuario.nome },
       { id: 'abertura', header: 'Abertura', meta: { ordenavel: 'abertaEm' }, cell: ({ row }) => formatarDataHora(row.original.abertaEm) },
-      { id: 'fechamento', header: 'Fechamento', cell: ({ row }) => (row.original.fechadaEm ? formatarDataHora(row.original.fechadaEm) : <span className="font-medium text-turquesa-escuro">aberto</span>) },
+      { id: 'fechamento', header: 'Fechamento', cell: ({ row }) => (row.original.fechadaEm ? formatarDataHora(row.original.fechadaEm) : <span className="font-medium text-marca-escuro">aberto</span>) },
       { id: 'total', header: 'Total conferido', meta: { className: 'text-right' }, cell: ({ row }) => (row.original.totalInformado ? formatarMoeda(row.original.totalInformado) : '—') },
       {
         id: 'dif',

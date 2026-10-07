@@ -41,7 +41,7 @@ export function PedidoGerado({ pedido }: { pedido: PedidoResumo }) {
           </p>
         )}
         <p className="text-texto-secundario">{artes.length} arte(s) no pedido.</p>
-        <Link to={`/pedidos/${pedido.id}`} className="inline-flex items-center gap-1 font-medium text-turquesa-escuro hover:underline">
+        <Link to={`/pedidos/${pedido.id}`} className="inline-flex items-center gap-1 font-medium text-marca-escuro hover:underline">
           Abrir pedido <ArrowRight className="h-4 w-4" />
         </Link>
       </CardContent>

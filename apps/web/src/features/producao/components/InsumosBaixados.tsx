@@ -10,7 +10,7 @@ export function InsumosBaixados({ op }: { op: OrdemProducaoDetalhe }) {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Boxes className="h-4 w-4 text-turquesa-escuro" /> Insumos baixados
+          <Boxes className="h-4 w-4 text-marca-escuro" /> Insumos baixados
         </CardTitle>
       </CardHeader>
       <CardContent className="text-sm">

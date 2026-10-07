@@ -29,7 +29,7 @@ import { cn } from '@/lib/utils'
 import { useCategorias, useMutacao, useProdutos } from '../hooks'
 
 const COR_TIPO: Record<TipoProduto, string> = {
-  produto: 'bg-accent text-petroleo',
+  produto: 'bg-accent text-grafite',
   servico: 'bg-sky-100 text-sky-800',
   insumo: 'bg-slate-100 text-slate-600',
   revenda: 'bg-violet-100 text-violet-700',

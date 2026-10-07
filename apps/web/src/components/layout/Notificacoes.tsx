@@ -27,13 +27,13 @@ export function Notificacoes() {
         <Button variant="ghost" size="icon" className="relative text-white hover:bg-white/10 hover:text-white" aria-label={`Notificações${naoLidas ? ` (${naoLidas} não lidas)` : ''}`}>
           <Bell className="!size-5" />
           {naoLidas > 0 && (
-            <span className="absolute right-1 top-1 min-w-4 rounded-full bg-coral-escuro px-1 text-[10px] font-semibold leading-4 text-white">{naoLidas > 99 ? '99+' : naoLidas}</span>
+            <span className="absolute right-1 top-1 min-w-4 rounded-full bg-laranja-escuro px-1 text-[10px] font-semibold leading-4 text-white">{naoLidas > 99 ? '99+' : naoLidas}</span>
           )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[22rem] max-w-[calc(100vw-1rem)] p-0">
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
-          <span className="text-sm font-semibold text-petroleo">Notificações</span>
+          <span className="text-sm font-semibold text-grafite">Notificações</span>
           {naoLidas > 0 && (
             <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => void notificacoesApi.marcarTodas().then(atualizar)}>
               <CheckCheck /> Marcar todas como lidas
@@ -43,8 +43,8 @@ export function Notificacoes() {
         <ul className="max-h-96 overflow-y-auto">
           {(lista.data?.data ?? []).map((n) => (
             <li key={n.id}>
-              <button type="button" onClick={() => void abrir(n)} className={cn('flex w-full gap-2 border-b border-border px-3 py-2.5 text-left text-sm last:border-0 hover:bg-fundo', !n.lida && 'bg-turquesa/5')}>
-                <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', n.lida ? 'bg-transparent' : 'bg-turquesa')} />
+              <button type="button" onClick={() => void abrir(n)} className={cn('flex w-full gap-2 border-b border-border px-3 py-2.5 text-left text-sm last:border-0 hover:bg-fundo', !n.lida && 'bg-marca/5')}>
+                <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', n.lida ? 'bg-transparent' : 'bg-marca')} />
                 <span className="min-w-0 flex-1">
                   <span className={cn('block', !n.lida && 'font-semibold')}>{n.titulo}</span>
                   <span className="block whitespace-pre-line text-xs text-texto-secundario">{n.mensagem}</span>

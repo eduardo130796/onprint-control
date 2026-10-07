@@ -8,12 +8,13 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-turquesa-escuro text-white hover:bg-turquesa-hover',
-        secondary: 'bg-petroleo text-white hover:bg-petroleo-escuro',
+        default: 'bg-marca font-semibold text-grafite-escuro hover:bg-marca-hover',
+        secondary: 'bg-grafite text-white hover:bg-grafite-escuro',
         destructive: 'bg-coral-escuro text-white hover:bg-coral-escuro/90',
-        outline: 'border border-input bg-card hover:bg-accent hover:text-accent-foreground',
-        ghost: 'hover:bg-accent hover:text-accent-foreground',
-        link: 'text-turquesa-escuro underline-offset-4 hover:underline',
+        // Secundário com peso: borda marcada, sombra e texto forte; no hover, o verde da marca
+        outline: 'border border-grafite/20 bg-card font-semibold text-grafite shadow-sm hover:border-marca hover:bg-marca-suave',
+        ghost: 'font-semibold text-grafite hover:bg-grafite/5',
+        link: 'text-marca-escuro underline-offset-4 hover:underline',
       },
       size: {
         default: 'h-10 px-4 py-2',

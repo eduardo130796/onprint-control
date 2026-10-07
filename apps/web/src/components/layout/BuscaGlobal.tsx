@@ -87,11 +87,11 @@ export function BuscaGlobal() {
       <button
         type="button"
         onClick={() => setAberta(true)}
-        className="flex h-10 w-full max-w-md items-center gap-2 rounded-xl bg-white/10 px-3 text-sm text-white/85 transition-colors hover:bg-white/15"
+        className="flex h-10 w-full max-w-md items-center gap-2 rounded-xl border border-white/25 bg-white/[0.12] px-3 text-sm font-medium text-white transition-colors hover:border-marca hover:bg-white/20"
       >
-        <Search className="h-4 w-4" />
+        <Search className="h-4 w-4 text-marca" />
         <span className="flex-1 text-left">Localizar…</span>
-        <kbd className="hidden rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-medium text-white sm:inline">Ctrl K</kbd>
+        <kbd className="hidden rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-semibold text-white sm:inline">Ctrl K</kbd>
       </button>
 
       <Dialog open={aberta} onOpenChange={setAberta}>
@@ -112,7 +112,7 @@ export function BuscaGlobal() {
               className="h-12 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               aria-label="Localizar"
             />
-            {registros.isFetching && <Loader2 className="h-4 w-4 animate-spin text-turquesa-escuro" />}
+            {registros.isFetching && <Loader2 className="h-4 w-4 animate-spin text-marca-escuro" />}
           </div>
           <ul className="max-h-96 overflow-y-auto p-2" role="listbox">
             {resultados.length === 0 && <li className="px-3 py-6 text-center text-sm text-texto-secundario">Nada encontrado.</li>}
@@ -126,7 +126,7 @@ export function BuscaGlobal() {
                     type="button"
                     onMouseEnter={() => setSelecionado(i)}
                     onClick={() => abrir(r.path)}
-                    className={cn('flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm', i === selecionado && 'bg-accent text-petroleo')}
+                    className={cn('flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm', i === selecionado && 'bg-accent text-grafite')}
                   >
                     <Icone className="h-4 w-4 shrink-0 text-texto-secundario" />
                     <span className="min-w-0 flex-1 truncate">

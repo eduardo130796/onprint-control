@@ -103,7 +103,7 @@ export function PainelOrcamento({ orcamento: resumo, onFechar }: { orcamento: Or
               <dl className="mt-2 space-y-1 text-right">
                 {Number(o.desconto) > 0 && <div className="text-texto-secundario">Desconto: − {formatarMoeda(o.desconto)}</div>}
                 {Number(o.frete) > 0 && <div className="text-texto-secundario">Frete / instalação: {formatarMoeda(o.frete)}</div>}
-                <div className="text-base font-semibold text-petroleo">Total: {formatarMoeda(o.total)}</div>
+                <div className="text-base font-semibold text-grafite">Total: {formatarMoeda(o.total)}</div>
               </dl>
             </section>
             {o.condicoes && <DadoPainel rotulo="Condições de pagamento">{o.condicoes}</DadoPainel>}

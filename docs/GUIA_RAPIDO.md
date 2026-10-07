@@ -119,7 +119,7 @@ No orçamento aprovado, clique em **Converter em pedido** e informe o sinal (%) 
 - Ao concluir a OP, o estoque dos insumos **baixa sozinho**.
 - Quando todas as OPs terminam, o pedido vira **Pronto** e o vendedor é avisado.
 - **Clique no cartão da OP** para ver a arte, medidas, máquina, prazos e etapas, com acesso rápido à OP, ao pedido, à arte, à ficha e à etiqueta.
-- No cartão da OP: **Editar** (máquina, responsável, datas, prioridade), **Ficha** (folha da OP para a produção) e **Etiqueta** (etiqueta de entrega em folha A4, 4 por folha, com a imagem da arte e os dados do cliente).
+- No cartão da OP: **Editar** (máquina, responsável, datas, prioridade), **Ficha** (folha da OP para a produção) e **Etiqueta** (etiqueta de entrega em folha A4, 4 por folha, com a imagem da arte, endereço, data agendada, entregador, se está PAGO ou quanto COBRAR, os outros itens do pedido, canhoto de recebimento e um QR que abre o pedido no celular).
 - **PCP / Cockpit** mostra a carga por máquina, os gargalos e as OPs atrasadas.
 
 **5. Entrega** · *Vendedor*

@@ -91,7 +91,7 @@ export function TituloDetalheDialog({ tipo, id, onFechar }: { tipo: TipoTitulo; 
               {t.atrasado && <span className="text-xs font-medium text-coral-escuro">em atraso</span>}
               {t.pedido &&
                 (podeVerPedidos ? (
-                  <Link to={`/pedidos/${t.pedido.id}?aba=financeiro`} className="text-turquesa-escuro hover:underline">
+                  <Link to={`/pedidos/${t.pedido.id}?aba=financeiro`} className="text-marca-escuro hover:underline">
                     {t.pedido.numero}
                   </Link>
                 ) : (
@@ -108,7 +108,7 @@ export function TituloDetalheDialog({ tipo, id, onFechar }: { tipo: TipoTitulo; 
               ].map(([r, val]) => (
                 <div key={r} className="rounded-xl bg-fundo p-3">
                   <p className="text-xs text-texto-secundario">{r}</p>
-                  <p className="font-semibold text-petroleo">{val}</p>
+                  <p className="font-semibold text-grafite">{val}</p>
                 </div>
               ))}
             </div>
@@ -121,7 +121,7 @@ export function TituloDetalheDialog({ tipo, id, onFechar }: { tipo: TipoTitulo; 
             {t.observacao && <p className="rounded-lg bg-fundo p-2">{t.observacao}</p>}
 
             <div>
-              <p className="mb-2 font-semibold text-petroleo">Pagamentos</p>
+              <p className="mb-2 font-semibold text-grafite">Pagamentos</p>
               {t.movimentos.length === 0 ? (
                 <p className="text-texto-secundario">Nenhum pagamento registrado.</p>
               ) : (

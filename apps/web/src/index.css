@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    /* Variáveis do shadcn/ui mapeadas para a identidade ONPrint (HSL) */
-    --background: 210 20% 95%; /* fundo #F1F4F6 */
-    --foreground: 215 28% 17%; /* texto #1F2937 */
+    /* Variáveis do shadcn/ui mapeadas para a identidade ONPrint (HSL): grafite + verde WhatsApp, laranja nos detalhes */
+    --background: 200 13% 95%; /* fundo #F2F4F5 */
+    --foreground: 213 13% 14%; /* texto #1F2328 */
     --card: 0 0% 100%;
-    --card-foreground: 215 28% 17%;
+    --card-foreground: 213 13% 14%;
     --popover: 0 0% 100%;
-    --popover-foreground: 215 28% 17%;
-    --primary: 173 80% 40%; /* turquesa #14B8A6 */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 190 79% 20%; /* petróleo #0B4F5C */
+    --popover-foreground: 213 13% 14%;
+    --primary: 142 70% 49%; /* verde WhatsApp #25D366 */
+    --primary-foreground: 210 12% 13%;
+    --secondary: 213 11% 19%; /* grafite #2B3036 */
     --secondary-foreground: 0 0% 100%;
-    --muted: 210 20% 96%;
-    --muted-foreground: 220 9% 46%; /* #6B7280 */
-    --accent: 174 60% 94%;
-    --accent-foreground: 190 79% 20%;
+    --muted: 195 13% 94%;
+    --muted-foreground: 212 8% 38%; /* #5A6169 */
+    --accent: 143 57% 95%; /* verde suave #E9F9EF */
+    --accent-foreground: 213 11% 19%;
     --destructive: 1 83% 64%; /* coral #EF5A57 */
     --destructive-foreground: 0 0% 100%;
-    --border: 214 20% 88%;
-    --input: 214 20% 84%;
-    --ring: 173 80% 40%;
+    --border: 206 11% 88%;
+    --input: 207 11% 83%;
+    --ring: 174 79% 29%;
     --radius: 0.75rem;
   }
 

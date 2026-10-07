@@ -29,7 +29,7 @@ export function BotaoCartao({ icone: Icone, rotulo, onClick, carregando, disable
         onClick()
       }}
       className={cn(
-        'inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-texto-secundario transition-colors hover:bg-fundo hover:text-petroleo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-turquesa disabled:opacity-50',
+        'inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-texto-secundario transition-colors hover:bg-fundo hover:text-grafite focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca disabled:opacity-50',
         className,
       )}
     >

@@ -17,6 +17,7 @@ import { useEmpresa } from '@/features/configuracoes/hooks'
 import { usePermission } from '@/hooks/usePermission'
 import { baixarArquivo, gerarCsv } from '@/lib/csv'
 import { formatarValor, valorCsv } from '@/lib/formatoValor'
+import { bandejaAbas, classeAba } from '@/lib/estilosAbas'
 import { cn } from '@/lib/utils'
 
 const PERIODOS = { mes: 'Este mês', anterior: 'Mês passado', '90': 'Últimos 90 dias', ano: 'Este ano', livre: 'Escolher datas' } as const
@@ -92,13 +93,13 @@ export function RelatorioPage({ tipo }: { tipo: TipoRelatorio }) {
           ) : undefined
         }
       />
-      <nav className="mb-4 flex gap-1 overflow-x-auto border-b border-border" aria-label="Visões do relatório">
+      <nav className={cn(bandejaAbas, 'mb-4')} aria-label="Visões do relatório">
         {visoes.map(([chave, titulo]) => (
           <button
             key={chave}
             type="button"
             onClick={() => setVisao(chave)}
-            className={cn('-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium', visao === chave ? 'border-turquesa text-petroleo' : 'border-transparent text-texto-secundario hover:text-petroleo')}
+            className={classeAba(visao === chave)}
           >
             {titulo}
           </button>
@@ -120,7 +121,7 @@ export function RelatorioPage({ tipo }: { tipo: TipoRelatorio }) {
             <Input type="date" className="w-40" value={livre.ate} onChange={(e) => setLivre((l) => ({ ...l, ate: e.target.value }))} aria-label="Até" />
           </>
         )}
-        {consulta.isFetching && <Loader2 className="h-5 w-5 animate-spin self-center text-turquesa-escuro" />}
+        {consulta.isFetching && <Loader2 className="h-5 w-5 animate-spin self-center text-marca-escuro" />}
       </div>
 
       {consulta.isPending ? (
@@ -135,7 +136,7 @@ export function RelatorioPage({ tipo }: { tipo: TipoRelatorio }) {
             {r.resumo.map((x) => (
               <Card key={x.rotulo} className="p-4">
                 <p className="text-xs text-texto-secundario">{x.rotulo}</p>
-                <p className="text-xl font-semibold text-petroleo">{formatarValor(x.valor, x.formato)}</p>
+                <p className="text-xl font-semibold text-grafite">{formatarValor(x.valor, x.formato)}</p>
               </Card>
             ))}
           </div>

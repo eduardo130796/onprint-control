@@ -45,7 +45,7 @@ export function CalendarioPage() {
             <Button variant="outline" size="icon" aria-label="Mês anterior" onClick={() => setMes((x) => mudarMes(x, -1))}>
               <ChevronLeft />
             </Button>
-            <span className="w-40 text-center font-semibold capitalize text-petroleo">
+            <span className="w-40 text-center font-semibold capitalize text-grafite">
               {MESES[m - 1]} de {ano}
             </span>
             <Button variant="outline" size="icon" aria-label="Próximo mês" onClick={() => setMes((x) => mudarMes(x, 1))}>
@@ -81,13 +81,13 @@ export function CalendarioPage() {
                     type="button"
                     onClick={() => setDia(d)}
                     className={cn(
-                      'flex min-h-20 flex-col rounded-lg border p-1.5 text-left text-[11px] transition-colors hover:border-turquesa',
-                      d === dia ? 'border-turquesa bg-turquesa/5' : 'border-border',
-                      d === hoje && 'ring-1 ring-turquesa',
+                      'flex min-h-20 flex-col rounded-lg border p-1.5 text-left text-[11px] transition-colors hover:border-marca',
+                      d === dia ? 'border-marca bg-marca/5' : 'border-border',
+                      d === hoje && 'ring-1 ring-marca',
                     )}
                   >
                     <span className={cn('text-xs font-semibold', atrasado && 'text-coral-escuro')}>{Number(d.slice(8))}</span>
-                    {info && Number(info.aReceber) > 0 && <span className="truncate text-turquesa-escuro">+{formatarMoeda(info.aReceber)}</span>}
+                    {info && Number(info.aReceber) > 0 && <span className="truncate text-marca-escuro">+{formatarMoeda(info.aReceber)}</span>}
                     {info && Number(info.aPagar) > 0 && <span className="truncate text-coral-escuro">−{formatarMoeda(info.aPagar)}</span>}
                     {info && Number(info.recebido) + Number(info.pago) > 0 && <span className="truncate text-texto-secundario">✓ {formatarMoeda(Number(info.recebido) - Number(info.pago))}</span>}
                   </button>
@@ -107,7 +107,7 @@ export function CalendarioPage() {
                   {selecionado.titulos.map((t) => (
                     <li key={t.id}>
                       <button type="button" className="flex w-full items-center gap-2 py-2 text-left hover:bg-fundo/60" onClick={() => setAberto({ tipo: t.tipo, id: t.id })}>
-                        <span className={cn('h-2 w-2 shrink-0 rounded-full', t.tipo === 'receber' ? 'bg-turquesa' : 'bg-coral')} />
+                        <span className={cn('h-2 w-2 shrink-0 rounded-full', t.tipo === 'receber' ? 'bg-marca' : 'bg-coral')} />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-medium">{t.descricao}</span>
                           <span className="block truncate text-xs text-texto-secundario">{t.pessoa ?? '—'}</span>

@@ -21,12 +21,12 @@ export function ListaMovimentacoes({ movimentacoes, mostrarProduto }: { moviment
                 <span className="block text-xs text-texto-secundario">
                   {m.motivo}
                   {m.op && (
-                    <Link to={`/producao/ordens/${m.op.id}`} className="ml-1 text-turquesa-escuro hover:underline">
+                    <Link to={`/producao/ordens/${m.op.id}`} className="ml-1 text-marca-escuro hover:underline">
                       {m.op.numero}
                     </Link>
                   )}
                   {m.pedido && !m.op && (
-                    <Link to={`/pedidos/${m.pedido.id}`} className="ml-1 text-turquesa-escuro hover:underline">
+                    <Link to={`/pedidos/${m.pedido.id}`} className="ml-1 text-marca-escuro hover:underline">
                       {m.pedido.numero}
                     </Link>
                   )}

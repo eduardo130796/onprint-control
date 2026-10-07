@@ -3,10 +3,10 @@ import { formatarDataHora, type EventoHistorico } from '@onprint/shared'
 import { cn } from '@/lib/utils'
 
 const ICONES: Record<EventoHistorico['tipo'], { icone: LucideIcon; cor: string }> = {
-  pedido: { icone: ShoppingCart, cor: 'bg-petroleo text-white' },
+  pedido: { icone: ShoppingCart, cor: 'bg-grafite text-white' },
   arte: { icone: FileImage, cor: 'bg-purple-500 text-white' },
   producao: { icone: Factory, cor: 'bg-sky-600 text-white' },
-  entrega: { icone: Truck, cor: 'bg-turquesa-escuro text-white' },
+  entrega: { icone: Truck, cor: 'bg-marca text-grafite-escuro' },
   financeiro: { icone: Banknote, cor: 'bg-verde text-white' },
 }
 

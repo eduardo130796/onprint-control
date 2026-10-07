@@ -50,7 +50,7 @@ export function ItemOrcamento({ indice, total, item, calculo, editavel, onChange
   return (
     <Card className={cn('p-4', r && !r.ok && 'ring-1 ring-coral/60')}>
       <div className="mb-3 flex items-center gap-2">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-petroleo text-xs font-semibold text-white">{indice + 1}</span>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-grafite text-xs font-semibold text-white">{indice + 1}</span>
         <div className="min-w-0 flex-1">
           <SearchSelect
             id={id('produto')}
@@ -143,7 +143,7 @@ export function ItemOrcamento({ indice, total, item, calculo, editavel, onChange
               <AlertTriangle className="h-4 w-4 shrink-0" /> {r.erros.join(' ')}
             </p>
           )}
-          <p className="text-lg font-semibold text-petroleo">{formatarMoeda(calculo.total)}</p>
+          <p className="text-lg font-semibold text-grafite">{formatarMoeda(calculo.total)}</p>
         </div>
       )}
     </Card>

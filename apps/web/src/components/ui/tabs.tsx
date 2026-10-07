@@ -11,7 +11,8 @@ export const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      'flex w-full gap-1 overflow-x-auto border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+      // Controle segmentado (mesmo visual de lib/estilosAbas): bandeja branca, aba ativa em grafite
+      'inline-flex max-w-full gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
       className,
     )}
     {...props}
@@ -26,7 +27,7 @@ export const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      '-mb-px shrink-0 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-texto-secundario transition-colors hover:text-petroleo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 data-[state=active]:border-turquesa data-[state=active]:text-petroleo',
+      'shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold text-grafite/75 transition-colors hover:bg-fundo hover:text-grafite focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 data-[state=active]:bg-grafite data-[state=active]:text-white data-[state=active]:shadow-sm',
       className,
     )}
     {...props}

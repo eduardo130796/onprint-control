@@ -95,7 +95,7 @@ export function UsuarioDialog({ usuario, onFechar }: UsuarioDialogProps) {
           <Checkbox {...form.register('ativo')} /> Usuário ativo (desmarcar encerra as sessões abertas)
         </label>
       ) : (
-        <p className="rounded-lg bg-accent p-3 text-xs text-petroleo">
+        <p className="rounded-lg bg-accent p-3 text-xs text-grafite">
           Informe a senha provisória ao usuário. No primeiro acesso ele será obrigado a criar a própria senha.
         </p>
       )}

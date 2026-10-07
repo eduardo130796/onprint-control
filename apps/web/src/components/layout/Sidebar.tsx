@@ -27,7 +27,7 @@ export function Sidebar({ recolhida, onAlternar, mobileAberta, onMobileAbertaCha
         <button
           type="button"
           onClick={onAlternar}
-          className="flex items-center gap-2 border-t border-border px-6 py-3 text-sm text-texto-secundario hover:text-petroleo"
+          className="flex items-center gap-2 border-t border-border px-6 py-3 text-sm text-texto-secundario hover:text-grafite"
           aria-label={recolhida ? 'Expandir menu' : 'Recolher menu'}
         >
           {recolhida ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
@@ -38,7 +38,7 @@ export function Sidebar({ recolhida, onAlternar, mobileAberta, onMobileAbertaCha
       <Sheet open={mobileAberta} onOpenChange={onMobileAbertaChange}>
         <SheetContent>
           <SheetTitle className="sr-only">Menu</SheetTitle>
-          <div className="flex h-16 items-center bg-petroleo px-4">
+          <div className="flex h-16 items-center bg-grafite px-4">
             <Logo claro />
           </div>
           <div className="flex-1 overflow-y-auto">

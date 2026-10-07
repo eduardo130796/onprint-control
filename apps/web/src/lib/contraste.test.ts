@@ -7,11 +7,11 @@ describe('contraste', () => {
     expect(razaoContraste('#FFFFFF', '#FFFFFF')).toBe(1)
   })
   it('cores claras de status ficam legíveis sobre o próprio fundo', () => {
-    for (const cor of ['#22C55E', '#F59E0B', '#0EA5E9', '#9CA3AF', '#EF5A57', '#14B8A6']) {
+    for (const cor of ['#22C55E', '#F59E0B', '#0EA5E9', '#9CA3AF', '#EF5A57', '#25D366', '#F97316']) {
       expect(razaoContraste(textoLegivel(cor), fundoSuave(cor))).toBeGreaterThanOrEqual(4.5)
     }
   })
   it('cor escura já legível não muda', () => {
-    expect(textoLegivel('#0B4F5C')).toBe('#0B4F5C')
+    expect(textoLegivel('#2B3036')).toBe('#2B3036')
   })
 })

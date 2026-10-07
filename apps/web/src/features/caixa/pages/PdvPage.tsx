@@ -84,10 +84,10 @@ function Venda({ sessao }: { sessao: CaixaSessaoDetalhe }) {
                 key={p.id}
                 type="button"
                 onClick={() => adicionar(p)}
-                className={cn('rounded-xl border border-border bg-card p-3 text-left text-sm shadow-sm transition hover:border-turquesa hover:shadow', semEstoque && 'opacity-60')}
+                className={cn('rounded-xl border border-border bg-card p-3 text-left text-sm shadow-sm transition hover:border-marca hover:shadow', semEstoque && 'opacity-60')}
               >
                 <p className="line-clamp-2 min-h-10 font-medium">{p.nome}</p>
-                <p className="mt-1 text-base font-semibold text-petroleo">{formatarMoeda(p.precoVenda)}</p>
+                <p className="mt-1 text-base font-semibold text-grafite">{formatarMoeda(p.precoVenda)}</p>
                 <p className={cn('text-xs', semEstoque ? 'text-coral-escuro' : 'text-texto-secundario')}>
                   {p.controlaEstoque ? `estoque ${Number(p.saldo).toLocaleString('pt-BR')}` : (p.categoria ?? p.codigo)}
                 </p>
@@ -137,8 +137,8 @@ function Venda({ sessao }: { sessao: CaixaSessaoDetalhe }) {
             </div>
           </div>
           <div className="flex items-baseline justify-between border-t border-border pt-2">
-            <span className="font-semibold text-petroleo">Total</span>
-            <span className="text-2xl font-bold text-petroleo">{formatarMoeda(calc.total)}</span>
+            <span className="font-semibold text-grafite">Total</span>
+            <span className="text-2xl font-bold text-grafite">{formatarMoeda(calc.total)}</span>
           </div>
 
           <div className="space-y-2">

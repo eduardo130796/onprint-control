@@ -161,7 +161,7 @@ export function NovaEntradaPage() {
               </Button>
             </div>
           ))}
-          <p className="text-right text-lg font-semibold text-petroleo">Total da entrada: {formatarMoeda(total)}</p>
+          <p className="text-right text-lg font-semibold text-grafite">Total da entrada: {formatarMoeda(total)}</p>
         </CardContent>
       </Card>
     </form>

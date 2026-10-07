@@ -60,7 +60,7 @@ export function AppLayout() {
           <Suspense
             fallback={
               <div className="flex justify-center py-24" role="status" aria-label="Carregando">
-                <Loader2 className="h-6 w-6 animate-spin text-turquesa-escuro" />
+                <Loader2 className="h-6 w-6 animate-spin text-marca-escuro" />
               </div>
             }
           >

@@ -1,15 +1,11 @@
 import { NavLink } from 'react-router-dom'
-import { cn } from '@/lib/utils'
+import { bandejaAbas, classeAba } from '@/lib/estilosAbas'
 
 /** Abas "Solicitações | Orçamentos | Kanban" do módulo Orçamentos. */
 export function AbasComercial() {
-  const aba = ({ isActive }: { isActive: boolean }) =>
-    cn(
-      '-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-colors',
-      isActive ? 'border-turquesa text-petroleo' : 'border-transparent text-texto-secundario hover:text-petroleo',
-    )
+  const aba = ({ isActive }: { isActive: boolean }) => classeAba(isActive)
   return (
-    <nav className="mb-6 flex gap-1 border-b border-border" aria-label="Comercial">
+    <nav className={bandejaAbas} aria-label="Comercial">
       <NavLink to="/orcamentos/solicitacoes" className={aba}>
         Solicitações
       </NavLink>

@@ -29,7 +29,7 @@ function Origem({ m }: { m: MovimentacaoEstoque }) {
   return (
     <div className="min-w-0 text-xs">
       {link && (
-        <Link to={link.para} className="font-medium text-turquesa-escuro hover:underline" onClick={(e) => e.stopPropagation()}>
+        <Link to={link.para} className="font-medium text-marca-escuro hover:underline" onClick={(e) => e.stopPropagation()}>
           {link.texto}
         </Link>
       )}

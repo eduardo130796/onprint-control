@@ -64,7 +64,7 @@ export function FileUploader({ extensoes, tamanhoMaxMb = 200, onEnviar, desabili
       }}
       className={cn(
         'rounded-2xl border-2 border-dashed border-border p-6 text-center transition-colors',
-        arrastando && 'border-turquesa bg-accent',
+        arrastando && 'border-marca bg-accent',
         desabilitado && 'opacity-50',
       )}
     >
@@ -81,16 +81,16 @@ export function FileUploader({ extensoes, tamanhoMaxMb = 200, onEnviar, desabili
           {preview ? (
             <img src={preview} alt="" className="h-12 w-12 rounded-lg object-cover" />
           ) : (
-            <FileUp className="h-10 w-10 shrink-0 text-turquesa-escuro" />
+            <FileUp className="h-10 w-10 shrink-0 text-marca-escuro" />
           )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{arquivo.name}</p>
             <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-fundo">
-              <div className="h-full rounded-full bg-turquesa transition-all" style={{ width: `${progresso}%` }} />
+              <div className="h-full rounded-full bg-marca transition-all" style={{ width: `${progresso}%` }} />
             </div>
             <p className="mt-1 text-xs text-texto-secundario">{progresso}%</p>
           </div>
-          <Loader2 className="h-5 w-5 animate-spin text-turquesa-escuro" />
+          <Loader2 className="h-5 w-5 animate-spin text-marca-escuro" />
         </div>
       ) : (
         <>

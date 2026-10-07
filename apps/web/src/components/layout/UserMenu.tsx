@@ -28,16 +28,16 @@ export function UserMenu() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex items-center gap-2 rounded-xl px-1.5 py-1 text-left text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-turquesa">
+      <DropdownMenuTrigger className="flex items-center gap-2 rounded-xl px-1.5 py-1 text-left text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca">
         <Avatar>
           {usuario?.avatar && <AvatarImage src={usuario.avatar} alt="" />}
           <AvatarFallback>{iniciais(nome)}</AvatarFallback>
         </Avatar>
         <span className="hidden flex-col leading-tight md:flex">
-          <span className="text-sm font-medium">{nome}</span>
+          <span className="text-sm font-semibold">{nome}</span>
           <span className="text-xs text-white/80">{usuario?.papel.nome}</span>
         </span>
-        <ChevronDown className="hidden h-4 w-4 text-white/60 md:block" />
+        <ChevronDown className="hidden h-4 w-4 text-white/80 md:block" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>

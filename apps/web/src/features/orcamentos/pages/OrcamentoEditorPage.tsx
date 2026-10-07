@@ -71,7 +71,7 @@ function Editor({ orcamento, solicitacaoId, clienteInicial }: { orcamento?: Orca
       <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold text-petroleo">{orcamento ? orcamento.numero : 'Novo orçamento'}</h1>
+            <h1 className="text-2xl font-semibold text-grafite">{orcamento ? orcamento.numero : 'Novo orçamento'}</h1>
             {orcamento && <StatusBadge entidade="orcamento" codigo={orcamento.status} />}
             {alterado && <span className="rounded-full bg-ambar/15 px-2 py-0.5 text-xs text-amber-800">não salvo</span>}
           </div>

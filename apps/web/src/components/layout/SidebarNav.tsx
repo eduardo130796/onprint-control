@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, type LucideIcon } from 'lucide-react'
 import { filtrarNavegacao, type NavModulo } from '@/app/navigation'
 import {
   DropdownMenu,
@@ -21,15 +21,32 @@ interface SidebarNavProps {
 }
 
 const itemBase =
-  'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-const itemInativo = 'text-texto-secundario hover:bg-fundo hover:text-petroleo'
-const itemAtivo = 'bg-petroleo text-white hover:bg-petroleo'
+  'group flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+const itemInativo = 'text-grafite/80 hover:bg-fundo hover:text-grafite'
+// Item ativo: grafite com um traço laranja à esquerda (detalhe da identidade)
+const itemAtivo = 'relative bg-grafite text-white hover:bg-grafite before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-r-full before:bg-laranja'
 
-/** Contador vermelho ao lado do item (ex.: alertas de estoque baixo). */
+type EstadoIcone = 'normal' | 'ativo' | 'aberto'
+
+/** Ícone do item num quadradinho com cara de botão: cinza claro; verde-suave no hover/aberto; verde no ativo. */
+function IconeMenu({ icone: Icone, estado }: { icone: LucideIcon; estado: EstadoIcone }) {
+  return (
+    <span
+      className={cn(
+        'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors',
+        estado === 'ativo' ? 'bg-marca text-grafite-escuro' : estado === 'aberto' ? 'bg-marca-suave text-marca-escuro' : 'bg-fundo text-grafite group-hover:bg-marca-suave group-hover:text-marca-escuro',
+      )}
+    >
+      <Icone className="h-[18px] w-[18px]" />
+    </span>
+  )
+}
+
+/** Contador laranja ao lado do item (ex.: alertas de estoque baixo). */
 function Contador({ valor, className }: { valor?: number; className?: string }) {
   if (!valor) return null
   return (
-    <span className={cn('min-w-5 rounded-full bg-coral-escuro px-1.5 text-center text-[11px] font-semibold leading-5 text-white', className)} aria-label={`${valor} pendente(s)`}>
+    <span className={cn('min-w-5 rounded-full bg-laranja-escuro px-1.5 text-center text-[11px] font-semibold leading-5 text-white', className)} aria-label={`${valor} pendente(s)`}>
       {valor > 99 ? '99+' : valor}
     </span>
   )
@@ -65,8 +82,12 @@ export function SidebarNav({ recolhida = false, onNavegar }: SidebarNavProps) {
                 cn(itemBase, isActive ? itemAtivo : itemInativo, recolhida && 'justify-center px-0')
               }
             >
-              <Icone className="h-5 w-5 shrink-0" />
-              {!recolhida && <span className="truncate">{modulo.titulo}</span>}
+              {({ isActive }) => (
+                <>
+                  <IconeMenu icone={Icone} estado={isActive ? 'ativo' : 'normal'} />
+                  {!recolhida && <span className="truncate">{modulo.titulo}</span>}
+                </>
+              )}
             </NavLink>
           )
           return recolhida ? (
@@ -88,12 +109,12 @@ export function SidebarNav({ recolhida = false, onNavegar }: SidebarNavProps) {
                 aria-label={modulo.titulo}
               >
                 <span className="relative">
-                  <Icone className="h-5 w-5 shrink-0" />
-                  {Boolean(badgeDoModulo(modulo)) && <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-coral ring-2 ring-card" />}
+                  <IconeMenu icone={Icone} estado={ativo ? 'ativo' : 'normal'} />
+                  {Boolean(badgeDoModulo(modulo)) && <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-laranja ring-2 ring-card" />}
                 </span>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="right" align="start">
-                <DropdownMenuLabel className="font-semibold text-petroleo">{modulo.titulo}</DropdownMenuLabel>
+                <DropdownMenuLabel className="font-semibold text-grafite">{modulo.titulo}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {modulo.filhos.map((f) => (
                   <DropdownMenuItem key={f.path} asChild>
@@ -114,10 +135,10 @@ export function SidebarNav({ recolhida = false, onNavegar }: SidebarNavProps) {
             <button
               type="button"
               onClick={() => setAbertos((a) => ({ ...a, [modulo.modulo]: !aberto }))}
-              className={cn(itemBase, ativo ? 'text-petroleo' : itemInativo)}
+              className={cn(itemBase, ativo ? 'text-grafite' : itemInativo)}
               aria-expanded={aberto}
             >
-              <Icone className="h-5 w-5 shrink-0" />
+              <IconeMenu icone={Icone} estado={ativo ? 'aberto' : 'normal'} />
               <span className="flex-1 truncate text-left">{modulo.titulo}</span>
               {!aberto && <Contador valor={badgeDoModulo(modulo)} />}
               <ChevronDown className={cn('h-4 w-4 transition-transform', aberto && 'rotate-180')} />
@@ -134,8 +155,8 @@ export function SidebarNav({ recolhida = false, onNavegar }: SidebarNavProps) {
                       cn(
                         'flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
                         isActive
-                          ? 'bg-accent font-medium text-petroleo'
-                          : 'text-texto-secundario hover:bg-fundo hover:text-petroleo',
+                          ? 'bg-accent font-medium text-grafite'
+                          : 'text-texto-secundario hover:bg-fundo hover:text-grafite',
                       )
                     }
                   >

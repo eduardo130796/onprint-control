@@ -71,7 +71,7 @@ function Recebimento({ sessao }: { sessao: CaixaSessaoDetalhe }) {
           <ul className="divide-y divide-border text-sm">
             {titulos.data?.map((t) => (
               <li key={t.id}>
-                <button type="button" onClick={() => escolher(t)} className={cn('flex w-full items-center gap-3 px-2 py-2 text-left hover:bg-fundo', titulo?.id === t.id && 'bg-turquesa/10')}>
+                <button type="button" onClick={() => escolher(t)} className={cn('flex w-full items-center gap-3 px-2 py-2 text-left hover:bg-fundo', titulo?.id === t.id && 'bg-marca/10')}>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{t.cliente.nome}</span>
                     <span className="block truncate text-xs text-texto-secundario">{t.descricao}</span>

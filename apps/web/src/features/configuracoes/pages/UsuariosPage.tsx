@@ -48,7 +48,7 @@ export function UsuariosPage() {
         meta: { ordenavel: 'nome' },
         cell: ({ row: { original: u } }) => (
           <div className="flex items-center gap-3">
-            <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-petroleo md:flex">
+            <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-grafite md:flex">
               {iniciais(u.nome)}
             </span>
             <div className="min-w-0">

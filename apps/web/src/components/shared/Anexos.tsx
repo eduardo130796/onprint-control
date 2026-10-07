@@ -66,7 +66,7 @@ export function Anexos({ entidade, entidadeId, modulo }: AnexosProps) {
         <ul className="divide-y divide-border rounded-2xl border border-border">
           {lista.data.map((a) => (
             <li key={a.id} className="flex items-center gap-3 p-3">
-              <FileText className="h-8 w-8 shrink-0 text-petroleo" />
+              <FileText className="h-8 w-8 shrink-0 text-grafite" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{a.nomeOriginal}</p>
                 <p className="text-xs text-texto-secundario">

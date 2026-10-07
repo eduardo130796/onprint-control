@@ -16,7 +16,7 @@ const FINANCEIRO = { pendente: ['Pendente', 'bg-slate-100 text-texto-secundario'
 const ENTREGA = { retirada: [Store, 'Retirada'], entrega: [MapPin, 'Entrega'], instalacao: [Wrench, 'Instalação'] } as const
 
 /** Barra de progresso fina com rótulo (arte aprovada, OPs concluídas, valor pago). */
-function Progresso({ rotulo, feito, total, cor = 'bg-turquesa' }: { rotulo: string; feito: number; total: number; cor?: string }) {
+function Progresso({ rotulo, feito, total, cor = 'bg-marca' }: { rotulo: string; feito: number; total: number; cor?: string }) {
   const pct = total > 0 ? Math.min(100, Math.round((feito / total) * 100)) : 0
   return (
     <div>
@@ -42,7 +42,7 @@ export function CartaoPedido({ pedido: p, acoes }: { pedido: Pedido; acoes: Acoe
   return (
     <article className={cn('rounded-xl border bg-card p-3.5 text-sm shadow-sm transition-shadow hover:shadow-md', p.atrasado ? 'border-coral/60' : 'border-transparent')}>
       <div className="flex items-center justify-between gap-2">
-        <Link to={`/pedidos/${p.id}`} className="font-mono text-xs font-semibold text-petroleo hover:underline" onPointerDown={(e) => e.stopPropagation()}>
+        <Link to={`/pedidos/${p.id}`} className="font-mono text-xs font-semibold text-grafite hover:underline" onPointerDown={(e) => e.stopPropagation()}>
           {p.numero}
         </Link>
         <span className="font-semibold tabular-nums">{formatarMoeda(p.total)}</span>

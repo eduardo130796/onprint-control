@@ -91,7 +91,7 @@ export function PedidoPage() {
             <StatusBadge entidade="pedido" codigo={pedido.status} />
             {pedido.atrasado && <SeloAtraso />}
             <SeloPrioridade prioridade={pedido.prioridade} />
-            <Link to={`/clientes/${pedido.clienteId}`} className="text-turquesa-escuro hover:underline">
+            <Link to={`/clientes/${pedido.clienteId}`} className="text-marca-escuro hover:underline">
               {pedido.cliente.nome}
             </Link>
             {pedido.orcamento && (
@@ -184,7 +184,7 @@ export function PedidoPage() {
           </div>
           <div>
             <p className="text-xs text-texto-secundario">Total</p>
-            <p className="text-base font-semibold text-petroleo">{formatarMoeda(pedido.total)}</p>
+            <p className="text-base font-semibold text-grafite">{formatarMoeda(pedido.total)}</p>
           </div>
         </CardContent>
       </Card>

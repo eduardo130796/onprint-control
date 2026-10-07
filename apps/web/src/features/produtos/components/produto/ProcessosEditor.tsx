@@ -45,7 +45,7 @@ export function ProcessosEditor({ produto, podeEditar }: { produto: ProdutoDetal
         <ol className="divide-y divide-border">
           {etapas.map((e, i) => (
             <li key={i} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-petroleo text-sm font-semibold text-white">{i + 1}</span>
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-grafite text-sm font-semibold text-white">{i + 1}</span>
               <div className="flex-1">
                 <Select value={e.processoId} disabled={!podeEditar} onChange={(ev) => escolherProcesso(i, ev.target.value)} aria-label={`Processo da etapa ${i + 1}`}>
                   <option value="">Selecione o processo…</option>

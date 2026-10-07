@@ -19,7 +19,7 @@ export function AbaEstoque({ form, siglaUnidade }: { form: FormProduto; siglaUni
           <NumberInput id="pd-estmin" casas={3} sufixo={siglaUnidade} disabled={!controla} {...form.register('estoqueMinimo')} />
         </CampoFormulario>
         <div className="flex items-start gap-3 rounded-2xl bg-fundo p-4 text-sm text-texto-secundario">
-          <Boxes className="h-5 w-5 shrink-0 text-turquesa-escuro" />
+          <Boxes className="h-5 w-5 shrink-0 text-marca-escuro" />
           <p>
             O saldo só muda por movimentação (entradas, produção, ajustes). Os insumos da ficha técnica são baixados automaticamente
             quando a OP é concluída; abaixo do mínimo, o item aparece em Estoque → Alertas.

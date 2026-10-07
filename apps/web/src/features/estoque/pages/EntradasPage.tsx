@@ -54,7 +54,7 @@ function EntradaDialog({ id, onFechar }: { id: string | null; onFechar: () => vo
                 ))}
               </tbody>
             </table>
-            <p className="text-right text-base font-semibold text-petroleo">Total {formatarMoeda(consulta.data.total)}</p>
+            <p className="text-right text-base font-semibold text-grafite">Total {formatarMoeda(consulta.data.total)}</p>
             {consulta.data.observacoes && <p className="rounded-lg bg-fundo p-3">{consulta.data.observacoes}</p>}
             <p className="text-xs text-texto-secundario">
               Registrada por {consulta.data.usuario?.nome ?? '—'} em {formatarDataHora(consulta.data.createdAt)}

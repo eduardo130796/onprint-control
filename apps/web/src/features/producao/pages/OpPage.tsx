@@ -53,7 +53,7 @@ export function OpPage() {
             <StatusBadge entidade="producao" codigo={op.etapaAtual} />
             {op.atrasada && <SeloAtraso />}
             <SeloPrioridade prioridade={op.prioridade} />
-            <Link to={`/pedidos/${op.pedidoId}`} className="text-turquesa-escuro hover:underline">
+            <Link to={`/pedidos/${op.pedidoId}`} className="text-marca-escuro hover:underline">
               {op.pedido.numero} · {op.pedido.cliente.nome}
             </Link>
           </span>

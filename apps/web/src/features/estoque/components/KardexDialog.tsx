@@ -32,7 +32,7 @@ export function ResumoEstoqueProduto({ produtoId }: { produtoId: string }) {
         ].map(([rotulo, valor]) => (
           <div key={rotulo} className="rounded-xl bg-fundo p-3">
             <p className="text-xs text-texto-secundario">{rotulo}</p>
-            <p className="font-semibold text-petroleo">{valor}</p>
+            <p className="font-semibold text-grafite">{valor}</p>
           </div>
         ))}
         <div className="flex items-center justify-center rounded-xl bg-fundo p-3">
@@ -49,7 +49,7 @@ export function ResumoEstoqueProduto({ produtoId }: { produtoId: string }) {
         </div>
       )}
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-petroleo">Últimas movimentações</p>
+        <p className="text-sm font-semibold text-grafite">Últimas movimentações</p>
         <Can modulo="estoque" acao="criar">
           <Button size="sm" variant="outline" onClick={() => setMovimentando(true)}>
             <ArrowLeftRight /> Movimentar

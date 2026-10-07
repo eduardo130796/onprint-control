@@ -53,7 +53,7 @@ export function LinhaStatus({ status, rotuloBase, podeEditar, podeExcluir, comQu
               {status.ehFinal && ' · final'}
             </>
           ) : (
-            <span className="font-medium text-turquesa-escuro">Próprio · conta como “{rotuloBase ?? status.base}”</span>
+            <span className="font-medium text-marca-escuro">Próprio · conta como “{rotuloBase ?? status.base}”</span>
           )}
         </p>
       </td>

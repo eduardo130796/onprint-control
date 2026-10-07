@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import argon2 from 'argon2'
 import type { Prisma } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
@@ -10,6 +10,7 @@ import { filtroAtivo, paginacao, paginado } from '../../core/paginacao'
 import { contextoEmpresa } from '../../core/contexto-empresa'
 import { comConflitoAmigavel } from '../../core/prisma-erros'
 import { criarIndiceLogin } from '../../plataforma/indice-login'
+import { criarRecuperacaoService } from '../auth/recuperacao.service'
 
 type Criar = z.output<typeof criarUsuarioSchema>
 type Editar = z.output<typeof editarUsuarioSchema>
@@ -35,6 +36,7 @@ const selecionar = {
 export function criarUsuariosService(app: FastifyInstance) {
   const { prisma } = app
   const indice = criarIndiceLogin(app.plataforma)
+  const recuperacao = criarRecuperacaoService(app)
 
   async function obter(id: string) {
     const usuario = await prisma.usuario.findUnique({ where: { id }, select: selecionar })
@@ -92,13 +94,18 @@ export function criarUsuariosService(app: FastifyInstance) {
       return prisma.usuario.findMany({ where: { ativo: true }, select: { id: true, nome: true }, orderBy: { nome: 'asc' } })
     },
 
+    /** Cria o usuário e manda o convite por e-mail (link para criar a senha). */
     async criar(dados: Criar, autorId: string) {
       await validarPapel(dados.papelId)
       const { senhaProvisoria, ...resto } = dados
-      const senhaHash = await argon2.hash(senhaProvisoria)
+      if (!senhaProvisoria && !app.email.configurado) {
+        throw AppError.regraNegocio('O envio de e-mails ainda não está configurado: informe uma senha provisória.', { campo: 'senhaProvisoria' })
+      }
+      // Sem senha provisória, ninguém sabe a senha inicial: o acesso começa pelo link do convite
+      const senhaHash = await argon2.hash(senhaProvisoria ?? randomBytes(24).toString('base64url'))
       const id = randomUUID()
       // O e-mail de login é único na plataforma inteira, não só nesta empresa
-      return indice.comReserva(resto.email, contextoEmpresa.exigir().id, id, () =>
+      const usuario = await indice.comReserva(resto.email, contextoEmpresa.exigir().id, id, () =>
         comConflitoAmigavel(
           () =>
             prisma.$transaction(async (tx) => {
@@ -112,6 +119,21 @@ export function criarUsuariosService(app: FastifyInstance) {
           CONFLITOS,
         ),
       )
+      const conviteEnviado =
+        app.email.configurado &&
+        (await recuperacao.convidar(usuario).catch((erro: unknown) => {
+          app.log.error({ err: erro, usuarioId: usuario.id }, 'Falha ao enviar o convite')
+          return false
+        }))
+      return { ...usuario, conviteEnviado }
+    },
+
+    /** Manda ao usuário um link para ele mesmo criar uma senha nova. */
+    async enviarLinkSenha(id: string) {
+      const usuario = await obter(id)
+      if (!usuario.ativo) throw AppError.regraNegocio('Usuário desativado: reative antes de enviar o link.')
+      if (!app.email.configurado) throw AppError.regraNegocio('O envio de e-mails ainda não está configurado (SMTP). Defina uma senha provisória.')
+      if (!(await recuperacao.enviarRedefinicao(usuario))) throw AppError.regraNegocio('Não foi possível enviar o e-mail agora. Tente de novo ou defina uma senha provisória.')
     },
 
     async atualizar(id: string, dados: Editar, autorId: string) {

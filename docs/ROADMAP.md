@@ -136,9 +136,14 @@ Decisões do usuário: todas as empresas no mesmo sistema; bloqueio escalonado (
 - [x] Verificado: testes unitários (api 40, incluindo requisições simultâneas de empresas diferentes), e2e `fase9` (28 verificações de isolamento: dados, numeração, e-mail único, sessão, links públicos, arquivos, tempo real) e regressão das fases 1–8
 - [ ] Aceite validado pelo usuário
 
-### Fase 10 — E-mail e recuperação de senha
-- [ ] Envio por SMTP genérico (`.env`); sem SMTP, só registra no log
-- [ ] "Esqueci a senha" com link de uso único (1 h); boas-vindas e convite de usuário
+### Fase 10 — E-mail e recuperação de senha ✅ (aguardando OK)
+- [x] Envio por SMTP genérico (`SMTP_*` no `.env`, `nodemailer`); sem SMTP, só registra no log; `EMAIL_PASTA` grava cópias em JSON (testes)
+- [x] Modelos de e-mail com a identidade do sistema (HTML compatível com Gmail/Outlook/celular + texto puro): redefinição, convite e aviso de senha alterada
+- [x] "Esqueci minha senha" no login: resposta sempre igual (não revela contas), envio depois da resposta, 3 pedidos a cada 15 min por IP + e-mail
+- [x] Link de uso único (1 h; convite 72 h), guardado só como hash na plataforma (`tokens_senha`); link novo invalida os anteriores; trocar a senha encerra as outras sessões e avisa por e-mail
+- [x] Usuário novo recebe convite (senha provisória opcional com e-mail ativo, obrigatória sem); admin pode mandar o link de senha em vez de definir uma provisória
+- [x] Verificado: testes unitários (api 47: modelos, escape de HTML, hash, provedores) e e2e `fase10` (29 verificações, inclusive empresa B) + fases 1 e 9
+- [ ] Aceite validado pelo usuário
 
 ### Fase 11 — Planos, módulos e bloqueio
 - [ ] Planos com módulos liberados e limite de usuários; módulo fora do plano some do menu e é recusado pela API

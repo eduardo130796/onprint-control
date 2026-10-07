@@ -28,7 +28,7 @@ declare module 'fastify' {
 }
 
 /** Tabelas que só existem de verdade no schema da plataforma. */
-const MODELOS_PLATAFORMA = new Set(['assinante', 'indiceLogin'])
+const MODELOS_PLATAFORMA = new Set(['assinante', 'indiceLogin', 'tokenSenha'])
 /** Propriedades sondadas por bibliotecas (await, Fastify, inspeção) que não devem exigir empresa. */
 const SONDAGENS = new Set(['then', 'getter', 'setter', 'toJSON', 'constructor', 'asymmetricMatch', '$$typeof', 'inspect'])
 const CACHE_MS = 60_000

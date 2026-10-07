@@ -137,6 +137,7 @@ Troque **todos** os valores marcados com `TROQUE`:
 | `JWT_ACCESS_SECRET` e `JWT_REFRESH_SECRET` | dois valores gerados, **diferentes entre si**. A API se recusa a subir com segredos fracos ou de exemplo |
 | `ADMIN_EMAIL` e `ADMIN_SENHA_INICIAL` | o primeiro acesso. A troca de senha é obrigatória no 1º login |
 | `SEED_EXEMPLOS` | `false` para começar vazio; `true` cria um catálogo de exemplo (banners, canecas…) |
+| `SMTP_*` e `EMAIL_REMETENTE` | dados SMTP do seu provedor de e-mail (tabela de exemplos no README). Sem eles, convites e "esqueci a senha" não chegam a ninguém |
 
 Salve (Ctrl+O, Enter, Ctrl+X) e proteja o arquivo:
 

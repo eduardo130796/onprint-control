@@ -13,6 +13,7 @@ import { usuariosApi } from '@/api/configuracoes'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { FormDialog } from '@/components/shared/FormDialog'
 import { NumberInput, PhoneInput } from '@/components/shared/inputs'
+import { Button } from '@/components/ui/button'
 import { Checkbox, Select } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
 import { decimalParaInput, mascaraTelefone } from '@/lib/mascaras'
@@ -28,8 +29,10 @@ interface UsuarioDialogProps {
 export function UsuarioDialog({ usuario, onFechar }: UsuarioDialogProps) {
   const queryClient = useQueryClient()
   const papeis = useQuery({ queryKey: ['usuarios', 'papeis'], queryFn: usuariosApi.papeis })
+  const config = useQuery({ queryKey: ['usuarios', 'configuracao'], queryFn: usuariosApi.configuracao })
+  // Com e-mail ativo, a senha provisória é opcional: o usuário recebe o convite para criar a dele
+  const comConvite = config.data?.emailConfigurado ?? false
   const form = useForm<Valores>({
-    // Criação exige senha provisória; edição permite ativar/desativar
     resolver: zodResolver(usuario ? editarUsuarioSchema : criarUsuarioSchema) as never,
     defaultValues: {
       nome: usuario?.nome ?? '',
@@ -38,7 +41,7 @@ export function UsuarioDialog({ usuario, onFechar }: UsuarioDialogProps) {
       papelId: usuario?.papel.id ?? '',
       comissaoPercentual: decimalParaInput(usuario?.comissaoPercentual ?? 0),
       ativo: usuario?.ativo ?? true,
-      senhaProvisoria: usuario ? undefined : sugerirSenha(),
+      senhaProvisoria: '',
     },
   })
   const { errors } = form.formState
@@ -49,10 +52,13 @@ export function UsuarioDialog({ usuario, onFechar }: UsuarioDialogProps) {
 
   const onSubmit = form.handleSubmit(async (dados) => {
     try {
-      await salvar.mutateAsync(dados)
-      toast.success(usuario ? 'Usuário atualizado.' : `Usuário criado. Senha provisória: ${String(dados.senhaProvisoria)}`, {
-        duration: usuario ? 4000 : 15000,
-      })
+      const salvo = await salvar.mutateAsync(dados)
+      if (usuario) toast.success('Usuário atualizado.')
+      else {
+        const senha = dados.senhaProvisoria ? ` Senha provisória: ${String(dados.senhaProvisoria)}` : ''
+        const convite = 'conviteEnviado' in salvo && salvo.conviteEnviado ? ` Convite enviado para ${salvo.email}.` : ''
+        toast.success(`Usuário criado.${convite}${senha}`, { duration: senha ? 15000 : 6000 })
+      }
       onFechar()
     } catch (e) {
       toast.error((e as Error).message)
@@ -85,8 +91,13 @@ export function UsuarioDialog({ usuario, onFechar }: UsuarioDialogProps) {
           <NumberInput id="us-comissao" sufixo="%" {...form.register('comissaoPercentual')} />
         </CampoFormulario>
         {!usuario && (
-          <CampoFormulario id="us-senha" rotulo="Senha provisória *" erro={errors.senhaProvisoria?.message}>
-            <Input id="us-senha" autoComplete="off" {...form.register('senhaProvisoria')} />
+          <CampoFormulario id="us-senha" rotulo={comConvite ? 'Senha provisória (opcional)' : 'Senha provisória *'} erro={errors.senhaProvisoria?.message}>
+            <div className="flex gap-2">
+              <Input id="us-senha" autoComplete="off" placeholder={comConvite ? 'Em branco: só o convite' : ''} {...form.register('senhaProvisoria')} />
+              <Button type="button" variant="outline" onClick={() => form.setValue('senhaProvisoria', sugerirSenha())}>
+                Gerar
+              </Button>
+            </div>
           </CampoFormulario>
         )}
       </div>
@@ -96,7 +107,9 @@ export function UsuarioDialog({ usuario, onFechar }: UsuarioDialogProps) {
         </label>
       ) : (
         <p className="rounded-lg bg-accent p-3 text-xs text-grafite">
-          Informe a senha provisória ao usuário. No primeiro acesso ele será obrigado a criar a própria senha.
+          {comConvite
+            ? 'O usuário recebe um e-mail com o link para criar a própria senha (vale 72 horas). Se preferir, informe também uma senha provisória para passar a ele.'
+            : 'O envio de e-mails não está configurado: informe a senha provisória ao usuário. No primeiro acesso ele será obrigado a criar a própria senha.'}
         </p>
       )}
     </FormDialog>

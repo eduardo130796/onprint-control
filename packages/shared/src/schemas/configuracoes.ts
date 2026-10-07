@@ -24,7 +24,11 @@ const camposUsuario = {
   comissaoPercentual: percentual.default('0'),
 }
 
-export const criarUsuarioSchema = z.object({ ...camposUsuario, senhaProvisoria })
+/** Sem senha provisória, o usuário cria a senha pelo link do e-mail de convite. */
+export const criarUsuarioSchema = z.object({
+  ...camposUsuario,
+  senhaProvisoria: z.preprocess((v) => (v === '' || v === null ? undefined : v), senhaProvisoria.optional()),
+})
 export type CriarUsuarioInput = z.input<typeof criarUsuarioSchema>
 
 export const editarUsuarioSchema = z.object({ ...camposUsuario, ativo: z.boolean().default(true) })

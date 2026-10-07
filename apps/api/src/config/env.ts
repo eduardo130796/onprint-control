@@ -26,6 +26,16 @@ const envSchema = z.object({
   UPLOAD_MAX_MB: z.coerce.number().int().positive().default(200),
   TZ: z.string().default('America/Sao_Paulo'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  /** SMTP de qualquer provedor; sem SMTP_HOST, os e-mails só vão para o log */
+  SMTP_HOST: z.string().default(''),
+  SMTP_PORTA: z.coerce.number().int().default(587),
+  /** true para a porta 465 (TLS direto); na 587 o TLS é negociado (STARTTLS) */
+  SMTP_SEGURO: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  SMTP_USUARIO: z.string().default(''),
+  SMTP_SENHA: z.string().default(''),
+  EMAIL_REMETENTE: z.string().default('ONPrint Control <nao-responda@onprint.local>'),
+  /** Desenvolvimento/testes: também grava cada e-mail como JSON nesta pasta */
+  EMAIL_PASTA: z.string().default(''),
 })
 
 /** Em produção, segredos fracos ou de exemplo impedem a API de subir. */

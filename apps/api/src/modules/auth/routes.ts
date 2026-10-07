@@ -1,10 +1,22 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { erroApiSchema, loginSchema, respostaLoginSchema, trocarSenhaSchema, usuarioLogadoSchema } from '@onprint/shared'
+import {
+  erroApiSchema,
+  esqueciSenhaSchema,
+  linkSenhaInfoSchema,
+  linkSenhaParamSchema,
+  loginSchema,
+  novaSenhaPorLinkSchema,
+  respostaLoginSchema,
+  trocarSenhaSchema,
+  usuarioLogadoSchema,
+} from '@onprint/shared'
 import { criarAuthController } from './controller'
+import { criarRecuperacaoService } from './recuperacao.service'
 import { criarAuthService } from './service'
 
-const erros = { 400: erroApiSchema, 401: erroApiSchema, 403: erroApiSchema, 422: erroApiSchema, 429: erroApiSchema }
+const erros = { 400: erroApiSchema, 401: erroApiSchema, 403: erroApiSchema, 404: erroApiSchema, 422: erroApiSchema, 429: erroApiSchema }
+const porIpEEmail = (req: { ip: string; body?: unknown }) => `${req.ip}:${String((req.body as { email?: unknown } | undefined)?.email ?? '').trim().toLowerCase()}`
 
 export const authRoutes: FastifyPluginAsyncZod = async (app) => {
   const controller = criarAuthController(criarAuthService(app), {
@@ -21,7 +33,7 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
           max: 5,
           timeWindow: '1 minute',
           hook: 'preHandler',
-          keyGenerator: (req) => `${req.ip}:${String((req.body as { email?: unknown } | undefined)?.email ?? '').trim().toLowerCase()}`,
+          keyGenerator: porIpEEmail,
         },
       },
       schema: {
@@ -79,5 +91,36 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     (request, reply) => controller.trocarSenha(request.body, request, reply),
+  )
+
+  // ─── Senha pelo e-mail (sem login) ───
+  const recuperacao = criarRecuperacaoService(app)
+
+  app.post(
+    '/esqueci-senha',
+    {
+      // 3 pedidos a cada 15 min por IP + e-mail: não vira ferramenta para encher a caixa de alguém
+      config: { rateLimit: { max: 3, timeWindow: '15 minutes', hook: 'preHandler', keyGenerator: porIpEEmail } },
+      schema: { tags: ['auth'], summary: 'Envia o link de nova senha (resposta igual exista ou não a conta)', body: esqueciSenhaSchema, response: { 202: z.object({ mensagem: z.string() }), ...erros } },
+    },
+    async (request, reply) => {
+      recuperacao.solicitar(request.body.email, request.ip)
+      return reply.status(202).send({ mensagem: 'Se este e-mail tiver acesso ao sistema, enviamos um link para criar uma nova senha.' })
+    },
+  )
+
+  const limiteLink = { rateLimit: { max: 20, timeWindow: '1 minute' } }
+  app.get(
+    '/redefinir-senha/:token',
+    { config: limiteLink, schema: { tags: ['auth'], summary: 'Confere o link de nova senha', params: linkSenhaParamSchema, response: { 200: linkSenhaInfoSchema, ...erros } } },
+    (request) => recuperacao.consultar(request.params.token),
+  )
+  app.post(
+    '/redefinir-senha',
+    { config: limiteLink, schema: { tags: ['auth'], summary: 'Cria a senha nova pelo link do e-mail', body: novaSenhaPorLinkSchema, response: { 204: z.null(), ...erros } } },
+    async (request, reply) => {
+      await recuperacao.redefinir(request.body.token, request.body.novaSenha)
+      return reply.status(204).send(null)
+    },
   )
 }

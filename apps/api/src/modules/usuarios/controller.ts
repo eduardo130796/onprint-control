@@ -14,6 +14,7 @@ export function criarUsuariosController(service: UsuariosService) {
       service.atualizar(id, dados, request.user.sub),
     redefinirSenha: (request: FastifyRequest, id: string, dados: z.output<typeof redefinirSenhaSchema>) =>
       service.redefinirSenha(id, dados.senhaProvisoria, request.user.sub),
+    enviarLinkSenha: (id: string) => service.enviarLinkSenha(id),
     desativar: (request: FastifyRequest, id: string) => service.desativar(id, request.user.sub),
   }
 }

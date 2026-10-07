@@ -212,6 +212,16 @@ Registro das escolhas feitas onde o [ARQUITETURA.md](ARQUITETURA.md) era ambígu
 | D154 | Subida da API: `migrar` (plataforma, `public` e todos os schemas; pula os que já têm todas as migrations, sem chamar o Prisma) → `seed` (todas as empresas ativas: papéis, permissões, status novos chegam a todas) → servidor. `make migrate` continua criando a migration no schema `public`; as demais empresas recebem na próxima subida ou com `npm run prisma:migrar -w @onprint/api`. | Atualizar o sistema atualiza todas as empresas de uma vez. |
 | D155 | Empresa nova nasce **inativa** e só é ativada depois de schema, migrations, dados padrão, admin e índice prontos; qualquer falha apaga o registro, o índice e o schema. | Ninguém entra numa empresa pela metade. |
 
+## Assinaturas — Fase 10 (e-mail e senha)
+
+| # | Decisão | Motivo |
+|---|---|---|
+| D156 | E-mail por **SMTP genérico** (`nodemailer`), configurado no `.env`; sem `SMTP_HOST` vai para o log (desenvolvimento e instalação sem e-mail continuam funcionando). Falha de envio é registrada e nunca derruba a operação que o disparou. | Escolha do usuário: funciona com qualquer provedor, sem serviço novo. |
+| D157 | **Links de senha na plataforma** (`tokens_senha`), não no schema da empresa: o link chega sem login e precisa dizer a empresa e o usuário. Token aleatório de 32 bytes; só o HMAC fica no banco. Validade de 1 h ("esqueci") e 72 h (convite); uso único (marcação atômica); emitir um link novo invalida os anteriores do usuário. | Mesmo padrão dos refresh tokens; quem lê o banco não consegue usar os links. |
+| D158 | **"Esqueci a senha" não revela contas**: a API responde 202 com a mesma mensagem na hora e só depois procura o e-mail e envia (sem diferença de tempo). Usuário desativado não recebe link. Limite de 3 pedidos a cada 15 min por IP + e-mail. | Evita descobrir quem tem conta e usar o sistema para encher a caixa de alguém. |
+| D159 | Senha nova pelo link **encerra as outras sessões** (refresh tokens revogados) e manda o aviso "sua senha foi alterada"; não pede troca de senha no login seguinte. | Quem perdeu o acesso por invasão retoma o controle; o aviso denuncia troca indevida. |
+| D160 | **Convite de usuário**: com e-mail ativo, a senha provisória fica opcional (sem ela, a senha inicial é aleatória e ninguém a conhece; o acesso começa pelo link). Sem e-mail, a API exige a senha provisória. O admin também pode mandar o link de senha em vez de definir uma provisória. | O admin não precisa inventar nem repassar senhas; sem SMTP nada fica sem acesso. |
+
 ## Fora do escopo registrado
 
 - **Emissão de nota fiscal para os clientes das empresas:** fora do escopo. A NFS-e da mensalidade da assinatura fica com o Asaas (Fase 12).

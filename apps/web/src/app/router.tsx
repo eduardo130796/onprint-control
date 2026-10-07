@@ -61,6 +61,8 @@ import {
   StatusPage,
   TemplatesPage,
   TrocarSenhaPage,
+  EsqueciSenhaPage,
+  RedefinirSenhaPage,
   UsuariosPage,
   WhatsAppPage,
 } from './paginas'
@@ -167,6 +169,8 @@ export const router = createBrowserRouter(
   [
   // Rotas públicas
   { path: '/login', element: <LoginPage /> },
+  { path: '/esqueci-senha', element: comCarregamento(<EsqueciSenhaPage />) },
+  { path: '/redefinir-senha', element: comCarregamento(<RedefinirSenhaPage />) },
   { path: '/aprovar/:empresa/:token', element: comCarregamento(<AprovarOrcamentoPage />) },
   { path: '/arte/:empresa/:token', element: comCarregamento(<AprovarArtePage />) },
   // Rotas protegidas

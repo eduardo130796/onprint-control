@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Loader2, LogIn } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -17,11 +17,12 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [mostrarSenha, setMostrarSenha] = useState(false)
-  const destino = (location.state as { de?: string } | null)?.de ?? '/'
+  const estado = location.state as { de?: string; email?: string } | null
+  const destino = estado?.de ?? '/'
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', senha: '' },
+    defaultValues: { email: estado?.email ?? '', senha: '' },
   })
   const { errors, isSubmitting } = form.formState
 
@@ -78,8 +79,10 @@ export function LoginPage() {
           Entrar
         </Button>
 
-        <p className="text-center text-xs text-texto-secundario">
-          Esqueceu a senha? Peça ao administrador para redefini-la.
+        <p className="text-center text-sm">
+          <Link to="/esqueci-senha" className="font-medium text-marca-escuro hover:underline">
+            Esqueci minha senha
+          </Link>
         </p>
       </form>
     </AuthLayout>

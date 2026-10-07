@@ -24,6 +24,7 @@ import { produtosRoutes } from './modules/produtos/routes'
 import { usuariosRoutes } from './modules/usuarios/routes'
 import { authPlugin } from './plugins/auth'
 import { cronPlugin } from './plugins/cron'
+import { emailPlugin } from './plugins/email'
 import { errorsPlugin } from './plugins/errors'
 import { permissionsPlugin } from './plugins/permissions'
 import { prismaPlugin } from './plugins/prisma'
@@ -60,6 +61,7 @@ export async function buildApp(config: Env) {
   await app.register(authPlugin)
   await app.register(permissionsPlugin)
   await app.register(storagePlugin)
+  await app.register(emailPlugin)
   await app.register(cronPlugin)
   await app.register(socketPlugin)
 

@@ -10,6 +10,8 @@ function carregar<M extends Record<K, ComponentType<any>>, K extends keyof M>(im
 }
 
 export const TrocarSenhaPage = carregar(() => import('@/features/auth/pages/TrocarSenhaPage'), 'TrocarSenhaPage')
+export const EsqueciSenhaPage = carregar(() => import('@/features/auth/pages/EsqueciSenhaPage'), 'EsqueciSenhaPage')
+export const RedefinirSenhaPage = carregar(() => import('@/features/auth/pages/RedefinirSenhaPage'), 'RedefinirSenhaPage')
 export const ClienteFichaPage = carregar(() => import('@/features/clientes/pages/ClienteFichaPage'), 'ClienteFichaPage')
 export const ClientesPage = carregar(() => import('@/features/clientes/pages/ClientesPage'), 'ClientesPage')
 export const EmpresaPage = carregar(() => import('@/features/configuracoes/pages/EmpresaPage'), 'EmpresaPage')

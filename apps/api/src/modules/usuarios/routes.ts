@@ -25,10 +25,13 @@ export const usuariosRoutes: FastifyPluginAsyncZod = async (app) => {
     c.opcoes(),
   )
   app.get('/papeis', { ...pode('visualizar'), schema: { tags, summary: 'Papéis disponíveis' } }, () => c.papeis())
+  app.get('/configuracao', { ...pode('visualizar'), schema: { tags, summary: 'Se o envio de e-mail (convite e link de senha) está ativo' } }, () => ({
+    emailConfigurado: app.email.configurado,
+  }))
   app.get('/:id', { ...pode('visualizar'), schema: { tags, summary: 'Detalhe do usuário', params: idParamSchema } }, (req) =>
     c.obter(req.params.id),
   )
-  app.post('/', { ...pode('criar'), schema: { tags, summary: 'Cria usuário com senha provisória', body: criarUsuarioSchema } }, async (req, reply) =>
+  app.post('/', { ...pode('criar'), schema: { tags, summary: 'Cria usuário e envia o convite por e-mail (senha provisória opcional)', body: criarUsuarioSchema } }, async (req, reply) =>
     reply.status(201).send(await c.criar(req, req.body)),
   )
   app.put(
@@ -44,6 +47,10 @@ export const usuariosRoutes: FastifyPluginAsyncZod = async (app) => {
       return reply.status(204).send()
     },
   )
+  app.post('/:id/link-senha', { ...pode('editar'), schema: { tags, summary: 'Envia ao usuário um link para criar senha nova', params: idParamSchema } }, async (req, reply) => {
+    await c.enviarLinkSenha(req.params.id)
+    return reply.status(204).send()
+  })
   app.delete('/:id', { ...pode('excluir'), schema: { tags, summary: 'Desativa usuário', params: idParamSchema } }, (req) =>
     c.desativar(req, req.params.id),
   )

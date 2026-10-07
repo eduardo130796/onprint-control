@@ -47,7 +47,7 @@ No primeiro login o sistema **obriga a troca de senha**. Para voltar ao estado i
 | `make logs` | `npm run logs` | Logs de todos os serviços |
 | `make migrate NOME=x` | `npm run migrate -- --name x` | Cria e aplica uma migration a partir do `schema.prisma` (no schema `public`; as outras empresas recebem na próxima subida da API) |
 | `make reset` | `npm run reset` | Recria o banco do zero: apaga a plataforma e todas as empresas, aplica migrations e seed |
-| | `npm run empresa:criar -- --nome "Gráfica X" --email dono@x.com --senha Inicial123` | Cria uma empresa assinante (schema próprio, dados padrão e admin, com troca de senha no 1º login). `--exemplos` traz o catálogo de exemplo |
+| | `docker compose exec api npm run empresa:criar -w @onprint/api -- --nome "Gráfica X" --email dono@x.com --senha Inicial123` | Cria uma empresa assinante (schema próprio, dados padrão e admin, com troca de senha no 1º login). `--exemplos` traz o catálogo de exemplo. Funciona sem Node no Windows (roda dentro do container) |
 | `make seed` | `npm run seed` | Roda o seed (idempotente) |
 | `make test` | `npm test` | Testes unitários (shared, api e web) |
 | `make e2e` | `npm run e2e` | Testes ponta a ponta de todas as fases num banco descartável (`onprint_e2e`), sem tocar nos seus dados (`npm run e2e -- fase2` roda só uma) |
@@ -56,6 +56,31 @@ No primeiro login o sistema **obriga a troca de senha**. Para voltar ao estado i
 | `make restore ARQ=…` | `npm run restore -- backups/…dump` | Restaura um dump do banco |
 
 Fora do Docker: `npm run build`, `npm run lint`, `npm test` e `npm run typecheck` (raiz, todos os pacotes).
+
+## E-mail (convites e "esqueci a senha")
+
+Sem configuração, o sistema funciona, mas os e-mails só vão para o log da API. Para achar um link de senha no ambiente local:
+
+```bash
+docker compose logs api | grep redefinir-senha        # Windows (PowerShell): ... | Select-String redefinir-senha
+```
+
+Para enviar de verdade, preencha no `.env` os dados SMTP do seu provedor e recrie a API (`docker compose up -d --force-recreate api`):
+
+| Provedor | `SMTP_HOST` | `SMTP_PORTA` / `SMTP_SEGURO` | Usuário e senha |
+|---|---|---|---|
+| Gmail / Google Workspace | `smtp.gmail.com` | `587` / `false` | o e-mail + **senha de app** (exige verificação em duas etapas) |
+| Hostinger | `smtp.hostinger.com` | `465` / `true` | o e-mail e a senha da caixa |
+| Zoho | `smtp.zoho.com` | `465` / `true` | o e-mail e a senha (ou senha de app) |
+| Brevo | `smtp-relay.brevo.com` | `587` / `false` | o login SMTP e a chave SMTP do painel |
+
+Use em `EMAIL_REMETENTE` um endereço do mesmo domínio autorizado no provedor (ex.: `ONPrint Control <nao-responda@suaempresa.com.br>`). Sem SPF/DKIM configurados no domínio, os e-mails tendem a cair no spam.
+
+Com o e-mail ativo:
+- **Esqueci minha senha** (tela de login): link de uso único que vale 1 hora. A resposta é a mesma exista ou não a conta.
+- **Usuário novo**: recebe um convite para criar a própria senha (vale 72 horas); a senha provisória fica opcional.
+- **Redefinir senha** (Configurações → Usuários): o admin pode mandar o link por e-mail em vez de inventar uma senha.
+- Toda troca de senha pelo link encerra as outras sessões e manda um aviso "sua senha foi alterada".
 
 ## Portas
 

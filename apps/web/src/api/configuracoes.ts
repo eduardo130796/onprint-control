@@ -13,7 +13,9 @@ import { http, qs, upload } from './http'
 export const usuariosApi = {
   listar: (q: UsuariosQuery) => http<Paginado<UsuarioResumo>>(`/usuarios${qs(q)}`),
   papeis: () => http<PapelResumo[]>('/usuarios/papeis'),
-  criar: (dados: unknown) => http<UsuarioResumo>('/usuarios', { method: 'POST', body: dados }),
+  configuracao: () => http<{ emailConfigurado: boolean }>('/usuarios/configuracao'),
+  criar: (dados: unknown) => http<UsuarioResumo & { conviteEnviado: boolean }>('/usuarios', { method: 'POST', body: dados }),
+  enviarLinkSenha: (id: string) => http<void>(`/usuarios/${id}/link-senha`, { method: 'POST' }),
   atualizar: (id: string, dados: unknown) => http<UsuarioResumo>(`/usuarios/${id}`, { method: 'PUT', body: dados }),
   redefinirSenha: (id: string, senhaProvisoria: string) =>
     http<void>(`/usuarios/${id}/redefinir-senha`, { method: 'POST', body: { senhaProvisoria } }),

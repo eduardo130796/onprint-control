@@ -1660,7 +1660,8 @@ model Assinante {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  logins IndiceLogin[]
+  logins      IndiceLogin[]
+  tokensSenha TokenSenha[]
 
   @@map("assinantes")
 }
@@ -1676,4 +1677,27 @@ model IndiceLogin {
 
   @@index([assinanteId])
   @@map("indice_login")
+}
+
+/**
+ * Link de senha enviado por e-mail ("esqueci a senha" ou convite de usuário novo).
+ * Fica na plataforma porque o link chega sem login: o token diz a empresa e o usuário.
+ * Só o hash é gravado; o link vale uma vez e até expirar.
+ */
+model TokenSenha {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tokenHash   String    @unique @map("token_hash")
+  assinanteId String    @map("assinante_id") @db.Uuid
+  usuarioId   String    @map("usuario_id") @db.Uuid
+  /** redefinir | convite */
+  finalidade  String
+  expiraEm    DateTime  @map("expira_em") @db.Timestamptz(3)
+  usadoEm     DateTime? @map("usado_em") @db.Timestamptz(3)
+  ip          String?
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  assinante Assinante @relation(fields: [assinanteId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("tokens_senha")
 }

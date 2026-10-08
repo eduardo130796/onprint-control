@@ -1,6 +1,6 @@
 import { Prisma, type PrismaClient } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
-import { formatarMoeda, hojeISO } from '@onprint/shared'
+import { adicionarMeses, formatarMoeda, hojeISO } from '@onprint/shared'
 import { cobrancaDoAsaas, notaDoAsaas, type NotaAsaas, type PagamentoAsaas } from '../integrations/pagamentos/asaas'
 import type { CobrancaGateway, NotaFiscalGateway } from '../integrations/pagamentos'
 import { diaISO, paraDia } from './assinaturas'
@@ -34,7 +34,9 @@ export async function recalcularAssinatura(plataforma: PrismaClient, assinanteId
   const cobrancas = await plataforma.cobranca.findMany({ where: { assinanteId }, orderBy: { vencimento: 'asc' } })
   const abertas = cobrancas.filter((c) => ABERTAS.includes(c.situacao)).map((c) => diaISO(c.vencimento) as string)
   const atraso = abertas[0] ?? null
-  const proximo = abertas.find((v) => v >= hoje)
+  // Sem cobrança em aberto, o próximo vencimento é um mês depois da última mensalidade paga (fim do período pago)
+  const ultimaPaga = cobrancas.filter((c) => c.situacao === 'paga').map((c) => diaISO(c.vencimento) as string).at(-1)
+  const proximo = abertas.find((v) => v >= hoje) ?? (abertas.length === 0 && ultimaPaga ? adicionarMeses(ultimaPaga, 1) : undefined)
   const dados: Prisma.AssinaturaUncheckedUpdateInput = {}
   const eventos: string[] = []
 

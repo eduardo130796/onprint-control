@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { calcularAcesso, diasEntre, filtrarPermissoes, modulosLiberados, type DadosAcesso } from './assinatura'
+import { adicionarMeses } from './datas'
 
 const prazos = { diasAteSomenteLeitura: 5, diasAteBloqueio: 15 }
 const ativa = (extra: Partial<DadosAcesso> = {}): DadosAcesso => ({ situacao: 'ativa', ...prazos, ...extra })
@@ -11,6 +12,16 @@ describe('diasEntre', () => {
     expect(diasEntre('2026-09-30', '2026-10-01')).toBe(1)
     expect(diasEntre('2026-10-25', '2026-10-20')).toBe(-5)
     expect(diasEntre('2026-02-20', '2026-03-10')).toBe(18)
+  })
+})
+
+describe('adicionarMeses (fim do período pago)', () => {
+  it('mês seguinte, virada de ano e meses curtos', () => {
+    expect(adicionarMeses('2026-10-21', 1)).toBe('2026-11-21')
+    expect(adicionarMeses('2026-12-15', 1)).toBe('2027-01-15')
+    expect(adicionarMeses('2026-01-31', 1)).toBe('2026-02-28')
+    expect(adicionarMeses('2028-01-31', 1)).toBe('2028-02-29')
+    expect(adicionarMeses('2026-03-31', 1)).toBe('2026-04-30')
   })
 })
 

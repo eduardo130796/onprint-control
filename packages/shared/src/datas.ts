@@ -16,6 +16,13 @@ export function adicionarDias(iso: string, dias: number): string {
   return new Date(Date.UTC(a, m - 1, d + dias)).toISOString().slice(0, 10)
 }
 
+/** Soma meses a uma data "YYYY-MM-DD"; dia que não existe no mês vira o último dia (31/01 + 1 = 28/02). */
+export function adicionarMeses(iso: string, meses: number): string {
+  const [a, m, d] = partes(iso)
+  const ultimoDia = new Date(Date.UTC(a, m - 1 + meses + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(a, m - 1 + meses, Math.min(d, ultimoDia))).toISOString().slice(0, 10)
+}
+
 /** Dia da semana (0 = domingo, 6 = sábado) de uma data "YYYY-MM-DD". */
 export function diaDaSemana(iso: string): number {
   const [a, m, d] = partes(iso)

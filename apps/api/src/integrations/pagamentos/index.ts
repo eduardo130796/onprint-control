@@ -45,6 +45,8 @@ export interface GatewayPagamentos {
   /** Valor e/ou forma; as cobranças em aberto acompanham a mudança */
   alterarAssinatura(id: string, d: { valor?: string; forma?: FormaAssinatura }): Promise<void>
   cancelarAssinatura(id: string): Promise<void>
+  /** Novo valor de uma cobrança em aberto (inclusive vencida), mantendo vencimento e tipo */
+  alterarCobranca(id: string, d: { valor: string; vencimento: string; tipo: string }): Promise<void>
   cobrancasDaAssinatura(id: string): Promise<CobrancaGateway[]>
   /** Todas as cobranças do cliente (inclui a 1ª do PIX Automático, que nasce antes da assinatura) */
   cobrancasDoCliente(clienteId: string): Promise<CobrancaGateway[]>

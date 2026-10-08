@@ -80,6 +80,11 @@ describe('calcularAcesso: ações manuais', () => {
   it('cancelada fica bloqueada', () => {
     expect(calcularAcesso({ situacao: 'cancelada', ...prazos }, HOJE)).toMatchObject({ nivel: 'bloqueado', motivo: 'cancelada' })
   })
+  it('cancelada que assinou de novo: continua bloqueada, mas a mensagem diz que falta só pagar', () => {
+    const a = calcularAcesso({ situacao: 'cancelada', renovacaoPendente: true, ...prazos }, HOJE)
+    expect(a).toMatchObject({ nivel: 'bloqueado', motivo: 'renovacao_pendente' })
+    expect(a.mensagem).toContain('falta só o pagamento')
+  })
 })
 
 describe('módulos e permissões', () => {

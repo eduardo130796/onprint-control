@@ -17,6 +17,7 @@ import { contextoEmpresa } from '../../core/contexto-empresa'
 import { ErroGateway } from '../../integrations/pagamentos'
 import { diaISO, resumirAssinatura } from '../../plataforma/assinaturas'
 import { executarAcao } from '../../plataforma/operacoes'
+import { resumoCobranca } from '../assinatura/service'
 import { provisionarEmpresa } from '../../plataforma/provisionar'
 import { criarRecuperacaoService } from '../auth/recuperacao.service'
 
@@ -105,18 +106,8 @@ export function criarEmpresasPlataformaService(app: FastifyInstance) {
               }
             : null,
         usuarios: { total, ativos, admins: admins.map((u) => ({ ...u, ultimoLogin: u.ultimoLogin?.toISOString() ?? null })) },
-        cobrancas: cobrancas.map((c) => ({
-          id: c.id,
-          gateway: c.gateway,
-          valor: c.valor.toFixed(2),
-          vencimento: diaISO(c.vencimento) as string,
-          situacao: c.situacao as 'pendente',
-          forma: c.forma,
-          pagoEm: c.pagoEm?.toISOString() ?? null,
-          linkPagamento: c.linkPagamento,
-          falha: c.falha,
-          notaFiscal: c.nfSituacao ? { situacao: c.nfSituacao, numero: c.nfNumero, linkPdf: c.nfLinkPdf } : null,
-        })),
+        // Para o suporte, o link de pagamento aparece sempre (mesmo em cobrança paga, para conferência)
+        cobrancas: cobrancas.map((c) => ({ ...resumoCobranca(c), gateway: c.gateway, linkPagamento: c.linkPagamento })),
         eventos: eventos.map((ev) => ({ id: ev.id, tipo: ev.tipo, descricao: ev.descricao, autor: ev.autor, data: ev.createdAt.toISOString() })),
       }
     },

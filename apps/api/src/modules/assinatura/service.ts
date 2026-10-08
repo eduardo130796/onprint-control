@@ -19,17 +19,19 @@ import { AppError } from '../../core/AppError'
 import { contextoEmpresa } from '../../core/contexto-empresa'
 import { ErroGateway } from '../../integrations/pagamentos'
 import { alterarAssinatura, diaISO, paraDia, planoPorCodigo, resumirAssinatura } from '../../plataforma/assinaturas'
-import { recalcularAssinatura, salvarCobranca } from '../../plataforma/cobrancas'
+import { reajustarCobrancasAbertas, recalcularAssinatura, salvarCobranca, vencimentoQueConta } from '../../plataforma/cobrancas'
 
 const ABERTAS = ['pendente', 'vencida']
 
-function resumoCobranca(c: Cobranca): CobrancaResumo {
+/** Para a tela: vencimento que conta (o original, se foi reajustada) e "vencida" se ele já passou. */
+export function resumoCobranca(c: Cobranca, hoje = hojeISO()): CobrancaResumo {
   const aberta = ABERTAS.includes(c.situacao)
+  const vencimento = vencimentoQueConta(c)
   return {
     id: c.id,
     valor: c.valor.toFixed(2),
-    vencimento: diaISO(c.vencimento) as string,
-    situacao: c.situacao as CobrancaResumo['situacao'],
+    vencimento,
+    situacao: (aberta && vencimento < hoje ? 'vencida' : c.situacao) as CobrancaResumo['situacao'],
     forma: c.forma,
     pagoEm: c.pagoEm?.toISOString() ?? null,
     linkPagamento: aberta ? c.linkPagamento : null,
@@ -118,7 +120,8 @@ export function criarAssinaturaService(app: FastifyInstance) {
         app.prisma.empresaConfig.findFirst({ select: { cnpj: true } }),
       ])
       const resumo = resumirAssinatura(a, hojeISO())
-      const aberta = [...cobrancas].reverse().find((c) => ABERTAS.includes(c.situacao))
+      // A mais antiga em aberto pelo vencimento que conta (o original, se foi reajustada)
+      const aberta = cobrancas.filter((c) => ABERTAS.includes(c.situacao)).sort((x, y) => vencimentoQueConta(x).localeCompare(vencimentoQueConta(y)))[0]
       return {
         situacao: a.situacao as SituacaoAssinatura,
         plano: {
@@ -154,7 +157,7 @@ export function criarAssinaturaService(app: FastifyInstance) {
         cancelarEm: diaISO(a.cancelarEm),
         documentoSugerido: a.documentoCobranca ?? config?.cnpj ?? null,
         cobrancaAberta: aberta ? resumoCobranca(aberta) : null,
-        cobrancas: cobrancas.map(resumoCobranca),
+        cobrancas: cobrancas.map((c) => resumoCobranca(c)),
       }
     },
 
@@ -227,6 +230,8 @@ export function criarAssinaturaService(app: FastifyInstance) {
       if (a.gatewayAssinaturaId) await noGateway(() => gateway().alterarAssinatura(a.gatewayAssinaturaId as string, { valor: plano.valorMensal.toFixed(2) }))
       await alterarAssinatura(plataforma, empresa.id, { planoId: plano.id }, { tipo: 'plano', descricao: `Plano trocado de ${a.plano.nome} para ${plano.nome}`, autor: email })
       if (a.gatewayAssinaturaId) await sincronizar(empresa.id, a.gatewayAssinaturaId)
+      // Inclusive a mensalidade vencida: quem troca de plano paga o valor novo no que está em aberto
+      await reajustarCobrancasAbertas(plataforma, app.pagamentos, empresa.id, plano.valorMensal.toFixed(2))
       app.empresas.esquecer()
     },
 

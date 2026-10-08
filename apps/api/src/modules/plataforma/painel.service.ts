@@ -27,7 +27,7 @@ export function criarPainelService(app: FastifyInstance) {
       const [empresas, recebido, emAtraso, falhas, notasComErro, avisosComErro, novas, conversoes] = await Promise.all([
         plataforma.assinante.findMany({ where: { ativo: true }, include: { assinatura: { include: { plano: true } } } }),
         plataforma.cobranca.aggregate({ _sum: { valor: true }, where: { situacao: 'paga', pagoEm: { gte: inicioMes } } }),
-        plataforma.cobranca.aggregate({ _sum: { valor: true }, where: { situacao: { in: ['pendente', 'vencida'] }, vencimento: { lt: paraDia(hoje) } } }),
+        plataforma.cobranca.aggregate({ _sum: { valor: true }, where: { situacao: { in: ['pendente', 'vencida'] }, OR: [{ vencimento: { lt: paraDia(hoje) } }, { vencimentoOriginal: { lt: paraDia(hoje) } }] } }),
         plataforma.cobranca.findMany({ where: { situacao: { in: ['pendente', 'vencida'] }, falha: { not: null } }, include: { assinante: true }, orderBy: { updatedAt: 'desc' }, take: 50 }),
         plataforma.cobranca.findMany({ where: { nfSituacao: 'erro' }, include: { assinante: true }, orderBy: { updatedAt: 'desc' }, take: 50 }),
         plataforma.eventoGateway.findMany({ where: { processadoEm: null, erro: { not: null }, recebidoEm: { gte: desde30 } }, orderBy: { recebidoEm: 'desc' }, take: 50 }),

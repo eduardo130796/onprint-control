@@ -17,6 +17,7 @@ const TOM: Record<Tom, { ponto: string; pilula: string }> = {
 /** Situação em uma palavra (pílula do cartão) e o tom de cor dela. */
 function statusDaAssinatura(a: MinhaAssinatura): { rotulo: string; tom: Tom } {
   const { acesso } = a
+  if (acesso.motivo === 'renovacao_pendente') return { rotulo: 'Aguardando o 1º pagamento', tom: 'ambar' }
   if (a.situacao === 'cancelada') return { rotulo: 'Cancelada', tom: 'cinza' }
   if (acesso.motivo === 'bloqueio_manual') return { rotulo: 'Suspensa', tom: 'vermelho' }
   if (acesso.nivel === 'bloqueado') return { rotulo: 'Bloqueada por atraso', tom: 'vermelho' }

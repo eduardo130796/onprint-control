@@ -2,10 +2,13 @@ import { Prisma, type PrismaClient } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
 import { adicionarMeses, formatarMoeda, hojeISO } from '@onprint/shared'
 import { cobrancaDoAsaas, notaDoAsaas, situacaoAutorizacaoAsaas, type AutorizacaoAsaas, type NotaAsaas, type PagamentoAsaas } from '../integrations/pagamentos/asaas'
-import type { CobrancaGateway, NotaFiscalGateway } from '../integrations/pagamentos'
+import type { CobrancaGateway, GatewayPagamentos, NotaFiscalGateway } from '../integrations/pagamentos'
 import { diaISO, paraDia } from './assinaturas'
 
 const ABERTAS = ['pendente', 'vencida']
+
+/** Vencimento que conta para o atraso: o original, se a cobrança vencida foi reajustada (ganhou data nova no gateway). */
+export const vencimentoQueConta = (c: { vencimento: Date; vencimentoOriginal: Date | null }) => diaISO(c.vencimentoOriginal ?? c.vencimento) as string
 const FORMAS: Record<string, string> = { PIX: 'PIX', BOLETO: 'boleto', CREDIT_CARD: 'cartão', UNDEFINED: 'a definir' }
 
 /** Grava (cria ou atualiza) a cobrança vinda do gateway; devolve como estava antes. */
@@ -32,10 +35,17 @@ export async function recalcularAssinatura(plataforma: PrismaClient, assinanteId
   const a = await plataforma.assinatura.findUnique({ where: { assinanteId } })
   if (!a) return null
   const cobrancas = await plataforma.cobranca.findMany({ where: { assinanteId }, orderBy: { vencimento: 'asc' } })
-  const abertas = cobrancas.filter((c) => ABERTAS.includes(c.situacao)).map((c) => diaISO(c.vencimento) as string)
+  const abertas = cobrancas
+    .filter((c) => ABERTAS.includes(c.situacao))
+    .map(vencimentoQueConta)
+    .sort()
   const atraso = abertas[0] ?? null
   // Sem cobrança em aberto, o próximo vencimento é um mês depois da última mensalidade paga (fim do período pago)
-  const ultimaPaga = cobrancas.filter((c) => c.situacao === 'paga').map((c) => diaISO(c.vencimento) as string).at(-1)
+  const ultimaPaga = cobrancas
+    .filter((c) => c.situacao === 'paga')
+    .map(vencimentoQueConta)
+    .sort()
+    .at(-1)
   const proximo = abertas.find((v) => v >= hoje) ?? (abertas.length === 0 && ultimaPaga ? adicionarMeses(ultimaPaga, 1) : undefined)
   const dados: Prisma.AssinaturaUncheckedUpdateInput = {}
   const eventos: { tipo: string; descricao: string }[] = []
@@ -192,6 +202,36 @@ export async function conciliarAssinaturas(app: FastifyInstance) {
   for (const { assinanteId } of todas) await recalcularAssinatura(plataforma, assinanteId)
   app.empresas.esquecer()
   return { cobrancas, assinaturas: todas.length, falhas }
+}
+
+/**
+ * Troca de plano: as mensalidades em aberto — inclusive as vencidas, que o "atualizar pendentes" do gateway
+ * não alcança — passam para o valor novo. O vencimento fica o mesmo: trocar de plano não zera o atraso.
+ * Devolve as falhas (a troca de plano segue; o suporte vê o evento no histórico).
+ */
+export async function reajustarCobrancasAbertas(plataforma: PrismaClient, pagamentos: GatewayPagamentos | null, assinanteId: string, valor: string, hoje = hojeISO()) {
+  const abertas = await plataforma.cobranca.findMany({ where: { assinanteId, situacao: { in: ABERTAS } } })
+  const falhas: string[] = []
+  for (const c of abertas) {
+    if (c.valor.toFixed(2) === Number(valor).toFixed(2)) continue
+    // O gateway não aceita vencimento no passado: a vencida ganha vencimento hoje lá, e aqui guarda o original
+    const vencimento = diaISO(c.vencimento) as string
+    const novoVencimento = vencimento < hoje ? hoje : vencimento
+    try {
+      if (c.gatewayId && c.gateway === 'asaas') {
+        if (!pagamentos) throw new Error('pagamento online desligado')
+        await pagamentos.alterarCobranca(c.gatewayId, { valor, vencimento: novoVencimento, tipo: c.forma ?? 'UNDEFINED' })
+      }
+      await plataforma.cobranca.update({
+        where: { id: c.id },
+        data: { valor, ...(novoVencimento !== vencimento && c.gateway === 'asaas' ? { vencimento: paraDia(novoVencimento), vencimentoOriginal: c.vencimentoOriginal ?? c.vencimento } : {}) },
+      })
+    } catch (erro) {
+      falhas.push(`${diaISO(c.vencimento)}: ${(erro as Error).message}`)
+    }
+  }
+  if (falhas.length) await registrarEvento(plataforma, assinanteId, 'falha_reajuste', `Mensalidade em aberto não foi para o valor novo (${falhas.join('; ')})`)
+  return falhas
 }
 
 /** Modo manual (sem gateway): o suporte lança a cobrança e registra o pagamento. */

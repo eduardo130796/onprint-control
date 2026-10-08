@@ -64,6 +64,13 @@ const servidor = createServer(async (req, res) => {
       return responder(200, { deleted: true, id: s.id })
     }
   }
+  if (req.method === 'PUT' && (m = caminho.match(/^\/payments\/([\w]+)$/))) {
+    const p = asaas.cobrancas.get(m[1])
+    if (!p) return responder(404, { errors: [{ description: 'Cobrança não encontrada' }] })
+    if (json.dueDate < hoje) return responder(400, { errors: [{ description: `A data mínima de vencimento para novas cobranças é ${hoje.split('-').reverse().join('/')}.` }] })
+    Object.assign(p, { value: json.value, dueDate: json.dueDate, billingType: json.billingType, status: 'PENDING' })
+    return responder(200, p)
+  }
   if (req.method === 'GET' && caminho === '/payments') return responder(200, { data: [...asaas.cobrancas.values()].filter((p) => p.customer === url.searchParams.get('customer')), hasMore: false })
   if (req.method === 'POST' && caminho === '/pix/automatic/authorizations') {
     const aut = { id: novoId('pa'), status: 'CREATED', ...json, payload: `00020126PIXAUTOMATICO${asaas.seq}`, encodedImage: 'iVBORw0KGgo=', immediateQrCode: { ...json.immediateQrCode, expirationDate: '2026-12-31 23:59:00' } }
@@ -161,11 +168,21 @@ r = await webhook('PAYMENT_RECEIVED', { payment: { id: 'pay_alheio', subscriptio
 conferir('aviso de assinatura desconhecida: 200, guardado com erro', `${r.status} ${r.json.situacao}`, '200 erro')
 
 console.log('\n— Trocar plano e forma —')
+const payAtraso = novaCobranca(sub, dia(-3))
+payAtraso.status = 'OVERDUE'
+await webhook('PAYMENT_OVERDUE', { payment: payAtraso })
 const pay3 = novaCobranca(sub, dia(30))
 await webhook('PAYMENT_CREATED', { payment: pay3 })
 r = await chamar('POST', '/assinatura/plano', { token: b, body: { plano: 'completo' } })
 conferir('plano trocado para Completo', r.status, 200)
 conferir('Asaas: valor novo na assinatura e na cobrança em aberto', `${sub.value} ${pay3.value}`, '449 449')
+conferir('Asaas: a mensalidade VENCIDA também vai para o valor novo (com vencimento hoje, o mínimo aceito)', `${payAtraso.value} ${payAtraso.dueDate}`, `449 ${hoje}`)
+a = await minha()
+conferir('tela: a vencida aparece com o valor novo e o vencimento original', `${a.cobrancaAberta?.valor} ${a.cobrancaAberta?.vencimento} ${a.cobrancaAberta?.situacao}`, `449.00 ${dia(-3)} vencida`)
+conferir('trocar de plano não zera o atraso', `${a.acesso.motivo} ${a.acesso.diasAtraso}`, 'atraso 3')
+Object.assign(payAtraso, { status: 'RECEIVED', paymentDate: hoje })
+await webhook('PAYMENT_RECEIVED', { payment: payAtraso })
+conferir('pagou a vencida reajustada: em dia', (await acesso()).motivo, 'em_dia')
 conferir('módulo do plano novo liberado (estoque)', (await chamar('GET', '/estoque/locais', { token: b })).status, 200)
 r = await chamar('POST', '/assinatura/forma', { token: b, body: { forma: 'cartao' } })
 conferir('forma: cartão automático no Asaas', `${r.status} ${sub.billingType}`, '200 CREDIT_CARD')

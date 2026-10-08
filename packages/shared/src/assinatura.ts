@@ -12,7 +12,7 @@ export const NIVEIS_ACESSO = ['normal', 'aviso', 'somente_leitura', 'bloqueado']
 export type NivelAcesso = (typeof NIVEIS_ACESSO)[number]
 export const NIVEL_ACESSO_ROTULOS: Record<NivelAcesso, string> = { normal: 'Normal', aviso: 'Com aviso', somente_leitura: 'Só leitura', bloqueado: 'Bloqueado' }
 
-export type MotivoAcesso = 'em_dia' | 'teste' | 'teste_acabando' | 'teste_expirado' | 'atraso' | 'liberacao_manual' | 'bloqueio_manual' | 'cancelada'
+export type MotivoAcesso = 'em_dia' | 'teste' | 'teste_acabando' | 'teste_expirado' | 'atraso' | 'liberacao_manual' | 'bloqueio_manual' | 'cancelada' | 'renovacao_pendente'
 
 /** Ações que continuam valendo no modo só leitura (consultar e exportar). */
 export const ACOES_LEITURA: readonly Acao[] = ['visualizar', 'exportar', 'ver_todos']
@@ -29,6 +29,8 @@ export interface DadosAcesso {
   /** Liberação manual: acesso normal até esta data, mesmo com atraso */
   liberadoAte?: string | null
   bloqueioManual?: boolean
+  /** Cancelada que já assinou de novo: falta o 1º pagamento da assinatura nova */
+  renovacaoPendente?: boolean
   diasAteSomenteLeitura: number
   diasAteBloqueio: number
 }
@@ -59,7 +61,9 @@ function mensagem(a: Omit<AcessoAssinatura, 'mensagem'>): string {
     case 'bloqueio_manual':
       return 'O acesso desta empresa está suspenso. Fale com o suporte.'
     case 'cancelada':
-      return 'A assinatura foi cancelada. Para voltar a usar o sistema, reative a assinatura.'
+      return 'A assinatura foi cancelada. Para voltar a usar o sistema, assine de novo.'
+    case 'renovacao_pendente':
+      return 'Assinatura renovada: falta só o pagamento da 1ª mensalidade para liberar o acesso.'
     case 'liberacao_manual':
       return 'Acesso liberado temporariamente pelo suporte.'
     case 'em_dia':
@@ -85,7 +89,7 @@ export function calcularAcesso(d: DadosAcesso, hoje: string): AcessoAssinatura {
   const montar = (a: Omit<AcessoAssinatura, 'mensagem'>): AcessoAssinatura => ({ ...a, mensagem: mensagem(a) })
 
   if (d.bloqueioManual) return montar({ ...base, nivel: 'bloqueado', motivo: 'bloqueio_manual' })
-  if (d.situacao === 'cancelada') return montar({ ...base, nivel: 'bloqueado', motivo: 'cancelada' })
+  if (d.situacao === 'cancelada') return montar({ ...base, nivel: 'bloqueado', motivo: d.renovacaoPendente ? 'renovacao_pendente' : 'cancelada' })
   if (d.liberadoAte && diasEntre(hoje, d.liberadoAte) >= 0) return montar({ ...base, nivel: 'normal', motivo: 'liberacao_manual' })
 
   let vencimento: string | null = null

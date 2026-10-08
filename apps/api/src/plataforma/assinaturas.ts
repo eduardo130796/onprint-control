@@ -56,6 +56,7 @@ export function resumirAssinatura(a: Assinatura & { plano: Plano }, hoje = hojeI
         atrasoDesde: diaISO(a.atrasoDesde),
         liberadoAte: diaISO(a.liberadoAte),
         bloqueioManual: a.bloqueioManual,
+        renovacaoPendente: a.situacao === 'cancelada' && Boolean(a.gatewayAssinaturaId || a.gatewayAutorizacaoId),
         diasAteSomenteLeitura: a.plano.diasAteSomenteLeitura,
         diasAteBloqueio: a.plano.diasAteBloqueio,
       },

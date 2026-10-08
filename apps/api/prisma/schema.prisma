@@ -1840,41 +1840,43 @@ model EventoAssinatura {
  * Mensalidade da assinatura (do Asaas ou lançada pelo suporte no modo manual).
  */
 model Cobranca {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  assinanteId   String    @map("assinante_id") @db.Uuid
-  gateway       String
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assinanteId        String    @map("assinante_id") @db.Uuid
+  gateway            String
   /**
    * Id da cobrança no gateway (pay_…); vazio no modo manual
    */
-  gatewayId     String?   @unique @map("gateway_id")
-  valor         Decimal   @db.Decimal(10, 2)
-  vencimento    DateTime  @db.Date
+  gatewayId          String?   @unique @map("gateway_id")
+  valor              Decimal   @db.Decimal(10, 2)
+  vencimento         DateTime  @db.Date
+  /// Vencimento antes de a cobrança vencida ser reajustada (troca de plano): o atraso continua contando dele
+  vencimentoOriginal DateTime? @map("vencimento_original") @db.Date
   /**
    * pendente | paga | vencida | cancelada | estornada
    */
-  situacao      String    @default("pendente")
+  situacao           String    @default("pendente")
   /**
    * PIX, BOLETO, CREDIT_CARD…
    */
-  forma         String?
-  pagoEm        DateTime? @map("pago_em") @db.Timestamptz(3)
+  forma              String?
+  pagoEm             DateTime? @map("pago_em") @db.Timestamptz(3)
   /**
    * Página de pagamento (fatura do Asaas)
    */
-  linkPagamento String?   @map("link_pagamento")
+  linkPagamento      String?   @map("link_pagamento")
   /**
    * Última recusa do cartão (para o suporte e o aviso na tela)
    */
-  falha         String?
+  falha              String?
   /**
    * Nota fiscal: agendada | emitida | erro | cancelada
    */
-  nfSituacao    String?   @map("nf_situacao")
-  nfNumero      String?   @map("nf_numero")
-  nfLinkPdf     String?   @map("nf_link_pdf")
-  nfErro        String?   @map("nf_erro")
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  nfSituacao         String?   @map("nf_situacao")
+  nfNumero           String?   @map("nf_numero")
+  nfLinkPdf          String?   @map("nf_link_pdf")
+  nfErro             String?   @map("nf_erro")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   assinante Assinante @relation(fields: [assinanteId], references: [id], onDelete: Cascade)
 

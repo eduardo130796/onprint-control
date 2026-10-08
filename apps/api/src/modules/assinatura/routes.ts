@@ -1,6 +1,7 @@
 import type { FastifyRequest } from 'fastify'
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { assinarSchema, trocarFormaSchema, trocarPlanoSchema } from '@onprint/shared'
+import { z } from 'zod'
 import { AppError } from '../../core/AppError'
 import { criarAssinaturaService } from './service'
 
@@ -30,9 +31,13 @@ export const assinaturaRoutes: FastifyPluginAsyncZod = async (app) => {
     { onRequest: [exigirGestor], config: livre, schema: { tags, summary: 'Assina pelo pagamento online (Asaas) e devolve o link da 1ª cobrança', body: assinarSchema } },
     async (request) => service.assinar(request.body, await email(request)),
   )
+  app.get(
+    '/assinatura/plano/previa',
+    { onRequest: [exigirGestor], config: livre, schema: { tags, summary: 'O que acontece ao trocar para o plano (proporcional, data, mensalidade)', querystring: z.object({ plano: z.string().min(1).max(40) }) } },
+    (request) => service.previaTroca(request.query.plano),
+  )
   app.post('/assinatura/plano', { onRequest: [exigirGestor], config: livre, schema: { tags, summary: 'Troca de plano', body: trocarPlanoSchema } }, async (request) => {
-    await service.trocarPlano(request.body.plano, await email(request))
-    return { ok: true }
+    return service.trocarPlano(request.body.plano, await email(request))
   })
   app.post('/assinatura/forma', { onRequest: [exigirGestor], config: livre, schema: { tags, summary: 'Troca a forma de pagamento', body: trocarFormaSchema } }, async (request) => {
     await service.trocarForma(request.body.forma, await email(request))

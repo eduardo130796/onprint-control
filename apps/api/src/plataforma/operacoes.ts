@@ -2,7 +2,7 @@ import type { Prisma, PrismaClient } from '@prisma/client'
 import { formatarDataSimples, type AcaoAssinatura } from '@onprint/shared'
 import type { GatewayPagamentos } from '../integrations/pagamentos'
 import { alterarAssinatura, paraDia, planoPorCodigo } from './assinaturas'
-import { lancarCobrancaManual, reajustarCobrancasAbertas, recalcularAssinatura, registrarPagamentoManual } from './cobrancas'
+import { lancarCobrancaManual, reajustarCobrancasFuturas, recalcularAssinatura, registrarPagamentoManual } from './cobrancas'
 
 export interface DependenciasOperacao {
   plataforma: PrismaClient
@@ -25,8 +25,9 @@ export async function executarAcao(deps: DependenciasOperacao, assinanteId: stri
     case 'plano': {
       const plano = await planoPorCodigo(plataforma, acao.plano)
       if (a.gatewayAssinaturaId && pagamentos) await pagamentos.alterarAssinatura(a.gatewayAssinaturaId, { valor: plano.valorMensal.toFixed(2) })
-      const atualizada = await alterar({ planoId: plano.id }, `Plano trocado de ${a.plano.nome} para ${plano.nome}`)
-      await reajustarCobrancasAbertas(plataforma, pagamentos, assinanteId, plano.valorMensal.toFixed(2))
+      // Suporte: troca na hora, sem proporcional; vencidas e o período em curso mantêm o valor
+      const atualizada = await alterar({ planoId: plano.id, planoAgendadoId: null, planoAgendadoEm: null }, `Plano trocado de ${a.plano.nome} para ${plano.nome}`)
+      await reajustarCobrancasFuturas(plataforma, pagamentos, assinanteId, plano.valorMensal.toFixed(2))
       return atualizada
     }
     case 'ativar':

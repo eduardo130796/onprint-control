@@ -153,15 +153,24 @@ export function HeroAssinatura({ a, onAssinar }: { a: MinhaAssinatura; onAssinar
             <Anel valor={a.acesso.diasRestantesTeste ?? 0} total={Math.max(a.plano.diasTeste, a.acesso.diasRestantesTeste ?? 0)} rotulo={`${a.acesso.diasRestantesTeste ?? 0}`} legenda={`${a.acesso.diasRestantesTeste === 1 ? 'dia' : 'dias'} de teste grátis`} />
           ) : (
             <div>
-              <p className="text-sm text-white/60">Mensalidade</p>
-              <p className="font-titulo text-3xl font-extrabold">{formatarMoeda(aberta?.valor ?? a.plano.valorMensal)}</p>
+              <p className="text-sm text-white/60">{a.cobrancasAbertas.length > 1 ? `Em aberto (${a.cobrancasAbertas.length} cobranças)` : 'Mensalidade'}</p>
+              <p className="font-titulo text-3xl font-extrabold">
+                {formatarMoeda(a.cobrancasAbertas.length > 1 ? a.cobrancasAbertas.reduce((t, c) => t + Number(c.valor), 0).toFixed(2) : (aberta?.valor ?? a.plano.valorMensal))}
+              </p>
               <p className={cn('text-sm', emAtraso ? 'text-amber-200' : 'text-white/60')}>
                 {aberta ? `${aberta.situacao === 'vencida' ? 'venceu' : 'vence'} em ${formatarDataSimples(aberta.vencimento)}` : emAtraso && a.atrasoDesde ? `vencida desde ${formatarDataSimples(a.atrasoDesde)}` : 'nenhuma em aberto'}
               </p>
             </div>
           )}
           <Medidor usado={a.usuariosAtivos} limite={a.plano.limiteUsuarios} />
-          {aberta?.linkPagamento ? (
+          {a.cobrancasAbertas.length > 1 ? (
+            // Cada cobrança tem a própria página de pagamento: leva à lista
+            <Button asChild size="lg" className="w-full">
+              <a href="#cobrancas-abertas">
+                <ExternalLink /> Pagar {formatarMoeda(a.cobrancasAbertas.reduce((t, c) => t + Number(c.valor), 0).toFixed(2))} ({a.cobrancasAbertas.length} cobranças)
+              </a>
+            </Button>
+          ) : aberta?.linkPagamento ? (
             <Button asChild size="lg" className="w-full">
               <a href={aberta.linkPagamento} target="_blank" rel="noopener noreferrer">
                 <ExternalLink /> Pagar {formatarMoeda(aberta.valor)}

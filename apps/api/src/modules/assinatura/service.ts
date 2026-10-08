@@ -3,13 +3,17 @@ import type { FastifyInstance } from 'fastify'
 import {
   FORMAS_ASSINATURA,
   FORMA_ASSINATURA_ROTULOS,
+  adicionarDias,
   adicionarMeses,
   MODULOS,
   MODULOS_ESSENCIAIS,
   MODULO_ROTULOS,
   formatarDataSimples,
+  formatarMoeda,
   hojeISO,
+  calcularTrocaPlano,
   type AssinarInput,
+  type PreviaTrocaPlano,
   type CobrancaResumo,
   type FormaAssinatura,
   type MinhaAssinatura,
@@ -19,7 +23,7 @@ import { AppError } from '../../core/AppError'
 import { contextoEmpresa } from '../../core/contexto-empresa'
 import { ErroGateway } from '../../integrations/pagamentos'
 import { alterarAssinatura, diaISO, paraDia, planoPorCodigo, resumirAssinatura } from '../../plataforma/assinaturas'
-import { reajustarCobrancasAbertas, recalcularAssinatura, salvarCobranca, vencimentoQueConta } from '../../plataforma/cobrancas'
+import { inicioPeriodoAtual, reajustarCobrancasFuturas, recalcularAssinatura, salvarCobranca, vencimentoQueConta } from '../../plataforma/cobrancas'
 
 const ABERTAS = ['pendente', 'vencida']
 
@@ -29,6 +33,8 @@ export function resumoCobranca(c: Cobranca, hoje = hojeISO()): CobrancaResumo {
   const vencimento = vencimentoQueConta(c)
   return {
     id: c.id,
+    tipo: c.tipo as CobrancaResumo['tipo'],
+    descricao: c.descricao,
     valor: c.valor.toFixed(2),
     vencimento,
     situacao: (aberta && vencimento < hoje ? 'vencida' : c.situacao) as CobrancaResumo['situacao'],
@@ -104,6 +110,30 @@ export function criarAssinaturaService(app: FastifyInstance) {
     app.empresas.esquecer()
   }
 
+  async function planoTroca(codigo: string) {
+    return planoPorCodigo(plataforma, codigo).catch(() => {
+      throw AppError.regraNegocio('Plano indisponível.')
+    })
+  }
+
+  /** Prévia da troca: compara com o plano em vigor, no período em curso (se houver). */
+  async function previa(a: { assinanteId: string; plano: { valorMensal: { toFixed(n: number): string } } }, plano: { codigo: string; nome: string; valorMensal: { toFixed(n: number): string } }, hoje = hojeISO()): Promise<PreviaTrocaPlano> {
+    const inicio = await inicioPeriodoAtual(plataforma, a.assinanteId, hoje)
+    const r = calcularTrocaPlano({ valorAtual: a.plano.valorMensal.toFixed(2), valorNovo: plano.valorMensal.toFixed(2), inicioPeriodo: inicio, hoje })
+    return { ...r, plano: { codigo: plano.codigo, nome: plano.nome, valorMensal: plano.valorMensal.toFixed(2) } }
+  }
+
+  /** Diferença proporcional do upgrade: cobrança avulsa (no gateway, ou lançada no modo manual), vencendo hoje. */
+  async function cobrarProporcional(assinanteId: string, clienteId: string | null, valor: string, descricao: string, hoje: string) {
+    if (app.pagamentos && clienteId) {
+      const c = await noGateway(() => gateway().criarCobranca({ clienteId, valor, vencimento: hoje, descricao, referencia: assinanteId }))
+      await salvarCobranca(plataforma, assinanteId, c)
+      await plataforma.cobranca.update({ where: { gatewayId: c.gatewayId }, data: { tipo: 'proporcional', descricao } })
+    } else {
+      await plataforma.cobranca.create({ data: { assinanteId, gateway: 'manual', valor, vencimento: paraDia(hoje), tipo: 'proporcional', descricao } })
+    }
+  }
+
   async function limiteNoPlano(limite: number | null, nome: string) {
     if (limite == null) return
     const ativos = await app.prisma.usuario.count({ where: { ativo: true } })
@@ -120,8 +150,10 @@ export function criarAssinaturaService(app: FastifyInstance) {
         app.prisma.empresaConfig.findFirst({ select: { cnpj: true } }),
       ])
       const resumo = resumirAssinatura(a, hojeISO())
-      // A mais antiga em aberto pelo vencimento que conta (o original, se foi reajustada)
-      const aberta = cobrancas.filter((c) => ABERTAS.includes(c.situacao)).sort((x, y) => vencimentoQueConta(x).localeCompare(vencimentoQueConta(y)))[0]
+      // Em aberto pela data que conta (o vencimento original, se a cobrança ganhou data nova no gateway)
+      const abertas = cobrancas.filter((c) => ABERTAS.includes(c.situacao)).sort((x, y) => vencimentoQueConta(x).localeCompare(vencimentoQueConta(y)))
+      const aberta = abertas[0]
+      const agendado = a.planoAgendadoId ? planos.find((p) => p.id === a.planoAgendadoId) ?? (await plataforma.plano.findUnique({ where: { id: a.planoAgendadoId } })) : null
       return {
         situacao: a.situacao as SituacaoAssinatura,
         plano: {
@@ -157,6 +189,9 @@ export function criarAssinaturaService(app: FastifyInstance) {
         cancelarEm: diaISO(a.cancelarEm),
         documentoSugerido: a.documentoCobranca ?? config?.cnpj ?? null,
         cobrancaAberta: aberta ? resumoCobranca(aberta) : null,
+        // A pagar agora: vencidas, diferenças proporcionais e mensalidades dos próximos 7 dias (as distantes são "próxima cobrança")
+        cobrancasAbertas: abertas.filter((c) => c.tipo === 'proporcional' || vencimentoQueConta(c) <= adicionarDias(hojeISO(), 7)).map((c) => resumoCobranca(c)),
+        planoAgendado: agendado && a.planoAgendadoEm ? { nome: agendado.nome, valorMensal: agendado.valorMensal.toFixed(2), em: diaISO(a.planoAgendadoEm) as string } : null,
         cobrancas: cobrancas.map((c) => resumoCobranca(c)),
       }
     },
@@ -217,22 +252,64 @@ export function criarAssinaturaService(app: FastifyInstance) {
       return { linkPagamento: primeira?.linkPagamento ?? null }
     },
 
+    /** O que acontece se trocar para este plano (a tela mostra antes de confirmar). */
+    async previaTroca(codigo: string): Promise<PreviaTrocaPlano> {
+      const { a } = await carregar()
+      return previa(a, await planoTroca(codigo))
+    },
+
+    /**
+     * Troca de plano (regras do usuário): vencidas e a mensalidade do período em curso não mudam de valor;
+     * upgrade vale na hora e cobra a diferença proporcional aos dias que faltam; downgrade vale na próxima
+     * renovação (o plano maior já pago segue até lá). Escolher de novo o plano atual desfaz um downgrade agendado.
+     */
     async trocarPlano(codigo: string, email: string) {
       const { empresa, a } = await carregar()
-      const plano = await planoPorCodigo(plataforma, codigo).catch(() => {
-        throw AppError.regraNegocio('Plano indisponível.')
-      })
-      if (plano.id === a.planoId) throw AppError.regraNegocio('Este já é o seu plano.')
-      if (a.gatewayAutorizacaoId && !a.gatewayAssinaturaId) throw AppError.regraNegocio('Conclua a autorização do PIX Automático antes de trocar de plano (ou gere um QR Code novo).')
+      const plano = await planoTroca(codigo)
+      const hoje = hojeISO()
+      if (plano.id === a.planoId) {
+        if (!a.planoAgendadoId) throw AppError.regraNegocio('Este já é o seu plano.')
+        if (a.gatewayAssinaturaId) await noGateway(() => gateway().alterarAssinatura(a.gatewayAssinaturaId as string, { valor: plano.valorMensal.toFixed(2) }))
+        await alterarAssinatura(plataforma, empresa.id, { planoAgendadoId: null, planoAgendadoEm: null }, { tipo: 'plano', descricao: `Troca de plano agendada desfeita: continua no ${plano.nome}`, autor: email })
+        await reajustarCobrancasFuturas(plataforma, app.pagamentos, empresa.id, plano.valorMensal.toFixed(2), hoje)
+        return previa(a, plano)
+      }
+      if (a.planoAgendadoId === plano.id) throw AppError.regraNegocio('A troca para este plano já está agendada.')
+      if (a.formaPagamento === 'pix_automatico') {
+        throw AppError.regraNegocio('No PIX Automático o valor fica na autorização do seu banco: para trocar de plano, cancele a assinatura e assine de novo no plano novo.')
+      }
       if (!a.gatewayAssinaturaId && a.situacao !== 'teste') throw AppError.regraNegocio('Para trocar de plano, fale com o suporte.')
       await limiteNoPlano(plano.limiteUsuarios, plano.nome)
-      // As cobranças em aberto acompanham o valor novo
-      if (a.gatewayAssinaturaId) await noGateway(() => gateway().alterarAssinatura(a.gatewayAssinaturaId as string, { valor: plano.valorMensal.toFixed(2) }))
-      await alterarAssinatura(plataforma, empresa.id, { planoId: plano.id }, { tipo: 'plano', descricao: `Plano trocado de ${a.plano.nome} para ${plano.nome}`, autor: email })
+      const p = await previa(a, plano, hoje)
+      const valor = plano.valorMensal.toFixed(2)
+      // Próximas cobranças que o gateway gerar já saem no valor novo
+      if (a.gatewayAssinaturaId) await noGateway(() => gateway().alterarAssinatura(a.gatewayAssinaturaId as string, { valor }))
+
+      if (p.tipo === 'downgrade') {
+        await alterarAssinatura(
+          plataforma,
+          empresa.id,
+          { planoAgendadoId: plano.id, planoAgendadoEm: paraDia(p.valeA) },
+          { tipo: 'plano_agendado', descricao: `Troca para o ${plano.nome} agendada para ${formatarDataSimples(p.valeA)} (o ${a.plano.nome}, já pago, vale até lá)`, autor: email },
+        )
+      } else {
+        const proporcional = p.valorProporcional ? `; diferença proporcional de ${formatarMoeda(p.valorProporcional)} (${p.diasRestantes} de ${p.diasPeriodo} dias)` : ''
+        await alterarAssinatura(
+          plataforma,
+          empresa.id,
+          { planoId: plano.id, planoAgendadoId: null, planoAgendadoEm: null },
+          { tipo: 'plano', descricao: `Plano trocado de ${a.plano.nome} para ${plano.nome}${proporcional}`, autor: email },
+        )
+        if (p.valorProporcional && p.periodo) {
+          await cobrarProporcional(empresa.id, a.gatewayClienteId, p.valorProporcional, `Diferença proporcional ${a.plano.nome} → ${plano.nome} (${p.diasRestantes} de ${p.diasPeriodo} dias, até ${formatarDataSimples(p.periodo.fim)})`, hoje)
+        }
+      }
+      // Só mensalidades de períodos que ainda não começaram vão para o valor novo
+      await reajustarCobrancasFuturas(plataforma, app.pagamentos, empresa.id, valor, hoje)
       if (a.gatewayAssinaturaId) await sincronizar(empresa.id, a.gatewayAssinaturaId)
-      // Inclusive a mensalidade vencida: quem troca de plano paga o valor novo no que está em aberto
-      await reajustarCobrancasAbertas(plataforma, app.pagamentos, empresa.id, plano.valorMensal.toFixed(2))
+      await recalcularAssinatura(plataforma, empresa.id)
       app.empresas.esquecer()
+      return p
     },
 
     async trocarForma(forma: FormaAssinatura, email: string) {

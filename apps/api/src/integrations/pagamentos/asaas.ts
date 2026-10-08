@@ -148,8 +148,21 @@ export class AsaasGateway implements GatewayPagamentos {
     await this.chamar('PUT', `/subscriptions/${id}`, {
       ...(d.valor ? { value: Number(d.valor) } : {}),
       ...(d.forma ? { billingType: tipoCobranca(d.forma) } : {}),
-      updatePendingPayments: true,
+      // As cobranças já geradas ficam como estão: o sistema reajusta só as de períodos que ainda não começaram
+      updatePendingPayments: false,
     })
+  }
+
+  async criarCobranca(d: { clienteId: string; valor: string; vencimento: string; descricao: string; referencia: string }) {
+    const r = await this.chamar<PagamentoAsaas>('POST', '/payments', {
+      customer: d.clienteId,
+      billingType: 'UNDEFINED',
+      value: Number(d.valor),
+      dueDate: d.vencimento,
+      description: d.descricao.slice(0, 500),
+      externalReference: d.referencia,
+    })
+    return cobrancaDoAsaas(r)
   }
 
   async alterarCobranca(id: string, d: { valor: string; vencimento: string; tipo: string }) {

@@ -64,6 +64,12 @@ const servidor = createServer(async (req, res) => {
       return responder(200, { deleted: true, id: s.id })
     }
   }
+  if (req.method === 'POST' && caminho === '/payments') {
+    if (json.dueDate < hoje) return responder(400, { errors: [{ description: 'Data de vencimento no passado' }] })
+    const p = { object: 'payment', id: novoId('pay'), customer: json.customer, subscription: null, value: json.value, dueDate: json.dueDate, status: 'PENDING', billingType: json.billingType, description: json.description, invoiceUrl: `https://sandbox.asaas.com/i/${asaas.seq}`, deleted: false }
+    asaas.cobrancas.set(p.id, p)
+    return responder(200, p)
+  }
   if (req.method === 'PUT' && (m = caminho.match(/^\/payments\/([\w]+)$/))) {
     const p = asaas.cobrancas.get(m[1])
     if (!p) return responder(404, { errors: [{ description: 'Cobrança não encontrada' }] })
@@ -173,16 +179,42 @@ payAtraso.status = 'OVERDUE'
 await webhook('PAYMENT_OVERDUE', { payment: payAtraso })
 const pay3 = novaCobranca(sub, dia(30))
 await webhook('PAYMENT_CREATED', { payment: pay3 })
+// Período em curso começou no vencimento da mensalidade vencida (dia −3); faltam (fim − hoje) dias
+const fimDoPeriodo = (() => {
+  const d = new Date(`${dia(-3)}T12:00:00Z`)
+  d.setUTCMonth(d.getUTCMonth() + 1)
+  return d.toISOString().slice(0, 10)
+})()
+const diasEntre = (x, y) => Math.round((Date.parse(`${y}T12:00:00Z`) - Date.parse(`${x}T12:00:00Z`)) / 86400e3)
+const proporcional = (Math.round(((44900 - 27900) * diasEntre(hoje, fimDoPeriodo)) / diasEntre(dia(-3), fimDoPeriodo)) / 100).toFixed(2)
+const previa = await chamar('GET', '/assinatura/plano/previa?plano=completo', { token: b })
+conferir('prévia do upgrade: diferença proporcional aos dias que faltam', `${previa.json.tipo} ${previa.json.valorProporcional} ${previa.json.periodo?.fim}`, `upgrade ${proporcional} ${fimDoPeriodo}`)
 r = await chamar('POST', '/assinatura/plano', { token: b, body: { plano: 'completo' } })
-conferir('plano trocado para Completo', r.status, 200)
-conferir('Asaas: valor novo na assinatura e na cobrança em aberto', `${sub.value} ${pay3.value}`, '449 449')
-conferir('Asaas: a mensalidade VENCIDA também vai para o valor novo (com vencimento hoje, o mínimo aceito)', `${payAtraso.value} ${payAtraso.dueDate}`, `449 ${hoje}`)
+conferir('upgrade para Completo vale na hora', `${r.status} ${r.json.tipo}`, '200 upgrade')
+conferir('Asaas: a assinatura passa a gerar as próximas em 449, sem mexer nas já geradas', `${sub.value} ${previa.json.novaMensalidade.valor}`, '449 449.00')
+conferir('Asaas: mensalidade de período futuro vai para 449', pay3.value, 449)
+conferir('Asaas: a mensalidade VENCIDA mantém o valor do plano em que foi usada', `${payAtraso.value} ${payAtraso.dueDate}`, `279 ${dia(-3)}`)
+const avulsa = [...asaas.cobrancas.values()].find((c) => !c.subscription && c.description?.startsWith('Diferença proporcional'))
+conferir('Asaas: cobrança avulsa só com a diferença proporcional, vencendo hoje', `${avulsa?.value} ${avulsa?.dueDate}`, `${Number(proporcional)} ${hoje}`)
 a = await minha()
-conferir('tela: a vencida aparece com o valor novo e o vencimento original', `${a.cobrancaAberta?.valor} ${a.cobrancaAberta?.vencimento} ${a.cobrancaAberta?.situacao}`, `449.00 ${dia(-3)} vencida`)
-conferir('trocar de plano não zera o atraso', `${a.acesso.motivo} ${a.acesso.diasAtraso}`, 'atraso 3')
-Object.assign(payAtraso, { status: 'RECEIVED', paymentDate: hoje })
-await webhook('PAYMENT_RECEIVED', { payment: payAtraso })
-conferir('pagou a vencida reajustada: em dia', (await acesso()).motivo, 'em_dia')
+conferir('tela: em aberto a vencida (279) e a diferença (tipo proporcional)', a.cobrancasAbertas.map((c) => `${c.tipo}:${c.valor}`).join(' '), `mensalidade:279.00 proporcional:${proporcional}`)
+conferir('trocar de plano não mexe no atraso', `${a.acesso.motivo} ${a.acesso.diasAtraso}`, 'atraso 3')
+for (const pg of [payAtraso, avulsa]) {
+  Object.assign(pg, { status: 'RECEIVED', paymentDate: hoje })
+  await webhook('PAYMENT_RECEIVED', { payment: pg })
+}
+conferir('pagou a vencida e a diferença: em dia', (await acesso()).motivo, 'em_dia')
+
+console.log('\n— Downgrade: vale na próxima renovação —')
+r = await chamar('POST', '/assinatura/plano', { token: b, body: { plano: 'essencial' } })
+conferir('downgrade agendado para o fim do período pago', `${r.status} ${r.json.tipo} ${r.json.valeA} ${r.json.valorProporcional}`, `200 downgrade ${fimDoPeriodo} null`)
+a = await minha()
+conferir('continua no Completo (já pago) até lá; troca aparece agendada', `${a.plano.nome} ${a.planoAgendado?.nome} ${a.planoAgendado?.em}`, `Completo Essencial ${fimDoPeriodo}`)
+conferir('mensalidade futura já vai para o valor do plano menor', pay3.value, 149)
+conferir('não agenda duas vezes', (await chamar('POST', '/assinatura/plano', { token: b, body: { plano: 'essencial' } })).status, 422)
+r = await chamar('POST', '/assinatura/plano', { token: b, body: { plano: 'completo' } })
+a = await minha()
+conferir('"Manter o plano atual" desfaz o agendamento e volta o valor', `${r.status} ${a.planoAgendado} ${pay3.value}`, '200 null 449')
 conferir('módulo do plano novo liberado (estoque)', (await chamar('GET', '/estoque/locais', { token: b })).status, 200)
 r = await chamar('POST', '/assinatura/forma', { token: b, body: { forma: 'cartao' } })
 conferir('forma: cartão automático no Asaas', `${r.status} ${sub.billingType}`, '200 CREDIT_CARD')

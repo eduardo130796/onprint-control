@@ -1799,6 +1799,9 @@ model Assinatura {
    * CPF/CNPJ usado na cobrança e na nota fiscal
    */
   documentoCobranca    String?   @map("documento_cobranca")
+  /// Downgrade: o plano maior já pago vale até o fim do período; este passa a valer em planoAgendadoEm
+  planoAgendadoId      String?   @map("plano_agendado_id") @db.Uuid
+  planoAgendadoEm      DateTime? @map("plano_agendado_em") @db.Date
   /// PIX Automático: autorização no Asaas (vira assinatura quando o pagador autoriza no banco)
   gatewayAutorizacaoId String?   @unique @map("gateway_autorizacao_id")
   /// QR Code da autorização + 1ª mensalidade (copia e cola e imagem em base64), enquanto aguarda
@@ -1848,8 +1851,11 @@ model Cobranca {
    */
   gatewayId          String?   @unique @map("gateway_id")
   valor              Decimal   @db.Decimal(10, 2)
+  /// mensalidade | proporcional (diferença de upgrade no meio do período)
+  tipo               String    @default("mensalidade")
+  descricao          String?
   vencimento         DateTime  @db.Date
-  /// Vencimento antes de a cobrança vencida ser reajustada (troca de plano): o atraso continua contando dele
+  /// Vencimento original quando a cobrança precisou de data nova no gateway (ele não aceita data passada): o atraso conta dele
   vencimentoOriginal DateTime? @map("vencimento_original") @db.Date
   /**
    * pendente | paga | vencida | cancelada | estornada

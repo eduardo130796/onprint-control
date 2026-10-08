@@ -39,7 +39,10 @@ export function HistoricoCobrancas({ cobrancas }: { cobrancas: CobrancaResumo[] 
           const f = c.forma ? FORMA[c.forma] : undefined
           return (
             <li key={c.id} className="grid grid-cols-2 items-center gap-x-4 gap-y-1 py-3.5 text-sm md:grid-cols-[110px_120px_130px_1fr_auto]">
-              <span className="font-medium tabular-nums text-grafite">{formatarDataSimples(c.vencimento)}</span>
+              <span className="font-medium tabular-nums text-grafite">
+                {formatarDataSimples(c.vencimento)}
+                {c.tipo === 'proporcional' && <span className="block text-[11px] font-normal text-texto-secundario">Diferença proporcional</span>}
+              </span>
               <span className="text-right font-semibold tabular-nums text-grafite md:text-left">{formatarMoeda(c.valor)}</span>
               <span className={cn('inline-flex items-center gap-2 font-medium', s.texto)}>
                 <span className={cn('h-2 w-2 rounded-full', s.ponto)} aria-hidden="true" />

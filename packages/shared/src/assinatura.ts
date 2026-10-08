@@ -173,11 +173,18 @@ export interface MinhaAssinatura {
   documentoSugerido: string | null
   /** Cobrança em aberto mais antiga, com o link para pagar */
   cobrancaAberta: CobrancaResumo | null
+  /** A pagar agora (vencidas, diferenças proporcionais e mensalidades dos próximos 7 dias), da mais antiga para a mais nova */
+  cobrancasAbertas: CobrancaResumo[]
+  /** Downgrade agendado: plano que passa a valer e quando */
+  planoAgendado: { nome: string; valorMensal: string; em: string } | null
   cobrancas: CobrancaResumo[]
 }
 
 export interface CobrancaResumo {
   id: string
+  /** mensalidade | proporcional (diferença de upgrade) */
+  tipo: 'mensalidade' | 'proporcional'
+  descricao: string | null
   valor: string
   vencimento: string
   situacao: 'pendente' | 'paga' | 'vencida' | 'cancelada' | 'estornada'

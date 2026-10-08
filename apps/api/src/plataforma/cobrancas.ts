@@ -35,18 +35,24 @@ export async function recalcularAssinatura(plataforma: PrismaClient, assinanteId
   const a = await plataforma.assinatura.findUnique({ where: { assinanteId } })
   if (!a) return null
   const cobrancas = await plataforma.cobranca.findMany({ where: { assinanteId }, orderBy: { vencimento: 'asc' } })
+  // Atraso: qualquer cobrança em aberto (mensalidade ou diferença proporcional não paga)
   const abertas = cobrancas
     .filter((c) => ABERTAS.includes(c.situacao))
     .map(vencimentoQueConta)
     .sort()
   const atraso = abertas[0] ?? null
+  // Próximo vencimento e período pago: só mensalidades
+  const mensalidadesAbertas = cobrancas
+    .filter((c) => c.tipo === 'mensalidade' && ABERTAS.includes(c.situacao))
+    .map(vencimentoQueConta)
+    .sort()
   // Sem cobrança em aberto, o próximo vencimento é um mês depois da última mensalidade paga (fim do período pago)
   const ultimaPaga = cobrancas
-    .filter((c) => c.situacao === 'paga')
+    .filter((c) => c.tipo === 'mensalidade' && c.situacao === 'paga')
     .map(vencimentoQueConta)
     .sort()
     .at(-1)
-  const proximo = abertas.find((v) => v >= hoje) ?? (abertas.length === 0 && ultimaPaga ? adicionarMeses(ultimaPaga, 1) : undefined)
+  const proximo = mensalidadesAbertas.find((v) => v >= hoje) ?? (mensalidadesAbertas.length === 0 && ultimaPaga ? adicionarMeses(ultimaPaga, 1) : undefined)
   const dados: Prisma.AssinaturaUncheckedUpdateInput = {}
   const eventos: { tipo: string; descricao: string }[] = []
 
@@ -57,6 +63,12 @@ export async function recalcularAssinatura(plataforma: PrismaClient, assinanteId
   if (pagouDepois && (a.situacao === 'teste' || (a.situacao === 'cancelada' && !a.cancelarEm))) {
     Object.assign(dados, { situacao: 'ativa', canceladaEm: null })
     eventos.push(a.situacao === 'teste' ? { tipo: 'ativacao', descricao: 'Primeiro pagamento: assinatura ativa' } : { tipo: 'reativacao', descricao: 'Pagamento recebido: assinatura reativada' })
+  }
+  // Downgrade agendado: o plano menor passa a valer no início do período seguinte
+  const agendadoEm = diaISO(a.planoAgendadoEm)
+  if (a.planoAgendadoId && agendadoEm && agendadoEm <= hoje) {
+    Object.assign(dados, { planoId: a.planoAgendadoId, planoAgendadoId: null, planoAgendadoEm: null })
+    eventos.push({ tipo: 'plano', descricao: 'Troca de plano agendada entrou em vigor' })
   }
   const cancelarEm = diaISO(a.cancelarEm)
   if (cancelarEm && cancelarEm <= hoje && a.situacao !== 'cancelada') {
@@ -205,33 +217,40 @@ export async function conciliarAssinaturas(app: FastifyInstance) {
 }
 
 /**
- * Troca de plano: as mensalidades em aberto — inclusive as vencidas, que o "atualizar pendentes" do gateway
- * não alcança — passam para o valor novo. O vencimento fica o mesmo: trocar de plano não zera o atraso.
- * Devolve as falhas (a troca de plano segue; o suporte vê o evento no histórico).
+ * Troca de plano: só as mensalidades de períodos que AINDA NÃO COMEÇARAM (vencimento depois de hoje) vão para o
+ * valor novo, mantendo a data. Vencidas e a do período em curso nunca mudam: são serviço já prestado no plano antigo.
+ * Devolve as falhas (a troca segue; o suporte vê o evento no histórico).
  */
-export async function reajustarCobrancasAbertas(plataforma: PrismaClient, pagamentos: GatewayPagamentos | null, assinanteId: string, valor: string, hoje = hojeISO()) {
-  const abertas = await plataforma.cobranca.findMany({ where: { assinanteId, situacao: { in: ABERTAS } } })
+export async function reajustarCobrancasFuturas(plataforma: PrismaClient, pagamentos: GatewayPagamentos | null, assinanteId: string, valor: string, hoje = hojeISO()) {
+  const futuras = await plataforma.cobranca.findMany({ where: { assinanteId, tipo: 'mensalidade', situacao: 'pendente', vencimento: { gt: paraDia(hoje) } } })
   const falhas: string[] = []
-  for (const c of abertas) {
+  for (const c of futuras) {
     if (c.valor.toFixed(2) === Number(valor).toFixed(2)) continue
-    // O gateway não aceita vencimento no passado: a vencida ganha vencimento hoje lá, e aqui guarda o original
     const vencimento = diaISO(c.vencimento) as string
-    const novoVencimento = vencimento < hoje ? hoje : vencimento
     try {
       if (c.gatewayId && c.gateway === 'asaas') {
         if (!pagamentos) throw new Error('pagamento online desligado')
-        await pagamentos.alterarCobranca(c.gatewayId, { valor, vencimento: novoVencimento, tipo: c.forma ?? 'UNDEFINED' })
+        await pagamentos.alterarCobranca(c.gatewayId, { valor, vencimento, tipo: c.forma ?? 'UNDEFINED' })
       }
-      await plataforma.cobranca.update({
-        where: { id: c.id },
-        data: { valor, ...(novoVencimento !== vencimento && c.gateway === 'asaas' ? { vencimento: paraDia(novoVencimento), vencimentoOriginal: c.vencimentoOriginal ?? c.vencimento } : {}) },
-      })
+      await plataforma.cobranca.update({ where: { id: c.id }, data: { valor } })
     } catch (erro) {
-      falhas.push(`${diaISO(c.vencimento)}: ${(erro as Error).message}`)
+      falhas.push(`${vencimento}: ${(erro as Error).message}`)
     }
   }
-  if (falhas.length) await registrarEvento(plataforma, assinanteId, 'falha_reajuste', `Mensalidade em aberto não foi para o valor novo (${falhas.join('; ')})`)
+  if (falhas.length) await registrarEvento(plataforma, assinanteId, 'falha_reajuste', `Mensalidade futura não foi para o valor novo (${falhas.join('; ')})`)
   return falhas
+}
+
+/** Início do período em curso: vencimento da última mensalidade (não cancelada) até hoje — paga ou não. */
+export async function inicioPeriodoAtual(plataforma: PrismaClient, assinanteId: string, hoje = hojeISO()) {
+  const mensalidades = await plataforma.cobranca.findMany({ where: { assinanteId, tipo: 'mensalidade', situacao: { notIn: ['cancelada', 'estornada'] } } })
+  return (
+    mensalidades
+      .map(vencimentoQueConta)
+      .filter((v) => v <= hoje)
+      .sort()
+      .at(-1) ?? null
+  )
 }
 
 /** Modo manual (sem gateway): o suporte lança a cobrança e registra o pagamento. */

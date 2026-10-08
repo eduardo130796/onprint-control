@@ -17,7 +17,7 @@ function assinatura(...args) {
 const a = await entrar('admin@onprint.local', 'admin123', 'Admin12345')
 let me = (await chamar('GET', '/auth/me', { token: a })).json
 console.log('— Empresa padrão —')
-conferir('plano completo, em dia', `${me.assinatura?.plano} ${me.assinatura?.nivel} ${me.assinatura?.motivo}`, 'Completo normal em_dia')
+conferir('plano completo, cortesia (empresa da plataforma)', `${me.assinatura?.plano} ${me.assinatura?.nivel} ${me.assinatura?.motivo}`, 'Completo normal cortesia')
 
 console.log('\n— Empresa B em teste grátis no plano Essencial —')
 conferir('empresa criada com plano', cli('criar-empresa', ['--nome', 'Gráfica Teste B', '--email', 'dono@b.local', '--senha', 'Inicial123', '--plano', 'essencial', '--exemplos']).status, 0)

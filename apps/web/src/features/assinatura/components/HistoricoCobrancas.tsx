@@ -9,6 +9,7 @@ const SITUACAO: Record<CobrancaResumo['situacao'], { rotulo: string; ponto: stri
   paga: { rotulo: 'Paga', ponto: 'bg-marca', texto: 'text-marca-escuro' },
   cancelada: { rotulo: 'Cancelada', ponto: 'bg-slate-300', texto: 'text-texto-secundario' },
   estornada: { rotulo: 'Estornada', ponto: 'bg-amber-500', texto: 'text-amber-800' },
+  abonada: { rotulo: 'Abonada', ponto: 'bg-violet-500', texto: 'text-violet-800' },
 }
 const FORMA: Record<string, { rotulo: string; Icone: typeof Wallet }> = {
   PIX: { rotulo: 'PIX', Icone: QrCode },
@@ -43,14 +44,17 @@ export function HistoricoCobrancas({ cobrancas }: { cobrancas: CobrancaResumo[] 
                 {formatarDataSimples(c.vencimento)}
                 {c.tipo === 'proporcional' && <span className="block text-[11px] font-normal text-texto-secundario">Diferença proporcional</span>}
               </span>
-              <span className="text-right font-semibold tabular-nums text-grafite md:text-left">{formatarMoeda(c.valor)}</span>
+              <span className="text-right tabular-nums md:text-left">
+                <span className={cn('font-semibold', c.situacao === 'abonada' ? 'text-texto-secundario line-through' : 'text-grafite')}>{formatarMoeda(c.valor)}</span>
+                {c.desconto && <span className="block text-[11px] text-marca-escuro">cupom −{formatarMoeda(c.desconto)}</span>}
+              </span>
               <span className={cn('inline-flex items-center gap-2 font-medium', s.texto)}>
                 <span className={cn('h-2 w-2 rounded-full', s.ponto)} aria-hidden="true" />
                 {s.rotulo}
               </span>
               <span className="flex items-center justify-end gap-2 text-texto-secundario md:justify-start">
                 {c.situacao === 'paga' && f && <f.Icone className="h-4 w-4" aria-hidden="true" />}
-                {c.situacao === 'paga' ? `${f?.rotulo ?? c.forma ?? ''}${c.pagoEm ? ` · ${formatarDataSimples(c.pagoEm)}` : ''}` : (c.falha ?? '')}
+                {c.situacao === 'paga' ? `${f?.rotulo ?? c.forma ?? ''}${c.pagoEm ? ` · ${formatarDataSimples(c.pagoEm)}` : ''}` : c.situacao === 'abonada' ? (c.motivoAbono ?? 'Abonada pelo suporte') : (c.falha ?? '')}
               </span>
               <span className="col-span-2 flex items-center justify-end gap-2 md:col-span-1">
                 {c.linkPagamento && (

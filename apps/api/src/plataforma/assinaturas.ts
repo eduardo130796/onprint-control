@@ -53,6 +53,7 @@ export function resumirAssinatura(a: Assinatura & { plano: Plano }, hoje = hojeI
       {
         situacao: a.situacao as SituacaoAssinatura,
         testeAte: diaISO(a.testeAte),
+        cortesiaAte: diaISO(a.cortesiaAte),
         atrasoDesde: diaISO(a.atrasoDesde),
         liberadoAte: diaISO(a.liberadoAte),
         bloqueioManual: a.bloqueioManual,
@@ -84,14 +85,29 @@ export interface EventoNovo {
   dados?: Prisma.InputJsonValue
 }
 
-/** Cria a assinatura de uma empresa: em teste (dias do plano) ou já ativa (empresa própria / migração). */
+/**
+ * Cria a assinatura de uma empresa: em teste (dias do plano), já ativa (migração) ou cortesia sem prazo
+ * (empresa da própria plataforma, parceiros).
+ */
 export async function criarAssinatura(plataforma: PrismaClient, assinanteId: string, codigoPlano: string, situacao: SituacaoAssinatura, autor = 'sistema') {
   const plano = await planoPorCodigo(plataforma, codigoPlano)
+  const motivoCortesia = autor === 'seed' ? 'Empresa da plataforma' : 'Criada como cortesia pelo suporte'
   return plataforma.$transaction(async (tx) => {
     const assinatura = await tx.assinatura.create({
-      data: { assinanteId, planoId: plano.id, situacao, testeAte: situacao === 'teste' ? paraDia(adicionarDias(hojeISO(), plano.diasTeste)) : null },
+      data: {
+        assinanteId,
+        planoId: plano.id,
+        situacao,
+        testeAte: situacao === 'teste' ? paraDia(adicionarDias(hojeISO(), plano.diasTeste)) : null,
+        cortesiaMotivo: situacao === 'cortesia' ? motivoCortesia : null,
+      },
     })
-    const descricao = situacao === 'teste' ? `Teste grátis de ${plano.diasTeste} dias no plano ${plano.nome}` : `Assinatura ativa no plano ${plano.nome}`
+    const descricao =
+      situacao === 'teste'
+        ? `Teste grátis de ${plano.diasTeste} dias no plano ${plano.nome}`
+        : situacao === 'cortesia'
+          ? `Cortesia sem prazo no plano ${plano.nome} (${motivoCortesia})`
+          : `Assinatura ativa no plano ${plano.nome}`
     await tx.eventoAssinatura.create({ data: { assinanteId, tipo: 'criada', descricao, autor } })
     return assinatura
   })

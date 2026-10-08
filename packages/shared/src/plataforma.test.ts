@@ -26,7 +26,7 @@ describe('resumirIndicadores', () => {
       { situacao: 'cancelada', acesso: { nivel: 'bloqueado', motivo: 'cancelada' }, valorMensal: '279.00' },
     ])
     expect(r.total).toBe(6)
-    expect(r.porCategoria).toEqual({ em_dia: 2, teste: 1, aviso: 1, somente_leitura: 0, bloqueada: 1, cancelada: 1 })
+    expect(r.porCategoria).toEqual({ em_dia: 2, teste: 1, cortesia: 0, aviso: 1, somente_leitura: 0, bloqueada: 1, cancelada: 1 })
     expect(r.receitaMensal).toBe('428.90')
     expect(r.receitaEmRisco).toBe('598.00')
   })

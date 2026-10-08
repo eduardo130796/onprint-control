@@ -1,8 +1,10 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
-import { cadastroPublicoSchema, formatarDataSimples } from '@onprint/shared'
+import { z } from 'zod'
+import { cadastroPublicoSchema, codigoCupom, formatarDataSimples } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { emailBoasVindas } from '../../integrations/email/modelos'
 import { diaISO } from '../../plataforma/assinaturas'
+import { aplicarCupom, descricaoCupom, validarCupom } from '../../plataforma/beneficios'
 import { provisionarEmpresa } from '../../plataforma/provisionar'
 
 /** Sem login: planos à venda e o cadastro com teste grátis ("Criar conta"). */
@@ -15,6 +17,22 @@ export const cadastroRoutes: FastifyPluginAsyncZod = async (app) => {
       planos: planos.map((p) => ({ codigo: p.codigo, nome: p.nome, descricao: p.descricao, valorMensal: p.valorMensal.toFixed(2), limiteUsuarios: p.limiteUsuarios, diasTeste: p.diasTeste, modulos: p.modulos })),
     }
   })
+
+  // Confere o cupom digitado no cadastro (mostra o desconto antes de criar a conta)
+  app.get(
+    '/cupons/validar',
+    {
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+      schema: { tags: ['plataforma'], summary: 'Confere um cupom (cadastro)', querystring: z.object({ codigo: codigoCupom, plano: z.string().max(40).optional() }) },
+    },
+    async (request) => {
+      if (!request.query.codigo) throw AppError.regraNegocio('Informe o cupom.')
+      const c = await validarCupom(app.plataforma, request.query.codigo, request.query.plano ?? null).catch((erro: Error) => {
+        throw AppError.regraNegocio(erro.message)
+      })
+      return { codigo: c.codigo, descricao: c.descricao || descricaoCupom(c), tipo: c.tipo, valor: c.valor.toFixed(2), duracaoMeses: c.duracaoMeses, planos: c.planos }
+    },
+  )
 
   app.post(
     '/cadastro',
@@ -29,6 +47,11 @@ export const cadastroRoutes: FastifyPluginAsyncZod = async (app) => {
       const codigoPlano = d.plano || app.config.PLANO_PADRAO
       const plano = await app.plataforma.plano.findUnique({ where: { codigo: codigoPlano } })
       if (!plano?.ativo || !plano.publico) throw AppError.regraNegocio('Plano indisponível.')
+      if (d.cupom) {
+        await validarCupom(app.plataforma, d.cupom, codigoPlano).catch((erro: Error) => {
+          throw AppError.regraNegocio(erro.message, { campo: 'cupom' })
+        })
+      }
       const assinante = await provisionarEmpresa(
         { plataforma: app.plataforma, databaseUrl: app.config.DATABASE_URL, clienteDe: app.empresas.clienteDe },
         // A pessoa escolheu a própria senha: não precisa trocar no primeiro login
@@ -36,6 +59,8 @@ export const cadastroRoutes: FastifyPluginAsyncZod = async (app) => {
       )
       // Contato informado no cadastro já aparece nos dados da empresa (orçamentos, documentos)
       if (d.telefone) await app.empresas.clienteDe(assinante.schema).empresaConfig.updateMany({ data: { telefone: d.telefone, whatsapp: d.telefone, email: d.email } })
+      // Cupom guardado: o desconto começa na 1ª mensalidade, quando assinar
+      if (d.cupom) await aplicarCupom({ plataforma: app.plataforma, pagamentos: app.pagamentos }, assinante.id, d.cupom, d.email).catch((erro: Error) => app.log.warn({ err: erro }, 'Cupom do cadastro não aplicado'))
       const assinatura = await app.plataforma.assinatura.findUnique({ where: { assinanteId: assinante.id } })
       const testeAte = diaISO(assinatura?.testeAte)
       await app.plataforma.eventoAssinatura.create({ data: { assinanteId: assinante.id, tipo: 'cadastro', descricao: `Cadastro pela internet (${d.nome}, ${d.email})`, autor: d.email } })

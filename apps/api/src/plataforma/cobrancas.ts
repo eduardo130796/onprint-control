@@ -2,8 +2,9 @@ import { Prisma, type PrismaClient } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
 import { adicionarMeses, formatarMoeda, hojeISO } from '@onprint/shared'
 import { cobrancaDoAsaas, notaDoAsaas, situacaoAutorizacaoAsaas, type AutorizacaoAsaas, type NotaAsaas, type PagamentoAsaas } from '../integrations/pagamentos/asaas'
-import type { CobrancaGateway, GatewayPagamentos, NotaFiscalGateway } from '../integrations/pagamentos'
+import type { CobrancaGateway, NotaFiscalGateway } from '../integrations/pagamentos'
 import { diaISO, paraDia } from './assinaturas'
+import { aplicarValores, descontoDaMensalidade } from './beneficios'
 
 const ABERTAS = ['pendente', 'vencida']
 
@@ -11,11 +12,16 @@ const ABERTAS = ['pendente', 'vencida']
 export const vencimentoQueConta = (c: { vencimento: Date; vencimentoOriginal: Date | null }) => diaISO(c.vencimentoOriginal ?? c.vencimento) as string
 const FORMAS: Record<string, string> = { PIX: 'PIX', BOLETO: 'boleto', CREDIT_CARD: 'cartão', UNDEFINED: 'a definir' }
 
-/** Grava (cria ou atualiza) a cobrança vinda do gateway; devolve como estava antes. */
+/**
+ * Grava (cria ou atualiza) a cobrança vinda do gateway; devolve como estava antes (null = nova).
+ * Abonada continua abonada (o gateway só avisa que ela foi removida). Mensalidade nova guarda o desconto do cupom.
+ */
 export async function salvarCobranca(plataforma: PrismaClient, assinanteId: string, c: CobrancaGateway, extra: { falha?: string | null } = {}) {
   const antes = await plataforma.cobranca.findUnique({ where: { gatewayId: c.gatewayId } })
+  if (antes?.situacao === 'abonada' && c.situacao === 'cancelada') return antes
   const dados = { valor: c.valor, vencimento: paraDia(c.vencimento), situacao: c.situacao, forma: c.forma, pagoEm: c.pagoEm, linkPagamento: c.linkPagamento, ...extra }
-  await plataforma.cobranca.upsert({ where: { gatewayId: c.gatewayId }, create: { assinanteId, gateway: 'asaas', gatewayId: c.gatewayId, ...dados }, update: dados })
+  const desconto = !antes && c.assinaturaGatewayId ? await descontoDaMensalidade(plataforma, assinanteId, c.vencimento) : null
+  await plataforma.cobranca.upsert({ where: { gatewayId: c.gatewayId }, create: { assinanteId, gateway: 'asaas', gatewayId: c.gatewayId, desconto, ...dados }, update: dados })
   return antes
 }
 
@@ -46,13 +52,17 @@ export async function recalcularAssinatura(plataforma: PrismaClient, assinanteId
     .filter((c) => c.tipo === 'mensalidade' && ABERTAS.includes(c.situacao))
     .map(vencimentoQueConta)
     .sort()
-  // Sem cobrança em aberto, o próximo vencimento é um mês depois da última mensalidade paga (fim do período pago)
+  // Sem cobrança em aberto, o próximo vencimento é um mês depois da última mensalidade paga ou abonada (fim do período coberto)
   const ultimaPaga = cobrancas
-    .filter((c) => c.tipo === 'mensalidade' && c.situacao === 'paga')
+    .filter((c) => c.tipo === 'mensalidade' && (c.situacao === 'paga' || c.situacao === 'abonada'))
     .map(vencimentoQueConta)
     .sort()
     .at(-1)
-  const proximo = mensalidadesAbertas.find((v) => v >= hoje) ?? (mensalidadesAbertas.length === 0 && ultimaPaga ? adicionarMeses(ultimaPaga, 1) : undefined)
+  // Cortesia com prazo: a próxima cobrança é a do fim da cortesia
+  const fimCortesiaPrevisto = a.situacao === 'cortesia' ? diaISO(a.cortesiaAte) : null
+  const proximo =
+    mensalidadesAbertas.find((v) => v >= hoje) ??
+    (fimCortesiaPrevisto && fimCortesiaPrevisto >= hoje ? fimCortesiaPrevisto : mensalidadesAbertas.length === 0 && ultimaPaga ? adicionarMeses(ultimaPaga, 1) : undefined)
   const dados: Prisma.AssinaturaUncheckedUpdateInput = {}
   const eventos: { tipo: string; descricao: string }[] = []
 
@@ -63,6 +73,12 @@ export async function recalcularAssinatura(plataforma: PrismaClient, assinanteId
   if (pagouDepois && (a.situacao === 'teste' || (a.situacao === 'cancelada' && !a.cancelarEm))) {
     Object.assign(dados, { situacao: 'ativa', canceladaEm: null })
     eventos.push(a.situacao === 'teste' ? { tipo: 'ativacao', descricao: 'Primeiro pagamento: assinatura ativa' } : { tipo: 'reativacao', descricao: 'Pagamento recebido: assinatura reativada' })
+  }
+  // Cortesia com prazo que acabou: vira ativa quando paga a mensalidade de depois dela
+  const fimCortesia = diaISO(a.cortesiaAte)
+  if (a.situacao === 'cortesia' && fimCortesia && fimCortesia < hoje && cobrancas.some((c) => c.tipo === 'mensalidade' && c.situacao === 'paga' && vencimentoQueConta(c) >= fimCortesia)) {
+    Object.assign(dados, { situacao: 'ativa', cortesiaAte: null, cortesiaMotivo: null })
+    eventos.push({ tipo: 'ativacao', descricao: 'Cortesia terminou e a mensalidade foi paga: assinatura ativa' })
   }
   // Downgrade agendado: o plano menor passa a valer no início do período seguinte
   const agendadoEm = diaISO(a.planoAgendadoEm)
@@ -83,8 +99,8 @@ export async function recalcularAssinatura(plataforma: PrismaClient, assinanteId
   })
 }
 
-async function registrarEvento(plataforma: PrismaClient, assinanteId: string, tipo: string, descricao: string, dados?: Prisma.InputJsonValue) {
-  await plataforma.eventoAssinatura.create({ data: { assinanteId, tipo, descricao, dados } })
+export async function registrarEvento(plataforma: PrismaClient, assinanteId: string, tipo: string, descricao: string, dados?: Prisma.InputJsonValue, autor = 'sistema') {
+  await plataforma.eventoAssinatura.create({ data: { assinanteId, tipo, descricao, dados, autor } })
 }
 
 /** Aplica um aviso do Asaas (cobrança ou nota fiscal). Lança erro se não reconhecer a assinatura. */
@@ -133,6 +149,8 @@ export async function aplicarEventoAsaas(app: FastifyInstance, tipo: string, cor
     }
     if (recusa) await registrarEvento(plataforma, assinatura.assinanteId, 'falha_pagamento', `${recusa} (${valor}, vencimento ${c.vencimento})`, { cobranca: c.gatewayId })
     if (c.situacao === 'estornada' && antes?.situacao !== 'estornada') await registrarEvento(plataforma, assinatura.assinanteId, 'estorno', `Cobrança de ${valor} estornada`, { cobranca: c.gatewayId })
+    // Mensalidade nova: confere o valor (fim da janela do cupom, downgrade) e o que o gateway vai gerar depois
+    if (!antes && c.assinaturaGatewayId) await aplicarValores({ plataforma, pagamentos: app.pagamentos }, assinatura.assinanteId)
     await recalcularAssinatura(plataforma, assinatura.assinanteId)
   }
   if (corpo.invoice) {
@@ -194,9 +212,14 @@ export async function conciliarAssinaturas(app: FastifyInstance) {
           }
         }
         // Por cliente: pega todas as mensalidades (inclusive a 1ª do PIX Automático e as de assinaturas anteriores)
+        let novas = 0
         for (const c of await pagamentos.cobrancasDoCliente(a.gatewayClienteId as string)) {
-          await salvarCobranca(plataforma, a.assinanteId, c)
+          if (!(await salvarCobranca(plataforma, a.assinanteId, c))) novas++
           cobrancas++
+        }
+        // Mensalidade nova (aviso perdido) ou janela de cupom que terminou: valores certos
+        if (novas > 0 || (await plataforma.cupomUso.count({ where: { assinanteId: a.assinanteId, encerradoEm: null, ate: { lt: paraDia(hojeISO()) } } }))) {
+          await aplicarValores({ plataforma, pagamentos }, a.assinanteId)
         }
         if (app.config.ASAAS_NF_ATIVA) {
           const semNota = await plataforma.cobranca.findMany({ where: { assinanteId: a.assinanteId, situacao: 'paga', gatewayId: { not: null }, OR: [{ nfSituacao: null }, { nfSituacao: 'agendada' }] } })
@@ -216,31 +239,6 @@ export async function conciliarAssinaturas(app: FastifyInstance) {
   return { cobrancas, assinaturas: todas.length, falhas }
 }
 
-/**
- * Troca de plano: só as mensalidades de períodos que AINDA NÃO COMEÇARAM (vencimento depois de hoje) vão para o
- * valor novo, mantendo a data. Vencidas e a do período em curso nunca mudam: são serviço já prestado no plano antigo.
- * Devolve as falhas (a troca segue; o suporte vê o evento no histórico).
- */
-export async function reajustarCobrancasFuturas(plataforma: PrismaClient, pagamentos: GatewayPagamentos | null, assinanteId: string, valor: string, hoje = hojeISO()) {
-  const futuras = await plataforma.cobranca.findMany({ where: { assinanteId, tipo: 'mensalidade', situacao: 'pendente', vencimento: { gt: paraDia(hoje) } } })
-  const falhas: string[] = []
-  for (const c of futuras) {
-    if (c.valor.toFixed(2) === Number(valor).toFixed(2)) continue
-    const vencimento = diaISO(c.vencimento) as string
-    try {
-      if (c.gatewayId && c.gateway === 'asaas') {
-        if (!pagamentos) throw new Error('pagamento online desligado')
-        await pagamentos.alterarCobranca(c.gatewayId, { valor, vencimento, tipo: c.forma ?? 'UNDEFINED' })
-      }
-      await plataforma.cobranca.update({ where: { id: c.id }, data: { valor } })
-    } catch (erro) {
-      falhas.push(`${vencimento}: ${(erro as Error).message}`)
-    }
-  }
-  if (falhas.length) await registrarEvento(plataforma, assinanteId, 'falha_reajuste', `Mensalidade futura não foi para o valor novo (${falhas.join('; ')})`)
-  return falhas
-}
-
 /** Início do período em curso: vencimento da última mensalidade (não cancelada) até hoje — paga ou não. */
 export async function inicioPeriodoAtual(plataforma: PrismaClient, assinanteId: string, hoje = hojeISO()) {
   const mensalidades = await plataforma.cobranca.findMany({ where: { assinanteId, tipo: 'mensalidade', situacao: { notIn: ['cancelada', 'estornada'] } } })
@@ -254,8 +252,8 @@ export async function inicioPeriodoAtual(plataforma: PrismaClient, assinanteId: 
 }
 
 /** Modo manual (sem gateway): o suporte lança a cobrança e registra o pagamento. */
-export async function lancarCobrancaManual(plataforma: PrismaClient, assinanteId: string, vencimento: string, valor: string) {
-  const c = await plataforma.cobranca.create({ data: { assinanteId, gateway: 'manual', valor, vencimento: paraDia(vencimento), situacao: 'pendente' } })
+export async function lancarCobrancaManual(plataforma: PrismaClient, assinanteId: string, vencimento: string, valor: string, desconto: string | null = null) {
+  const c = await plataforma.cobranca.create({ data: { assinanteId, gateway: 'manual', valor, desconto, vencimento: paraDia(vencimento), situacao: 'pendente' } })
   await registrarEvento(plataforma, assinanteId, 'cobranca', `Cobrança manual de ${formatarMoeda(valor)} com vencimento ${vencimento}`)
   await recalcularAssinatura(plataforma, assinanteId)
   return c

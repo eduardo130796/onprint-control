@@ -144,9 +144,10 @@ export class AsaasGateway implements GatewayPagamentos {
     return r.id
   }
 
-  async alterarAssinatura(id: string, d: { valor?: string; forma?: FormaAssinatura }) {
+  async alterarAssinatura(id: string, d: { valor?: string; forma?: FormaAssinatura; proximoVencimento?: string }) {
     await this.chamar('PUT', `/subscriptions/${id}`, {
       ...(d.valor ? { value: Number(d.valor) } : {}),
+      ...(d.proximoVencimento ? { nextDueDate: d.proximoVencimento } : {}),
       ...(d.forma ? { billingType: tipoCobranca(d.forma) } : {}),
       // As cobranças já geradas ficam como estão: o sistema reajusta só as de períodos que ainda não começaram
       updatePendingPayments: false,
@@ -168,6 +169,10 @@ export class AsaasGateway implements GatewayPagamentos {
   async alterarCobranca(id: string, d: { valor: string; vencimento: string; tipo: string }) {
     // O Asaas exige tipo, valor e vencimento juntos; o vencimento original é mantido (o atraso continua contando)
     await this.chamar('PUT', `/payments/${id}`, { billingType: d.tipo, value: Number(d.valor), dueDate: d.vencimento })
+  }
+
+  async cancelarCobranca(id: string) {
+    await this.chamar('DELETE', `/payments/${id}`)
   }
 
   async cancelarAssinatura(id: string) {

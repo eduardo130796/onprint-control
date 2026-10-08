@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { AlertTriangle, Eye, Hourglass, ShieldCheck, Sparkles, X } from 'lucide-react'
+import { AlertTriangle, Eye, Gift, Hourglass, ShieldCheck, Sparkles, X } from 'lucide-react'
 import type { UsuarioLogado } from '@onprint/shared'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
@@ -33,6 +33,10 @@ function visual(a: Assinatura): Visual | null {
       return { titulo: `Teste grátis · ${a.diasRestantesTeste === 0 ? 'último dia' : `${plural(a.diasRestantesTeste ?? 0, 'dia restante', 'dias restantes')}`}`, Icone: Sparkles, faixa: 'bg-marca', icone: 'bg-marca-suave text-marca-escuro', barra: 'bg-marca', acao: 'Ver planos', dispensavel: true, progresso: null, texto: 'Assine quando quiser: a 1ª mensalidade só vence no fim do teste.' }
     case 'teste_acabando':
       return { titulo: a.diasRestantesTeste === 0 ? 'Seu teste grátis termina hoje' : `Seu teste grátis termina em ${plural(a.diasRestantesTeste ?? 0, 'dia', 'dias')}`, Icone: Hourglass, faixa: 'bg-amber-500', icone: 'bg-amber-100 text-amber-800', barra: 'bg-amber-500', acao: 'Assinar agora', dispensavel: false, progresso: null, texto: 'Assine para continuar sem interrupção. Tudo o que você cadastrou continua aqui.' }
+    case 'cortesia':
+      // Cortesia sem prazo não tem aviso; com prazo, só nos últimos dias
+      if (a.nivel !== 'aviso') return null
+      return { titulo: a.diasRestantesTeste === 0 ? 'Sua cortesia termina hoje' : `Sua cortesia termina em ${plural(a.diasRestantesTeste ?? 0, 'dia', 'dias')}`, Icone: Gift, faixa: 'bg-violet-500', icone: 'bg-violet-100 text-violet-800', barra: 'bg-violet-500', acao: 'Assinar agora', dispensavel: false, progresso: null, texto: 'Assine para continuar sem interrupção: a 1ª mensalidade só vence no fim da cortesia.' }
     case 'liberacao_manual':
       return { titulo: 'Acesso liberado temporariamente', Icone: ShieldCheck, faixa: 'bg-sky-500', icone: 'bg-sky-100 text-sky-800', barra: 'bg-sky-500', acao: 'Ver assinatura', dispensavel: true, progresso: null }
   }
@@ -40,8 +44,9 @@ function visual(a: Assinatura): Visual | null {
     return { titulo: 'Modo somente leitura', Icone: Eye, faixa: 'bg-coral', icone: 'bg-coral/15 text-coral-escuro', barra: 'bg-coral', acao: 'Regularizar agora', dispensavel: false, progresso: ate(a.diasParaBloqueio) }
   }
   if (a.nivel === 'aviso') {
-    const titulo = a.motivo === 'teste_expirado' ? 'Seu teste grátis terminou' : `Mensalidade vencida há ${plural(a.diasAtraso, 'dia', 'dias')}`
-    return { titulo, Icone: AlertTriangle, faixa: 'bg-amber-500', icone: 'bg-amber-100 text-amber-800', barra: 'bg-amber-500', acao: a.motivo === 'teste_expirado' ? 'Assinar agora' : 'Pagar agora', dispensavel: false, progresso: ate(a.diasParaSomenteLeitura) }
+    const fimGratis = a.motivo === 'teste_expirado' || a.motivo === 'cortesia_encerrada'
+    const titulo = a.motivo === 'teste_expirado' ? 'Seu teste grátis terminou' : a.motivo === 'cortesia_encerrada' ? 'Sua cortesia terminou' : `Mensalidade vencida há ${plural(a.diasAtraso, 'dia', 'dias')}`
+    return { titulo, Icone: AlertTriangle, faixa: 'bg-amber-500', icone: 'bg-amber-100 text-amber-800', barra: 'bg-amber-500', acao: fimGratis ? 'Assinar agora' : 'Pagar agora', dispensavel: false, progresso: ate(a.diasParaSomenteLeitura) }
   }
   return null
 }

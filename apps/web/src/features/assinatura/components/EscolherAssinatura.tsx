@@ -1,6 +1,6 @@
 import { forwardRef, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { CreditCard, Loader2, Lock, QrCode, Receipt, Zap } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { CreditCard, Loader2, Lock, QrCode, Receipt, TicketPercent, X, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   FORMAS_AUTOMATICAS,
@@ -43,15 +43,25 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
   const [erro, setErro] = useState<string>()
   const assinar = useMutation({ mutationFn: assinaturaApi.assinar, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['assinatura'] }) })
   const escolhido = a.planos.find((p) => p.codigo === plano)
-  const fimTeste = a.situacao === 'teste' && a.testeAte && a.testeAte > hojeISO() ? a.testeAte : null
+  // Cupom: o guardado no cadastro já vale; outro digitado aqui é conferido para o plano escolhido
+  const [abrirCupom, setAbrirCupom] = useState(false)
+  const [cupomDigitado, setCupomDigitado] = useState('')
+  const [cupom, setCupom] = useState<string | null>(null)
+  const conferido = useQuery({ queryKey: ['assinatura', 'cupom', cupom, plano], queryFn: () => assinaturaApi.conferirCupom(cupom as string, plano), enabled: Boolean(cupom), retry: false })
+  const cupomValido = cupom && conferido.data ? conferido.data : null
+  const descontoGuardado = !cupom && a.cupom && plano === a.plano.codigo ? a.cupom : null
+  const valorFinal = cupomValido?.valor ?? (descontoGuardado && escolhido ? (Number(escolhido.valorMensal) - Number(descontoGuardado.desconto)).toFixed(2) : null)
+  const fimGratis = a.situacao === 'teste' ? a.testeAte : a.situacao === 'cortesia' ? (a.cortesia?.ate ?? null) : null
+  const fimTeste = fimGratis && fimGratis > hojeISO() ? fimGratis : null
   const primeira = forma === 'pix_automatico' || !fimTeste ? 'hoje' : formatarDataSimples(fimTeste)
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault()
     const dados = assinarSchema.safeParse({ plano, forma, cpfCnpj: documento })
     if (!dados.success) return setErro(dados.error.issues[0]?.message)
+    if (cupom && !cupomValido) return toast.error(conferido.isError ? (conferido.error as Error).message : 'Aguarde a conferência do cupom.')
     try {
-      const r = await assinar.mutateAsync({ plano, forma, cpfCnpj: documento })
+      const r = await assinar.mutateAsync({ plano, forma, cpfCnpj: documento, ...(cupomValido ? { cupom: cupomValido.codigo } : {}) })
       if (r.linkPagamento) window.open(r.linkPagamento, '_blank', 'noopener')
       toast.success(forma === 'pix_automatico' ? 'Pronto! Agora é só ler o QR Code no app do seu banco.' : 'Assinatura criada. Se a página de pagamento não abriu, use o botão "Pagar".', { duration: 8000 })
     } catch (err) {
@@ -62,7 +72,7 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
   return (
     <section ref={ref} className="scroll-mt-24 space-y-8 rounded-3xl bg-card p-6 shadow-suave sm:p-8" aria-label="Assinar">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-marca-escuro">{a.situacao === 'teste' ? 'Continue sem interrupção' : a.situacao === 'cancelada' ? 'Volte a usar o ONPrint' : 'Regularize pelo pagamento online'}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-marca-escuro">{a.situacao === 'teste' || a.situacao === 'cortesia' ? 'Continue sem interrupção' : a.situacao === 'cancelada' ? 'Volte a usar o ONPrint' : 'Regularize pelo pagamento online'}</p>
         <h2 className="mt-1 font-titulo text-2xl font-extrabold text-grafite sm:text-3xl">Escolha como assinar</h2>
       </div>
 
@@ -136,6 +146,36 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
               {erro}
             </p>
           )}
+          <div className="mt-5">
+            {cupomValido || (descontoGuardado && !cupom) ? (
+              <p className="flex flex-wrap items-center gap-2 rounded-xl bg-marca-suave px-3 py-2 text-sm text-grafite">
+                <TicketPercent className="h-4 w-4 text-marca-escuro" aria-hidden="true" />
+                Cupom <strong className="font-mono">{cupomValido?.codigo ?? descontoGuardado?.codigo}</strong>: {cupomValido?.descricao ?? descontoGuardado?.descricao}
+                {cupomValido && (
+                  <button type="button" className="ml-auto rounded p-1 text-texto-secundario hover:bg-white/60" aria-label="Remover cupom" onClick={() => setCupom(null)}>
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </p>
+            ) : abrirCupom || cupom ? (
+              <div>
+                <label htmlFor="as-cupom" className="text-sm font-medium">
+                  Cupom de desconto
+                </label>
+                <div className="mt-1.5 flex gap-2">
+                  <Input id="as-cupom" className="h-11 font-mono uppercase" value={cupomDigitado} onChange={(e) => setCupomDigitado(e.target.value.toUpperCase())} aria-invalid={conferido.isError} />
+                  <Button type="button" variant="outline" className="h-11" disabled={!cupomDigitado.trim() || conferido.isFetching} onClick={() => setCupom(cupomDigitado.trim())}>
+                    {conferido.isFetching && <Loader2 className="animate-spin" />} Aplicar
+                  </Button>
+                </div>
+                {conferido.isError && <p className="mt-1.5 text-sm text-coral-escuro">{(conferido.error as Error).message}</p>}
+              </div>
+            ) : (
+              <button type="button" className="inline-flex items-center gap-1.5 text-sm font-medium text-marca-escuro hover:underline" onClick={() => setAbrirCupom(true)}>
+                <TicketPercent className="h-4 w-4" aria-hidden="true" /> Tenho um cupom de desconto
+              </button>
+            )}
+          </div>
           <p className="mt-4 flex items-start gap-2 text-xs text-texto-secundario">
             <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             Pagamento processado pelo Asaas, instituição autorizada pelo Banco Central. Os dados do cartão são digitados na página do Asaas e não passam pelo ONPrint.
@@ -159,11 +199,13 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
             </div>
           </dl>
           <p className="mt-5 border-t border-white/10 pt-5">
-            <span className="font-titulo text-3xl font-extrabold">{escolhido && formatarMoeda(escolhido.valorMensal)}</span>
+            <span className="font-titulo text-3xl font-extrabold">{escolhido && formatarMoeda(valorFinal ?? escolhido.valorMensal)}</span>
             <span className="text-sm text-white/60">/mês</span>
+            {valorFinal && escolhido && <span className="ml-2 text-sm text-white/50 line-through">{formatarMoeda(escolhido.valorMensal)}</span>}
           </p>
+          {(cupomValido || descontoGuardado) && <p className="mt-1 text-xs text-marca">{cupomValido?.descricao ?? descontoGuardado?.descricao}</p>}
           {forma === 'pix_automatico' && fimTeste && <p className="mt-2 text-xs text-amber-200">No PIX Automático a 1ª mensalidade é paga na autorização, hoje; o teste grátis termina nesse momento.</p>}
-          {forma !== 'pix_automatico' && fimTeste && <p className="mt-2 text-xs text-white/60">Você não perde nenhum dia do teste grátis.</p>}
+          {forma !== 'pix_automatico' && fimTeste && <p className="mt-2 text-xs text-white/60">Você não perde nenhum dia {a.situacao === 'cortesia' ? 'da cortesia' : 'do teste grátis'}.</p>}
           <Button type="submit" size="lg" className="mt-5 w-full" disabled={assinar.isPending}>
             {assinar.isPending && <Loader2 className="animate-spin" />}
             {forma === 'pix_automatico' ? 'Gerar QR Code do PIX' : 'Assinar e ir para o pagamento'}

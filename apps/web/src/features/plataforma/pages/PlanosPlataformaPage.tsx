@@ -3,17 +3,16 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Pencil, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { MODULOS, MODULOS_ESSENCIAIS, MODULO_ROTULOS, formatarMoeda, planoSchema, type Modulo, type PlanoInput, type PlanoPlataforma } from '@onprint/shared'
-import { PageHeader } from '@/components/layout/PageHeader'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { EstadoErro } from '@/components/shared/EstadoErro'
 import { FormDialog } from '@/components/shared/FormDialog'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { plataformaApi } from '../api'
+import { CabecalhoPlataforma, Secao } from '../components/Secao'
 
 /** Valores do formulário (descrição sempre texto; o schema converte vazio em null). */
 type FormPlano = Omit<PlanoInput, 'descricao'> & { descricao: string }
@@ -125,9 +124,10 @@ export function PlanosPlataformaPage() {
 
   return (
     <>
-      <PageHeader
+      <CabecalhoPlataforma
+        sobretitulo="Catálogo"
         titulo="Planos"
-        subtitulo="O que cada plano libera e quanto custa."
+        subtitulo="O que cada plano libera e quanto custa. Preço novo vale para quem assinar ou trocar de plano."
         acoes={
           <Button onClick={() => setEditando('novo')}>
             <Plus /> Novo plano
@@ -135,34 +135,68 @@ export function PlanosPlataformaPage() {
         }
       />
       {consulta.isPending ? (
-        <Skeleton className="h-64 w-full" />
-      ) : consulta.isError ? (
-        <Card>
-          <EstadoErro erro={consulta.error} onTentarNovamente={() => void consulta.refetch()} />
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {consulta.data.map((p) => (
-            <Card key={p.id} className={cn('space-y-2 p-5 text-sm', !p.ativo && 'opacity-60')}>
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h2 className="font-titulo text-lg font-extrabold text-grafite">{p.nome}</h2>
-                  <p className="text-xs text-texto-secundario">
-                    {p.codigo} · {p.assinaturas} empresa(s){!p.publico && ' · fora da venda'}
-                    {!p.ativo && ' · inativo'}
-                  </p>
-                </div>
-                <Button size="icon" variant="ghost" aria-label={`Editar ${p.nome}`} onClick={() => setEditando(p)}>
-                  <Pencil />
-                </Button>
-              </div>
-              <p className="text-2xl font-extrabold text-grafite">{formatarMoeda(p.valorMensal)}<span className="text-sm font-medium text-texto-secundario">/mês</span></p>
-              <p className="text-texto-secundario">{p.descricao}</p>
-              <p>{p.limiteUsuarios ? `Até ${p.limiteUsuarios} usuários` : 'Usuários ilimitados'} · teste de {p.diasTeste} dias</p>
-              <p className="text-xs text-texto-secundario">Atraso: só leitura com {p.diasAteSomenteLeitura} dias, bloqueio com {p.diasAteBloqueio}.</p>
-              <p className="text-xs">{p.modulos.map((m) => MODULO_ROTULOS[m as keyof typeof MODULO_ROTULOS] ?? m).join(', ')}</p>
-            </Card>
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-96 rounded-3xl" />
           ))}
+        </div>
+      ) : consulta.isError ? (
+        <Secao>
+          <EstadoErro erro={consulta.error} onTentarNovamente={() => void consulta.refetch()} />
+        </Secao>
+      ) : (
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {consulta.data.map((p) => {
+            const modulos = p.modulos.filter((m) => !MODULOS_ESSENCIAIS.includes(m as Modulo))
+            return (
+              <article key={p.id} className={cn('flex min-w-0 flex-col overflow-hidden rounded-3xl bg-card shadow-suave', !p.ativo && 'opacity-60')}>
+                <div className="relative bg-grafite p-5 text-white sm:p-6">
+                  <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-marca/20 blur-2xl" aria-hidden="true" />
+                  <div className="relative flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h2 className="font-titulo text-2xl font-extrabold">{p.nome}</h2>
+                      <p className="font-mono text-xs text-white/50">{p.codigo}</p>
+                    </div>
+                    <Button size="icon" variant="ghost" className="text-white hover:bg-white/10 hover:text-white" aria-label={`Editar ${p.nome}`} onClick={() => setEditando(p)}>
+                      <Pencil />
+                    </Button>
+                  </div>
+                  <p className="relative mt-4">
+                    <span className="font-titulo text-4xl font-extrabold tabular-nums">{formatarMoeda(p.valorMensal)}</span>
+                    <span className="text-sm text-white/60">/mês</span>
+                  </p>
+                  <div className="relative mt-3 flex flex-wrap gap-1.5 text-xs font-semibold">
+                    <span className="rounded-full bg-marca/15 px-2.5 py-1 text-marca ring-1 ring-marca/30">{p.assinaturas} empresa(s)</span>
+                    {!p.publico && <span className="rounded-full bg-white/10 px-2.5 py-1 text-white/80 ring-1 ring-white/15">Fora da venda</span>}
+                    {!p.ativo && <span className="rounded-full bg-white/10 px-2.5 py-1 text-white/80 ring-1 ring-white/15">Inativo</span>}
+                  </div>
+                </div>
+                <div className="flex flex-1 flex-col gap-4 p-5 text-sm sm:p-6">
+                  {p.descricao && <p className="text-texto-secundario">{p.descricao}</p>}
+                  <dl className="grid grid-cols-3 gap-2 text-center">
+                    {[
+                      ['Usuários', p.limiteUsuarios ? String(p.limiteUsuarios) : '∞'],
+                      ['Teste', `${p.diasTeste} d`],
+                      ['Bloqueio', `${p.diasAteBloqueio} d`],
+                    ].map(([r, v]) => (
+                      <div key={r} className="rounded-xl bg-fundo p-2">
+                        <dt className="text-[11px] text-texto-secundario">{r}</dt>
+                        <dd className="font-titulo text-lg font-extrabold text-grafite">{v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <p className="text-xs text-texto-secundario">Com atraso: só leitura a partir de {p.diasAteSomenteLeitura} dias, bloqueio com {p.diasAteBloqueio}.</p>
+                  <ul className="mt-auto flex flex-wrap gap-1.5">
+                    {modulos.map((m) => (
+                      <li key={m} className="rounded-full bg-fundo px-2.5 py-1 text-xs font-medium text-grafite ring-1 ring-border">
+                        {MODULO_ROTULOS[m as keyof typeof MODULO_ROTULOS] ?? m}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </article>
+            )
+          })}
         </div>
       )}
       {editando && <PlanoDialog plano={editando === 'novo' ? null : editando} onFechar={() => setEditando(null)} />}

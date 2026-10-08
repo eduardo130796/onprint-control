@@ -8,6 +8,7 @@ import { EstadoErro } from '@/components/shared/EstadoErro'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/hooks/useAuth'
+import { CabecalhoStatus } from '../components/CabecalhoStatus'
 import { CartoesPlanos } from '../components/CartoesPlanos'
 import { EscolherAssinatura } from '../components/EscolherAssinatura'
 import { GerenciarAssinatura } from '../components/GerenciarAssinatura'
@@ -30,7 +31,10 @@ export function MinhaAssinaturaPage() {
     refetchInterval: (q) => (q.state.data?.pixAutomatico ? 10_000 : false),
   })
   const a = consulta.data
-  const emAtraso = a && (a.acesso.motivo === 'atraso' || a.acesso.motivo === 'teste_expirado')
+  const emAtraso = a && ['atraso', 'teste_expirado', 'cortesia_encerrada'].includes(a.acesso.motivo)
+  // Cortesia sem prazo não tem o que assinar
+  const cortesiaFixa = a?.cortesia && !a.cortesia.ate
+  const irParaAssinar = () => assinar.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
   return (
     <>
@@ -46,7 +50,9 @@ export function MinhaAssinaturaPage() {
         </Card>
       ) : (
         <div className="space-y-6">
-          <HeroAssinatura a={a} onAssinar={() => assinar.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
+          <CabecalhoStatus a={a} onAssinar={irParaAssinar} />
+
+          <HeroAssinatura a={a} onAssinar={irParaAssinar} />
 
           {emAtraso && <LinhaDoTempoAtraso a={a} />}
 
@@ -67,6 +73,7 @@ export function MinhaAssinaturaPage() {
           {a.assinadaOnline && !a.pixAutomatico && <GerenciarAssinatura a={a} />}
 
           {!a.assinadaOnline &&
+            !cortesiaFixa &&
             (a.pagamentoOnline && a.podeGerenciar ? (
               <EscolherAssinatura ref={assinar} a={a} />
             ) : (
@@ -78,7 +85,7 @@ export function MinhaAssinaturaPage() {
 
           <HistoricoCobrancas cobrancas={a.cobrancas} />
 
-          {!emAtraso && <LinhaDoTempoAtraso a={a} informativo />}
+          {!emAtraso && !cortesiaFixa && <LinhaDoTempoAtraso a={a} informativo />}
 
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-3xl bg-card p-6 text-sm shadow-suave">
             <span className="inline-flex items-center gap-2 text-texto-secundario">

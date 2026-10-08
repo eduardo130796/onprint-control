@@ -59,13 +59,13 @@ async function sincronizarIndice(empresaId: string, prisma: PrismaClient) {
   }
 }
 
-/** Toda empresa tem assinatura: a padrão (dona do sistema) no plano completo, ativa; as demais em teste. */
+/** Toda empresa tem assinatura: a padrão (dona do sistema) no plano completo, cortesia; as demais em teste. */
 async function garantirAssinaturas() {
   const sem = await banco.plataforma.assinante.findMany({ where: { assinatura: null } })
   for (const empresa of sem) {
     const padrao = empresa.schema === SCHEMA_LEGADO
-    await criarAssinatura(banco.plataforma, empresa.id, padrao ? 'completo' : PLANO_PADRAO, padrao ? 'ativa' : 'teste', 'seed')
-    console.log(`[${empresa.slug}] Assinatura criada (${padrao ? 'completo, ativa' : `${PLANO_PADRAO}, teste grátis`}).`)
+    await criarAssinatura(banco.plataforma, empresa.id, padrao ? 'completo' : PLANO_PADRAO, padrao ? 'cortesia' : 'teste', 'seed')
+    console.log(`[${empresa.slug}] Assinatura criada (${padrao ? 'completo, cortesia' : `${PLANO_PADRAO}, teste grátis`}).`)
   }
 }
 

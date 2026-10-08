@@ -65,8 +65,9 @@ conferir('registrar pagamento sem cobrança aberta: mensagem clara', (await acao
 console.log('\n— Painel: números e problemas —')
 await chamar('POST', '/plataforma/webhooks/asaas', { body: { id: 'evt_orfao', event: 'PAYMENT_RECEIVED', payment: { id: 'pay_x', subscription: 'sub_inexistente', value: 10, dueDate: hoje, status: 'RECEIVED' } }, headers: { 'asaas-access-token': 'token-de-webhook-de-teste-com-32-caracteres-ok' } })
 const painel = (await chamar('GET', '/plataforma/painel', { token: p })).json
-conferir('contagem por situação', JSON.stringify(painel.indicadores.porCategoria), JSON.stringify({ em_dia: 2, teste: 0, aviso: 0, somente_leitura: 0, bloqueada: 1, cancelada: 0 }))
-conferir('receita mensal das ativas em dia (Completo 449 + Profissional 279)', painel.indicadores.receitaMensal, '728.00')
+conferir('contagem por situação', JSON.stringify(painel.indicadores.porCategoria), JSON.stringify({ em_dia: 1, teste: 0, cortesia: 1, aviso: 0, somente_leitura: 0, bloqueada: 1, cancelada: 0 }))
+// A empresa da plataforma (Completo) é cortesia: fora da receita
+conferir('receita mensal das ativas em dia (Profissional 279; a da plataforma é cortesia)', painel.indicadores.receitaMensal, '279.00')
 conferir('recebido no mês (pagamento manual de 279)', painel.recebidoNoMes, '279.00')
 conferir('novas empresas e conversões', `${painel.novasEmpresas30Dias} ${painel.conversoes30Dias}`, '3 0')
 conferir('problema: empresa bloqueada (gravidade alta, primeiro da lista)', `${painel.problemas[0]?.tipo} ${painel.problemas[0]?.gravidade} ${painel.problemas[0]?.empresa?.slug}`, 'bloqueada alta grafica-nova-era')

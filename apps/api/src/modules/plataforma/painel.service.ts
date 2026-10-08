@@ -11,6 +11,7 @@ import {
   type SituacaoAssinatura,
 } from '@onprint/shared'
 import { diaISO, paraDia, resumirAssinatura } from '../../plataforma/assinaturas'
+import { valoresCobrados } from './empresas.service'
 
 const ORDEM: Record<GravidadeProblema, number> = { alta: 0, media: 1, baixa: 2 }
 const DIAS_30 = 30 * 86_400_000
@@ -37,18 +38,21 @@ export function criarPainelService(app: FastifyInstance) {
 
       const problemas: ProblemaPlataforma[] = []
       const indicadores = []
+      const cobrado = await valoresCobrados(plataforma, hoje)
       for (const e of empresas) {
         if (!e.assinatura) continue
         const { acesso } = resumirAssinatura(e.assinatura, hoje)
         const situacao = e.assinatura.situacao as SituacaoAssinatura
-        indicadores.push({ situacao, acesso, valorMensal: e.assinatura.plano.valorMensal.toFixed(2) })
+        indicadores.push({ situacao, acesso, valorMensal: e.assinatura.plano.valorMensal.toFixed(2), valorCobrado: cobrado(e.assinatura) })
         const empresa = { id: e.id, nome: e.nome, slug: e.slug }
         const categoria = categoriaEmpresa(situacao, acesso)
         const data = (diaISO(e.assinatura.atrasoDesde) ?? diaISO(e.assinatura.testeAte) ?? e.assinatura.updatedAt.toISOString()) as string
         if (categoria === 'bloqueada') problemas.push({ tipo: 'bloqueada', gravidade: 'alta', empresa, descricao: acesso.mensagem, data })
         else if (categoria === 'somente_leitura') problemas.push({ tipo: 'somente_leitura', gravidade: 'alta', empresa, descricao: acesso.mensagem, data })
         else if (categoria === 'aviso') problemas.push({ tipo: 'cobranca_vencida', gravidade: 'media', empresa, descricao: acesso.mensagem, data })
-        else if (acesso.motivo === 'teste_acabando' && !e.assinatura.gatewayAssinaturaId) {
+        else if (acesso.motivo === 'cortesia' && acesso.nivel === 'aviso') {
+          problemas.push({ tipo: 'teste_acabando', gravidade: 'baixa', empresa, descricao: acesso.mensagem, data: (diaISO(e.assinatura.cortesiaAte) ?? data) as string })
+        } else if (acesso.motivo === 'teste_acabando' && !e.assinatura.gatewayAssinaturaId) {
           problemas.push({ tipo: 'teste_acabando', gravidade: 'baixa', empresa, descricao: `${acesso.mensagem} Ainda não assinou.`, data })
         }
         if (e.assinatura.cancelarEm) {

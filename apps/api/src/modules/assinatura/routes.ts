@@ -1,6 +1,6 @@
 import type { FastifyRequest } from 'fastify'
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
-import { assinarSchema, trocarFormaSchema, trocarPlanoSchema } from '@onprint/shared'
+import { assinarSchema, codigoCupom, trocarFormaSchema, trocarPlanoSchema } from '@onprint/shared'
 import { z } from 'zod'
 import { AppError } from '../../core/AppError'
 import { criarAssinaturaService } from './service'
@@ -30,6 +30,15 @@ export const assinaturaRoutes: FastifyPluginAsyncZod = async (app) => {
     '/assinatura/assinar',
     { onRequest: [exigirGestor], config: livre, schema: { tags, summary: 'Assina pelo pagamento online (Asaas) e devolve o link da 1ª cobrança', body: assinarSchema } },
     async (request) => service.assinar(request.body, await email(request)),
+  )
+  app.get(
+    '/assinatura/cupom',
+    {
+      onRequest: [exigirGestor],
+      config: { ...livre, rateLimit: { max: 20, timeWindow: '1 minute' } },
+      schema: { tags, summary: 'Confere um cupom e mostra a mensalidade com desconto', querystring: z.object({ codigo: codigoCupom, plano: z.string().min(1).max(40) }) },
+    },
+    (request) => service.conferirCupom(request.query.codigo ?? '', request.query.plano),
   )
   app.get(
     '/assinatura/plano/previa',

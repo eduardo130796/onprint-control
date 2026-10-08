@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { CheckCircle2, Clock, RotateCcw, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatarData } from '@onprint/shared'
-import { PageHeader } from '@/components/layout/PageHeader'
+import { formatarDataHora } from '@onprint/shared'
 import { EstadoErro } from '@/components/shared/EstadoErro'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/form-controls'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 import { plataformaApi } from '../api'
+import { CabecalhoPlataforma, Secao } from '../components/Secao'
 
 /** Avisos (webhooks) recebidos do Asaas: o que foi aplicado e o que deu erro (com reprocessar). */
 export function AvisosGatewayPage() {
@@ -23,38 +23,62 @@ export function AvisosGatewayPage() {
     },
     onError: (e) => toast.error((e as Error).message),
   })
+  const aba = (ativo: boolean) => cn('rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors', ativo ? 'bg-grafite text-white shadow-sm' : 'text-grafite hover:bg-white')
 
   return (
     <>
-      <PageHeader titulo="Avisos do Asaas" subtitulo="Cada aviso é guardado antes de ser aplicado; repetidos são ignorados. A conferência diária corrige o que ficar para trás." />
-      <label className="mb-4 flex items-center gap-2 text-sm">
-        <Checkbox checked={soErro} onChange={(e) => setSoErro(e.target.checked)} /> Só os que deram erro
-      </label>
-      <Card>
+      <CabecalhoPlataforma
+        sobretitulo="Integração"
+        titulo="Avisos do Asaas"
+        subtitulo="Cada aviso é guardado antes de ser aplicado; repetidos são ignorados. A conferência diária corrige o que ficar para trás."
+        acoes={
+          <div className="flex gap-1 rounded-xl bg-card p-1 shadow-suave" role="group" aria-label="Filtro">
+            <button type="button" className={aba(soErro)} aria-pressed={soErro} onClick={() => setSoErro(true)}>
+              Com erro
+            </button>
+            <button type="button" className={aba(!soErro)} aria-pressed={!soErro} onClick={() => setSoErro(false)}>
+              Todos
+            </button>
+          </div>
+        }
+      />
+      <Secao rotulo="Avisos recebidos">
         {consulta.isPending ? (
           <Skeleton className="h-48 w-full" />
         ) : consulta.isError ? (
           <EstadoErro erro={consulta.error} onTentarNovamente={() => void consulta.refetch()} />
         ) : consulta.data.length === 0 ? (
-          <p className="p-6 text-sm text-texto-secundario">{soErro ? 'Nenhum aviso com erro.' : 'Nenhum aviso recebido ainda.'}</p>
+          <p className="flex items-center gap-2 text-sm text-marca-escuro">
+            <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> {soErro ? 'Nenhum aviso com erro.' : 'Nenhum aviso recebido ainda.'}
+          </p>
         ) : (
-          <ul className="divide-y divide-border text-sm">
-            {consulta.data.map((e) => (
-              <li key={e.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5">
-                <span className="w-36 text-texto-secundario">{formatarData(e.recebidoEm)}</span>
-                <span className="w-56 font-mono text-xs">{e.tipo}</span>
-                <span className="min-w-0 flex-1">{e.erro ? <span className="text-coral-escuro">{e.erro}</span> : e.processadoEm ? 'Aplicado' : 'Pendente'}</span>
-                <span className="font-mono text-[11px] text-texto-secundario">{e.eventoId}</span>
-                {e.erro && !e.processadoEm && (
-                  <Button size="sm" variant="outline" disabled={reprocessar.isPending} onClick={() => reprocessar.mutate(e.id)}>
-                    Reprocessar
-                  </Button>
-                )}
-              </li>
-            ))}
+          <ul className="space-y-2">
+            {consulta.data.map((e) => {
+              const Icone = e.erro ? XCircle : e.processadoEm ? CheckCircle2 : Clock
+              return (
+                <li key={e.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl p-3 text-sm ring-1 ring-border">
+                  <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-xl', e.erro ? 'bg-coral/10 text-coral-escuro' : e.processadoEm ? 'bg-marca-suave text-marca-escuro' : 'bg-fundo text-grafite')}>
+                    <Icone className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="break-all font-mono text-xs font-semibold text-grafite">{e.tipo}</p>
+                    <p className={cn('text-sm', e.erro ? 'text-coral-escuro' : 'text-texto-secundario')}>{e.erro ?? (e.processadoEm ? 'Aplicado' : 'Pendente')}</p>
+                  </div>
+                  <div className="text-right text-xs text-texto-secundario">
+                    <p>{formatarDataHora(e.recebidoEm)}</p>
+                    <p className="break-all font-mono text-[11px]">{e.eventoId}</p>
+                  </div>
+                  {e.erro && !e.processadoEm && (
+                    <Button size="sm" variant="outline" disabled={reprocessar.isPending} onClick={() => reprocessar.mutate(e.id)}>
+                      <RotateCcw /> Reprocessar
+                    </Button>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         )}
-      </Card>
+      </Secao>
     </>
   )
 }

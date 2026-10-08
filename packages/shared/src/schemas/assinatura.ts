@@ -21,6 +21,12 @@ export const FORMAS_AUTOMATICAS: readonly FormaAssinatura[] = ['pix_automatico',
 const codigoPlano = z.string().trim().min(1, 'Escolha o plano.').max(40)
 
 /** Assinar pelo pagamento online: plano, documento para a cobrança/nota e forma de pagamento. */
+/** Código de cupom: digitado em qualquer caixa, guardado em maiúsculas. Vazio = sem cupom. */
+export const codigoCupom = z.preprocess(
+  (v) => (typeof v === 'string' ? v.trim().toUpperCase() || undefined : v),
+  z.string().regex(/^[A-Z0-9_-]{3,30}$/, 'Cupom inválido.').optional(),
+)
+
 export const assinarSchema = z.object({
   plano: codigoPlano,
   cpfCnpj: z.preprocess(
@@ -31,6 +37,7 @@ export const assinarSchema = z.object({
       .refine(cpfCnpjValido, 'CPF/CNPJ inválido.'),
   ),
   forma: z.enum(FORMAS_ASSINATURA),
+  cupom: codigoCupom.optional(),
 })
 export type AssinarInput = z.input<typeof assinarSchema>
 

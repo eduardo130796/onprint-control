@@ -1,11 +1,14 @@
-import { CATEGORIA_EMPRESA_ROTULOS, type CategoriaEmpresa } from '@onprint/shared'
+import type { CategoriaEmpresa } from '@onprint/shared'
 import { cn } from '@/lib/utils'
-import { COR_CATEGORIA } from './cores'
+import { CATEGORIA_SINGULAR, COR_CATEGORIA, PONTO_CATEGORIA } from './cores'
 
-const SINGULAR: Record<CategoriaEmpresa, string> = { ...CATEGORIA_EMPRESA_ROTULOS, bloqueada: 'Bloqueada', cancelada: 'Cancelada' }
-
-/** Situação comercial da empresa (uma categoria só: em dia, teste, aviso, só leitura, bloqueada, cancelada). */
-export function SeloCategoria({ categoria, className }: { categoria: CategoriaEmpresa | null; className?: string }) {
+/** Situação comercial da empresa (uma categoria só: em dia, teste, cortesia, atraso, só leitura, bloqueada, cancelada). */
+export function SeloCategoria({ categoria, grande, className }: { categoria: CategoriaEmpresa | null; grande?: boolean; className?: string }) {
   if (!categoria) return <span className="text-xs text-texto-secundario">sem assinatura</span>
-  return <span className={cn('inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold', COR_CATEGORIA[categoria], className)}>{SINGULAR[categoria]}</span>
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap rounded-full font-semibold ring-1', grande ? 'px-3 py-1 text-sm' : 'px-2.5 py-0.5 text-xs', COR_CATEGORIA[categoria], className)}>
+      <span className={cn('h-1.5 w-1.5 rounded-full', categoria === 'bloqueada' ? 'bg-white' : PONTO_CATEGORIA[categoria])} aria-hidden="true" />
+      {CATEGORIA_SINGULAR[categoria]}
+    </span>
+  )
 }

@@ -8,9 +8,9 @@ import { cn } from '@/lib/utils'
  */
 export function LinhaDoTempoAtraso({ a, informativo = false }: { a: MinhaAssinatura; informativo?: boolean }) {
   const { acesso, plano } = a
-  const vencimento = acesso.motivo === 'teste_expirado' ? a.testeAte : a.atrasoDesde
+  const vencimento = acesso.motivo === 'teste_expirado' ? a.testeAte : acesso.motivo === 'cortesia_encerrada' ? (a.cortesia?.ate ?? null) : a.atrasoDesde
   const etapas = [
-    { chave: 'vencimento', rotulo: acesso.motivo === 'teste_expirado' ? 'Fim do teste' : 'Vencimento', Icone: CalendarX, data: vencimento },
+    { chave: 'vencimento', rotulo: acesso.motivo === 'teste_expirado' ? 'Fim do teste' : acesso.motivo === 'cortesia_encerrada' ? 'Fim da cortesia' : 'Vencimento', Icone: CalendarX, data: vencimento },
     { chave: 'aviso', rotulo: 'Aviso no sistema', Icone: AlertTriangle, data: vencimento ? adicionarDias(vencimento, 1) : null },
     { chave: 'leitura', rotulo: 'Somente leitura', Icone: Eye, data: vencimento ? adicionarDias(vencimento, plano.diasAteSomenteLeitura) : null },
     { chave: 'bloqueio', rotulo: 'Bloqueio', Icone: Lock, data: vencimento ? adicionarDias(vencimento, plano.diasAteBloqueio) : null },

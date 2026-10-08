@@ -59,6 +59,7 @@ export function NovaEmpresaDialog({ onFechar }: { onFechar: () => void }) {
           <Select id="ne-situacao" {...form.register('situacao')}>
             <option value="teste">Em teste grátis</option>
             <option value="ativa">Ativa (já pagou / contrato)</option>
+            <option value="cortesia">Cortesia (sem mensalidade)</option>
           </Select>
         </CampoFormulario>
       </div>

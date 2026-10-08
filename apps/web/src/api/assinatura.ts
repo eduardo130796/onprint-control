@@ -5,6 +5,9 @@ import { http } from './http'
 export const assinaturaApi = {
   obter: () => http<MinhaAssinatura>('/assinatura'),
   assinar: (dados: AssinarInput) => http<{ linkPagamento: string | null }>('/assinatura/assinar', { method: 'POST', body: dados }),
+  /** Confere um cupom para o plano e devolve a mensalidade com desconto */
+  conferirCupom: (codigo: string, plano: string) =>
+    http<{ codigo: string; descricao: string; duracaoMeses: number | null; desconto: string; valor: string; cheio: string }>(`/assinatura/cupom?codigo=${encodeURIComponent(codigo)}&plano=${encodeURIComponent(plano)}`),
   previaTroca: (plano: string) => http<PreviaTrocaPlano>(`/assinatura/plano/previa?plano=${encodeURIComponent(plano)}`),
   trocarPlano: (plano: string) => http<PreviaTrocaPlano>('/assinatura/plano', { method: 'POST', body: { plano } }),
   trocarForma: (forma: FormaAssinatura) => http<{ ok: true }>('/assinatura/forma', { method: 'POST', body: { forma } }),

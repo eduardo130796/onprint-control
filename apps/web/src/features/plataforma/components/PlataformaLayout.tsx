@@ -1,17 +1,18 @@
 import { Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { NavLink, Navigate, Outlet, useNavigate } from 'react-router-dom'
-import { Loader2, LogOut } from 'lucide-react'
+import { BellRing, Building2, Gauge, Layers, Loader2, LogOut, ShieldCheck, TicketPercent } from 'lucide-react'
+import { iniciais } from '@onprint/shared'
 import { TelaCarregando } from '@/components/shared/TelaCarregando'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { plataformaApi, sessaoPlataforma } from '../api'
 
 const LINKS = [
-  { para: '/plataforma', rotulo: 'Painel', fim: true },
-  { para: '/plataforma/empresas', rotulo: 'Empresas' },
-  { para: '/plataforma/planos', rotulo: 'Planos' },
-  { para: '/plataforma/avisos', rotulo: 'Avisos do Asaas' },
+  { para: '/plataforma', rotulo: 'Painel', Icone: Gauge, fim: true },
+  { para: '/plataforma/empresas', rotulo: 'Assinaturas', Icone: Building2 },
+  { para: '/plataforma/cupons', rotulo: 'Cupons', Icone: TicketPercent },
+  { para: '/plataforma/planos', rotulo: 'Planos', Icone: Layers },
+  { para: '/plataforma/avisos', rotulo: 'Avisos do Asaas', Icone: BellRing },
 ]
 
 /** Moldura do painel da plataforma: exige a sessão de administrador da plataforma. */
@@ -30,36 +31,62 @@ export function PlataformaLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-fundo">
-      <header className="bg-grafite text-white">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
-          <p className="font-titulo text-lg font-extrabold">
-            ONPrint <span className="text-marca">Plataforma</span>
-          </p>
-          <nav aria-label="Painel da plataforma" className="flex flex-wrap gap-1">
-            {LINKS.map((l) => (
-              <NavLink
-                key={l.para}
-                to={l.para}
-                end={l.fim}
-                className={({ isActive }) => cn('rounded-lg px-3 py-1.5 text-sm font-semibold', isActive ? 'bg-marca text-grafite' : 'text-white/80 hover:bg-white/10 hover:text-white')}
-              >
-                {l.rotulo}
-              </NavLink>
-            ))}
-          </nav>
-          <div className="ml-auto flex items-center gap-3 text-sm">
-            <span className="text-white/80">{eu.data.nome}</span>
-            <Button size="sm" variant="secondary" onClick={sair}>
-              <LogOut /> Sair
-            </Button>
+    <div className="min-h-screen overflow-x-hidden bg-fundo">
+      <header className="relative bg-grafite text-white">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+          <div className="absolute -right-24 -top-40 h-72 w-72 rounded-full bg-marca/20 blur-3xl" />
+        </div>
+        <div className="relative mx-auto flex max-w-[1400px] items-center gap-3 px-4 pt-3 sm:px-6">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-marca text-grafite-escuro">
+              <ShieldCheck className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <div className="leading-tight">
+              <p className="font-titulo text-base font-extrabold">ONPrint Control</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-marca">Plataforma</p>
+            </div>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="hidden text-right text-xs leading-tight sm:block">
+              <span className="block font-semibold text-white">{eu.data.nome}</span>
+              <span className="block text-white/50">{eu.data.email}</span>
+            </span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs font-bold ring-1 ring-white/15" aria-hidden="true">
+              {iniciais(eu.data.nome)}
+            </span>
+            <button type="button" onClick={sair} className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white" aria-label="Sair do painel">
+              <LogOut className="h-4 w-4" aria-hidden="true" /> <span className="hidden sm:inline">Sair</span>
+            </button>
           </div>
         </div>
-        <div className="h-1 bg-marca" aria-hidden="true">
-          <span className="block h-1 w-14 bg-laranja" />
+        {/* Navegação: rola de lado no celular (sem quebrar a página) */}
+        <nav aria-label="Painel da plataforma" className="relative mx-auto max-w-[1400px] px-4 sm:px-6">
+          <ul className="-mb-px flex gap-1 overflow-x-auto pt-3 [scrollbar-width:none]">
+            {LINKS.map((l) => (
+              <li key={l.para} className="shrink-0">
+                <NavLink
+                  to={l.para}
+                  end={l.fim}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-2 rounded-t-xl border-b-2 px-3.5 py-2.5 text-sm font-semibold transition-colors',
+                      isActive ? 'border-marca bg-white/[0.07] text-white' : 'border-transparent text-white/65 hover:bg-white/5 hover:text-white',
+                    )
+                  }
+                >
+                  <l.Icone className="h-4 w-4" aria-hidden="true" />
+                  {l.rotulo}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div className="flex h-1" aria-hidden="true">
+          <span className="w-16 bg-laranja" />
+          <span className="flex-1 bg-marca" />
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+      <main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 sm:py-8">
         <Suspense
           fallback={
             <div className="flex justify-center py-24" role="status" aria-label="Carregando">

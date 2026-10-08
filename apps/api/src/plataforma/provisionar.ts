@@ -17,7 +17,7 @@ export interface DadosNovaEmpresa {
   /** Código do plano (padrão: profissional) */
   plano?: string
   /** Começa em teste grátis (padrão) ou já ativa */
-  situacao?: 'teste' | 'ativa'
+  situacao?: 'teste' | 'ativa' | 'cortesia'
 }
 
 export interface DependenciasProvisionamento {

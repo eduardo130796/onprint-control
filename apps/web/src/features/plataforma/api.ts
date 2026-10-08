@@ -1,5 +1,8 @@
 import type {
   AcaoAssinatura,
+  CupomDetalhe,
+  CupomInput,
+  CupomPlataforma,
   EmpresaPlataformaDetalhe,
   EmpresaPlataformaResumo,
   EmpresasPlataformaQuery,
@@ -74,5 +77,8 @@ export const plataformaApi = {
   salvarPlano: (id: string | null, dados: PlanoInput) => chamar<unknown>(id ? `/planos/${id}` : '/planos', { method: id ? 'PUT' : 'POST', body: dados }),
   avisos: (soErro: boolean) => chamar<EventoGatewayResumo[]>(`/eventos-gateway${soErro ? '?erro=true' : ''}`),
   reprocessar: (id: string) => chamar<{ ok: true }>(`/eventos-gateway/${id}/reprocessar`, { method: 'POST' }),
+  cupons: () => chamar<CupomPlataforma[]>('/cupons'),
+  cupom: (id: string) => chamar<CupomDetalhe>(`/cupons/${id}`),
+  salvarCupom: (id: string | null, dados: CupomInput) => chamar<CupomPlataforma>(id ? `/cupons/${id}` : '/cupons', { method: id ? 'PUT' : 'POST', body: dados }),
   conciliar: () => chamar<{ cobrancas: number; assinaturas: number; falhas: string[] }>('/conciliar', { method: 'POST' }),
 }

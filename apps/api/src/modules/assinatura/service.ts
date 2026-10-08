@@ -12,6 +12,7 @@ import {
   formatarMoeda,
   hojeISO,
   calcularTrocaPlano,
+  valorDaMensalidade,
   type AssinarInput,
   type PreviaTrocaPlano,
   type CobrancaResumo,
@@ -23,7 +24,8 @@ import { AppError } from '../../core/AppError'
 import { contextoEmpresa } from '../../core/contexto-empresa'
 import { ErroGateway } from '../../integrations/pagamentos'
 import { alterarAssinatura, diaISO, paraDia, planoPorCodigo, resumirAssinatura } from '../../plataforma/assinaturas'
-import { inicioPeriodoAtual, reajustarCobrancasFuturas, recalcularAssinatura, salvarCobranca, vencimentoQueConta } from '../../plataforma/cobrancas'
+import { aplicarCupom, aplicarValores, cupomEmVigor, descricaoCupom, iniciarCupom, regrasDeValor, resumoCupom, validarCupom } from '../../plataforma/beneficios'
+import { inicioPeriodoAtual, recalcularAssinatura, salvarCobranca, vencimentoQueConta } from '../../plataforma/cobrancas'
 
 const ABERTAS = ['pendente', 'vencida']
 
@@ -36,6 +38,8 @@ export function resumoCobranca(c: Cobranca, hoje = hojeISO()): CobrancaResumo {
     tipo: c.tipo as CobrancaResumo['tipo'],
     descricao: c.descricao,
     valor: c.valor.toFixed(2),
+    desconto: c.desconto ? c.desconto.toFixed(2) : null,
+    motivoAbono: c.motivoAbono,
     vencimento,
     situacao: (aberta && vencimento < hoje ? 'vencida' : c.situacao) as CobrancaResumo['situacao'],
     forma: c.forma,
@@ -52,6 +56,16 @@ async function noGateway<T>(fn: () => Promise<T>): Promise<T> {
     return await fn()
   } catch (erro) {
     if (erro instanceof ErroGateway) throw AppError.regraNegocio(erro.message)
+    throw erro
+  }
+}
+
+/** Erro de regra dos benefícios (Error simples) vira 422 com a mensagem. */
+async function regra<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch (erro) {
+    if (erro instanceof ErroGateway || (erro instanceof Error && erro.constructor === Error)) throw AppError.regraNegocio(erro.message)
     throw erro
   }
 }
@@ -86,7 +100,7 @@ export function criarAssinaturaService(app: FastifyInstance) {
   async function autorizarPix(
     assinanteId: string,
     clienteId: string,
-    plano: { nome: string; valorMensal: { toFixed(n: number): string } },
+    plano: { nome: string; valor: string },
     nomeEmpresa: string,
     dados: Parameters<typeof alterarAssinatura>[2],
     autor: string,
@@ -95,7 +109,7 @@ export function criarAssinaturaService(app: FastifyInstance) {
     const aut = await noGateway(() =>
       gateway().criarAutorizacaoPix({
         clienteId,
-        valor: plano.valorMensal.toFixed(2),
+        valor: plano.valor,
         inicio,
         descricao: `ONPrint ${plano.nome}`,
         contrato: `ONP-${assinanteId.slice(0, 8)}-${Date.now().toString(36)}`,
@@ -117,10 +131,15 @@ export function criarAssinaturaService(app: FastifyInstance) {
   }
 
   /** Prévia da troca: compara com o plano em vigor, no período em curso (se houver). */
-  async function previa(a: { assinanteId: string; plano: { valorMensal: { toFixed(n: number): string } } }, plano: { codigo: string; nome: string; valorMensal: { toFixed(n: number): string } }, hoje = hojeISO()): Promise<PreviaTrocaPlano> {
+  /** Prévia da troca: compara o que se paga no período em curso (com cupom) com o que se pagaria no plano novo. */
+  async function previa(a: { assinanteId: string }, plano: { codigo: string; nome: string; valorMensal: { toFixed(n: number): string } }, hoje = hojeISO()): Promise<PreviaTrocaPlano> {
     const inicio = await inicioPeriodoAtual(plataforma, a.assinanteId, hoje)
-    const r = calcularTrocaPlano({ valorAtual: a.plano.valorMensal.toFixed(2), valorNovo: plano.valorMensal.toFixed(2), inicioPeriodo: inicio, hoje })
-    return { ...r, plano: { codigo: plano.codigo, nome: plano.nome, valorMensal: plano.valorMensal.toFixed(2) } }
+    const regras = await regrasDeValor(plataforma, a.assinanteId)
+    const novas = { ...regras, valorPlano: plano.valorMensal.toFixed(2), agendado: null }
+    const base = inicio ?? hoje
+    const r = calcularTrocaPlano({ valorAtual: valorDaMensalidade({ ...regras, agendado: null }, base).valor, valorNovo: valorDaMensalidade(novas, base).valor, inicioPeriodo: inicio, hoje })
+    const novaMensalidade = { ...r.novaMensalidade, valor: valorDaMensalidade(novas, r.novaMensalidade.aPartirDe ?? hoje).valor }
+    return { ...r, novaMensalidade, plano: { codigo: plano.codigo, nome: plano.nome, valorMensal: plano.valorMensal.toFixed(2) } }
   }
 
   /** Diferença proporcional do upgrade: cobrança avulsa (no gateway, ou lançada no modo manual), vencendo hoje. */
@@ -150,6 +169,7 @@ export function criarAssinaturaService(app: FastifyInstance) {
         app.prisma.empresaConfig.findFirst({ select: { cnpj: true } }),
       ])
       const resumo = resumirAssinatura(a, hojeISO())
+      const uso = await cupomEmVigor(plataforma, a.assinanteId)
       // Em aberto pela data que conta (o vencimento original, se a cobrança ganhou data nova no gateway)
       const abertas = cobrancas.filter((c) => ABERTAS.includes(c.situacao)).sort((x, y) => vencimentoQueConta(x).localeCompare(vencimentoQueConta(y)))
       const aberta = abertas[0]
@@ -168,6 +188,8 @@ export function criarAssinaturaService(app: FastifyInstance) {
         },
         acesso: resumo.acesso,
         testeAte: diaISO(a.testeAte),
+        cortesia: a.situacao === 'cortesia' ? { ate: diaISO(a.cortesiaAte), motivo: a.cortesiaMotivo } : null,
+        cupom: resumoCupom(uso, a.plano.valorMensal.toFixed(2)),
         proximoVencimento: diaISO(a.proximoVencimento),
         atrasoDesde: diaISO(a.atrasoDesde),
         liberadoAte: diaISO(a.liberadoAte),
@@ -204,14 +226,18 @@ export function criarAssinaturaService(app: FastifyInstance) {
       const g = gateway()
       const { empresa, a } = await carregar()
       if (a.gatewayAssinaturaId || a.gatewayAutorizacaoId) throw AppError.conflito('A assinatura já está no pagamento online. Use "Trocar plano" ou "Forma de pagamento".')
+      if (a.situacao === 'cortesia' && !a.cortesiaAte) throw AppError.regraNegocio('Sua assinatura é cortesia: não há mensalidade para pagar.')
       const plano = await planoPorCodigo(plataforma, dados.plano).catch(() => {
         throw AppError.regraNegocio('Plano indisponível.')
       })
       await limiteNoPlano(plano.limiteUsuarios, plano.nome)
+      // Cupom digitado agora: confere antes de mexer no gateway (o guardado no cadastro já vale)
+      if (dados.cupom) await regra(() => validarCupom(plataforma, dados.cupom as string, plano.codigo))
       const config = await app.prisma.empresaConfig.findFirst({ select: { razaoSocial: true, nomeFantasia: true, telefone: true } })
       const hoje = hojeISO()
-      const fimTeste = diaISO(a.testeAte)
-      const primeiroVencimento = a.situacao === 'teste' && fimTeste && fimTeste > hoje ? fimTeste : hoje
+      // No teste (ou na cortesia com prazo), a 1ª cobrança vence quando ele acaba: o cliente não perde dias
+      const fimGratis = a.situacao === 'teste' ? diaISO(a.testeAte) : a.situacao === 'cortesia' ? diaISO(a.cortesiaAte) : null
+      const primeiroVencimento = fimGratis && fimGratis > hoje ? fimGratis : hoje
 
       let clienteId = a.gatewayClienteId
       if (!clienteId) {
@@ -222,14 +248,17 @@ export function criarAssinaturaService(app: FastifyInstance) {
         await plataforma.assinatura.update({ where: { assinanteId: empresa.id }, data: { gateway: 'asaas', gatewayClienteId: clienteId, documentoCobranca: dados.cpfCnpj } })
       }
       if (dados.forma === 'pix_automatico' && !app.config.ASAAS_PIX_AUTOMATICO) throw AppError.regraNegocio('O PIX Automático ainda não está disponível. Escolha cartão ou PIX/boleto.')
+      if (dados.cupom) await regra(() => aplicarCupom({ plataforma, pagamentos: app.pagamentos }, empresa.id, dados.cupom as string, email))
+      await iniciarCupom(plataforma, empresa.id, primeiroVencimento)
+      const valorInicial = valorDaMensalidade({ ...(await regrasDeValor(plataforma, empresa.id)), valorPlano: plano.valorMensal.toFixed(2), agendado: null }, primeiroVencimento).valor
       if (dados.forma === 'pix_automatico') {
-        await autorizarPix(empresa.id, clienteId, plano, config?.nomeFantasia || empresa.nome, { formaPagamento: 'pix_automatico', documentoCobranca: dados.cpfCnpj, planoId: plano.id, cancelarEm: null }, email)
+        await autorizarPix(empresa.id, clienteId, { nome: plano.nome, valor: valorInicial }, config?.nomeFantasia || empresa.nome, { formaPagamento: 'pix_automatico', documentoCobranca: dados.cpfCnpj, planoId: plano.id, cancelarEm: null }, email)
         return { linkPagamento: null }
       }
       const gatewayAssinaturaId = await noGateway(() =>
         g.criarAssinatura({
           clienteId,
-          valor: plano.valorMensal.toFixed(2),
+          valor: valorInicial,
           proximoVencimento: primeiroVencimento,
           forma: dados.forma,
           descricao: `ONPrint Control - plano ${plano.nome} (${config?.nomeFantasia || empresa.nome})`,
@@ -248,8 +277,19 @@ export function criarAssinaturaService(app: FastifyInstance) {
         await plataforma.eventoAssinatura.create({ data: { assinanteId: empresa.id, tipo: 'nota_fiscal_erro', descricao: `Configuração da nota fiscal falhou: ${erro.message}` } })
       })
       await sincronizar(empresa.id, gatewayAssinaturaId)
+      // Cupom de 1 mês (ou que termina): o gateway passa a gerar as seguintes no valor certo
+      if (await cupomEmVigor(plataforma, empresa.id)) await aplicarValores({ plataforma, pagamentos: app.pagamentos }, empresa.id)
       const primeira = await plataforma.cobranca.findFirst({ where: { assinanteId: empresa.id, situacao: { in: ABERTAS } }, orderBy: { vencimento: 'asc' } })
       return { linkPagamento: primeira?.linkPagamento ?? null }
+    },
+
+    /** Cupom digitado ao assinar: confere e mostra quanto fica a mensalidade. */
+    async conferirCupom(codigo: string, codigoPlano: string) {
+      if (!codigo) throw AppError.regraNegocio('Informe o cupom.')
+      const plano = await planoTroca(codigoPlano)
+      const c = await regra(() => validarCupom(plataforma, codigo, plano.codigo))
+      const v = valorDaMensalidade({ valorPlano: plano.valorMensal.toFixed(2), desconto: { tipo: c.tipo as 'percentual' | 'valor', valor: c.valor.toFixed(2), desde: null, ate: null } }, hojeISO())
+      return { codigo: c.codigo, descricao: c.descricao || descricaoCupom(c), duracaoMeses: c.duracaoMeses, desconto: v.desconto, valor: v.valor, cheio: v.cheio }
     },
 
     /** O que acontece se trocar para este plano (a tela mostra antes de confirmar). */
@@ -269,9 +309,8 @@ export function criarAssinaturaService(app: FastifyInstance) {
       const hoje = hojeISO()
       if (plano.id === a.planoId) {
         if (!a.planoAgendadoId) throw AppError.regraNegocio('Este já é o seu plano.')
-        if (a.gatewayAssinaturaId) await noGateway(() => gateway().alterarAssinatura(a.gatewayAssinaturaId as string, { valor: plano.valorMensal.toFixed(2) }))
         await alterarAssinatura(plataforma, empresa.id, { planoAgendadoId: null, planoAgendadoEm: null }, { tipo: 'plano', descricao: `Troca de plano agendada desfeita: continua no ${plano.nome}`, autor: email })
-        await reajustarCobrancasFuturas(plataforma, app.pagamentos, empresa.id, plano.valorMensal.toFixed(2), hoje)
+        await aplicarValores({ plataforma, pagamentos: app.pagamentos }, empresa.id, hoje)
         return previa(a, plano)
       }
       if (a.planoAgendadoId === plano.id) throw AppError.regraNegocio('A troca para este plano já está agendada.')
@@ -281,9 +320,6 @@ export function criarAssinaturaService(app: FastifyInstance) {
       if (!a.gatewayAssinaturaId && a.situacao !== 'teste') throw AppError.regraNegocio('Para trocar de plano, fale com o suporte.')
       await limiteNoPlano(plano.limiteUsuarios, plano.nome)
       const p = await previa(a, plano, hoje)
-      const valor = plano.valorMensal.toFixed(2)
-      // Próximas cobranças que o gateway gerar já saem no valor novo
-      if (a.gatewayAssinaturaId) await noGateway(() => gateway().alterarAssinatura(a.gatewayAssinaturaId as string, { valor }))
 
       if (p.tipo === 'downgrade') {
         await alterarAssinatura(
@@ -304,8 +340,9 @@ export function criarAssinaturaService(app: FastifyInstance) {
           await cobrarProporcional(empresa.id, a.gatewayClienteId, p.valorProporcional, `Diferença proporcional ${a.plano.nome} → ${plano.nome} (${p.diasRestantes} de ${p.diasPeriodo} dias, até ${formatarDataSimples(p.periodo.fim)})`, hoje)
         }
       }
-      // Só mensalidades de períodos que ainda não começaram vão para o valor novo
-      await reajustarCobrancasFuturas(plataforma, app.pagamentos, empresa.id, valor, hoje)
+      // Só mensalidades de períodos que ainda não começaram vão para o valor novo (com o cupom, se houver);
+      // as próximas que o gateway gerar também
+      await aplicarValores({ plataforma, pagamentos: app.pagamentos }, empresa.id, hoje)
       if (a.gatewayAssinaturaId) await sincronizar(empresa.id, a.gatewayAssinaturaId)
       await recalcularAssinatura(plataforma, empresa.id)
       app.empresas.esquecer()
@@ -332,7 +369,8 @@ export function criarAssinaturaService(app: FastifyInstance) {
         .cancelarAutorizacaoPix(a.gatewayAutorizacaoId)
         .catch(() => undefined) // já expirada ou cancelada no Asaas: segue
       const config = await app.prisma.empresaConfig.findFirst({ select: { nomeFantasia: true } })
-      await autorizarPix(empresa.id, a.gatewayClienteId, a.plano, config?.nomeFantasia || empresa.nome, {}, email)
+      const valor = valorDaMensalidade(await regrasDeValor(plataforma, empresa.id), adicionarMeses(hojeISO(), 1)).valor
+      await autorizarPix(empresa.id, a.gatewayClienteId, { nome: a.plano.nome, valor }, config?.nomeFantasia || empresa.nome, {}, email)
     },
 
     /**

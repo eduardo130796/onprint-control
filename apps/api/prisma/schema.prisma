@@ -1669,6 +1669,7 @@ model Assinante {
   assinatura  Assinatura?
   eventos     EventoAssinatura[]
   cobrancas   Cobranca[]
+  cuponsUsados CupomUso[]
 
   @@map("assinantes")
 }
@@ -1761,10 +1762,13 @@ model Assinatura {
   assinanteId          String    @unique @map("assinante_id") @db.Uuid
   planoId              String    @map("plano_id") @db.Uuid
   /**
-   * teste | ativa | cancelada
+   * teste | ativa | cortesia | cancelada
    */
   situacao             String    @default("teste")
   testeAte             DateTime? @map("teste_ate") @db.Date
+  /// Cortesia (assinatura grátis): até esta data (null = sem prazo) e o motivo
+  cortesiaAte          DateTime? @map("cortesia_ate") @db.Date
+  cortesiaMotivo       String?   @map("cortesia_motivo")
   /**
    * Vencimento da cobrança mais antiga ainda não paga (null = em dia)
    */
@@ -1858,9 +1862,13 @@ model Cobranca {
   /// Vencimento original quando a cobrança precisou de data nova no gateway (ele não aceita data passada): o atraso conta dele
   vencimentoOriginal DateTime? @map("vencimento_original") @db.Date
   /**
-   * pendente | paga | vencida | cancelada | estornada
+   * pendente | paga | vencida | cancelada | estornada | abonada (mês grátis ou perdoada pelo suporte)
    */
   situacao           String    @default("pendente")
+  /// Desconto de cupom já aplicado em `valor`
+  desconto           Decimal?  @db.Decimal(10, 2)
+  /// Abonada: por quê (e quem, no histórico)
+  motivoAbono        String?   @map("motivo_abono")
   /**
    * PIX, BOLETO, CREDIT_CARD…
    */
@@ -1888,6 +1896,57 @@ model Cobranca {
 
   @@index([assinanteId, vencimento])
   @@map("cobrancas")
+}
+
+/**
+ * Cupom de desconto: digitado no cadastro ou ao assinar, ou aplicado pelo suporte.
+ */
+model Cupom {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Sempre em maiúsculas
+  codigo       String    @unique
+  descricao    String?
+  /// percentual | valor
+  tipo         String
+  valor        Decimal   @db.Decimal(10, 2)
+  /// Quantas mensalidades têm desconto (null = para sempre)
+  duracaoMeses Int?      @map("duracao_meses")
+  /// Último dia para usar o cupom (null = sem validade)
+  validoAte    DateTime? @map("valido_ate") @db.Date
+  limiteUsos   Int?      @map("limite_usos")
+  /// Códigos de plano (vazio = todos)
+  planos       String[]  @default([])
+  ativo        Boolean   @default(true)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  usos CupomUso[]
+
+  @@map("cupons")
+}
+
+/**
+ * Cupom aplicado numa assinatura: o desconto vale nas mensalidades de `desde` a `ate`. Um em vigor por empresa.
+ */
+model CupomUso {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cupomId     String    @map("cupom_id") @db.Uuid
+  assinanteId String    @map("assinante_id") @db.Uuid
+  /// 1ª mensalidade com desconto (null = a 1ª que for gerada, quando assinar)
+  desde       DateTime? @db.Date
+  /// Última mensalidade com desconto (null = para sempre)
+  ate         DateTime? @db.Date
+  autor       String    @default("sistema")
+  /// Removido pelo suporte ou janela terminada (valor cheio de volta)
+  encerradoEm DateTime? @map("encerrado_em") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  cupom     Cupom     @relation(fields: [cupomId], references: [id], onDelete: Restrict)
+  assinante Assinante @relation(fields: [assinanteId], references: [id], onDelete: Cascade)
+
+  @@index([assinanteId])
+  @@index([cupomId])
+  @@map("cupons_usos")
 }
 
 /**

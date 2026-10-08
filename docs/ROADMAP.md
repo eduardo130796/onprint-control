@@ -176,6 +176,11 @@ Decisões do usuário: todas as empresas no mesmo sistema; bloqueio escalonado (
 - [x] Cancelada que assinou de novo e ainda não pagou: mensagem "falta só o pagamento da 1ª mensalidade" (antes dizia para reativar)
 - [x] Verificado: capturas de tela (Playwright) em desktop e celular dos estados teste, atraso, só leitura, bloqueado, assinante e PIX aguardando; e2e `fase12` com o PIX Automático (11 verificações a mais) e regressão das fases 1–13
 
+- [x] **Benefícios** (pedido do usuário): cupom de desconto (cadastro, assinar, suporte; janela de meses; limite; relatório de desconto e receita), meses grátis, cortesia (sem prazo ou com prazo) e abono de cobrança, com motivo e autor no histórico. A empresa da plataforma passou a ser cortesia ("ativa sem pagamento" era ela)
+- [x] **Situação em cima:** chip no topo do sistema, cabeçalho de situação em Minha assinatura e situação em destaque no painel
+- [x] **Painel de assinaturas:** tabela completa (valor com cupom, forma, situação, último pagamento, próximo vencimento, benefício, em atraso; filtros e ações rápidas), ficha mais visual (linha do tempo, benefícios, ações agrupadas), tela de cupons e o mesmo visual premium no painel inteiro
+- [x] e2e `fase14` (benefícios, com o Asaas falso agora em módulo próprio `e2e-asaas-falso.mjs`)
+
 ### Fase 13 — Painel da plataforma ✅ (aguardando OK)
 - [x] Login próprio do administrador da plataforma (`admins_plataforma`, token de 8 h na sessão do navegador); token do painel não abre nenhuma empresa e vice-versa; primeiro admin pelo `.env` e comando `admin-plataforma`
 - [x] Painel: empresas por situação (em dia, teste, aviso, só leitura, bloqueadas, canceladas; cada número abre a lista filtrada), receita mensal, mensalidades em risco, recebido no mês, cobranças vencidas, novas empresas e conversões; lista de problemas por gravidade (bloqueio, atraso, cartão recusado, nota com erro, aviso do Asaas não aplicado com "Reprocessar", teste acabando, cancelamento agendado); conferência com o Asaas sob demanda

@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
 import { BuscaGlobal } from './BuscaGlobal'
+import { ChipAssinatura } from './ChipAssinatura'
 import { Logo } from './Logo'
 import { Notificacoes } from './Notificacoes'
 import { UserMenu } from './UserMenu'
@@ -43,6 +44,7 @@ export function Topbar({ onAbrirMenuMobile }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-1">
+        <ChipAssinatura />
         <Notificacoes />
         <UserMenu />
         <Button

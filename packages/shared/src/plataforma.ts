@@ -1,23 +1,26 @@
 import type { AcessoAssinatura, NivelAcesso, SituacaoAssinatura } from './assinatura'
-import type { CobrancaResumo } from './assinatura'
+import type { CobrancaResumo, CupomEmUso } from './assinatura'
+import type { TipoCupom } from './beneficios'
 
 /** Situação comercial de uma empresa no painel (uma só categoria por empresa). */
-export type CategoriaEmpresa = 'em_dia' | 'teste' | 'aviso' | 'somente_leitura' | 'bloqueada' | 'cancelada'
+export type CategoriaEmpresa = 'em_dia' | 'teste' | 'cortesia' | 'aviso' | 'somente_leitura' | 'bloqueada' | 'cancelada'
 export const CATEGORIA_EMPRESA_ROTULOS: Record<CategoriaEmpresa, string> = {
   em_dia: 'Em dia',
   teste: 'Em teste',
+  cortesia: 'Cortesia',
   aviso: 'Com atraso (aviso)',
   somente_leitura: 'Só leitura',
   bloqueada: 'Bloqueadas',
   cancelada: 'Canceladas',
 }
 
-/** Teste em andamento conta como "teste" mesmo nos últimos dias; atraso ou fim do teste vão pelo nível. */
+/** Teste (ou cortesia) em andamento conta como tal mesmo nos últimos dias; atraso ou fim vão pelo nível. */
 export function categoriaEmpresa(situacao: SituacaoAssinatura, acesso: Pick<AcessoAssinatura, 'nivel' | 'motivo'>): CategoriaEmpresa {
   if (situacao === 'cancelada') return 'cancelada'
   if (acesso.nivel === 'bloqueado') return 'bloqueada'
   if (acesso.nivel === 'somente_leitura') return 'somente_leitura'
   if (acesso.motivo === 'teste' || acesso.motivo === 'teste_acabando') return 'teste'
+  if (acesso.motivo === 'cortesia') return 'cortesia'
   if (acesso.nivel === 'aviso') return 'aviso'
   return 'em_dia'
 }
@@ -26,12 +29,14 @@ export interface EmpresaParaIndicadores {
   situacao: SituacaoAssinatura
   acesso: Pick<AcessoAssinatura, 'nivel' | 'motivo'>
   valorMensal: string
+  /** Valor efetivamente cobrado (com cupom); se ausente, a mensalidade cheia */
+  valorCobrado?: string
 }
 
 export interface IndicadoresPlataforma {
   total: number
   porCategoria: Record<CategoriaEmpresa, number>
-  /** Receita mensal recorrente: mensalidade de quem paga (ativa e não bloqueada) */
+  /** Receita mensal recorrente: mensalidade (com cupom) de quem paga e está em dia */
   receitaMensal: string
   /** Mensalidades em risco: ativas com atraso (aviso, só leitura ou bloqueadas) */
   receitaEmRisco: string
@@ -39,14 +44,14 @@ export interface IndicadoresPlataforma {
 
 /** Indicadores do painel a partir das empresas (calculado em memória: plataformas de até alguns milhares). */
 export function resumirIndicadores(empresas: EmpresaParaIndicadores[]): IndicadoresPlataforma {
-  const porCategoria: Record<CategoriaEmpresa, number> = { em_dia: 0, teste: 0, aviso: 0, somente_leitura: 0, bloqueada: 0, cancelada: 0 }
+  const porCategoria: Record<CategoriaEmpresa, number> = { em_dia: 0, teste: 0, cortesia: 0, aviso: 0, somente_leitura: 0, bloqueada: 0, cancelada: 0 }
   let receita = 0
   let risco = 0
   for (const e of empresas) {
     const categoria = categoriaEmpresa(e.situacao, e.acesso)
     porCategoria[categoria]++
     if (e.situacao !== 'ativa') continue
-    const valor = Number(e.valorMensal) * 100
+    const valor = Math.round(Number(e.valorCobrado ?? e.valorMensal) * 100)
     if (categoria === 'em_dia') receita += valor
     else if (categoria !== 'cancelada') risco += valor
   }
@@ -85,14 +90,27 @@ export interface EmpresaPlataformaResumo {
   ativa: boolean
   criadaEm: string
   plano: string | null
+  planoCodigo: string | null
+  /** Mensalidade cheia do plano */
   valorMensal: string | null
+  /** O que a empresa paga por mês hoje (com cupom); 0 na cortesia */
+  valorCobrado: string | null
+  formaPagamento: string | null
   situacao: SituacaoAssinatura | null
   categoria: CategoriaEmpresa | null
   nivel: NivelAcesso | null
   mensagem: string | null
+  /** Bloqueada pelo suporte (não só pelo atraso): pode desbloquear */
+  bloqueioManual: boolean
+  diasAtraso: number
+  /** Soma das cobranças vencidas e não pagas */
+  emAtraso: string
+  ultimoPagamento: { valor: string; data: string } | null
   proximoVencimento: string | null
   testeAte: string | null
   gateway: string | null
+  /** Benefício em vigor (cupom, cortesia ou liberação manual), para a coluna da tabela */
+  beneficio: { tipo: 'cupom' | 'cortesia' | 'liberacao'; rotulo: string } | null
 }
 
 export interface EmpresaPlataformaDetalhe extends EmpresaPlataformaResumo {
@@ -114,6 +132,9 @@ export interface EmpresaPlataformaDetalhe extends EmpresaPlataformaResumo {
     gatewayAssinaturaId: string | null
     documentoCobranca: string | null
     acesso: AcessoAssinatura
+    cortesia: { ate: string | null; motivo: string | null } | null
+    cupom: CupomEmUso | null
+    planoAgendado: { nome: string; em: string } | null
   } | null
   usuarios: { total: number; ativos: number; admins: { nome: string; email: string; ultimoLogin: string | null }[] }
   cobrancas: (CobrancaResumo & { gateway: string })[]
@@ -145,4 +166,32 @@ export interface EventoGatewayResumo {
   recebidoEm: string
   processadoEm: string | null
   erro: string | null
+}
+
+export interface CupomPlataforma {
+  id: string
+  codigo: string
+  descricao: string | null
+  tipo: TipoCupom
+  valor: string
+  duracaoMeses: number | null
+  validoAte: string | null
+  limiteUsos: number | null
+  planos: string[]
+  ativo: boolean
+  /** "20% de desconto por 3 meses" */
+  resumo: string
+  /** Empresas que já usaram */
+  usos: number
+  /** Com o desconto valendo hoje */
+  emUso: number
+  /** Soma dos descontos nas mensalidades pagas */
+  descontoConcedido: string
+  /** Receita das mensalidades pagas com o cupom */
+  receita: string
+  criadoEm: string
+}
+
+export interface CupomDetalhe extends CupomPlataforma {
+  empresas: { id: string; nome: string; slug: string; desde: string | null; ate: string | null; aplicadoEm: string; encerradoEm: string | null; descontoConcedido: string; autor: string }[]
 }

@@ -2,9 +2,10 @@ import argon2 from 'argon2'
 import type { FastifyRequest } from 'fastify'
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { acaoAssinaturaSchema, empresasPlataformaQuerySchema, idParamSchema, loginSchema, novaEmpresaSchema, planoSchema } from '@onprint/shared'
+import { acaoAssinaturaSchema, cupomSchema, empresasPlataformaQuerySchema, idParamSchema, loginSchema, novaEmpresaSchema, planoSchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { conciliarAssinaturas } from '../../plataforma/cobrancas'
+import { criarCuponsService } from './cupons.service'
 import { criarEmpresasPlataformaService } from './empresas.service'
 import { criarPainelService } from './painel.service'
 import { criarPlanosService } from './planos.service'
@@ -18,6 +19,7 @@ export const plataformaRoutes: FastifyPluginAsyncZod = async (app) => {
   const painel = criarPainelService(app)
   const empresas = criarEmpresasPlataformaService(app)
   const planos = criarPlanosService(app)
+  const cupons = criarCuponsService(app)
   const protegida = { onRequest: [app.autenticarPlataforma] }
   let hashFicticio: Promise<string> | undefined
 
@@ -62,6 +64,13 @@ export const plataformaRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post('/planos', { ...protegida, schema: { tags, summary: 'Cria plano', body: planoSchema } }, async (request, reply) => reply.status(201).send(await planos.salvar(null, request.body)))
   app.put('/planos/:id', { ...protegida, schema: { tags, summary: 'Atualiza plano', params: idParamSchema, body: planoSchema } }, (request) =>
     planos.salvar(request.params.id, request.body),
+  )
+
+  app.get('/cupons', { ...protegida, schema: { tags, summary: 'Cupons de desconto (usos, desconto concedido, receita)' } }, () => cupons.listar())
+  app.get('/cupons/:id', { ...protegida, schema: { tags, summary: 'Cupom e as empresas que usaram', params: idParamSchema } }, (request) => cupons.obter(request.params.id))
+  app.post('/cupons', { ...protegida, schema: { tags, summary: 'Cria cupom', body: cupomSchema } }, async (request, reply) => reply.status(201).send(await cupons.criar(request.body)))
+  app.put('/cupons/:id', { ...protegida, schema: { tags, summary: 'Atualiza (ou pausa) cupom', params: idParamSchema, body: cupomSchema } }, (request) =>
+    cupons.atualizar(request.params.id, request.body),
   )
 
   app.get(

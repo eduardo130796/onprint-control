@@ -6,7 +6,15 @@ export async function chamar(metodo, caminho, { token, body, form, headers: extr
   const headers = { ...extras }
   if (token) headers.Authorization = `Bearer ${token}`
   if (body !== undefined) headers['Content-Type'] = 'application/json'
-  const r = await fetch(BASE + caminho, { method: metodo, headers, body: form ?? (body === undefined ? undefined : JSON.stringify(body)) })
+  const enviar = () => fetch(BASE + caminho, { method: metodo, headers, body: form ?? (body === undefined ? undefined : JSON.stringify(body)) })
+  let r
+  try {
+    r = await enviar()
+  } catch (erro) {
+    // Conexão reaproveitada que a API já fechou (keep-alive vencido enquanto um comando síncrono travava o teste): tenta de novo
+    if (erro?.cause?.code !== 'UND_ERR_SOCKET') throw erro
+    r = await enviar()
+  }
   const texto = await r.text()
   let json = null
   try {

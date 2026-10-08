@@ -1,8 +1,9 @@
 import type { Prisma, PrismaClient } from '@prisma/client'
-import { formatarDataSimples, type AcaoAssinatura } from '@onprint/shared'
+import { adicionarDias, formatarDataSimples, hojeISO, valorDaMensalidade, type AcaoAssinatura } from '@onprint/shared'
 import type { GatewayPagamentos } from '../integrations/pagamentos'
 import { alterarAssinatura, paraDia, planoPorCodigo } from './assinaturas'
-import { lancarCobrancaManual, reajustarCobrancasFuturas, recalcularAssinatura, registrarPagamentoManual } from './cobrancas'
+import { abonarCobranca, aplicarCupom, aplicarValores, darCortesia, darMesesGratis, iniciarCupom, regrasDeValor, removerCupom } from './beneficios'
+import { lancarCobrancaManual, recalcularAssinatura, registrarPagamentoManual } from './cobrancas'
 
 export interface DependenciasOperacao {
   plataforma: PrismaClient
@@ -24,10 +25,9 @@ export async function executarAcao(deps: DependenciasOperacao, assinanteId: stri
   switch (acao.acao) {
     case 'plano': {
       const plano = await planoPorCodigo(plataforma, acao.plano)
-      if (a.gatewayAssinaturaId && pagamentos) await pagamentos.alterarAssinatura(a.gatewayAssinaturaId, { valor: plano.valorMensal.toFixed(2) })
       // Suporte: troca na hora, sem proporcional; vencidas e o período em curso mantêm o valor
       const atualizada = await alterar({ planoId: plano.id, planoAgendadoId: null, planoAgendadoEm: null }, `Plano trocado de ${a.plano.nome} para ${plano.nome}`)
-      await reajustarCobrancasFuturas(plataforma, pagamentos, assinanteId, plano.valorMensal.toFixed(2))
+      await aplicarValores(deps, assinanteId)
       return atualizada
     }
     case 'ativar':
@@ -58,11 +58,37 @@ export async function executarAcao(deps: DependenciasOperacao, assinanteId: stri
       return alterar({ situacao: 'ativa', canceladaEm: null, cancelarEm: null }, 'Assinatura reativada pelo suporte')
     case 'modulos_extras':
       return alterar({ modulosExtras: acao.modulos }, acao.modulos.length ? `Módulos extras: ${acao.modulos.join(', ')}` : 'Sem módulos extras')
-    case 'cobranca_manual':
-      await lancarCobrancaManual(plataforma, assinanteId, acao.vencimento, acao.valor ?? a.plano.valorMensal.toFixed(2))
+    case 'cobranca_manual': {
+      // Sem valor informado: o da mensalidade daquele vencimento (plano e cupom; a 1ª mensalidade inicia a janela do cupom)
+      await iniciarCupom(plataforma, assinanteId, acao.vencimento)
+      const v = valorDaMensalidade(await regrasDeValor(plataforma, assinanteId), acao.vencimento)
+      await lancarCobrancaManual(plataforma, assinanteId, acao.vencimento, acao.valor ?? v.valor, acao.valor || Number(v.desconto) === 0 ? null : v.desconto)
       return recalcularAssinatura(plataforma, assinanteId)
+    }
     case 'registrar_pagamento':
       await registrarPagamentoManual(plataforma, assinanteId)
+      return recalcularAssinatura(plataforma, assinanteId)
+    // Benefícios
+    case 'cortesia':
+      await darCortesia(deps, assinanteId, acao.ate, acao.motivo, autor)
+      return recalcularAssinatura(plataforma, assinanteId)
+    case 'encerrar_cortesia':
+      if (a.situacao !== 'cortesia') throw new Error('A assinatura não está em cortesia.')
+      // Com assinatura no gateway, segue cobrando normalmente; sem ela, a cortesia termina ontem e a empresa precisa assinar
+      return a.gatewayAssinaturaId
+        ? alterar({ situacao: 'ativa', cortesiaAte: null, cortesiaMotivo: null }, 'Cortesia encerrada: volta a pagar a mensalidade')
+        : alterar({ cortesiaAte: new Date(`${adicionarDias(hojeISO(), -1)}T00:00:00Z`) }, 'Cortesia encerrada: a empresa precisa assinar para continuar')
+    case 'meses_gratis':
+      await darMesesGratis(deps, assinanteId, acao.meses, acao.motivo, autor)
+      return recalcularAssinatura(plataforma, assinanteId)
+    case 'abonar':
+      await abonarCobranca(deps, assinanteId, acao.cobrancaId, acao.motivo, autor)
+      return recalcularAssinatura(plataforma, assinanteId)
+    case 'aplicar_cupom':
+      await aplicarCupom(deps, assinanteId, acao.codigo, autor)
+      return recalcularAssinatura(plataforma, assinanteId)
+    case 'remover_cupom':
+      await removerCupom(deps, assinanteId, autor)
       return recalcularAssinatura(plataforma, assinanteId)
   }
 }

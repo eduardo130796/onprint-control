@@ -51,12 +51,14 @@ export const cronPlugin = fp(async (app) => {
     }
   }
 
-  // Ao subir, recupera o que ficou para trás se a API estava desligada à meia-noite
+  // Ao subir, recupera o que ficou para trás se a API estava desligada à meia-noite. Em segundo plano:
+  // com muitas empresas (ou o Asaas lento) isso passaria do tempo de subida do Fastify e a API não subiria
   app.addHook('onReady', async () => {
-    await executar('expirar-orcamentos (início)', () => expirarOrcamentos(app.prisma))
-    await executar('marcar-vencidas (início)', () => marcarContasVencidas(app.prisma))
-    // Em segundo plano: não atrasa a subida se o Asaas estiver lento
-    void conciliar()
+    void (async () => {
+      await executar('expirar-orcamentos (início)', () => expirarOrcamentos(app.prisma))
+      await executar('marcar-vencidas (início)', () => marcarContasVencidas(app.prisma))
+      await conciliar()
+    })()
   })
   app.addHook('onClose', async () => {
     for (const t of tarefas) await t.stop()

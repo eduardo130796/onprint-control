@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
 import { BuscaGlobal } from './BuscaGlobal'
 import { ChipAssinatura } from './ChipAssinatura'
-import { Logo } from './Logo'
+import { MarcaEmpresa } from './MarcaEmpresa'
 import { Notificacoes } from './Notificacoes'
 import { UserMenu } from './UserMenu'
 
@@ -34,9 +34,9 @@ export function Topbar({ onAbrirMenuMobile }: TopbarProps) {
       >
         <Menu className="!size-5" />
       </Button>
-      <div className="lg:w-56">
-        <Logo claro className="hidden sm:flex" />
-        <Logo claro compacto className="sm:hidden" />
+      <div className="min-w-0 sm:max-w-[16rem] lg:w-56">
+        <MarcaEmpresa className="hidden sm:flex" />
+        <MarcaEmpresa compacta className="sm:hidden" />
       </div>
 
       <div className="flex flex-1 justify-center">
@@ -58,7 +58,7 @@ export function Topbar({ onAbrirMenuMobile }: TopbarProps) {
       </div>
       {/* Faixa da marca (a mesma dos documentos): verde WhatsApp com a lasca laranja */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex h-[3px]" aria-hidden="true">
-        <div className="flex-[9] bg-marca" />
+        <div className="flex-[9] bg-marca transition-colors" />
         <div className="flex-1 bg-laranja" />
       </div>
     </header>

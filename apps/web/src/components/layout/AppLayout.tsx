@@ -1,6 +1,9 @@
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
+import { paginaAtual } from '@/app/navigation'
+import { TITULO_PADRAO, aplicarTema, definirFavicon } from '@/features/aparencia/tema'
+import { useUrlArquivo } from '@/features/configuracoes/hooks'
 import { useAuth } from '@/hooks/useAuth'
 import { useTempoReal } from '@/hooks/useTempoReal'
 import { cn } from '@/lib/utils'
@@ -29,6 +32,31 @@ export function AppLayout() {
   const { pathname } = useLocation()
   const larga = TELAS_LARGAS.includes(pathname)
   useTempoReal(Boolean(usuario) && !usuario?.deveTrocarSenha && usuario?.assinatura?.nivel !== 'bloqueado')
+  const empresa = usuario?.empresa
+  const logo = useUrlArquivo(empresa?.logoArquivoId)
+
+  // Cor do tema da empresa; ao sair (login, páginas públicas) volta ao verde ONPrint
+  useEffect(() => {
+    aplicarTema(empresa?.corTema)
+    return () => aplicarTema(null)
+  }, [empresa?.corTema])
+
+  // Aba do navegador: "Página · Empresa" e a logo da empresa como ícone
+  useEffect(() => {
+    if (!empresa) return
+    const pagina = paginaAtual(pathname)?.titulo
+    document.title = pagina && pathname !== '/' ? `${pagina} · ${empresa.exibicao}` : empresa.exibicao
+  }, [pathname, empresa])
+  useEffect(() => {
+    definirFavicon(empresa?.logoArquivoId ? logo.data : null)
+  }, [empresa?.logoArquivoId, logo.data])
+  useEffect(
+    () => () => {
+      document.title = TITULO_PADRAO
+      definirFavicon(null)
+    },
+    [],
+  )
 
   function alternar() {
     setRecolhida((r) => {

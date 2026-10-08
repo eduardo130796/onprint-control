@@ -42,7 +42,7 @@ export function GerenciarAssinatura({ a }: { a: MinhaAssinatura }) {
     <section className="rounded-3xl bg-card p-6 shadow-suave sm:p-8" aria-label="Pagamento da assinatura">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-4">
-          <span className={cn('flex h-14 w-14 items-center justify-center rounded-2xl', automatica ? 'bg-marca text-grafite' : 'bg-fundo text-grafite')}>
+          <span className={cn('flex h-14 w-14 items-center justify-center rounded-2xl', automatica ? 'bg-marca text-marca-contraste' : 'bg-fundo text-grafite')}>
             <Icone className="h-6 w-6" aria-hidden="true" />
           </span>
           <div>

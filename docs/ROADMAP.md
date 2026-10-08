@@ -181,6 +181,11 @@ Decisões do usuário: todas as empresas no mesmo sistema; bloqueio escalonado (
 - [x] **Painel de assinaturas:** tabela completa (valor com cupom, forma, situação, último pagamento, próximo vencimento, benefício, em atraso; filtros e ações rápidas), ficha mais visual (linha do tempo, benefícios, ações agrupadas), tela de cupons e o mesmo visual premium no painel inteiro
 - [x] e2e `fase14` (benefícios, com o Asaas falso agora em módulo próprio `e2e-asaas-falso.mjs`)
 
+- [x] **Marca da gráfica:** logo e nome da empresa no topo, "por ONPrint" discreto no menu, aba do navegador com "Página · Empresa" e a logo como ícone
+- [x] **Aparência** (Configurações): cor do tema por empresa (paleta de 9 cores com contraste testado), prévia ao vivo, sugestão pela logo; e2e `fase15`
+- [ ] Modo claro/escuro por usuário (sobre as mesmas variáveis de cor)
+- [ ] Marca própria completa (domínio próprio, sem ONPrint) como módulo pago
+
 ### Fase 13 — Painel da plataforma ✅ (aguardando OK)
 - [x] Login próprio do administrador da plataforma (`admins_plataforma`, token de 8 h na sessão do navegador); token do painel não abre nenhuma empresa e vice-versa; primeiro admin pelo `.env` e comando `admin-plataforma`
 - [x] Painel: empresas por situação (em dia, teste, aviso, só leitura, bloqueadas, canceladas; cada número abre a lista filtrada), receita mensal, mensalidades em risco, recebido no mês, cobranças vencidas, novas empresas e conversões; lista de problemas por gravidade (bloqueio, atraso, cartão recusado, nota com erro, aviso do Asaas não aplicado com "Reprocessar", teste acabando, cancelamento agendado); conferência com o Asaas sob demanda

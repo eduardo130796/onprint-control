@@ -17,7 +17,7 @@ export function FloatingActionButton() {
         <Link
           to={`${pagina.path}/novo`}
           aria-label={pagina.novo}
-          className="fixed bottom-6 right-6 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-marca text-grafite-escuro shadow-lg transition-transform hover:scale-105 hover:bg-marca-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-marca/40"
+          className="fixed bottom-6 right-6 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-marca text-marca-contraste shadow-lg transition-transform hover:scale-105 hover:bg-marca-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-marca/40"
         >
           <Plus className="h-7 w-7" />
         </Link>

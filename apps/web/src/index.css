@@ -25,6 +25,12 @@
     --input: 207 11% 83%;
     --ring: 174 79% 29%;
     --radius: 0.75rem;
+    /* Cor da marca (RGB) — padrão verde ONPrint; o tema da empresa troca em tempo de execução (aplicarTema) */
+    --marca: 37 211 102; /* #25D366 */
+    --marca-escuro: 11 119 109; /* #0B776D */
+    --marca-hover: 30 190 90; /* #1EBE5A */
+    --marca-suave: 233 249 239; /* #E9F9EF */
+    --marca-contraste: 30 34 38; /* #1E2226 */
   }
 
   * {

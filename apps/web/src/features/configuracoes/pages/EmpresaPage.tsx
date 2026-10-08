@@ -17,9 +17,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useAuth } from '@/hooks/useAuth'
 import { usePermission } from '@/hooks/usePermission'
 import { decimalParaInput, mascaraCep, mascaraCpfCnpj, mascaraTelefone } from '@/lib/mascaras'
 import { CHAVE_EMPRESA, useEmpresa, useUrlArquivo } from '../hooks'
+import { nomeExibicao } from '../marca'
 
 type Saida = z.output<typeof empresaSchema>
 
@@ -48,8 +50,9 @@ function valores(e: EmpresaConfig): EmpresaInput {
   }
 }
 
-function LogoCard({ empresa, podeEditar }: { empresa: EmpresaConfig; podeEditar: boolean }) {
+export function LogoCard({ empresa, podeEditar }: { empresa: EmpresaConfig; podeEditar: boolean }) {
   const queryClient = useQueryClient()
+  const { atualizarMarca } = useAuth()
   const url = useUrlArquivo(empresa.logoArquivoId)
   return (
     <Card>
@@ -68,10 +71,11 @@ function LogoCard({ empresa, podeEditar }: { empresa: EmpresaConfig; podeEditar:
           <FileUploader
             extensoes={EXTENSOES_IMAGEM}
             tamanhoMaxMb={5}
-            texto="Arraste o logo (usado no PDF do orçamento) ou"
+            texto="Arraste a logo (topo do sistema, aba do navegador e documentos) ou"
             onEnviar={async (arquivo, progresso) => {
               const atualizada = await empresaApi.enviarLogo(arquivo, progresso)
               queryClient.setQueryData(CHAVE_EMPRESA, atualizada)
+              atualizarMarca({ logoArquivoId: atualizada.logoArquivoId })
             }}
           />
         )}
@@ -82,6 +86,7 @@ function LogoCard({ empresa, podeEditar }: { empresa: EmpresaConfig; podeEditar:
 
 function EmpresaForm({ empresa, podeEditar }: { empresa: EmpresaConfig; podeEditar: boolean }) {
   const queryClient = useQueryClient()
+  const { usuario, atualizarMarca } = useAuth()
   const form = useForm<EmpresaInput, unknown, Saida>({ resolver: zodResolver(empresaSchema), defaultValues: valores(empresa) })
   const { errors, isDirty } = form.formState
   const salvar = useMutation({ mutationFn: (d: Saida) => empresaApi.salvar(d) })
@@ -91,6 +96,7 @@ function EmpresaForm({ empresa, podeEditar }: { empresa: EmpresaConfig; podeEdit
     try {
       const salva = await salvar.mutateAsync(dados)
       queryClient.setQueryData(CHAVE_EMPRESA, salva)
+      atualizarMarca({ exibicao: nomeExibicao(salva, usuario?.empresa.nome ?? '') })
       form.reset(valores(salva))
       toast.success('Dados da empresa salvos.')
     } catch (e) {
@@ -183,7 +189,7 @@ export function EmpresaPage() {
 
   return (
     <>
-      <PageHeader titulo="Dados da empresa" subtitulo="Aparecem no PDF do orçamento e definem os padrões comerciais." />
+      <PageHeader titulo="Dados da empresa" subtitulo="Aparecem nos documentos e no topo do sistema, e definem os padrões comerciais." />
       {consulta.isPending ? (
         <Skeleton className="h-96 w-full" />
       ) : consulta.isError ? (

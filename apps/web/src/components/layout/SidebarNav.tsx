@@ -34,7 +34,7 @@ function IconeMenu({ icone: Icone, estado }: { icone: LucideIcon; estado: Estado
     <span
       className={cn(
         'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors',
-        estado === 'ativo' ? 'bg-marca text-grafite-escuro' : estado === 'aberto' ? 'bg-marca-suave text-marca-escuro' : 'bg-fundo text-grafite group-hover:bg-marca-suave group-hover:text-marca-escuro',
+        estado === 'ativo' ? 'bg-marca text-marca-contraste' : estado === 'aberto' ? 'bg-marca-suave text-marca-escuro' : 'bg-fundo text-grafite group-hover:bg-marca-suave group-hover:text-marca-escuro',
       )}
     >
       <Icone className="h-[18px] w-[18px]" />

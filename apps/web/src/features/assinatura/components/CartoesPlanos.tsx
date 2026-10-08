@@ -73,7 +73,7 @@ export function CartoesPlanos({ planos, selecionado, onEscolher, acao }: Props) 
               </Button>
             )}
             {clicavel && (
-              <span className={cn('mt-6 flex h-10 items-center justify-center rounded-xl text-sm font-bold', marcado ? 'bg-marca text-grafite' : 'bg-fundo text-grafite')}>
+              <span className={cn('mt-6 flex h-10 items-center justify-center rounded-xl text-sm font-bold', marcado ? 'bg-marca text-marca-contraste' : 'bg-fundo text-grafite')}>
                 {marcado ? 'Selecionado' : 'Escolher'}
               </span>
             )}

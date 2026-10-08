@@ -33,6 +33,9 @@ export function criarAuthService(app: FastifyInstance) {
     const empresa = contextoEmpresa.exigir()
     const permissoes = usuario.papel.permissoes.map((pp) => `${pp.permissao.modulo}:${pp.permissao.acao}`).sort()
     const assinatura = empresa.assinatura
+    // Marca da empresa no sistema: nome, logo e cor (o "Minha Empresa" padrão não conta como nome)
+    const config = await prisma.empresaConfig.findFirst({ orderBy: { createdAt: 'asc' }, select: { nomeFantasia: true, razaoSocial: true, logoArquivoId: true, corTema: true } })
+    const razao = config?.razaoSocial && config.razaoSocial !== 'Minha Empresa' ? config.razaoSocial : null
     return {
       id: usuario.id,
       nome: usuario.nome,
@@ -42,7 +45,7 @@ export function criarAuthService(app: FastifyInstance) {
       papel: { id: usuario.papel.id, codigo: usuario.papel.codigo, nome: usuario.papel.nome },
       // Módulos fora do plano, ações de escrita no modo só leitura e tudo no bloqueio saem da lista
       permissoes: assinatura ? filtrarPermissoes(permissoes, assinatura.modulos, assinatura.acesso.nivel) : permissoes,
-      empresa: { id: empresa.id, nome: empresa.nome, slug: empresa.slug },
+      empresa: { id: empresa.id, nome: empresa.nome, slug: empresa.slug, exibicao: config?.nomeFantasia || razao || empresa.nome, logoArquivoId: config?.logoArquivoId ?? null, corTema: config?.corTema ?? null },
       assinatura: assinatura ? { plano: assinatura.plano.nome, ...assinatura.acesso } : null,
     }
   }

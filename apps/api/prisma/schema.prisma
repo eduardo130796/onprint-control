@@ -142,6 +142,8 @@ model EmpresaConfig {
   cidade                String?
   uf                    String?  @db.Char(2)
   logoArquivoId         String?  @map("logo_arquivo_id") @db.Uuid
+  /// Cor do tema do sistema (paleta TEMAS: verde, azul, roxo…); null = verde ONPrint
+  corTema               String?  @map("cor_tema")
   validadeOrcamentoDias Int      @default(7) @map("validade_orcamento_dias")
   condicoesPadrao       String?  @map("condicoes_padrao")
   sinalPercentual       Decimal  @default(50) @map("sinal_percentual") @db.Decimal(5, 2)

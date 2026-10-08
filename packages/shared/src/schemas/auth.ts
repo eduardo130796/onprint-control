@@ -54,7 +54,16 @@ export const usuarioLogadoSchema = z.object({
   /** Lista de permissões no formato "modulo:acao" */
   permissoes: z.array(z.string()),
   /** Empresa assinante do usuário (o slug identifica os links públicos) */
-  empresa: z.object({ id: z.string().uuid(), nome: z.string(), slug: z.string() }),
+  empresa: z.object({
+    id: z.string().uuid(),
+    nome: z.string(),
+    slug: z.string(),
+    /** Nome que aparece no sistema (nome fantasia, razão social ou o do cadastro) */
+    exibicao: z.string(),
+    logoArquivoId: z.string().uuid().nullable(),
+    /** Cor do tema (TEMAS); null = verde ONPrint */
+    corTema: z.string().nullable(),
+  }),
   /** Situação da assinatura para avisos e bloqueio na tela (as permissões já vêm filtradas por ela) */
   assinatura: z
     .object({

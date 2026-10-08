@@ -14,9 +14,16 @@ export default {
       colors: {
         // Identidade visual: grafite (cinza escuro) + verde WhatsApp, com laranja em pequenos detalhes
         grafite: { DEFAULT: '#2B3036', escuro: '#1E2226' },
-        // Verde WhatsApp (igual aos documentos). DEFAULT: botões (texto grafite), barras, destaques;
-        // escuro: texto verde sobre fundo claro (≈ #128C7E dos documentos, ajustado para contraste AA); hover: botão
-        marca: { DEFAULT: '#25D366', escuro: '#10857A', hover: '#1EBE5A', suave: '#E9F9EF' },
+        // Cor da marca: a do tema da empresa (Configurações → Aparência; padrão verde ONPrint), em variáveis RGB
+        // para aceitar opacidade (bg-marca/15). DEFAULT: botões, barras, destaques; escuro: texto na cor sobre fundo
+        // claro (contraste AA); hover: botão; suave: fundo de destaque; contraste: texto sobre a cor
+        marca: {
+          DEFAULT: 'rgb(var(--marca) / <alpha-value>)',
+          escuro: 'rgb(var(--marca-escuro) / <alpha-value>)',
+          hover: 'rgb(var(--marca-hover) / <alpha-value>)',
+          suave: 'rgb(var(--marca-suave) / <alpha-value>)',
+          contraste: 'rgb(var(--marca-contraste) / <alpha-value>)',
+        },
         // DEFAULT: detalhe decorativo; escuro: selos/contadores com texto branco (contraste AA)
         laranja: { DEFAULT: '#F97316', escuro: '#C2410C', suave: '#FFF1E6' },
         fundo: '#F2F4F5',

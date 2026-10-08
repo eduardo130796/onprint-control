@@ -36,6 +36,7 @@ export const empresaApi = {
   salvar: (dados: unknown) => http<EmpresaConfig>('/empresa', { method: 'PUT', body: dados }),
   enviarLogo: (arquivo: File, aoProgredir?: (pct: number) => void) =>
     upload<EmpresaConfig>('/empresa/logo', arquivo, aoProgredir),
+  salvarTema: (corTema: string) => http<EmpresaConfig>('/empresa/tema', { method: 'PUT', body: { corTema } }),
 }
 
 export const statusApi = {

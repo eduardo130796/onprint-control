@@ -158,6 +158,7 @@ export const navegacao: NavModulo[] = [
     fase: 1,
     filhos: [
       { titulo: 'Dados da empresa', path: '/configuracoes/empresa', fase: 1 },
+      { titulo: 'Aparência', path: '/configuracoes/aparencia', fase: 14 },
       { titulo: 'Usuários', path: '/configuracoes/usuarios', fase: 1, novo: 'Novo usuário', modulo: 'usuarios' },
       { titulo: 'Permissões', path: '/configuracoes/permissoes', fase: 1, modulo: 'permissoes' },
       { titulo: 'Templates de mensagens', path: '/configuracoes/templates', fase: 1, novo: 'Novo template' },

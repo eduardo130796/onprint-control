@@ -8,7 +8,7 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-marca font-semibold text-grafite-escuro hover:bg-marca-hover',
+        default: 'bg-marca font-semibold text-marca-contraste hover:bg-marca-hover',
         secondary: 'bg-grafite text-white hover:bg-grafite-escuro',
         destructive: 'bg-coral-escuro text-white hover:bg-coral-escuro/90',
         // Secundário com peso: borda marcada, sombra e texto forte; no hover, o verde da marca

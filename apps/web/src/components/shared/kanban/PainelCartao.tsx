@@ -57,7 +57,7 @@ export function AcaoPainel({ icone: Icone, rotulo, onClick, carregando, destaque
       disabled={carregando}
       className={cn(
         'flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca disabled:opacity-60',
-        destaque ? 'border-transparent bg-marca font-semibold text-grafite-escuro hover:bg-marca-hover' : 'border-border bg-card text-grafite hover:bg-fundo',
+        destaque ? 'border-transparent bg-marca font-semibold text-marca-contraste hover:bg-marca-hover' : 'border-border bg-card text-grafite hover:bg-fundo',
       )}
     >
       {carregando ? <Loader2 className="h-5 w-5 animate-spin" /> : <Icone className="h-5 w-5" />}

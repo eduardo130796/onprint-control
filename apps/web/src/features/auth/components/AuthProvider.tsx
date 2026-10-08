@@ -5,6 +5,7 @@ import { authApi } from '@/api/auth'
 import { aoAssinaturaMudar, aoSessaoExpirar, renovarSessao, talvezHajaSessao } from '@/api/http'
 import { definirEmpresaAtual } from '@/lib/empresaAtual'
 import { AuthContext } from '../authContext'
+import type { MarcaEmpresa } from '../types'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
@@ -69,9 +70,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(resposta.usuario)
   }, [])
 
+  const atualizarMarca = useCallback((marca: MarcaEmpresa) => {
+    setUsuario((u) => (u ? { ...u, empresa: { ...u.empresa, ...marca } } : u))
+  }, [])
+
   const valor = useMemo(
-    () => ({ usuario, carregando, entrar, sair, trocarSenha }),
-    [usuario, carregando, entrar, sair, trocarSenha],
+    () => ({ usuario, carregando, entrar, sair, trocarSenha, atualizarMarca }),
+    [usuario, carregando, entrar, sair, trocarSenha, atualizarMarca],
   )
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>

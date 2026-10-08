@@ -101,7 +101,7 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca-escuro',
                 )}
               >
-                <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', marcado ? 'bg-marca text-grafite' : 'bg-fundo text-grafite')}>
+                <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', marcado ? 'bg-marca text-marca-contraste' : 'bg-fundo text-grafite')}>
                   <Icone className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <span>

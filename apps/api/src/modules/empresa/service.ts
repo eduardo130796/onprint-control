@@ -27,6 +27,14 @@ export function criarEmpresaService(app: FastifyInstance, arquivos: ArquivosServ
       })
     },
 
+    /** Cor do tema do sistema (paleta fechada; vale para todos os usuários da empresa). */
+    async trocarTema(corTema: string, usuarioId: string) {
+      const antes = await obter()
+      const empresa = await prisma.empresaConfig.update({ where: { id: antes.id }, data: { corTema } })
+      await registrarAuditoria(prisma, { tabela: 'empresa_config', registroId: empresa.id, acao: 'editar', antes: { corTema: antes.corTema }, depois: { corTema }, usuarioId })
+      return empresa
+    },
+
     /** Recebe o novo logo (PNG, JPG ou SVG), vincula à empresa e remove o anterior. */
     async trocarLogo(request: FastifyRequest, usuarioId: string) {
       const antes = await obter()

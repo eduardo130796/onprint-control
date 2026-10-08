@@ -1,3 +1,4 @@
+import { CODIGOS_TEMA, type CodigoTema } from '../temas'
 import { z } from 'zod'
 import { SENHA_MIN } from './auth'
 import { CATEGORIAS_TEMPLATE, ENTIDADES_COM_STATUS_PROPRIO, ENTIDADES_STATUS } from '../enums'
@@ -51,6 +52,10 @@ export const permissoesPapelSchema = z.object({
 export type PermissoesPapelInput = z.input<typeof permissoesPapelSchema>
 
 // ─── Empresa ────────────────────────────────────────────────────────────────
+
+/** Aparência (Configurações → Aparência): cor do tema da empresa */
+export const temaEmpresaSchema = z.object({ corTema: z.enum(CODIGOS_TEMA as [CodigoTema, ...CodigoTema[]]) })
+export type TemaEmpresaInput = z.infer<typeof temaEmpresaSchema>
 
 export const empresaSchema = z.object({
   razaoSocial: z.string().trim().min(2, 'Informe a razão social.').max(200),

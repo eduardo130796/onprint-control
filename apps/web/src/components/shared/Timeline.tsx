@@ -6,7 +6,7 @@ const ICONES: Record<EventoHistorico['tipo'], { icone: LucideIcon; cor: string }
   pedido: { icone: ShoppingCart, cor: 'bg-grafite text-white' },
   arte: { icone: FileImage, cor: 'bg-purple-500 text-white' },
   producao: { icone: Factory, cor: 'bg-sky-600 text-white' },
-  entrega: { icone: Truck, cor: 'bg-marca text-grafite-escuro' },
+  entrega: { icone: Truck, cor: 'bg-marca text-marca-contraste' },
   financeiro: { icone: Banknote, cor: 'bg-verde text-white' },
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { carregarEnv } from '../src/config/env'
-import { cobrancaDoAsaas, notaDoAsaas, situacaoAsaas, situacaoNotaAsaas } from '../src/integrations/pagamentos/asaas'
+import { cobrancaDoAsaas, dataHoraAsaas, notaDoAsaas, situacaoAsaas, situacaoAutorizacaoAsaas, situacaoNotaAsaas } from '../src/integrations/pagamentos/asaas'
 import { criarGateway } from '../src/integrations/pagamentos'
 
 describe('Asaas: situação da cobrança', () => {
@@ -46,6 +46,19 @@ describe('Asaas: nota fiscal', () => {
     expect(notaDoAsaas({ id: 'inv_1', payment: 'pay_1', status: 'ERROR', statusDescription: 'Código de serviço inválido' })).toMatchObject({ situacao: 'erro', erro: 'Código de serviço inválido' })
     expect(notaDoAsaas({ id: 'inv_2', payment: 'pay_1', status: 'AUTHORIZED', number: '123', pdfUrl: 'https://x/nf.pdf' })).toMatchObject({ situacao: 'emitida', numero: '123', erro: null })
     expect(notaDoAsaas({ id: 'inv_3', status: 'AUTHORIZED' })).toBeNull()
+  })
+})
+
+describe('Asaas: PIX Automático', () => {
+  it('situação da autorização', () => {
+    expect(situacaoAutorizacaoAsaas('CREATED')).toBe('aguardando')
+    expect(situacaoAutorizacaoAsaas('ACTIVE')).toBe('ativa')
+    for (const s of ['CANCELLED', 'REFUSED', 'EXPIRED']) expect(situacaoAutorizacaoAsaas(s)).toBe('encerrada')
+  })
+  it('validade do QR no horário de Brasília (ou ISO completo)', () => {
+    expect(dataHoraAsaas('2026-10-10 14:30:00').toISOString()).toBe('2026-10-10T17:30:00.000Z')
+    expect(dataHoraAsaas('2026-10-10T14:30:00Z').toISOString()).toBe('2026-10-10T14:30:00.000Z')
+    expect(dataHoraAsaas('2026-10-10T14:30:00-03:00').toISOString()).toBe('2026-10-10T17:30:00.000Z')
   })
 })
 

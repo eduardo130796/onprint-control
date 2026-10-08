@@ -38,6 +38,10 @@ export const assinaturaRoutes: FastifyPluginAsyncZod = async (app) => {
     await service.trocarForma(request.body.forma, await email(request))
     return { ok: true }
   })
+  app.post('/assinatura/pix-automatico/novo-qr', { onRequest: [exigirGestor], config: livre, schema: { tags, summary: 'Gera outro QR Code do PIX Automático' } }, async (request) => {
+    await service.novoQrPix(await email(request))
+    return { ok: true }
+  })
   app.post('/assinatura/cancelar', { onRequest: [exigirGestor], config: livre, schema: { tags, summary: 'Cancela a recorrência (acesso até o fim do período)' } }, async (request) =>
     service.cancelar(await email(request)),
   )

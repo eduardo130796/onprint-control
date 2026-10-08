@@ -51,6 +51,8 @@ const envSchema = z.object({
   ASAAS_API_URL: z.string().default(''),
   /** Token que o Asaas manda no cabeçalho asaas-access-token de cada webhook */
   ASAAS_WEBHOOK_TOKEN: z.string().default(''),
+  /** PIX Automático liberado na conta Asaas (o Asaas habilita a pedido; sem isso a API responde 403) */
+  ASAAS_PIX_AUTOMATICO: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   /** NFS-e automática da mensalidade (a conta Asaas precisa estar habilitada para notas) */
   ASAAS_NF_ATIVA: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   ASAAS_NF_SERVICO_ID: z.string().default(''),

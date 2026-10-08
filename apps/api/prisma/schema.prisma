@@ -1757,50 +1757,56 @@ model Plano {
  * Assinatura de uma empresa (uma por empresa). O nível de acesso é calculado (calcularAcesso).
  */
 model Assinatura {
-  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  assinanteId         String    @unique @map("assinante_id") @db.Uuid
-  planoId             String    @map("plano_id") @db.Uuid
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assinanteId          String    @unique @map("assinante_id") @db.Uuid
+  planoId              String    @map("plano_id") @db.Uuid
   /**
    * teste | ativa | cancelada
    */
-  situacao            String    @default("teste")
-  testeAte            DateTime? @map("teste_ate") @db.Date
+  situacao             String    @default("teste")
+  testeAte             DateTime? @map("teste_ate") @db.Date
   /**
    * Vencimento da cobrança mais antiga ainda não paga (null = em dia)
    */
-  atrasoDesde         DateTime? @map("atraso_desde") @db.Date
-  proximoVencimento   DateTime? @map("proximo_vencimento") @db.Date
+  atrasoDesde          DateTime? @map("atraso_desde") @db.Date
+  proximoVencimento    DateTime? @map("proximo_vencimento") @db.Date
   /**
    * Liberação manual: acesso normal até esta data, mesmo com atraso
    */
-  liberadoAte         DateTime? @map("liberado_ate") @db.Date
-  bloqueioManual      Boolean   @default(false) @map("bloqueio_manual")
-  motivoBloqueio      String?   @map("motivo_bloqueio")
+  liberadoAte          DateTime? @map("liberado_ate") @db.Date
+  bloqueioManual       Boolean   @default(false) @map("bloqueio_manual")
+  motivoBloqueio       String?   @map("motivo_bloqueio")
   /**
    * Módulos contratados além dos do plano
    */
-  modulosExtras       String[]  @default([]) @map("modulos_extras")
-  canceladaEm         DateTime? @map("cancelada_em") @db.Timestamptz(3)
+  modulosExtras        String[]  @default([]) @map("modulos_extras")
+  canceladaEm          DateTime? @map("cancelada_em") @db.Timestamptz(3)
   /**
    * Cancelamento pedido pela empresa: vale a partir desta data (fim do período pago)
    */
-  cancelarEm          DateTime? @map("cancelar_em") @db.Date
+  cancelarEm           DateTime? @map("cancelar_em") @db.Date
   /**
    * asaas | manual (sem gateway: o suporte registra as cobranças)
    */
-  gateway             String    @default("manual")
-  gatewayClienteId    String?   @map("gateway_cliente_id")
-  gatewayAssinaturaId String?   @unique @map("gateway_assinatura_id")
+  gateway              String    @default("manual")
+  gatewayClienteId     String?   @map("gateway_cliente_id")
+  gatewayAssinaturaId  String?   @unique @map("gateway_assinatura_id")
   /**
-   * pix_boleto (o cliente escolhe na fatura) | cartao (cobrança automática)
+   * pix_automatico (débito autorizado no banco) | cartao (cobrança automática) | pix_boleto (paga a cada mês)
    */
-  formaPagamento      String?   @map("forma_pagamento")
+  formaPagamento       String?   @map("forma_pagamento")
   /**
    * CPF/CNPJ usado na cobrança e na nota fiscal
    */
-  documentoCobranca   String?   @map("documento_cobranca")
-  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  documentoCobranca    String?   @map("documento_cobranca")
+  /// PIX Automático: autorização no Asaas (vira assinatura quando o pagador autoriza no banco)
+  gatewayAutorizacaoId String?   @unique @map("gateway_autorizacao_id")
+  /// QR Code da autorização + 1ª mensalidade (copia e cola e imagem em base64), enquanto aguarda
+  pixQrPayload         String?   @map("pix_qr_payload")
+  pixQrImagem          String?   @map("pix_qr_imagem")
+  pixQrExpiraEm        DateTime? @map("pix_qr_expira_em") @db.Timestamptz(3)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   assinante Assinante @relation(fields: [assinanteId], references: [id], onDelete: Cascade)
   plano     Plano     @relation(fields: [planoId], references: [id], onDelete: Restrict)
@@ -1893,7 +1899,9 @@ model EventoGateway {
   @@map("eventos_gateway")
 }
 
-/** Administrador da plataforma (dono do sistema / suporte): login próprio, separado dos usuários das empresas. */
+/**
+ * Administrador da plataforma (dono do sistema / suporte): login próprio, separado dos usuários das empresas.
+ */
 model AdminPlataforma {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nome        String

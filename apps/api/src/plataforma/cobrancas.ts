@@ -1,7 +1,7 @@
 import { Prisma, type PrismaClient } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
 import { adicionarMeses, formatarMoeda, hojeISO } from '@onprint/shared'
-import { cobrancaDoAsaas, notaDoAsaas, type NotaAsaas, type PagamentoAsaas } from '../integrations/pagamentos/asaas'
+import { cobrancaDoAsaas, notaDoAsaas, situacaoAutorizacaoAsaas, type AutorizacaoAsaas, type NotaAsaas, type PagamentoAsaas } from '../integrations/pagamentos/asaas'
 import type { CobrancaGateway, NotaFiscalGateway } from '../integrations/pagamentos'
 import { diaISO, paraDia } from './assinaturas'
 
@@ -66,13 +66,40 @@ async function registrarEvento(plataforma: PrismaClient, assinanteId: string, ti
 }
 
 /** Aplica um aviso do Asaas (cobrança ou nota fiscal). Lança erro se não reconhecer a assinatura. */
-export async function aplicarEventoAsaas(app: FastifyInstance, tipo: string, corpo: { payment?: PagamentoAsaas; invoice?: NotaAsaas }) {
+const MOTIVO_FIM_AUTORIZACAO: Record<string, string> = {
+  PIX_AUTOMATIC_RECURRING_AUTHORIZATION_CANCELLED: 'cancelada',
+  PIX_AUTOMATIC_RECURRING_AUTHORIZATION_REFUSED: 'recusada no banco',
+  PIX_AUTOMATIC_RECURRING_AUTHORIZATION_EXPIRED: 'expirada (o QR Code não foi pago a tempo)',
+}
+
+/** PIX Automático: autorizada → guarda a assinatura criada pelo Asaas; encerrada → libera para autorizar de novo. */
+async function aplicarAutorizacaoPix(plataforma: PrismaClient, tipo: string, aut: AutorizacaoAsaas) {
+  const assinatura = await plataforma.assinatura.findUnique({ where: { gatewayAutorizacaoId: aut.id } })
+  if (!assinatura) throw new Error(`Autorização do PIX Automático ${aut.id} que não está no sistema.`)
+  const situacao = situacaoAutorizacaoAsaas(aut.status)
+  if (situacao === 'ativa' || tipo === 'PIX_AUTOMATIC_RECURRING_AUTHORIZATION_ACTIVATED') {
+    await plataforma.assinatura.update({
+      where: { id: assinatura.id },
+      data: { gatewayAssinaturaId: aut.subscriptionId ?? assinatura.gatewayAssinaturaId, pixQrPayload: null, pixQrImagem: null, pixQrExpiraEm: null },
+    })
+    return registrarEvento(plataforma, assinatura.assinanteId, 'pix_automatico', 'PIX Automático autorizado no banco: as próximas mensalidades serão debitadas sozinhas')
+  }
+  if (situacao === 'encerrada') {
+    await plataforma.assinatura.update({ where: { id: assinatura.id }, data: { gatewayAutorizacaoId: null, pixQrPayload: null, pixQrImagem: null, pixQrExpiraEm: null } })
+    const motivo = MOTIVO_FIM_AUTORIZACAO[tipo] ?? 'encerrada'
+    await registrarEvento(plataforma, assinatura.assinanteId, 'falha_pagamento', `Autorização do PIX Automático ${motivo}${aut.cancellationReason ? ` (${aut.cancellationReason})` : ''}`)
+  }
+}
+
+export async function aplicarEventoAsaas(app: FastifyInstance, tipo: string, corpo: { payment?: PagamentoAsaas; invoice?: NotaAsaas; authorization?: AutorizacaoAsaas }) {
   const { plataforma } = app
+  if (corpo.authorization && tipo.startsWith('PIX_AUTOMATIC_RECURRING_AUTHORIZATION')) await aplicarAutorizacaoPix(plataforma, tipo, corpo.authorization)
   if (corpo.payment) {
     const c = cobrancaDoAsaas(corpo.payment)
     if (tipo === 'PAYMENT_DELETED') c.situacao = 'cancelada'
+    // Pela assinatura ou pelo cliente: a 1ª mensalidade do PIX Automático chega antes de a assinatura existir
     const assinatura = await plataforma.assinatura.findFirst({
-      where: c.assinaturaGatewayId ? { gatewayAssinaturaId: c.assinaturaGatewayId } : { gatewayClienteId: c.clienteGatewayId ?? '-' },
+      where: { OR: [...(c.assinaturaGatewayId ? [{ gatewayAssinaturaId: c.assinaturaGatewayId }] : []), ...(c.clienteGatewayId ? [{ gatewayClienteId: c.clienteGatewayId }] : [])] },
     })
     if (!assinatura) throw new Error(`Cobrança ${c.gatewayId} de uma assinatura que não está no sistema.`)
     const recusa =
@@ -102,7 +129,7 @@ export async function aplicarEventoAsaas(app: FastifyInstance, tipo: string, cor
  * Webhook do Asaas: guarda o aviso (o id do evento impede processar duas vezes) e aplica.
  * Erro ao aplicar fica registrado no evento e a conferência diária corrige; o Asaas sempre recebe 200.
  */
-export async function receberEventoAsaas(app: FastifyInstance, corpo: { id?: string; event?: string; payment?: PagamentoAsaas; invoice?: NotaAsaas }) {
+export async function receberEventoAsaas(app: FastifyInstance, corpo: { id?: string; event?: string; payment?: PagamentoAsaas; invoice?: NotaAsaas; authorization?: AutorizacaoAsaas }) {
   const eventoId = String(corpo.id ?? '')
   const tipo = String(corpo.event ?? 'DESCONHECIDO')
   if (!eventoId) return { situacao: 'ignorado' as const }
@@ -133,10 +160,19 @@ export async function conciliarAssinaturas(app: FastifyInstance) {
   let cobrancas = 0
   const falhas: string[] = []
   if (pagamentos) {
-    const comGateway = await plataforma.assinatura.findMany({ where: { gateway: 'asaas', gatewayAssinaturaId: { not: null } } })
+    const comGateway = await plataforma.assinatura.findMany({ where: { gateway: 'asaas', gatewayClienteId: { not: null } } })
     for (const a of comGateway) {
       try {
-        for (const c of await pagamentos.cobrancasDaAssinatura(a.gatewayAssinaturaId as string)) {
+        // PIX Automático ainda aguardando: confere se o pagador já autorizou (ou se a autorização acabou)
+        if (a.gatewayAutorizacaoId && !a.gatewayAssinaturaId) {
+          const aut = await pagamentos.consultarAutorizacaoPix(a.gatewayAutorizacaoId)
+          if (aut.situacao !== 'aguardando') {
+            const status = aut.situacao === 'ativa' ? 'ACTIVE' : 'CANCELLED'
+            await aplicarAutorizacaoPix(plataforma, '', { id: a.gatewayAutorizacaoId, status, subscriptionId: aut.assinaturaId })
+          }
+        }
+        // Por cliente: pega todas as mensalidades (inclusive a 1ª do PIX Automático e as de assinaturas anteriores)
+        for (const c of await pagamentos.cobrancasDoCliente(a.gatewayClienteId as string)) {
           await salvarCobranca(plataforma, a.assinanteId, c)
           cobrancas++
         }

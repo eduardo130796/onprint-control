@@ -1,7 +1,13 @@
 import type { Env } from '../../config/env'
-import { ErroGateway, type CobrancaGateway, type FormaAssinatura, type GatewayPagamentos, type NotaFiscalGateway, type SituacaoCobranca, type SituacaoNotaFiscal } from './index'
+import { ErroGateway, type AutorizacaoPixNova, type CobrancaGateway, type SituacaoAutorizacaoPix, type FormaAssinatura, type GatewayPagamentos, type NotaFiscalGateway, type SituacaoCobranca, type SituacaoNotaFiscal } from './index'
 
 const URLS = { sandbox: 'https://api-sandbox.asaas.com/v3', producao: 'https://api.asaas.com/v3' } as const
+const tipoCobranca = (forma: FormaAssinatura) => (forma === 'cartao' ? 'CREDIT_CARD' : 'UNDEFINED')
+
+/** "2026-10-10 14:30:00" (horário de Brasília) ou ISO completo → Date. */
+export function dataHoraAsaas(texto: string): Date {
+  return /[TZ]|[+-]\d{2}:\d{2}$/.test(texto) ? new Date(texto) : new Date(`${texto.replace(' ', 'T')}-03:00`)
+}
 
 /** Cobrança (payment) como o Asaas devolve na API e nos webhooks (só os campos usados). */
 export interface PagamentoAsaas {
@@ -68,6 +74,21 @@ export function notaDoAsaas(n: NotaAsaas): NotaFiscalGateway | null {
   return { cobrancaGatewayId: n.payment, situacao, numero: n.number ?? null, linkPdf: n.pdfUrl ?? null, erro: situacao === 'erro' ? (n.statusDescription ?? 'Erro na emissão') : null }
 }
 
+/** Autorização do PIX Automático (resposta da API e objeto `authorization` dos webhooks). */
+export interface AutorizacaoAsaas {
+  id: string
+  status: string
+  subscriptionId?: string | null
+  customerId?: string | null
+  cancellationReason?: string | null
+}
+
+export function situacaoAutorizacaoAsaas(status: string): SituacaoAutorizacaoPix {
+  if (status === 'ACTIVE') return 'ativa'
+  if (status === 'CREATED') return 'aguardando'
+  return 'encerrada'
+}
+
 export class AsaasGateway implements GatewayPagamentos {
   readonly nome = 'asaas' as const
   private readonly base: string
@@ -92,7 +113,8 @@ export class AsaasGateway implements GatewayPagamentos {
     const json = texto ? (JSON.parse(texto) as Record<string, unknown>) : {}
     if (!resposta.ok) {
       const erros = (json.errors as { description?: string }[] | undefined)?.map((e) => e.description).filter(Boolean)
-      throw new ErroGateway(erros?.length ? `Asaas: ${erros.join(' ')}` : `Asaas respondeu ${resposta.status}.`, resposta.status)
+      const mensagem = erros?.length ? erros.join(' ') : typeof json.message === 'string' ? json.message : `respondeu ${resposta.status}`
+      throw new ErroGateway(`Asaas: ${mensagem}`, resposta.status)
     }
     return json as T
   }
@@ -112,7 +134,7 @@ export class AsaasGateway implements GatewayPagamentos {
     const r = await this.chamar<{ id: string }>('POST', '/subscriptions', {
       customer: d.clienteId,
       // UNDEFINED: na fatura o cliente escolhe PIX, boleto ou cartão; CREDIT_CARD: o cartão fica salvo e as próximas são automáticas
-      billingType: d.forma === 'cartao' ? 'CREDIT_CARD' : 'UNDEFINED',
+      billingType: tipoCobranca(d.forma),
       value: Number(d.valor),
       nextDueDate: d.proximoVencimento,
       cycle: 'MONTHLY',
@@ -125,7 +147,7 @@ export class AsaasGateway implements GatewayPagamentos {
   async alterarAssinatura(id: string, d: { valor?: string; forma?: FormaAssinatura }) {
     await this.chamar('PUT', `/subscriptions/${id}`, {
       ...(d.valor ? { value: Number(d.valor) } : {}),
-      ...(d.forma ? { billingType: d.forma === 'cartao' ? 'CREDIT_CARD' : 'UNDEFINED' } : {}),
+      ...(d.forma ? { billingType: tipoCobranca(d.forma) } : {}),
       updatePendingPayments: true,
     })
   }
@@ -137,6 +159,45 @@ export class AsaasGateway implements GatewayPagamentos {
   async cobrancasDaAssinatura(id: string) {
     const r = await this.chamar<{ data: PagamentoAsaas[] }>('GET', `/subscriptions/${id}/payments?limit=100`)
     return r.data.map(cobrancaDoAsaas)
+  }
+
+  async cobrancasDoCliente(clienteId: string) {
+    const r = await this.chamar<{ data: PagamentoAsaas[] }>('GET', `/payments?customer=${encodeURIComponent(clienteId)}&limit=100`)
+    return r.data.map(cobrancaDoAsaas)
+  }
+
+  async criarAutorizacaoPix(d: { clienteId: string; valor: string; inicio: string; descricao: string; contrato: string }): Promise<AutorizacaoPixNova> {
+    const r = await this.chamar<{ id: string; payload?: string; encodedImage?: string; immediateQrCode?: { expirationDate?: string; payload?: string; encodedImage?: string } }>(
+      'POST',
+      '/pix/automatic/authorizations',
+      {
+        customerId: d.clienteId,
+        frequency: 'MONTHLY',
+        contractId: d.contrato.slice(0, 35),
+        startDate: d.inicio,
+        value: Number(d.valor),
+        description: d.descricao.slice(0, 35),
+        // O Asaas cria a assinatura sozinho quando o pagador autoriza; as mensalidades vêm por ela
+        paymentCreationMode: 'SUBSCRIPTION',
+        // Saldo insuficiente no dia: o banco tenta de novo (até 3 vezes em 7 dias)
+        retryPolicy: 'ALLOW_THREE_IN_SEVEN_DAYS',
+        immediateQrCode: { originalValue: Number(d.valor), expirationSeconds: 2 * 86_400, description: d.descricao.slice(0, 35) },
+      },
+    )
+    const payload = r.payload ?? r.immediateQrCode?.payload
+    if (!payload) throw new ErroGateway('O Asaas não devolveu o QR Code do PIX Automático.')
+    const imagem = r.encodedImage ?? r.immediateQrCode?.encodedImage ?? null
+    const expira = r.immediateQrCode?.expirationDate
+    return { id: r.id, copiaECola: payload, imagem, expiraEm: expira ? dataHoraAsaas(expira) : null }
+  }
+
+  async consultarAutorizacaoPix(id: string) {
+    const r = await this.chamar<AutorizacaoAsaas>('GET', `/pix/automatic/authorizations/${id}`)
+    return { situacao: situacaoAutorizacaoAsaas(r.status), assinaturaId: r.subscriptionId ?? null }
+  }
+
+  async cancelarAutorizacaoPix(id: string) {
+    await this.chamar('DELETE', `/pix/automatic/authorizations/${id}`)
   }
 
   async notaFiscalDaCobranca(cobrancaGatewayId: string) {

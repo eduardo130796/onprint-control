@@ -5,13 +5,15 @@ import { formatarDataHora, type Notificacao } from '@onprint/shared'
 import { notificacoesApi } from '@/api/relatorios'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils'
 
 /** Central de notificações (sino da barra): últimas 20, contador de não lidas e "marcar todas". Atualiza pelo tempo real. */
 export function Notificacoes() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const lista = useQuery({ queryKey: ['notificacoes'], queryFn: () => notificacoesApi.listar({ pageSize: 20 }), refetchInterval: 5 * 60 * 1000 })
+  const { usuario } = useAuth()
+  const lista = useQuery({ queryKey: ['notificacoes'], queryFn: () => notificacoesApi.listar({ pageSize: 20 }), refetchInterval: 5 * 60 * 1000, enabled: usuario?.assinatura?.nivel !== 'bloqueado' })
   const naoLidas = lista.data?.naoLidas ?? 0
   const atualizar = () => queryClient.invalidateQueries({ queryKey: ['notificacoes'] })
 

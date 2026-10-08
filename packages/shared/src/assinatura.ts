@@ -140,7 +140,7 @@ export const ACOES_ESCRITA: readonly Acao[] = ACOES.filter((a) => !ACOES_LEITURA
 /** Tela "Minha assinatura" (GET /assinatura). */
 export interface MinhaAssinatura {
   situacao: SituacaoAssinatura
-  plano: { codigo: string; nome: string; descricao: string | null; valorMensal: string; limiteUsuarios: number | null; diasAteSomenteLeitura: number; diasAteBloqueio: number }
+  plano: { codigo: string; nome: string; descricao: string | null; valorMensal: string; limiteUsuarios: number | null; diasTeste: number; diasAteSomenteLeitura: number; diasAteBloqueio: number }
   acesso: AcessoAssinatura
   testeAte: string | null
   proximoVencimento: string | null
@@ -149,7 +149,7 @@ export interface MinhaAssinatura {
   usuariosAtivos: number
   /** Módulos do sistema (menos os essenciais): incluídos no plano atual ou em quais planos existem */
   modulos: { codigo: Modulo; rotulo: string; incluido: boolean; planos: string[] }[]
-  planos: { codigo: string; nome: string; descricao: string | null; valorMensal: string; limiteUsuarios: number | null; atual: boolean }[]
+  planos: { codigo: string; nome: string; descricao: string | null; valorMensal: string; limiteUsuarios: number | null; atual: boolean; modulos: string[] }[]
   /** Contato do suporte para pagar ou mudar de plano (vazio se não configurado) */
   suporte: string
   /** Pagamento online (Asaas) disponível na plataforma */
@@ -158,7 +158,11 @@ export interface MinhaAssinatura {
   podeGerenciar: boolean
   /** Já assinou pelo pagamento online (tem assinatura no gateway) */
   assinadaOnline: boolean
-  formaPagamento: 'pix_boleto' | 'cartao' | null
+  formaPagamento: 'pix_automatico' | 'pix_boleto' | 'cartao' | null
+  /** Formas oferecidas (o PIX Automático só quando liberado na conta do gateway) */
+  formasDisponiveis: ('pix_automatico' | 'pix_boleto' | 'cartao')[]
+  /** PIX Automático aguardando a autorização no banco: QR Code da 1ª mensalidade */
+  pixAutomatico: { copiaECola: string; imagem: string | null; expiraEm: string | null } | null
   /** Cancelamento pedido: o acesso segue até esta data */
   cancelarEm: string | null
   /** Para preencher o formulário de assinatura */

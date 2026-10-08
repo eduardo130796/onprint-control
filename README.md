@@ -123,6 +123,8 @@ Outras opções: `--teste-ate`, `--bloquear "motivo"` / `--desbloquear`, `--canc
 
 ## Pagamento online (Asaas)
 
+Formas de pagamento oferecidas: **PIX Automático** (a pessoa autoriza uma vez no app do banco e as mensalidades são debitadas sozinhas), **cartão de crédito** (cobrança automática) e **PIX ou boleto a cada mês**. O PIX Automático precisa ser **liberado pelo Asaas na sua conta** (sem isso a API do Asaas responde "Você não possui permissão para utilizar este recurso"); depois de liberado, ligue com `ASAAS_PIX_AUTOMATICO=true` e inclua no webhook os eventos de **PIX Automático** (`PIX_AUTOMATIC_RECURRING_*`).
+
 Sem `ASAAS_API_KEY`, o sistema fica no **modo manual**: as cobranças são lançadas e baixadas pelo suporte (`--cobranca-manual AAAA-MM-DD` e `--registrar-pagamento` no comando `assinatura`). Com a chave, o administrador de cada empresa assina, paga, troca de plano/forma e cancela em **Configurações → Minha assinatura**.
 
 **Ligar o sandbox (testes, sem dinheiro de verdade):**

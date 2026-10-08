@@ -1,150 +1,101 @@
+import { useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Check, Clock, Eye, Lock, MessageCircle, ShieldCheck, Users } from 'lucide-react'
-import { NIVEL_ACESSO_ROTULOS, SITUACAO_ASSINATURA_ROTULOS, formatarDataSimples, formatarMoeda, type NivelAcesso } from '@onprint/shared'
+import { CalendarX, MessageCircle, ShieldCheck } from 'lucide-react'
+import { formatarDataSimples } from '@onprint/shared'
 import { assinaturaApi } from '@/api/assinatura'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { EstadoErro } from '@/components/shared/EstadoErro'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/hooks/useAuth'
-import { cn } from '@/lib/utils'
-import { AssinarCard } from '../components/AssinarCard'
+import { CartoesPlanos } from '../components/CartoesPlanos'
+import { EscolherAssinatura } from '../components/EscolherAssinatura'
+import { GerenciarAssinatura } from '../components/GerenciarAssinatura'
+import { HeroAssinatura } from '../components/HeroAssinatura'
 import { HistoricoCobrancas } from '../components/HistoricoCobrancas'
-import { PagamentoCard } from '../components/PagamentoCard'
+import { LinhaDoTempoAtraso } from '../components/LinhaDoTempoAtraso'
+import { PixAutomaticoQr } from '../components/PixAutomaticoQr'
 
-const NIVEL: Record<NivelAcesso, { cor: string; Icone: typeof Check }> = {
-  normal: { cor: 'bg-marca-suave text-grafite ring-marca/40', Icone: ShieldCheck },
-  aviso: { cor: 'bg-amber-50 text-amber-900 ring-amber-300', Icone: Clock },
-  somente_leitura: { cor: 'bg-coral/10 text-coral-escuro ring-coral/40', Icone: Eye },
-  bloqueado: { cor: 'bg-grafite text-white ring-grafite', Icone: Lock },
-}
-
-function Dado({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <dt className="text-xs text-texto-secundario">{rotulo}</dt>
-      <dd className="font-medium text-grafite">{children}</dd>
-    </div>
-  )
-}
-
-/** Plano, situação (com o porquê), módulos e planos. Acessível mesmo com o sistema bloqueado. */
+/**
+ * "Minha assinatura": plano e situação em destaque, o que fazer agora (pagar, assinar, autorizar o PIX),
+ * gestão da assinatura e mensalidades. Funciona mesmo com o sistema bloqueado.
+ */
 export function MinhaAssinaturaPage() {
   const { usuario } = useAuth()
-  const consulta = useQuery({ queryKey: ['assinatura'], queryFn: assinaturaApi.obter })
+  const assinar = useRef<HTMLElement>(null)
+  const consulta = useQuery({
+    queryKey: ['assinatura'],
+    queryFn: assinaturaApi.obter,
+    // Aguardando a autorização do PIX Automático: confere a cada 10 s (a tela muda sozinha quando o banco confirmar)
+    refetchInterval: (q) => (q.state.data?.pixAutomatico ? 10_000 : false),
+  })
   const a = consulta.data
+  const emAtraso = a && (a.acesso.motivo === 'atraso' || a.acesso.motivo === 'teste_expirado')
 
   return (
     <>
       <PageHeader titulo="Minha assinatura" subtitulo={usuario?.empresa.nome} />
       {consulta.isPending ? (
-        <Skeleton className="h-72 w-full" />
+        <div className="space-y-4">
+          <Skeleton className="h-80 w-full rounded-3xl" />
+          <Skeleton className="h-48 w-full rounded-3xl" />
+        </div>
       ) : consulta.isError || !a ? (
         <Card>
           <EstadoErro erro={consulta.error} onTentarNovamente={() => void consulta.refetch()} />
         </Card>
       ) : (
-        <div className="space-y-4">
-          <Card>
-            <CardContent className="space-y-5 p-5">
-              <div className={cn('flex flex-wrap items-center gap-3 rounded-xl p-4 ring-1', NIVEL[a.acesso.nivel].cor)}>
-                {(() => {
-                  const Icone = NIVEL[a.acesso.nivel].Icone
-                  return <Icone className="h-6 w-6 shrink-0" aria-hidden="true" />
-                })()}
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold uppercase tracking-wide opacity-80">Acesso: {NIVEL_ACESSO_ROTULOS[a.acesso.nivel]}</p>
-                  <p className="text-base font-semibold">{a.acesso.mensagem}</p>
-                </div>
+        <div className="space-y-6">
+          <HeroAssinatura a={a} onAssinar={() => assinar.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
+
+          {emAtraso && <LinhaDoTempoAtraso a={a} />}
+
+          {a.cancelarEm && (
+            <div className="flex flex-wrap items-center gap-4 rounded-3xl bg-card p-6 shadow-suave">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-fundo">
+                <CalendarX className="h-6 w-6 text-grafite" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-titulo text-lg font-extrabold text-grafite">Assinatura cancelada</p>
+                <p className="text-sm text-texto-secundario">O sistema funciona normalmente até {formatarDataSimples(a.cancelarEm)}. Mudou de ideia? É só assinar de novo abaixo.</p>
               </div>
+            </div>
+          )}
 
-              <dl className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
-                <Dado rotulo="Plano">
-                  {a.plano.nome} · {formatarMoeda(a.plano.valorMensal)}/mês
-                </Dado>
-                <Dado rotulo="Situação">{SITUACAO_ASSINATURA_ROTULOS[a.situacao]}</Dado>
-                {a.situacao === 'teste' && a.testeAte && <Dado rotulo="Teste grátis até">{formatarDataSimples(a.testeAte)}</Dado>}
-                {a.proximoVencimento && <Dado rotulo="Próximo vencimento">{formatarDataSimples(a.proximoVencimento)}</Dado>}
-                {a.atrasoDesde && <Dado rotulo="Em atraso desde">{formatarDataSimples(a.atrasoDesde)}</Dado>}
-                {a.liberadoAte && <Dado rotulo="Liberado até">{formatarDataSimples(a.liberadoAte)}</Dado>}
-                {a.cancelarEm && <Dado rotulo="Cancelada: acesso até">{formatarDataSimples(a.cancelarEm)}</Dado>}
-                <Dado rotulo="Usuários ativos">
-                  <span className="inline-flex items-center gap-1">
-                    <Users className="h-4 w-4 text-texto-secundario" aria-hidden="true" />
-                    {a.usuariosAtivos} {a.plano.limiteUsuarios ? `de ${a.plano.limiteUsuarios}` : '(sem limite)'}
-                  </span>
-                </Dado>
-              </dl>
+          {a.pixAutomatico && <PixAutomaticoQr a={a} />}
 
-              <div className="rounded-xl bg-fundo p-4 text-sm text-texto-secundario">
-                <p className="font-semibold text-grafite">Se a mensalidade atrasar</p>
-                <ol className="mt-2 grid gap-2 sm:grid-cols-3">
-                  <li>
-                    <strong className="text-amber-900">Até {a.plano.diasAteSomenteLeitura - 1} dias:</strong> tudo funciona, com um aviso no topo.
-                  </li>
-                  <li>
-                    <strong className="text-coral-escuro">A partir de {a.plano.diasAteSomenteLeitura} dias:</strong> só consulta e exportação; nada novo é gravado.
-                  </li>
-                  <li>
-                    <strong className="text-grafite">A partir de {a.plano.diasAteBloqueio} dias:</strong> bloqueio, até o pagamento. Os dados ficam guardados.
-                  </li>
-                </ol>
-              </div>
+          {a.assinadaOnline && !a.pixAutomatico && <GerenciarAssinatura a={a} />}
 
-              {(!a.pagamentoOnline || !a.podeGerenciar || a.suporte) && (
-                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-4 text-sm">
-                  <MessageCircle className="h-5 w-5 shrink-0 text-marca-escuro" aria-hidden="true" />
-                  <p className="min-w-0 flex-1">
-                    {!a.pagamentoOnline
-                      ? 'Para pagar ou mudar de plano, fale com o suporte'
-                      : !a.podeGerenciar
-                        ? 'Só o administrador da empresa assina, troca de plano ou cancela. Dúvidas? Fale com o suporte'
-                        : 'Dúvidas sobre a assinatura? Fale com o suporte'}
-                    {a.suporte ? ': ' : '.'}
-                    {a.suporte && <strong className="text-grafite">{a.suporte}</strong>}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {!a.assinadaOnline &&
+            (a.pagamentoOnline && a.podeGerenciar ? (
+              <EscolherAssinatura ref={assinar} a={a} />
+            ) : (
+              <section className="space-y-4">
+                <h2 className="font-titulo text-xl font-extrabold text-grafite">Planos</h2>
+                <CartoesPlanos planos={a.planos} />
+              </section>
+            ))}
 
-          {a.assinadaOnline ? <PagamentoCard a={a} /> : a.pagamentoOnline && a.podeGerenciar && <AssinarCard a={a} />}
           <HistoricoCobrancas cobrancas={a.cobrancas} />
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Módulos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
-                {a.modulos.map((m) => (
-                  <li key={m.codigo} className={cn('flex items-start gap-2 rounded-lg border p-3', m.incluido ? 'border-marca/40' : 'border-border bg-fundo/60')}>
-                    {m.incluido ? <Check className="mt-0.5 h-4 w-4 shrink-0 text-marca-escuro" aria-hidden="true" /> : <Lock className="mt-0.5 h-4 w-4 shrink-0 text-texto-secundario" aria-hidden="true" />}
-                    <span>
-                      <span className={cn('font-medium', !m.incluido && 'text-texto-secundario')}>{m.rotulo}</span>
-                      {!m.incluido && <span className="block text-xs text-texto-secundario">{m.planos.length ? `No plano ${m.planos.join(' ou ')}` : 'Em breve'}</span>}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
+          {!emAtraso && <LinhaDoTempoAtraso a={a} informativo />}
 
-          <div className="grid gap-4 md:grid-cols-3">
-            {a.planos.map((p) => (
-              <Card key={p.codigo} className={cn('p-5', p.atual && 'ring-2 ring-marca')}>
-                <div className="flex items-baseline justify-between gap-2">
-                  <h2 className="font-titulo text-lg font-extrabold text-grafite">{p.nome}</h2>
-                  {p.atual && <span className="rounded-full bg-marca px-2 py-0.5 text-[11px] font-bold text-grafite">Seu plano</span>}
-                </div>
-                <p className="mt-1 text-2xl font-extrabold text-grafite">
-                  {formatarMoeda(p.valorMensal)}
-                  <span className="text-sm font-medium text-texto-secundario">/mês</span>
-                </p>
-                <p className="mt-2 text-sm text-texto-secundario">{p.descricao}</p>
-                <p className="mt-3 text-sm font-medium">{p.limiteUsuarios ? `Até ${p.limiteUsuarios} usuários` : 'Usuários ilimitados'}</p>
-              </Card>
-            ))}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-3xl bg-card p-6 text-sm shadow-suave">
+            <span className="inline-flex items-center gap-2 text-texto-secundario">
+              <ShieldCheck className="h-5 w-5 text-marca-escuro" aria-hidden="true" /> Seus dados ficam guardados mesmo se a assinatura parar.
+            </span>
+            {(a.suporte || !a.pagamentoOnline || !a.podeGerenciar) && (
+              <span className="inline-flex items-center gap-2 text-texto-secundario">
+                <MessageCircle className="h-5 w-5 text-marca-escuro" aria-hidden="true" />
+                {!a.podeGerenciar ? 'Só o administrador da empresa assina, troca de plano ou cancela.' : !a.pagamentoOnline ? 'Para pagar ou mudar de plano, fale com o suporte' : 'Dúvidas sobre a assinatura? Fale com o suporte'}
+                {a.suporte && (
+                  <>
+                    {' '}
+                    <strong className="text-grafite">{a.suporte}</strong>
+                  </>
+                )}
+              </span>
+            )}
           </div>
         </div>
       )}

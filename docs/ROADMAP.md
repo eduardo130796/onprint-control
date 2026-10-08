@@ -168,6 +168,12 @@ Decisões do usuário: todas as empresas no mesmo sistema; bloqueio escalonado (
 - [ ] Webhook real do Asaas (precisa de URL pública: túnel ou o servidor de produção) e NFS-e (precisa do código de serviço e da alíquota de ISS)
 - [ ] Aceite validado pelo usuário
 
+### Ajustes pós-testes das assinaturas ✅ (aguardando OK)
+- [x] "Minha assinatura" redesenhada (pedido: "ficou muito feia"): cartão principal escuro com plano, preço, situação em pílula colorida, próxima cobrança, forma de pagamento, módulos, anel dos dias de teste, uso de usuários e o botão do momento (pagar / assinar / regularizar); linha do tempo do atraso com as datas de cada etapa; assinatura em 3 passos (planos comparativos, forma de pagamento em cartões, resumo escuro com o valor); painel do QR Code do PIX Automático; gestão de quem já assina; mensalidades em tabela com selo da nota fiscal
+- [x] Faixa de aviso no topo redesenhada: ícone, título, texto de apoio, botão de ação e barra do tempo até a próxima etapa; avisos informativos (teste, liberação) podem ser fechados
+- [x] **PIX Automático** (Asaas): autorização com QR Code da 1ª mensalidade, assinatura criada pelo Asaas quando o banco autoriza, eventos `PIX_AUTOMATIC_RECURRING_AUTHORIZATION_*`, gerar outro QR, cancelamento encerrando a autorização; conferência diária por cliente; ligado por `ASAAS_PIX_AUTOMATICO` (o Asaas libera o recurso na conta — a sandbox do usuário ainda responde 403)
+- [x] Verificado: capturas de tela (Playwright) em desktop e celular dos estados teste, atraso, só leitura, bloqueado, assinante e PIX aguardando; e2e `fase12` com o PIX Automático (11 verificações a mais) e regressão das fases 1–13
+
 ### Fase 13 — Painel da plataforma ✅ (aguardando OK)
 - [x] Login próprio do administrador da plataforma (`admins_plataforma`, token de 8 h na sessão do navegador); token do painel não abre nenhuma empresa e vice-versa; primeiro admin pelo `.env` e comando `admin-plataforma`
 - [x] Painel: empresas por situação (em dia, teste, aviso, só leitura, bloqueadas, canceladas; cada número abre a lista filtrada), receita mensal, mensalidades em risco, recebido no mês, cobranças vencidas, novas empresas e conversões; lista de problemas por gravidade (bloqueio, atraso, cartão recusado, nota com erro, aviso do Asaas não aplicado com "Reprocessar", teste acabando, cancelamento agendado); conferência com o Asaas sob demanda

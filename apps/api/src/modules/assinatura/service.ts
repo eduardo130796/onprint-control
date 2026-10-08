@@ -1,7 +1,9 @@
 import type { Cobranca } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
 import {
+  FORMAS_ASSINATURA,
   FORMA_ASSINATURA_ROTULOS,
+  adicionarMeses,
   MODULOS,
   MODULOS_ESSENCIAIS,
   MODULO_ROTULOS,
@@ -69,6 +71,37 @@ export function criarAssinaturaService(app: FastifyInstance) {
     app.empresas.esquecer()
   }
 
+  /**
+   * PIX Automático: cria a autorização com o QR Code da 1ª mensalidade (paga agora, registra o consentimento).
+   * As próximas são debitadas todo mês a partir de um mês depois; o Asaas cria a assinatura quando o banco autoriza.
+   */
+  async function autorizarPix(
+    assinanteId: string,
+    clienteId: string,
+    plano: { nome: string; valorMensal: { toFixed(n: number): string } },
+    nomeEmpresa: string,
+    dados: Parameters<typeof alterarAssinatura>[2],
+    autor: string,
+  ) {
+    const inicio = adicionarMeses(hojeISO(), 1)
+    const aut = await noGateway(() =>
+      gateway().criarAutorizacaoPix({
+        clienteId,
+        valor: plano.valorMensal.toFixed(2),
+        inicio,
+        descricao: `ONPrint ${plano.nome}`,
+        contrato: `ONP-${assinanteId.slice(0, 8)}-${Date.now().toString(36)}`,
+      }),
+    )
+    await alterarAssinatura(
+      plataforma,
+      assinanteId,
+      { ...dados, gateway: 'asaas', gatewayAutorizacaoId: aut.id, pixQrPayload: aut.copiaECola, pixQrImagem: aut.imagem, pixQrExpiraEm: aut.expiraEm },
+      { tipo: 'assinatura_online', descricao: `PIX Automático solicitado (plano ${plano.nome} de ${nomeEmpresa}); próximas mensalidades a partir de ${formatarDataSimples(inicio)}`, autor },
+    )
+    app.empresas.esquecer()
+  }
+
   async function limiteNoPlano(limite: number | null, nome: string) {
     if (limite == null) return
     const ativos = await app.prisma.usuario.count({ where: { ativo: true } })
@@ -94,6 +127,7 @@ export function criarAssinaturaService(app: FastifyInstance) {
           descricao: a.plano.descricao,
           valorMensal: a.plano.valorMensal.toFixed(2),
           limiteUsuarios: a.plano.limiteUsuarios,
+          diasTeste: a.plano.diasTeste,
           diasAteSomenteLeitura: a.plano.diasAteSomenteLeitura,
           diasAteBloqueio: a.plano.diasAteBloqueio,
         },
@@ -109,12 +143,14 @@ export function criarAssinaturaService(app: FastifyInstance) {
           incluido: resumo.modulos.includes(m),
           planos: planos.filter((p) => p.modulos.includes(m)).map((p) => p.nome),
         })),
-        planos: planos.map((p) => ({ codigo: p.codigo, nome: p.nome, descricao: p.descricao, valorMensal: p.valorMensal.toFixed(2), limiteUsuarios: p.limiteUsuarios, atual: p.id === a.planoId })),
+        planos: planos.map((p) => ({ codigo: p.codigo, nome: p.nome, descricao: p.descricao, valorMensal: p.valorMensal.toFixed(2), limiteUsuarios: p.limiteUsuarios, atual: p.id === a.planoId, modulos: p.modulos })),
         suporte: app.config.SUPORTE_CONTATO,
         pagamentoOnline: Boolean(app.pagamentos),
         podeGerenciar,
-        assinadaOnline: Boolean(a.gatewayAssinaturaId),
+        assinadaOnline: Boolean(a.gatewayAssinaturaId || a.gatewayAutorizacaoId),
         formaPagamento: (a.formaPagamento as FormaAssinatura | null) ?? null,
+        formasDisponiveis: FORMAS_ASSINATURA.filter((f) => f !== 'pix_automatico' || app.config.ASAAS_PIX_AUTOMATICO),
+        pixAutomatico: a.pixQrPayload ? { copiaECola: a.pixQrPayload, imagem: a.pixQrImagem, expiraEm: a.pixQrExpiraEm?.toISOString() ?? null } : null,
         cancelarEm: diaISO(a.cancelarEm),
         documentoSugerido: a.documentoCobranca ?? config?.cnpj ?? null,
         cobrancaAberta: aberta ? resumoCobranca(aberta) : null,
@@ -129,7 +165,7 @@ export function criarAssinaturaService(app: FastifyInstance) {
     async assinar(dados: AssinarInput & { cpfCnpj: string }, email: string) {
       const g = gateway()
       const { empresa, a } = await carregar()
-      if (a.gatewayAssinaturaId) throw AppError.conflito('A assinatura já está no pagamento online. Use "Trocar plano" ou "Forma de pagamento".')
+      if (a.gatewayAssinaturaId || a.gatewayAutorizacaoId) throw AppError.conflito('A assinatura já está no pagamento online. Use "Trocar plano" ou "Forma de pagamento".')
       const plano = await planoPorCodigo(plataforma, dados.plano).catch(() => {
         throw AppError.regraNegocio('Plano indisponível.')
       })
@@ -146,6 +182,11 @@ export function criarAssinaturaService(app: FastifyInstance) {
         )
         // Guarda já: se a criação da assinatura falhar, a nova tentativa reaproveita o cliente
         await plataforma.assinatura.update({ where: { assinanteId: empresa.id }, data: { gateway: 'asaas', gatewayClienteId: clienteId, documentoCobranca: dados.cpfCnpj } })
+      }
+      if (dados.forma === 'pix_automatico' && !app.config.ASAAS_PIX_AUTOMATICO) throw AppError.regraNegocio('O PIX Automático ainda não está disponível. Escolha cartão ou PIX/boleto.')
+      if (dados.forma === 'pix_automatico') {
+        await autorizarPix(empresa.id, clienteId, plano, config?.nomeFantasia || empresa.nome, { formaPagamento: 'pix_automatico', documentoCobranca: dados.cpfCnpj, planoId: plano.id, cancelarEm: null }, email)
+        return { linkPagamento: null }
       }
       const gatewayAssinaturaId = await noGateway(() =>
         g.criarAssinatura({
@@ -179,6 +220,7 @@ export function criarAssinaturaService(app: FastifyInstance) {
         throw AppError.regraNegocio('Plano indisponível.')
       })
       if (plano.id === a.planoId) throw AppError.regraNegocio('Este já é o seu plano.')
+      if (a.gatewayAutorizacaoId && !a.gatewayAssinaturaId) throw AppError.regraNegocio('Conclua a autorização do PIX Automático antes de trocar de plano (ou gere um QR Code novo).')
       if (!a.gatewayAssinaturaId && a.situacao !== 'teste') throw AppError.regraNegocio('Para trocar de plano, fale com o suporte.')
       await limiteNoPlano(plano.limiteUsuarios, plano.nome)
       // As cobranças em aberto acompanham o valor novo
@@ -192,9 +234,23 @@ export function criarAssinaturaService(app: FastifyInstance) {
       const { empresa, a } = await carregar()
       if (!a.gatewayAssinaturaId) throw AppError.regraNegocio('Assine pelo pagamento online primeiro.')
       if (a.formaPagamento === forma) throw AppError.regraNegocio('Esta já é a forma de pagamento.')
+      if (forma === 'pix_automatico' || a.formaPagamento === 'pix_automatico') {
+        throw AppError.regraNegocio('O PIX Automático é uma autorização no seu banco: para entrar ou sair dele, cancele a assinatura atual e assine de novo escolhendo a forma.')
+      }
       await noGateway(() => gateway().alterarAssinatura(a.gatewayAssinaturaId as string, { forma }))
       await alterarAssinatura(plataforma, empresa.id, { formaPagamento: forma }, { tipo: 'forma_pagamento', descricao: `Forma de pagamento: ${FORMA_ASSINATURA_ROTULOS[forma]}`, autor: email })
       await sincronizar(empresa.id, a.gatewayAssinaturaId)
+    },
+
+    /** PIX Automático: o QR Code expirou ou foi perdido — encerra a autorização pendente e gera outra. */
+    async novoQrPix(email: string) {
+      const { empresa, a } = await carregar()
+      if (!a.gatewayAutorizacaoId || a.gatewayAssinaturaId || !a.gatewayClienteId) throw AppError.regraNegocio('Não há autorização do PIX Automático aguardando.')
+      await gateway()
+        .cancelarAutorizacaoPix(a.gatewayAutorizacaoId)
+        .catch(() => undefined) // já expirada ou cancelada no Asaas: segue
+      const config = await app.prisma.empresaConfig.findFirst({ select: { nomeFantasia: true } })
+      await autorizarPix(empresa.id, a.gatewayClienteId, a.plano, config?.nomeFantasia || empresa.nome, {}, email)
     },
 
     /**
@@ -204,7 +260,14 @@ export function criarAssinaturaService(app: FastifyInstance) {
     async cancelar(email: string) {
       const { empresa, a } = await carregar()
       if (a.situacao === 'cancelada' || a.cancelarEm) throw AppError.regraNegocio('A assinatura já está cancelada.')
-      if (a.gatewayAssinaturaId) await noGateway(() => gateway().cancelarAssinatura(a.gatewayAssinaturaId as string))
+      // PIX Automático: encerrar a autorização no banco é o que para os débitos; a assinatura ligada a ela
+      // é removida em seguida (se o Asaas já a tiver encerrado junto, a falha é ignorada)
+      if (a.gatewayAutorizacaoId) await noGateway(() => gateway().cancelarAutorizacaoPix(a.gatewayAutorizacaoId as string))
+      if (a.gatewayAssinaturaId) {
+        const cancelar = gateway().cancelarAssinatura(a.gatewayAssinaturaId)
+        if (a.gatewayAutorizacaoId) await cancelar.catch(() => undefined)
+        else await noGateway(() => cancelar)
+      }
       const hoje = hojeISO()
       const ate = a.situacao === 'teste' ? diaISO(a.testeAte) : diaISO(a.proximoVencimento)
       const cancelarEm = ate && ate > hoje ? ate : hoje
@@ -212,7 +275,7 @@ export function criarAssinaturaService(app: FastifyInstance) {
       await alterarAssinatura(
         plataforma,
         empresa.id,
-        { gatewayAssinaturaId: null, cancelarEm: paraDia(cancelarEm) },
+        { gatewayAssinaturaId: null, gatewayAutorizacaoId: null, pixQrPayload: null, pixQrImagem: null, pixQrExpiraEm: null, cancelarEm: paraDia(cancelarEm) },
         { tipo: 'cancelamento', descricao: `Cancelamento pedido; acesso até ${formatarDataSimples(cancelarEm)}`, autor: email },
       )
       await recalcularAssinatura(plataforma, empresa.id)

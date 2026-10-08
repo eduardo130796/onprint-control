@@ -259,6 +259,15 @@ Registro das escolhas feitas onde o [ARQUITETURA.md](ARQUITETURA.md) era ambígu
 | D181 | **Cadastro público** em `/criar-conta`: teste grátis sem cartão no plano escolhido, a pessoa define a própria senha (sem troca obrigatória) e entra na hora; e-mail de boas-vindas; campo-armadilha para robôs e 5 cadastros por hora por IP (cada cadastro cria um schema). Desligável com `CADASTRO_PUBLICO=false`. | Pedido do usuário (vender assinaturas); menor atrito possível para testar. |
 | D182 | Preço novo de plano **não muda quem já assina** (o valor fica combinado no gateway até trocar de plano); módulos novos de um plano valem na hora para todos nele. | Reajuste de quem já paga exige aviso prévio; liberar mais módulos nunca prejudica. |
 
+## Assinaturas — ajustes pós-testes
+
+| # | Decisão | Motivo |
+|---|---|---|
+| D183 | **PIX Automático** pelo Asaas no modo `SUBSCRIPTION`: a autorização traz o QR Code da 1ª mensalidade (pagamento imediato que registra o consentimento); o Asaas cria a assinatura quando o banco autoriza, e as mensalidades seguintes começam um mês depois. Tentativas do banco em caso de saldo insuficiente: até 3 em 7 dias. A 1ª cobrança chega antes da assinatura existir, por isso cobranças são ligadas à empresa pela assinatura **ou pelo cliente** no Asaas, e a conferência diária busca as cobranças por cliente. | Pedido do usuário ("quero o pix recorrente também"); regra do Pix Automático (consentimento na primeira transação). |
+| D184 | PIX Automático é uma **autorização no banco**: entrar ou sair dele é cancelar e assinar de novo (cartão ↔ PIX/boleto continua trocando na hora). Cancelar encerra primeiro a autorização (é o que para os débitos) e depois a assinatura ligada. QR expirado ou perdido: "Gerar outro QR Code" encerra a autorização pendente e cria outra. | O valor e o consentimento ficam na autorização; não dá para "converter" uma assinatura comum. |
+| D185 | O PIX Automático só aparece com `ASAAS_PIX_AUTOMATICO=true`: o Asaas libera o recurso por conta (sem liberação a API responde 403 "Entre em contato com seu gerente de contas"). | Nada de oferecer na tela uma forma que falharia na hora de assinar. |
+| D186 | **Visual premium da assinatura**: cartão escuro (grafite com brilho verde/laranja) concentrando plano, preço, situação e a ação do momento; linha do tempo do atraso só quando há atraso (sem atraso, a política aparece discreta no fim); textos que repetiam a pílula de situação foram removidos. Verificado por capturas de tela em todos os estados, desktop e celular. | Pedido do usuário: "não ficou premium essa tela de minha assinatura nem os avisos". |
+
 ## Fora do escopo registrado
 
 - **Emissão de nota fiscal para os clientes das empresas:** fora do escopo. A NFS-e da mensalidade da assinatura fica com o Asaas (Fase 12).

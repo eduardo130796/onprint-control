@@ -27,6 +27,16 @@ export interface NotaFiscalGateway {
   erro: string | null
 }
 
+/** PIX Automático: autorização criada, aguardando o pagador ler o QR e autorizar no banco. */
+export interface AutorizacaoPixNova {
+  id: string
+  copiaECola: string
+  imagem: string | null
+  expiraEm: Date | null
+}
+
+export type SituacaoAutorizacaoPix = 'aguardando' | 'ativa' | 'encerrada'
+
 /** Pagamento recorrente da mensalidade. Hoje: Asaas. Outro gateway implementa esta mesma interface. */
 export interface GatewayPagamentos {
   readonly nome: 'asaas'
@@ -36,6 +46,12 @@ export interface GatewayPagamentos {
   alterarAssinatura(id: string, d: { valor?: string; forma?: FormaAssinatura }): Promise<void>
   cancelarAssinatura(id: string): Promise<void>
   cobrancasDaAssinatura(id: string): Promise<CobrancaGateway[]>
+  /** Todas as cobranças do cliente (inclui a 1ª do PIX Automático, que nasce antes da assinatura) */
+  cobrancasDoCliente(clienteId: string): Promise<CobrancaGateway[]>
+  /** PIX Automático: o 1º pagamento (agora) registra o consentimento; as próximas mensalidades começam em `inicio` */
+  criarAutorizacaoPix(d: { clienteId: string; valor: string; inicio: string; descricao: string; contrato: string }): Promise<AutorizacaoPixNova>
+  consultarAutorizacaoPix(id: string): Promise<{ situacao: SituacaoAutorizacaoPix; assinaturaId: string | null }>
+  cancelarAutorizacaoPix(id: string): Promise<void>
   notaFiscalDaCobranca(cobrancaGatewayId: string): Promise<NotaFiscalGateway | null>
   /** NFS-e automática para as cobranças da assinatura (se a emissão estiver configurada) */
   configurarNotaFiscal(assinaturaId: string): Promise<void>

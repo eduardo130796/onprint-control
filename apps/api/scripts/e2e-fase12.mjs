@@ -13,7 +13,7 @@ const hoje = new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10)
 const dia = (n) => new Date(Date.parse(`${hoje}T12:00:00Z`) + n * 86400e3).toISOString().slice(0, 10)
 
 // ─── Asaas falso ───
-const asaas = { clientes: [], assinaturas: new Map(), cobrancas: new Map(), notas: [], configNotas: [], chamadas: [], seq: 0 }
+const asaas = { clientes: [], assinaturas: new Map(), cobrancas: new Map(), notas: [], configNotas: [], autorizacoes: new Map(), chamadas: [], seq: 0 }
 const novoId = (p) => `${p}_${++asaas.seq}`
 function novaCobranca(sub, dueDate) {
   const p = { object: 'payment', id: novoId('pay'), customer: sub.customer, subscription: sub.id, value: sub.value, dueDate, status: 'PENDING', billingType: sub.billingType, invoiceUrl: `https://sandbox.asaas.com/i/${asaas.seq}`, deleted: false }
@@ -63,6 +63,22 @@ const servidor = createServer(async (req, res) => {
       for (const p of asaas.cobrancas.values()) if (p.subscription === s.id && ['PENDING', 'OVERDUE'].includes(p.status)) p.deleted = true
       return responder(200, { deleted: true, id: s.id })
     }
+  }
+  if (req.method === 'GET' && caminho === '/payments') return responder(200, { data: [...asaas.cobrancas.values()].filter((p) => p.customer === url.searchParams.get('customer')), hasMore: false })
+  if (req.method === 'POST' && caminho === '/pix/automatic/authorizations') {
+    const aut = { id: novoId('pa'), status: 'CREATED', ...json, payload: `00020126PIXAUTOMATICO${asaas.seq}`, encodedImage: 'iVBORw0KGgo=', immediateQrCode: { ...json.immediateQrCode, expirationDate: '2026-12-31 23:59:00' } }
+    asaas.autorizacoes.set(aut.id, aut)
+    // 1ª mensalidade: cobrança imediata do cliente, ainda sem assinatura
+    const p = { object: 'payment', id: novoId('pay'), customer: json.customerId, subscription: null, value: json.immediateQrCode.originalValue, dueDate: hoje, status: 'PENDING', billingType: 'PIX', deleted: false }
+    asaas.cobrancas.set(p.id, p)
+    aut.primeiraCobranca = p.id
+    return responder(200, aut)
+  }
+  if ((m = caminho.match(/^\/pix\/automatic\/authorizations\/([\w]+)$/))) {
+    const aut = asaas.autorizacoes.get(m[1])
+    if (!aut) return responder(404, { errors: [{ description: 'Autorização não encontrada' }] })
+    if (req.method === 'DELETE') aut.status = 'CANCELLED'
+    return responder(200, aut)
   }
   if (caminho === '/invoices') return responder(200, { data: asaas.notas.filter((n) => n.payment === url.searchParams.get('payment')) })
   responder(404, { errors: [{ description: `Rota falsa não implementada: ${req.method} ${caminho}` }] })
@@ -177,6 +193,39 @@ conferir('não cancela duas vezes', (await chamar('POST', '/assinatura/cancelar'
 r = await chamar('POST', '/assinatura/assinar', { token: b, body: { plano: 'completo', forma: 'cartao', cpfCnpj: '11222333000181' } })
 conferir('assina de novo (reaproveita o cliente do Asaas)', `${r.status} ${asaas.clientes.length} ${asaas.assinaturas.size}`, '200 1 2')
 conferir('cancelamento desfeito', (await minha()).cancelarEm, null)
+
+console.log('\n— PIX Automático —')
+conferir('empresa P em teste', cli('criar-empresa', ['--nome', 'Gráfica Pix', '--email', 'dono@pix.local', '--senha', 'Inicial123', '--plano', 'essencial']).status, 0)
+const px = await entrar('dono@pix.local', 'Inicial123', 'Pix12345678')
+conferir('PIX Automático oferecido (liberado na conta)', (await chamar('GET', '/assinatura', { token: px })).json.formasDisponiveis.join(','), 'pix_automatico,cartao,pix_boleto')
+r = await chamar('POST', '/assinatura/assinar', { token: px, body: { plano: 'essencial', forma: 'pix_automatico', cpfCnpj: '11.444.777/0001-61' } })
+conferir('assinar com PIX Automático gera a autorização', r.status, 200)
+const aut = [...asaas.autorizacoes.values()].at(-1)
+conferir('Asaas: autorização mensal que vira assinatura, com valor e 1ª cobrança imediata', `${aut.frequency} ${aut.paymentCreationMode} ${aut.value} ${aut.immediateQrCode.originalValue}`, 'MONTHLY SUBSCRIPTION 149 149')
+let ap = (await chamar('GET', '/assinatura', { token: px })).json
+conferir('tela: QR Code e copia e cola aguardando', `${ap.assinadaOnline} ${ap.formaPagamento} ${ap.pixAutomatico?.copiaECola.startsWith('00020126PIXAUTOMATICO')} ${Boolean(ap.pixAutomatico?.imagem)}`, 'true pix_automatico true true')
+conferir('não troca para cartão (é autorização no banco)', (await chamar('POST', '/assinatura/forma', { token: px, body: { forma: 'cartao' } })).status, 422)
+const primeiraPix = asaas.cobrancas.get(aut.primeiraCobranca)
+Object.assign(primeiraPix, { status: 'RECEIVED', paymentDate: hoje })
+await webhook('PAYMENT_RECEIVED', { payment: primeiraPix })
+conferir('1ª mensalidade (sem assinatura ainda) reconhecida pelo cliente: ativa', (await chamar('GET', '/assinatura', { token: px })).json.situacao, 'ativa')
+r = await webhook('PIX_AUTOMATIC_RECURRING_AUTHORIZATION_ACTIVATED', { authorization: { id: aut.id, status: 'ACTIVE', subscriptionId: 'sub_pix_1', customerId: aut.customerId } })
+ap = (await chamar('GET', '/assinatura', { token: px })).json
+conferir('banco autorizou: QR some, débito automático ativo', `${r.json.situacao} ${ap.pixAutomatico} ${ap.assinadaOnline}`, 'processado null true')
+conferir('QR novo só com autorização pendente', (await chamar('POST', '/assinatura/pix-automatico/novo-qr', { token: px })).status, 422)
+r = await chamar('POST', '/assinatura/cancelar', { token: px })
+conferir('cancelar encerra a autorização no Asaas', `${r.status} ${aut.status}`, '200 CANCELLED')
+
+conferir('empresa Q em teste', cli('criar-empresa', ['--nome', 'Gráfica Recusa', '--email', 'dono@recusa.local', '--senha', 'Inicial123']).status, 0)
+const pq = await entrar('dono@recusa.local', 'Inicial123', 'Recusa12345')
+await chamar('POST', '/assinatura/assinar', { token: pq, body: { plano: 'essencial', forma: 'pix_automatico', cpfCnpj: '11.444.777/0001-61' } })
+const autQ = [...asaas.autorizacoes.values()].at(-1)
+r = await chamar('POST', '/assinatura/pix-automatico/novo-qr', { token: pq })
+const autQ2 = [...asaas.autorizacoes.values()].at(-1)
+conferir('QR novo: encerra a autorização anterior e cria outra', `${r.status} ${autQ.status} ${autQ2.id !== autQ.id}`, '200 CANCELLED true')
+await webhook('PIX_AUTOMATIC_RECURRING_AUTHORIZATION_REFUSED', { authorization: { id: autQ2.id, status: 'REFUSED' } })
+ap = (await chamar('GET', '/assinatura', { token: pq })).json
+conferir('recusada no banco: libera para assinar de novo', `${ap.assinadaOnline} ${ap.pixAutomatico}`, 'false null')
 
 console.log('\n— Modo manual (empresa sem pagamento online) —')
 cli('criar-empresa', ['--nome', 'Gráfica Manual', '--email', 'dono@manual.local', '--senha', 'Inicial123', '--ativa'])

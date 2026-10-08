@@ -28,7 +28,7 @@ export function AppLayout() {
   const { usuario } = useAuth()
   const { pathname } = useLocation()
   const larga = TELAS_LARGAS.includes(pathname)
-  useTempoReal(Boolean(usuario) && !usuario?.deveTrocarSenha)
+  useTempoReal(Boolean(usuario) && !usuario?.deveTrocarSenha && usuario?.assinatura?.nivel !== 'bloqueado')
 
   function alternar() {
     setRecolhida((r) => {

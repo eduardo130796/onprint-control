@@ -2,12 +2,21 @@ import { z } from 'zod'
 import { cpfCnpjValido } from '../documentos'
 import { somenteDigitos } from '../format'
 
-export const FORMAS_ASSINATURA = ['pix_boleto', 'cartao'] as const
+/** Da mais automática à mais manual (ordem em que aparecem na tela). */
+export const FORMAS_ASSINATURA = ['pix_automatico', 'cartao', 'pix_boleto'] as const
 export type FormaAssinatura = (typeof FORMAS_ASSINATURA)[number]
 export const FORMA_ASSINATURA_ROTULOS: Record<FormaAssinatura, string> = {
-  pix_boleto: 'PIX ou boleto (escolhe na hora de pagar)',
-  cartao: 'Cartão de crédito (cobrança automática todo mês)',
+  pix_automatico: 'PIX Automático',
+  cartao: 'Cartão de crédito',
+  pix_boleto: 'PIX ou boleto a cada mês',
 }
+export const FORMA_ASSINATURA_DETALHES: Record<FormaAssinatura, string> = {
+  pix_automatico: 'Autorize uma vez no app do banco e as mensalidades são debitadas sozinhas.',
+  cartao: 'Informe o cartão no 1º pagamento; as próximas são cobradas automaticamente.',
+  pix_boleto: 'Todo mês chega a cobrança e você paga por PIX ou boleto.',
+}
+/** Formas em que a mensalidade é paga sozinha, sem ação do cliente */
+export const FORMAS_AUTOMATICAS: readonly FormaAssinatura[] = ['pix_automatico', 'cartao']
 
 const codigoPlano = z.string().trim().min(1, 'Escolha o plano.').max(40)
 

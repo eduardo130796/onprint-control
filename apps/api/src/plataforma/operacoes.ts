@@ -43,9 +43,13 @@ export async function executarAcao(deps: DependenciasOperacao, assinanteId: stri
     case 'desbloquear':
       return alterar({ bloqueioManual: false, motivoBloqueio: null }, 'Bloqueio manual removido')
     case 'cancelar': {
-      if (a.gatewayAssinaturaId && pagamentos) await pagamentos.cancelarAssinatura(a.gatewayAssinaturaId)
+      if (a.gatewayAutorizacaoId && pagamentos) await pagamentos.cancelarAutorizacaoPix(a.gatewayAutorizacaoId).catch(() => undefined)
+      if (a.gatewayAssinaturaId && pagamentos) {
+        const cancelar = pagamentos.cancelarAssinatura(a.gatewayAssinaturaId)
+        await (a.gatewayAutorizacaoId ? cancelar.catch(() => undefined) : cancelar)
+      }
       await plataforma.cobranca.updateMany({ where: { assinanteId, situacao: { in: ['pendente', 'vencida'] } }, data: { situacao: 'cancelada' } })
-      return alterar({ situacao: 'cancelada', canceladaEm: new Date(), cancelarEm: null, gatewayAssinaturaId: null }, 'Assinatura cancelada pelo suporte (vale na hora)')
+      return alterar({ situacao: 'cancelada', canceladaEm: new Date(), cancelarEm: null, gatewayAssinaturaId: null, gatewayAutorizacaoId: null, pixQrPayload: null, pixQrImagem: null, pixQrExpiraEm: null }, 'Assinatura cancelada pelo suporte (vale na hora)')
     }
     case 'reativar':
       return alterar({ situacao: 'ativa', canceladaEm: null, cancelarEm: null }, 'Assinatura reativada pelo suporte')

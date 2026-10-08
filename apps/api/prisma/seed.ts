@@ -10,6 +10,7 @@
 import { mkdir, readdir, rename } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import type { PrismaClient } from '@prisma/client'
+import argon2 from 'argon2'
 import { SCHEMA_LEGADO } from '../src/core/banco'
 import { StoragePorEmpresa } from '../src/core/storage/por-empresa'
 import { criarAssinatura, semearPlanos } from '../src/plataforma/assinaturas'
@@ -23,6 +24,9 @@ const EXEMPLOS = (process.env.SEED_EXEMPLOS ?? (PRODUCAO ? 'false' : 'true')) ==
 const SLUG_PADRAO = process.env.EMPRESA_PADRAO_SLUG || 'principal'
 const UPLOAD_DIR = resolve(process.env.UPLOAD_DIR || './uploads')
 const PLANO_PADRAO = process.env.PLANO_PADRAO || 'profissional'
+// Painel da plataforma: em produção só com as variáveis definidas
+const PLATAFORMA_EMAIL = (process.env.PLATAFORMA_ADMIN_EMAIL || (PRODUCAO ? '' : 'plataforma@onprint.local')).toLowerCase()
+const PLATAFORMA_SENHA = process.env.PLATAFORMA_ADMIN_SENHA || (PRODUCAO ? '' : 'plataforma123')
 
 const banco = conexoesDosScripts()
 
@@ -65,7 +69,19 @@ async function garantirAssinaturas() {
   }
 }
 
+/** Primeiro administrador do painel da plataforma (só se ainda não houver nenhum). */
+async function adminPlataforma() {
+  if ((await banco.plataforma.adminPlataforma.count()) > 0) return
+  if (!PLATAFORMA_EMAIL || !PLATAFORMA_SENHA) {
+    console.warn('Painel da plataforma sem administrador: defina PLATAFORMA_ADMIN_EMAIL e PLATAFORMA_ADMIN_SENHA (ou use o comando admin-plataforma).')
+    return
+  }
+  await banco.plataforma.adminPlataforma.create({ data: { nome: 'Administrador da plataforma', email: PLATAFORMA_EMAIL, senhaHash: await argon2.hash(PLATAFORMA_SENHA) } })
+  console.log(`Admin da plataforma criado: ${PLATAFORMA_EMAIL}${PRODUCAO ? '' : ` / ${PLATAFORMA_SENHA}`} (painel em /plataforma)`)
+}
+
 executarScript(async () => {
+  await adminPlataforma()
   if (await semearPlanos(banco.plataforma)) console.log('Planos padrão criados (Essencial, Profissional, Completo).')
   await registrarEmpresaPadrao()
   await garantirAssinaturas()

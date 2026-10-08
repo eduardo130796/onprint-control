@@ -100,3 +100,31 @@ export function emailSenhaAlterada(d: { nome: string; empresa: string; quando: s
     }),
   }
 }
+
+export function emailBoasVindas(d: { nome: string; empresa: string; email: string; link: string; testeAte: string | null }): Modelo {
+  const primeiro = d.nome.split(' ')[0] ?? d.nome
+  const teste = d.testeAte ? `O teste grátis vai até ${d.testeAte}. Até lá, use à vontade: nenhum cartão foi pedido.` : ''
+  return {
+    assunto: `Bem-vindo(a) ao ONPrint Control, ${primeiro}!`,
+    texto: [
+      `Olá, ${primeiro}!`,
+      `A conta de ${d.empresa} está pronta. Entre com o e-mail ${d.email} e a senha que você criou:`,
+      d.link,
+      teste,
+      'Primeiros passos: complete os dados da empresa (Configurações → Dados da empresa), cadastre seus produtos e convide a equipe (Configurações → Usuários).',
+    ]
+      .filter(Boolean)
+      .join('\n\n'),
+    html: layout({
+      titulo: `A conta de ${escaparHtml(d.empresa)} está pronta`,
+      paragrafos: [
+        `Olá, ${escaparHtml(primeiro)}!`,
+        `Entre com o e-mail <strong>${escaparHtml(d.email)}</strong> e a senha que você criou.`,
+        ...(teste ? [escaparHtml(teste)] : []),
+        'Primeiros passos: complete os dados da empresa, cadastre seus produtos e convide a equipe em Configurações → Usuários.',
+      ],
+      botao: { texto: 'Entrar no sistema', link: d.link },
+      rodape: 'Você recebeu este e-mail porque criou uma conta no ONPrint Control.',
+    }),
+  }
+}

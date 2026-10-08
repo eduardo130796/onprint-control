@@ -168,5 +168,12 @@ Decisões do usuário: todas as empresas no mesmo sistema; bloqueio escalonado (
 - [ ] Webhook real do Asaas (precisa de URL pública: túnel ou o servidor de produção) e NFS-e (precisa do código de serviço e da alíquota de ISS)
 - [ ] Aceite validado pelo usuário
 
-### Fase 13 — Painel da plataforma
-- [ ] Super-admin, indicadores (ativos, teste, inadimplentes, só leitura, bloqueados, cancelados, receita mensal), lista de problemas, ficha da empresa com ações, cadastro de planos, página pública "Criar conta" com teste grátis
+### Fase 13 — Painel da plataforma ✅ (aguardando OK)
+- [x] Login próprio do administrador da plataforma (`admins_plataforma`, token de 8 h na sessão do navegador); token do painel não abre nenhuma empresa e vice-versa; primeiro admin pelo `.env` e comando `admin-plataforma`
+- [x] Painel: empresas por situação (em dia, teste, aviso, só leitura, bloqueadas, canceladas; cada número abre a lista filtrada), receita mensal, mensalidades em risco, recebido no mês, cobranças vencidas, novas empresas e conversões; lista de problemas por gravidade (bloqueio, atraso, cartão recusado, nota com erro, aviso do Asaas não aplicado com "Reprocessar", teste acabando, cancelamento agendado); conferência com o Asaas sob demanda
+- [x] Empresas: lista com filtros; ficha com assinatura, administradores, mensalidades e histórico; ações do suporte (um só serviço `executarAcao`, também usado pelo comando `assinatura`; troca de plano e cancelamento valem no Asaas); nova empresa pelo painel com convite por e-mail
+- [x] Planos: criar e editar preço, módulos, limite de usuários, dias de teste e prazos do bloqueio
+- [x] Avisos do Asaas: lista, erros e reprocessar
+- [x] Página pública "Criar conta" (teste grátis sem cartão, entra na hora, e-mail de boas-vindas; armadilha para robôs e limite por IP; `CADASTRO_PUBLICO`)
+- [x] Verificado: testes unitários (shared 110, api 60, web 16) e e2e `fase13` (38 verificações) + regressão das fases 1–12
+- [ ] Aceite validado pelo usuário

@@ -82,6 +82,21 @@ Com o e-mail ativo:
 - **Redefinir senha** (Configurações → Usuários): o admin pode mandar o link por e-mail em vez de inventar uma senha.
 - Toda troca de senha pelo link encerra as outras sessões e manda um aviso "sua senha foi alterada".
 
+## Painel da plataforma (dono do sistema)
+
+Em **http://localhost:5173/plataforma** (login próprio, separado das gráficas). No ambiente local: `plataforma@onprint.local` / `plataforma123`. Em produção, o primeiro acesso vem de `PLATAFORMA_ADMIN_EMAIL` / `PLATAFORMA_ADMIN_SENHA`. Para criar outro administrador ou trocar a senha:
+
+```bash
+docker compose exec api npm run admin-plataforma -w @onprint/api -- --email voce@empresa.com.br --senha "SenhaForte123" --nome "Seu nome"
+```
+
+- **Painel:** quantas empresas estão em dia, em teste, com atraso, só leitura, bloqueadas e canceladas (cada número abre a lista filtrada), receita mensal, mensalidades em risco, recebido no mês, cobranças vencidas, novas empresas e conversões de teste. Embaixo, **o que precisa de atenção**, por gravidade: bloqueadas, só leitura, atrasos, cartão recusado, nota fiscal com erro, aviso do Asaas não aplicado (com "Reprocessar"), teste acabando sem assinatura e cancelamentos agendados.
+- **Empresas:** busca e filtros; ficha com assinatura, administradores, mensalidades, histórico e as ações do suporte (trocar plano, liberar até, estender teste, marcar como ativa, lançar cobrança e registrar pagamento no modo manual, módulos extras, bloquear, cancelar, reativar). Toda ação fica no histórico com o e-mail de quem fez. **Nova empresa** cria tudo e manda o convite ao dono.
+- **Planos:** preço, módulos, limite de usuários, dias de teste e prazos do bloqueio. Preço novo vale para quem assinar ou trocar de plano; quem já paga mantém o valor.
+- **Avisos do Asaas:** tudo que chegou pelo webhook, com os erros e o botão "Reprocessar".
+
+**Criar conta:** a página pública **/criar-conta** (link no login) deixa uma gráfica se cadastrar sozinha em teste grátis, sem cartão, e entrar na hora (com e-mail de boas-vindas). Para fechar o cadastro: `CADASTRO_PUBLICO=false`.
+
 ## Assinaturas (planos e bloqueio)
 
 Cada empresa tem uma assinatura com plano (módulos liberados e limite de usuários), situação (teste grátis, ativa, cancelada) e nível de acesso calculado todo dia:

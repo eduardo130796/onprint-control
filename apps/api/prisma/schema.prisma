@@ -1892,3 +1892,17 @@ model EventoGateway {
   @@index([recebidoEm])
   @@map("eventos_gateway")
 }
+
+/** Administrador da plataforma (dono do sistema / suporte): login próprio, separado dos usuários das empresas. */
+model AdminPlataforma {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome        String
+  email       String    @unique
+  senhaHash   String    @map("senha_hash")
+  ativo       Boolean   @default(true)
+  ultimoLogin DateTime? @map("ultimo_login") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("admins_plataforma")
+}

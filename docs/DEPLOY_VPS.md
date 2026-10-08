@@ -137,6 +137,8 @@ Troque **todos** os valores marcados com `TROQUE`:
 | `JWT_ACCESS_SECRET` e `JWT_REFRESH_SECRET` | dois valores gerados, **diferentes entre si**. A API se recusa a subir com segredos fracos ou de exemplo |
 | `ADMIN_EMAIL` e `ADMIN_SENHA_INICIAL` | o primeiro acesso. A troca de senha é obrigatória no 1º login |
 | `SEED_EXEMPLOS` | `false` para começar vazio; `true` cria um catálogo de exemplo (banners, canecas…) |
+| `PLATAFORMA_ADMIN_EMAIL` e `PLATAFORMA_ADMIN_SENHA` | o seu acesso ao painel da plataforma (`https://SEU_DOMINIO/plataforma`), criado na primeira subida. Use uma senha forte e diferente das outras |
+| `CADASTRO_PUBLICO` | `true` deixa as gráficas criarem conta sozinhas em `/criar-conta` (teste grátis); `false` fecha |
 | `ASAAS_*` | chave de **produção** do Asaas (`ASAAS_AMBIENTE=producao`), token do webhook e dados da NFS-e. Passo a passo no README (seção Pagamento online). O webhook aponta para `https://SEU_DOMINIO/api/v1/plataforma/webhooks/asaas` |
 | `SMTP_*` e `EMAIL_REMETENTE` | dados SMTP do seu provedor de e-mail (tabela de exemplos no README). Sem eles, convites e "esqueci a senha" não chegam a ninguém |
 

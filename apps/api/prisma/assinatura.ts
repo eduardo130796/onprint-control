@@ -1,12 +1,12 @@
 /**
- * Operações de assinatura pela linha de comando (até o painel da plataforma; também usado nos testes).
+ * Operações de assinatura pela linha de comando (as mesmas do painel da plataforma; também usado nos testes).
  * Uso: npm run assinatura -w @onprint/api -- --listar
  *      npm run assinatura -w @onprint/api -- --empresa principal [opções]
- * Opções (podem ser combinadas):
- *   --plano essencial|profissional|completo     troca de plano
+ * Opções (podem ser combinadas; executadas nesta ordem):
+ *   --plano essencial|profissional|completo     troca de plano (também no Asaas, se assinar online)
  *   --ativar                                    assinatura paga e em dia (sai do teste, limpa o atraso)
  *   --atraso-desde AAAA-MM-DD | nenhum          vencimento da cobrança mais antiga não paga
- *   --proximo-vencimento AAAA-MM-DD
+ *   --proximo-vencimento AAAA-MM-DD             (junto com --ativar)
  *   --teste-ate AAAA-MM-DD                      volta/estende o teste grátis
  *   --liberar-ate AAAA-MM-DD | nenhum           acesso normal até a data, mesmo com atraso
  *   --bloquear "motivo" | --desbloquear         suspensão manual
@@ -18,18 +18,19 @@
  *   --conciliar                                 confere todas as assinaturas com o Asaas e recalcula
  */
 import { parseArgs } from 'node:util'
-import type { Prisma } from '@prisma/client'
-import { MODULOS, NIVEL_ACESSO_ROTULOS, hojeISO } from '@onprint/shared'
 import type { FastifyInstance } from 'fastify'
+import { MODULOS, NIVEL_ACESSO_ROTULOS, acaoAssinaturaSchema, hojeISO, type AcaoAssinatura } from '@onprint/shared'
 import { carregarEnv } from '../src/config/env'
 import { criarGateway } from '../src/integrations/pagamentos'
-import { alterarAssinatura, paraDia, planoPorCodigo, resumirAssinatura } from '../src/plataforma/assinaturas'
-import { conciliarAssinaturas, lancarCobrancaManual, registrarPagamentoManual } from '../src/plataforma/cobrancas'
+import { resumirAssinatura } from '../src/plataforma/assinaturas'
+import { conciliarAssinaturas } from '../src/plataforma/cobrancas'
+import { executarAcao } from '../src/plataforma/operacoes'
 import { conexoesDosScripts, executarScript } from './scripts-banco'
 
 const { values: v } = parseArgs({
   options: {
     listar: { type: 'boolean', default: false },
+    conciliar: { type: 'boolean', default: false },
     empresa: { type: 'string' },
     plano: { type: 'string' },
     ativar: { type: 'boolean', default: false },
@@ -42,21 +43,42 @@ const { values: v } = parseArgs({
     cancelar: { type: 'boolean', default: false },
     reativar: { type: 'boolean', default: false },
     'modulos-extras': { type: 'string' },
-    autor: { type: 'string', default: 'cli' },
     'cobranca-manual': { type: 'string' },
     valor: { type: 'string' },
     'registrar-pagamento': { type: 'boolean', default: false },
-    conciliar: { type: 'boolean', default: false },
+    autor: { type: 'string', default: 'cli' },
   },
 })
 
 const banco = conexoesDosScripts()
-const DATA = /^\d{4}-\d{2}-\d{2}$/
-function dia(valor: string, opcao: string) {
-  if (!DATA.test(valor)) throw new Error(`--${opcao}: use AAAA-MM-DD (ou "nenhum").`)
-  return paraDia(valor)
+const nenhum = (valor: string) => (valor === 'nenhum' ? null : valor)
+
+/** Opções da linha de comando → ações (validadas pelo mesmo schema do painel). */
+function acoesDasOpcoes(): AcaoAssinatura[] {
+  const brutas: unknown[] = []
+  if (v.plano) brutas.push({ acao: 'plano', plano: v.plano })
+  if (v.ativar) brutas.push({ acao: 'ativar', proximoVencimento: v['proximo-vencimento'] })
+  if (v['atraso-desde']) brutas.push({ acao: 'atraso_desde', data: nenhum(v['atraso-desde']) })
+  if (v['teste-ate']) brutas.push({ acao: 'teste_ate', data: v['teste-ate'] })
+  if (v['liberar-ate']) brutas.push({ acao: 'liberar_ate', data: nenhum(v['liberar-ate']) })
+  if (v.bloquear) brutas.push({ acao: 'bloquear', motivo: v.bloquear })
+  if (v.desbloquear) brutas.push({ acao: 'desbloquear' })
+  if (v.cancelar) brutas.push({ acao: 'cancelar' })
+  if (v.reativar) brutas.push({ acao: 'reativar' })
+  if (v['modulos-extras']) {
+    const modulos = v['modulos-extras'] === 'nenhum' ? [] : v['modulos-extras'].split(',').map((m) => m.trim())
+    const invalidos = modulos.filter((m) => !(MODULOS as readonly string[]).includes(m))
+    if (invalidos.length) throw new Error(`Módulos inexistentes: ${invalidos.join(', ')}`)
+    brutas.push({ acao: 'modulos_extras', modulos })
+  }
+  if (v['cobranca-manual']) brutas.push({ acao: 'cobranca_manual', vencimento: v['cobranca-manual'], valor: v.valor })
+  if (v['registrar-pagamento']) brutas.push({ acao: 'registrar_pagamento' })
+  return brutas.map((b) => {
+    const r = acaoAssinaturaSchema.safeParse(b)
+    if (!r.success) throw new Error(`Opção inválida (${(b as { acao: string }).acao}): ${r.error.issues[0]?.message}. Datas em AAAA-MM-DD.`)
+    return r.data
+  })
 }
-const diaOuNada = (valor: string, opcao: string) => (valor === 'nenhum' ? null : dia(valor, opcao))
 
 async function listar() {
   const empresas = await banco.plataforma.assinante.findMany({ include: { assinatura: { include: { plano: true } } }, orderBy: { createdAt: 'asc' } })
@@ -72,83 +94,25 @@ async function listar() {
 
 executarScript(async () => {
   if (v.listar) return listar()
+  const config = carregarEnv()
+  const pagamentos = criarGateway(config)
   if (v.conciliar) {
     // O mesmo serviço da API, com o mínimo que ele usa (sem cache para limpar fora do servidor)
-    const config = carregarEnv()
-    const app = { plataforma: banco.plataforma, pagamentos: criarGateway(config), config, empresas: { esquecer: () => undefined }, log: console } as unknown as FastifyInstance
+    const app = { plataforma: banco.plataforma, pagamentos, config, empresas: { esquecer: () => undefined }, log: console } as unknown as FastifyInstance
     const r = await conciliarAssinaturas(app)
     console.log(`Conferência: ${r.cobrancas} cobrança(s) do Asaas, ${r.assinaturas} assinatura(s) recalculada(s).`)
     for (const falha of r.falhas) console.log(`Falha: ${falha}`)
     return
   }
   if (!v.empresa) throw new Error('Informe --empresa <slug>, --listar ou --conciliar.')
-  const empresa = await banco.plataforma.assinante.findUnique({ where: { slug: v.empresa }, include: { assinatura: { include: { plano: true } } } })
-  if (!empresa?.assinatura) throw new Error(`Empresa "${v.empresa}" não encontrada ou sem assinatura.`)
-  if (v['cobranca-manual']) {
-    const c = await lancarCobrancaManual(banco.plataforma, empresa.id, dia(v['cobranca-manual'], 'cobranca-manual').toISOString().slice(0, 10), v.valor ?? empresa.assinatura.plano.valorMensal.toFixed(2))
-    console.log(`${empresa.slug}: cobrança manual de R$ ${c.valor.toFixed(2)} com vencimento ${v['cobranca-manual']}.`)
-    return
-  }
-  if (v['registrar-pagamento']) {
-    const c = await registrarPagamentoManual(banco.plataforma, empresa.id)
-    console.log(`${empresa.slug}: pagamento registrado (R$ ${c.valor.toFixed(2)}).`)
-    return
-  }
+  const empresa = await banco.plataforma.assinante.findUnique({ where: { slug: v.empresa } })
+  if (!empresa) throw new Error(`Empresa "${v.empresa}" não encontrada.`)
+  const acoes = acoesDasOpcoes()
+  if (acoes.length === 0) throw new Error('Nada para alterar. Veja as opções no topo de prisma/assinatura.ts.')
 
-  const dados: Prisma.AssinaturaUncheckedUpdateInput = {}
-  const feito: string[] = []
-  if (v.plano) {
-    const plano = await planoPorCodigo(banco.plataforma, v.plano)
-    dados.planoId = plano.id
-    feito.push(`plano ${plano.nome}`)
-  }
-  if (v.ativar) {
-    Object.assign(dados, { situacao: 'ativa', testeAte: null, atrasoDesde: null, canceladaEm: null })
-    feito.push('assinatura ativada e em dia')
-  }
-  if (v['atraso-desde']) {
-    dados.atrasoDesde = diaOuNada(v['atraso-desde'], 'atraso-desde')
-    feito.push(v['atraso-desde'] === 'nenhum' ? 'atraso quitado' : `em atraso desde ${v['atraso-desde']}`)
-  }
-  if (v['proximo-vencimento']) {
-    dados.proximoVencimento = dia(v['proximo-vencimento'], 'proximo-vencimento')
-    feito.push(`próximo vencimento ${v['proximo-vencimento']}`)
-  }
-  if (v['teste-ate']) {
-    Object.assign(dados, { situacao: 'teste', testeAte: dia(v['teste-ate'], 'teste-ate') })
-    feito.push(`teste grátis até ${v['teste-ate']}`)
-  }
-  if (v['liberar-ate']) {
-    dados.liberadoAte = diaOuNada(v['liberar-ate'], 'liberar-ate')
-    feito.push(v['liberar-ate'] === 'nenhum' ? 'liberação manual removida' : `liberado até ${v['liberar-ate']}`)
-  }
-  if (v.bloquear) {
-    Object.assign(dados, { bloqueioManual: true, motivoBloqueio: v.bloquear })
-    feito.push(`bloqueio manual: ${v.bloquear}`)
-  }
-  if (v.desbloquear) {
-    Object.assign(dados, { bloqueioManual: false, motivoBloqueio: null })
-    feito.push('bloqueio manual removido')
-  }
-  if (v.cancelar) {
-    Object.assign(dados, { situacao: 'cancelada', canceladaEm: new Date() })
-    feito.push('assinatura cancelada')
-  }
-  if (v.reativar) {
-    Object.assign(dados, { situacao: 'ativa', canceladaEm: null })
-    feito.push('assinatura reativada')
-  }
-  if (v['modulos-extras']) {
-    const extras = v['modulos-extras'] === 'nenhum' ? [] : v['modulos-extras'].split(',').map((m) => m.trim())
-    const invalidos = extras.filter((m) => !(MODULOS as readonly string[]).includes(m))
-    if (invalidos.length) throw new Error(`Módulos inexistentes: ${invalidos.join(', ')}`)
-    dados.modulosExtras = extras
-    feito.push(extras.length ? `módulos extras: ${extras.join(', ')}` : 'sem módulos extras')
-  }
-  if (feito.length === 0) throw new Error('Nada para alterar. Veja as opções no topo de prisma/assinatura.ts.')
-
-  const a = await alterarAssinatura(banco.plataforma, empresa.id, dados, { tipo: 'alterada', descricao: feito.join('; '), autor: v.autor })
+  for (const acao of acoes) await executarAcao({ plataforma: banco.plataforma, pagamentos }, empresa.id, acao, v.autor)
+  const a = await banco.plataforma.assinatura.findUniqueOrThrow({ where: { assinanteId: empresa.id }, include: { plano: true } })
   const r = resumirAssinatura(a, hojeISO())
-  console.log(`${empresa.slug}: ${feito.join('; ')}.`)
+  console.log(`${empresa.slug}: ${acoes.map((x) => x.acao).join(', ')}.`)
   console.log(`Agora: plano ${r.plano.nome}, ${NIVEL_ACESSO_ROTULOS[r.acesso.nivel]}. ${r.acesso.mensagem}`)
 }, banco.fechar)

@@ -40,6 +40,10 @@ const envSchema = z.object({
   EMAIL_PASTA: z.string().default(''),
   /** Contato do suporte mostrado em "Minha assinatura" (WhatsApp, e-mail…) */
   SUPORTE_CONTATO: z.string().default(''),
+  /** Página pública "Criar conta" (teste grátis) aberta */
+  CADASTRO_PUBLICO: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
+  /** Plano das empresas novas (cadastro e comando empresa:criar) */
+  PLANO_PADRAO: z.string().default('profissional'),
   /** Asaas: sem chave, o pagamento online fica desligado (modo manual, o suporte registra as cobranças) */
   ASAAS_API_KEY: z.string().default(''),
   ASAAS_AMBIENTE: z.enum(['sandbox', 'producao']).default('sandbox'),

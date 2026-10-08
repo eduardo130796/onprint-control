@@ -13,6 +13,8 @@ import { publicoRoutes } from './modules/publico/routes'
 import { healthRoutes } from './modules/health/routes'
 import { artesRoutes } from './modules/artes/routes'
 import { assinaturaRoutes } from './modules/assinatura/routes'
+import { cadastroRoutes } from './modules/plataforma/cadastro'
+import { plataformaRoutes } from './modules/plataforma/routes'
 import { webhooksRoutes } from './modules/plataforma/webhooks'
 import { pedidosRoutes } from './modules/pedidos/routes'
 import { permissoesRoutes } from './modules/permissoes/routes'
@@ -92,6 +94,8 @@ export async function buildApp(config: Env) {
       await v1.register(relatoriosRoutes)
       await v1.register(publicoRoutes, { prefix: '/publico/:empresa' })
       await v1.register(webhooksRoutes, { prefix: '/plataforma' })
+      await v1.register(cadastroRoutes, { prefix: '/plataforma' })
+      await v1.register(plataformaRoutes, { prefix: '/plataforma' })
     },
     { prefix: API_PREFIX },
   )

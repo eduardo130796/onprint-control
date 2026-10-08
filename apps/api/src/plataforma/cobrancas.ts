@@ -38,7 +38,7 @@ export async function recalcularAssinatura(plataforma: PrismaClient, assinanteId
   const ultimaPaga = cobrancas.filter((c) => c.situacao === 'paga').map((c) => diaISO(c.vencimento) as string).at(-1)
   const proximo = abertas.find((v) => v >= hoje) ?? (abertas.length === 0 && ultimaPaga ? adicionarMeses(ultimaPaga, 1) : undefined)
   const dados: Prisma.AssinaturaUncheckedUpdateInput = {}
-  const eventos: string[] = []
+  const eventos: { tipo: string; descricao: string }[] = []
 
   // Sem nenhuma cobrança registrada, o atraso é o lançado à mão pelo suporte (comando assinatura)
   if (cobrancas.length > 0 && diaISO(a.atrasoDesde) !== atraso) dados.atrasoDesde = atraso ? paraDia(atraso) : null
@@ -46,17 +46,17 @@ export async function recalcularAssinatura(plataforma: PrismaClient, assinanteId
   const pagouDepois = cobrancas.some((c) => c.situacao === 'paga' && (!a.canceladaEm || (c.pagoEm ?? c.updatedAt) > a.canceladaEm))
   if (pagouDepois && (a.situacao === 'teste' || (a.situacao === 'cancelada' && !a.cancelarEm))) {
     Object.assign(dados, { situacao: 'ativa', canceladaEm: null })
-    eventos.push(a.situacao === 'teste' ? 'Primeiro pagamento: assinatura ativa' : 'Pagamento recebido: assinatura reativada')
+    eventos.push(a.situacao === 'teste' ? { tipo: 'ativacao', descricao: 'Primeiro pagamento: assinatura ativa' } : { tipo: 'reativacao', descricao: 'Pagamento recebido: assinatura reativada' })
   }
   const cancelarEm = diaISO(a.cancelarEm)
   if (cancelarEm && cancelarEm <= hoje && a.situacao !== 'cancelada') {
     Object.assign(dados, { situacao: 'cancelada', canceladaEm: new Date(), cancelarEm: null })
-    eventos.push('Cancelamento agendado entrou em vigor')
+    eventos.push({ tipo: 'cancelamento', descricao: 'Cancelamento agendado entrou em vigor' })
   }
   if (Object.keys(dados).length === 0) return a
   return plataforma.$transaction(async (tx) => {
     const nova = await tx.assinatura.update({ where: { assinanteId }, data: dados })
-    for (const descricao of eventos) await tx.eventoAssinatura.create({ data: { assinanteId, tipo: 'situacao', descricao } })
+    for (const e of eventos) await tx.eventoAssinatura.create({ data: { assinanteId, ...e } })
     return nova
   })
 }
@@ -66,7 +66,7 @@ async function registrarEvento(plataforma: PrismaClient, assinanteId: string, ti
 }
 
 /** Aplica um aviso do Asaas (cobrança ou nota fiscal). Lança erro se não reconhecer a assinatura. */
-async function aplicarEventoAsaas(app: FastifyInstance, tipo: string, corpo: { payment?: PagamentoAsaas; invoice?: NotaAsaas }) {
+export async function aplicarEventoAsaas(app: FastifyInstance, tipo: string, corpo: { payment?: PagamentoAsaas; invoice?: NotaAsaas }) {
   const { plataforma } = app
   if (corpo.payment) {
     const c = cobrancaDoAsaas(corpo.payment)

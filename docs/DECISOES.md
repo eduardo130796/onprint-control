@@ -249,6 +249,16 @@ Registro das escolhas feitas onde o [ARQUITETURA.md](ARQUITETURA.md) era ambígu
 | D176 | **NFS-e só depois do pagamento confirmado** (`ON_PAYMENT_CONFIRMATION`), configurada em cada assinatura nova a partir das variáveis `ASAAS_NF_*`. Falha na configuração não impede a assinatura: vira evento para o suporte. | Nada de nota para cobrança não paga; a venda não trava por um problema fiscal. |
 | D177 | Sem cobrança em aberto, o **próximo vencimento** é um mês depois da última mensalidade paga (`adicionarMeses`, que leva 31/01 para 28/02); é a data até onde vale o acesso de quem cancela. | Achado no teste com a sandbox real: o cancelamento cortava o mês já pago. |
 
+## Assinaturas — Fase 13 (painel da plataforma)
+
+| # | Decisão | Motivo |
+|---|---|---|
+| D178 | **Administrador da plataforma é outra entidade** (`admins_plataforma`), com login e token próprios (`plat: true`, 8 h, sem renovação, guardado no `sessionStorage`). A autenticação das empresas recusa esse token e a do painel recusa os das empresas. | O dono do sistema não vira usuário de nenhuma gráfica; vazamento de um token não abre o outro lado. |
+| D179 | O painel calcula os números **em memória** a partir das assinaturas (`resumirIndicadores` no shared, com testes): uma categoria por empresa (em dia, teste, aviso, só leitura, bloqueada, cancelada). Receita mensal = mensalidade das ativas em dia; "em risco" = ativas com atraso. | Simples e exato para centenas/milhares de empresas; sem tabela de estatística para manter. |
+| D180 | **Ações do suporte num só serviço** (`executarAcao`), usado pelo painel e pelo comando `assinatura`, validado pelo mesmo schema (`acaoAssinaturaSchema`); cada ação grava evento com o e-mail de quem fez. Troca de plano e cancelamento pelo suporte também valem no gateway. Cancelar pelo suporte vale na hora (diferente do cancelamento pela empresa, que respeita o período pago). | Uma regra só; nada que o suporte faça fica fora do histórico. |
+| D181 | **Cadastro público** em `/criar-conta`: teste grátis sem cartão no plano escolhido, a pessoa define a própria senha (sem troca obrigatória) e entra na hora; e-mail de boas-vindas; campo-armadilha para robôs e 5 cadastros por hora por IP (cada cadastro cria um schema). Desligável com `CADASTRO_PUBLICO=false`. | Pedido do usuário (vender assinaturas); menor atrito possível para testar. |
+| D182 | Preço novo de plano **não muda quem já assina** (o valor fica combinado no gateway até trocar de plano); módulos novos de um plano valem na hora para todos nele. | Reajuste de quem já paga exige aviso prévio; liberar mais módulos nunca prejudica. |
+
 ## Fora do escopo registrado
 
 - **Emissão de nota fiscal para os clientes das empresas:** fora do escopo. A NFS-e da mensalidade da assinatura fica com o Asaas (Fase 12).

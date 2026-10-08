@@ -34,6 +34,8 @@ declare module 'fastify' {
     autenticar: (request: FastifyRequest) => Promise<void>
     /** Exige access token válido, mesmo com troca de senha pendente (rotas me e trocar-senha). */
     autenticarPermitindoTrocaSenha: (request: FastifyRequest) => Promise<void>
+    /** Exige o token de administrador da plataforma (painel); tokens das empresas são recusados. */
+    autenticarPlataforma: (request: FastifyRequest) => Promise<void>
   }
 }
 
@@ -45,6 +47,8 @@ export const authPlugin = fp(async (app) => {
     } catch {
       throw AppError.naoAutenticado()
     }
+    // Token do painel da plataforma não abre o sistema de nenhuma empresa
+    if ((request.user as { plat?: boolean }).plat) throw AppError.naoAutenticado()
     const empresa = await app.empresas.porId(request.user.emp)
     if (!empresa) throw AppError.naoAutenticado()
     contextoEmpresa.definir(empresa)
@@ -53,6 +57,18 @@ export const authPlugin = fp(async (app) => {
   await app.register(jwt, {
     secret: app.config.JWT_ACCESS_SECRET,
     sign: { expiresIn: app.config.JWT_ACCESS_EXPIRES.texto },
+  })
+
+  app.decorate('autenticarPlataforma', async (request: FastifyRequest) => {
+    try {
+      await request.jwtVerify()
+    } catch {
+      throw AppError.naoAutenticado()
+    }
+    const token = request.user as unknown as { sub: string; plat?: boolean }
+    if (!token.plat) throw AppError.naoAutenticado('Entre com um usuário da plataforma.')
+    const admin = await app.plataforma.adminPlataforma.findUnique({ where: { id: token.sub }, select: { ativo: true } })
+    if (!admin?.ativo) throw AppError.naoAutenticado()
   })
 
   app.decorate('autenticarPermitindoTrocaSenha', async (request: FastifyRequest) => {

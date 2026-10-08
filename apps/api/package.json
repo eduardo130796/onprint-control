@@ -17,6 +17,7 @@
     "prisma:reset": "tsx prisma/resetar.ts && tsx prisma/migrar.ts && tsx prisma/seed.ts",
     "empresa:criar": "tsx prisma/criar-empresa.ts",
     "assinatura": "tsx prisma/assinatura.ts",
+    "admin-plataforma": "tsx prisma/admin-plataforma.ts",
     "prisma:seed": "prisma db seed"
   },
   "prisma": {

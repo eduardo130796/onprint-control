@@ -1,8 +1,8 @@
+import { CircleCheck, Hourglass, Plus, Sigma } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Plus } from 'lucide-react'
 import { formatarDataSimples, formatarMoeda, type Titulo, type TitulosQuery } from '@onprint/shared'
 import { titulosApi, type TipoTitulo } from '@/api/financeiro'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -10,7 +10,6 @@ import { Can } from '@/components/shared/Can'
 import { DataTable } from '@/components/shared/data-table/DataTable'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { Select } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
 import { useListagem } from '@/hooks/useListagem'
@@ -18,6 +17,7 @@ import { buscarTodasPaginas } from '@/lib/paginacao'
 import { cn } from '@/lib/utils'
 import { TituloDetalheDialog } from '../components/TituloDetalheDialog'
 import { TituloDialog } from '../components/TituloDialog'
+import { CartaoIndicador } from '@/components/shared/CartaoIndicador'
 
 const SITUACOES = { abertos: 'Em aberto', atrasados: 'Atrasadas', pago: 'Pagas', cancelado: 'Canceladas', todas: 'Todas' } as const
 
@@ -80,17 +80,10 @@ export function TitulosPage({ tipo }: { tipo: TipoTitulo }) {
         }
       />
       {r && (
-        <div className="mb-4 grid gap-3 sm:grid-cols-3">
-          {[
-            ['Total no filtro', r.valor, 'text-tinta'],
-            [receber ? 'Recebido' : 'Pago', r.pago, 'text-green-800'],
-            [receber ? 'A receber' : 'A pagar', r.saldo, receber ? 'text-marca-escuro' : 'text-coral-escuro'],
-          ].map(([rotulo, valor, cor]) => (
-            <Card key={rotulo} className="p-4">
-              <p className="text-xs text-texto-secundario">{rotulo}</p>
-              <p className={cn('text-xl font-semibold', cor)}>{formatarMoeda(valor)}</p>
-            </Card>
-          ))}
+        <div className="mb-4 grid gap-4 sm:grid-cols-3">
+          <CartaoIndicador rotulo="Total no filtro" valor={formatarMoeda(r.valor)} icone={Sigma} />
+          <CartaoIndicador rotulo={receber ? 'Recebido' : 'Pago'} valor={formatarMoeda(r.pago)} icone={CircleCheck} tom="positivo" />
+          <CartaoIndicador rotulo={receber ? 'A receber' : 'A pagar'} valor={formatarMoeda(r.saldo)} icone={Hourglass} tom={receber ? 'marca' : 'negativo'} />
         </div>
       )}
       <DataTable

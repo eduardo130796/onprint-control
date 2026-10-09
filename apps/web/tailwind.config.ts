@@ -28,6 +28,8 @@ export default {
       fontFamily: {
         // Fonte do texto escolhida pelo usuário (Aparência → Texto); padrão Inter
         sans: ['var(--fonte-texto)'],
+        // Códigos (PED-2026-0001, SKU…): a fonte do texto com algarismos alinhados (ver index.css), não a "máquina de escrever"
+        mono: ['var(--fonte-texto)'],
         titulo: ['Manrope Variable', 'Manrope', 'Inter Variable', 'system-ui', 'sans-serif'],
       },
       // Pesos por variável: o usuário escolhe texto leve, normal ou forte (aplicarTipografia)

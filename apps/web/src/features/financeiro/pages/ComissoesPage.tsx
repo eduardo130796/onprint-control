@@ -1,8 +1,8 @@
+import { CircleCheck, Clock, HandCoins, LockOpen } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
-import { HandCoins } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatarData, formatarMoeda, hojeISO, type Comissao, type StatusComissao } from '@onprint/shared'
 import { financeiroApi } from '@/api/financeiro'
@@ -12,13 +12,19 @@ import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { DataTable } from '@/components/shared/data-table/DataTable'
 import { FormDialog } from '@/components/shared/FormDialog'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { Checkbox, Select } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
 import { useUsuariosOpcoes } from '@/features/producao/hooks'
 import { useListagem } from '@/hooks/useListagem'
 import { cn } from '@/lib/utils'
 import { useContasFinanceiras, useFormasPagamento } from '../hooks'
+import { CartaoIndicador, type TomIndicador } from '@/components/shared/CartaoIndicador'
+
+const ICONE_SITUACAO = {
+  prevista: { icone: Clock, tom: 'neutro' },
+  liberada: { icone: LockOpen, tom: 'marca' },
+  paga: { icone: CircleCheck, tom: 'positivo' },
+} satisfies Record<string, { icone: typeof Clock; tom: TomIndicador }>
 
 const ROTULO: Record<StatusComissao, string> = { prevista: 'Prevista', liberada: 'Liberada', paga: 'Paga' }
 const COR: Record<StatusComissao, string> = { prevista: 'bg-slate-100 text-slate-700', liberada: 'bg-ambar/15 text-amber-800', paga: 'bg-verde/10 text-green-800' }
@@ -145,12 +151,9 @@ export function ComissoesPage() {
           </Can>
         }
       />
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+      <div className="mb-4 grid gap-4 sm:grid-cols-3">
         {(['prevista', 'liberada', 'paga'] as const).map((s) => (
-          <Card key={s} className="p-4">
-            <p className="text-xs text-texto-secundario">{ROTULO[s]}s</p>
-            <p className="text-xl font-semibold text-tinta">{formatarMoeda(resumo[s] ?? '0')}</p>
-          </Card>
+          <CartaoIndicador key={s} rotulo={`${ROTULO[s]}s`} valor={formatarMoeda(resumo[s] ?? '0')} icone={ICONE_SITUACAO[s].icone} tom={ICONE_SITUACAO[s].tom} />
         ))}
       </div>
       <DataTable

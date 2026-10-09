@@ -89,6 +89,12 @@
   }
 }
 
+/* Códigos (PED-2026-0001): zero cortado para não confundir com a letra O. Algarismos alinhados só nas colunas
+   de valores (DataTable): na Inter eles também alargam o hífen, o que separa demais os códigos e nomes. */
+.font-mono {
+  font-variant-numeric: slashed-zero;
+}
+
 /* Texto do corpo no peso escolhido; na impressão, sempre o padrão (documento igual para todos) */
 body {
   font-weight: var(--peso-normal);

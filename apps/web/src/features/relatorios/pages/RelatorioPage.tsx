@@ -19,6 +19,7 @@ import { bandejaAbas, classeAba } from '@/lib/estilosAbas'
 import { cn } from '@/lib/utils'
 import { SeletorPeriodo } from '../components/SeletorPeriodo'
 import { usePeriodo } from '../periodo'
+import { CartaoIndicador } from '@/components/shared/CartaoIndicador'
 
 /**
  * DRE: a linha "Custo dos materiais consumidos" é informativa (vem das baixas de estoque, não do caixa).
@@ -111,10 +112,7 @@ export function RelatorioPage({ tipo }: { tipo: TipoRelatorio }) {
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {r.resumo.map((x) => (
-              <Card key={x.rotulo} className="p-4">
-                <p className="text-xs text-texto-secundario">{x.rotulo}</p>
-                <p className="text-xl font-semibold text-tinta">{formatarValor(x.valor, x.formato)}</p>
-              </Card>
+              <CartaoIndicador key={x.rotulo} compacto rotulo={x.rotulo} valor={formatarValor(x.valor, x.formato)} />
             ))}
           </div>
           {r.linhas.length === 0 ? (

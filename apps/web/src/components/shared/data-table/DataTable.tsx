@@ -138,7 +138,7 @@ export function DataTable<T>(props: DataTableProps<T>) {
                     )}
                   >
                     {linha.getVisibleCells().map((c) => (
-                      <td key={c.id} className={cn('px-4 py-3 align-middle', c.column.columnDef.meta?.className)}>
+                      <td key={c.id} className={cn('px-4 py-3 align-middle', c.column.columnDef.meta?.className?.includes('text-right') && 'tabular-nums', c.column.columnDef.meta?.className)}>
                         {flexRender(c.column.columnDef.cell, c.getContext())}
                       </td>
                     ))}

@@ -58,6 +58,12 @@ export interface KpiDashboard {
   detalhe?: string
   alerta?: boolean
   link?: string
+  /** indicador = cartão de número; atencao = item da lista "Precisa da sua atenção" (só aparece se > 0) */
+  grupo: 'indicador' | 'atencao'
+  /** Variação contra o período anterior equivalente (null = sem base para comparar) */
+  variacao?: { valor: number; unidade: 'percentual' | 'pontos'; contra: string } | null
+  /** Pontos para o minigráfico de tendência (do mais antigo ao atual) */
+  serie?: number[]
 }
 
 export interface PedidoResumoDashboard {

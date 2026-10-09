@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { useContasFinanceiras } from '../hooks'
+import { ArrowDownLeft, ArrowUpRight, Landmark, TrendingUp, Wallet } from 'lucide-react'
+import { CartaoIndicador } from '@/components/shared/CartaoIndicador'
 
 const PERIODOS = { '30': 'Próximos 30 dias', '60': 'Próximos 60 dias', '90': 'Próximos 90 dias', mes: 'Este mês', passado: 'Últimos 30 dias', livre: 'Escolher datas' } as const
 
@@ -102,23 +104,12 @@ export function FluxoPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {[
-              ['Saldo inicial', f.saldoInicial, 'text-tinta'],
-              ['Entradas (+ previstas)', `${f.totais.entradas}|${f.totais.previstoEntradas}`, 'text-green-800'],
-              ['Saídas (+ previstas)', `${f.totais.saidas}|${f.totais.previstoSaidas}`, 'text-coral-escuro'],
-              ['Saldo realizado', f.totais.saldoFinal, 'text-tinta'],
-              ['Saldo projetado', f.totais.saldoProjetado, Number(f.totais.saldoProjetado) < 0 ? 'text-coral-escuro' : 'text-marca-escuro'],
-            ].map(([rotulo = '', valor = '', cor]) => {
-              const [real, prev] = valor.split('|')
-              return (
-                <Card key={rotulo} className="p-4">
-                  <p className="text-xs text-texto-secundario">{rotulo}</p>
-                  <p className={cn('text-lg font-semibold', cor)}>{formatarMoeda(real)}</p>
-                  {prev !== undefined && <p className="text-xs text-texto-secundario">+ {formatarMoeda(prev)} previsto</p>}
-                </Card>
-              )
-            })}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <CartaoIndicador compacto rotulo="Saldo inicial" valor={formatarMoeda(f.saldoInicial)} icone={Landmark} />
+            <CartaoIndicador compacto rotulo="Entradas" valor={formatarMoeda(f.totais.entradas)} icone={ArrowDownLeft} tom="positivo" detalhe={`+ ${formatarMoeda(f.totais.previstoEntradas)} previsto`} />
+            <CartaoIndicador compacto rotulo="Saídas" valor={formatarMoeda(f.totais.saidas)} icone={ArrowUpRight} tom="negativo" detalhe={`+ ${formatarMoeda(f.totais.previstoSaidas)} previsto`} />
+            <CartaoIndicador compacto rotulo="Saldo realizado" valor={formatarMoeda(f.totais.saldoFinal)} icone={Wallet} />
+            <CartaoIndicador compacto rotulo="Saldo projetado" valor={formatarMoeda(f.totais.saldoProjetado)} icone={TrendingUp} tom={Number(f.totais.saldoProjetado) < 0 ? 'negativo' : 'marca'} />
           </div>
           <Card>
             <CardHeader className="pb-3">

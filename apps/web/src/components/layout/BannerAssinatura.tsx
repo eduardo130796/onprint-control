@@ -81,6 +81,42 @@ export function BannerAssinatura() {
     setDispensado(a?.motivo ?? null)
   }
 
+  // Só leitura é grave: cartão grande. Os demais avisos ficam numa faixa fina de uma linha.
+  if (a.nivel !== 'somente_leitura') {
+    return (
+      <div role={v.dispensavel ? 'status' : 'alert'} className="relative mb-5 overflow-hidden rounded-xl bg-card ring-1 ring-border">
+        <div className="flex items-center gap-3 py-2 pl-3 pr-2">
+          <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', v.icone)}>
+            <v.Icone className="h-3.5 w-3.5" aria-hidden="true" />
+          </span>
+          <p className="min-w-0 flex-1 truncate text-sm">
+            <span className="font-semibold text-tinta">{v.titulo}</span>
+            <span className="hidden text-texto-secundario md:inline"> · {v.texto ?? a.mensagem}</span>
+          </p>
+          <Link
+            to="/assinatura"
+            className={cn(
+              'shrink-0 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              v.dispensavel ? 'text-tinta hover:bg-fundo' : 'bg-marca text-marca-contraste hover:bg-marca-hover',
+            )}
+          >
+            {v.acao}
+          </Link>
+          {v.dispensavel && (
+            <button type="button" onClick={fechar} className="shrink-0 rounded-lg p-1 text-texto-secundario hover:bg-fundo hover:text-tinta" aria-label="Fechar aviso">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        {v.progresso !== null && (
+          <div className="absolute inset-x-0 bottom-0 h-0.5 bg-fundo" role="progressbar" aria-label="Tempo até a próxima etapa" aria-valuenow={v.progresso} aria-valuemin={0} aria-valuemax={100}>
+            <div className={cn('h-full', v.barra)} style={{ width: `${Math.max(v.progresso, 4)}%` }} />
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div role={v.dispensavel ? 'status' : 'alert'} className="relative mb-5 overflow-hidden rounded-2xl bg-card shadow-suave ring-1 ring-border">
       <span className={cn('absolute inset-y-0 left-0 w-1.5', v.faixa)} aria-hidden="true" />

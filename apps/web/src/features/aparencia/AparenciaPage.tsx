@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Loader2, Monitor, Moon, Palette, RotateCcw, Save, Sparkles, Sun, Wand2 } from 'lucide-react'
+import { Check, Loader2, Monitor, Moon, Palette, RotateCcw, Save, Sparkles, Sun, Type, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { CODIGOS_TEMA, TEMAS, temaMaisProximo, temaOuPadrao, type CodigoTema } from '@onprint/shared'
+import { CODIGOS_TEMA, FONTES_TEXTO, PESOS_TEXTO, TEMAS, temaMaisProximo, temaOuPadrao, type CodigoTema } from '@onprint/shared'
 import { empresaApi } from '@/api/configuracoes'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { EstadoErro } from '@/components/shared/EstadoErro'
@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils'
 import { CHAVE_EMPRESA, useEmpresa, useUrlArquivo } from '../configuracoes/hooks'
 import { LogoCard } from '../configuracoes/pages/EmpresaPage'
 import { aplicarTema, corMediaDaImagem } from './tema'
+import { FONTES, PESOS } from './tipografia'
 
 /** Prévia com a cor escolhida: o topo, o menu, um botão e um selo, como vão ficar no sistema. */
 function Previa({ nome, logo }: { nome: string; logo: string | null | undefined }) {
@@ -98,6 +99,108 @@ function ModoDaTela() {
   )
 }
 
+/** Fonte e peso do texto: preferência de cada pessoa; muda o sistema na hora (salva sozinho). */
+function TextoDoSistema() {
+  const { usuario, definirPreferencias } = useAuth()
+  const fonte = usuario?.fonte ?? 'inter'
+  const peso = usuario?.pesoTexto ?? 'normal'
+  const salvar = (p: Parameters<typeof definirPreferencias>[0]) => definirPreferencias(p).catch((erro: Error) => toast.error(erro.message))
+  const [normal, medio, semi] = PESOS[peso].valores
+  return (
+    <section className="rounded-3xl bg-card p-6 shadow-suave sm:p-8" aria-label="Texto">
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-marca-suave text-marca-escuro">
+          <Type className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div>
+          <h2 className="font-titulo text-xl font-extrabold text-tinta">Texto</h2>
+          <p className="text-sm text-texto-secundario">Só para você: escolha a letra e a intensidade mais confortáveis. Documentos e PDFs não mudam.</p>
+        </div>
+      </div>
+
+      <h3 className="mt-6 text-sm font-semibold text-tinta">Fonte</h3>
+      <div role="radiogroup" aria-label="Fonte" className="mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {FONTES_TEXTO.map((codigo) => {
+          const f = FONTES[codigo]
+          const marcado = fonte === codigo
+          return (
+            <button
+              key={codigo}
+              type="button"
+              role="radio"
+              aria-checked={marcado}
+              onClick={() => void salvar({ fonte: codigo })}
+              className={cn(
+                'relative flex flex-col gap-3 rounded-2xl p-4 text-left ring-1 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tinta',
+                marcado ? 'bg-fundo ring-2 ring-marca' : 'bg-card ring-border hover:bg-fundo',
+              )}
+              style={{ fontFamily: f.familia }}
+            >
+              {marcado && (
+                <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-marca text-marca-contraste">
+                  <Check className="h-3 w-3" strokeWidth={3} />
+                </span>
+              )}
+              <span className="text-3xl leading-none text-tinta" style={{ fontWeight: semi }}>
+                Aa
+              </span>
+              <span className="space-y-1">
+                <span className="block text-sm text-tinta" style={{ fontWeight: medio }}>
+                  Orçamento aprovado
+                </span>
+                <span className="block text-xs text-texto-secundario" style={{ fontWeight: normal }}>
+                  Banner em lona 440g · R$ 1.250,00
+                </span>
+              </span>
+              <span className="mt-auto border-t border-border pt-2 font-sans text-xs" style={{ fontFamily: f.familia }}>
+                <span className="block font-semibold text-tinta">
+                  {f.nome}
+                  {codigo === 'inter' && <span className="font-normal text-texto-secundario"> · padrão</span>}
+                </span>
+                <span className="block text-texto-secundario">{f.descricao}</span>
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      <h3 className="mt-6 text-sm font-semibold text-tinta">Intensidade do texto</h3>
+      <div role="radiogroup" aria-label="Intensidade do texto" className="mt-2 grid gap-3 sm:grid-cols-3">
+        {PESOS_TEXTO.map((codigo) => {
+          const p = PESOS[codigo]
+          const marcado = peso === codigo
+          return (
+            <button
+              key={codigo}
+              type="button"
+              role="radio"
+              aria-checked={marcado}
+              onClick={() => void salvar({ pesoTexto: codigo })}
+              className={cn(
+                'flex items-center gap-4 rounded-2xl p-4 text-left ring-1 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tinta',
+                marcado ? 'bg-fundo ring-2 ring-marca' : 'bg-card ring-border hover:bg-fundo',
+              )}
+            >
+              <span className="flex w-12 shrink-0 justify-center text-2xl text-tinta" style={{ fontWeight: p.valores[2] }} aria-hidden="true">
+                Aa
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm text-tinta" style={{ fontWeight: p.valores[2] }}>
+                  {p.nome}
+                </span>
+                <span className="block text-xs text-texto-secundario" style={{ fontWeight: p.valores[0] }}>
+                  {p.descricao}
+                </span>
+              </span>
+              {marcado && <Check className="ml-auto h-4 w-4 shrink-0 text-marca-escuro" aria-label="selecionado" />}
+            </button>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 /**
  * Configurações → Aparência: cor do tema da empresa (paleta fechada, com contraste testado) e a logo.
  * Escolher uma cor já muda o sistema todo na hora (prévia ao vivo); sair sem salvar volta à cor salva.
@@ -148,7 +251,7 @@ export function AparenciaPage() {
 
   return (
     <>
-      <PageHeader titulo="Aparência" subtitulo="A cor e a logo da empresa (para todos) e o modo claro ou escuro (para você)." />
+      <PageHeader titulo="Aparência" subtitulo="A cor e a logo da empresa (para todos); o modo da tela e o texto (para você)." />
       {consulta.isPending ? (
         <Skeleton className="h-96 w-full rounded-3xl" />
       ) : consulta.isError ? (
@@ -228,6 +331,9 @@ export function AparenciaPage() {
             <p className="px-1 text-xs text-texto-secundario">
               A logo aparece no topo do sistema, como ícone da aba do navegador e nos documentos. Use PNG ou SVG com fundo transparente para o melhor resultado.
             </p>
+          </div>
+          <div className="lg:col-span-2">
+            <TextoDoSistema />
           </div>
         </div>
       )}

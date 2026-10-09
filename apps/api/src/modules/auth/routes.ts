@@ -79,11 +79,12 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       onRequest: [app.autenticarPermitindoTrocaSenha],
       config: { assinaturaLivre: true },
-      schema: { tags: ['auth'], summary: 'Preferências do usuário (modo claro/escuro)', security: [{ bearerAuth: [] }], body: preferenciasSchema },
+      schema: { tags: ['auth'], summary: 'Preferências do usuário (modo da tela, fonte e peso do texto)', security: [{ bearerAuth: [] }], body: preferenciasSchema },
     },
     async (request) => {
-      await app.prisma.usuario.update({ where: { id: request.user.sub }, data: { modoTela: request.body.modoTela } })
-      return { modoTela: request.body.modoTela }
+      const { modoTela, fonte, pesoTexto } = request.body
+      await app.prisma.usuario.update({ where: { id: request.user.sub }, data: { modoTela, fonte, pesoTexto } })
+      return { modoTela, fonte, pesoTexto }
     },
   )
 

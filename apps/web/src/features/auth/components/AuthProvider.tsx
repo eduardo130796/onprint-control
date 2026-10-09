@@ -93,24 +93,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario((u) => (u ? { ...u, empresa: { ...u.empresa, ...marca } } : u))
   }, [])
 
-  const definirModoTela = useCallback(async (modoTela: UsuarioLogado['modoTela']) => {
-    let anterior: UsuarioLogado['modoTela'] | undefined
+  const definirPreferencias = useCallback(async (prefs: Partial<Pick<UsuarioLogado, 'modoTela' | 'fonte' | 'pesoTexto'>>) => {
+    let anterior: Partial<Pick<UsuarioLogado, 'modoTela' | 'fonte' | 'pesoTexto'>> | undefined
     setUsuario((u) => {
-      anterior = u?.modoTela
-      return u ? { ...u, modoTela } : u
+      if (u) anterior = Object.fromEntries(Object.keys(prefs).map((k) => [k, u[k as keyof typeof prefs]]))
+      return u ? { ...u, ...prefs } : u
     })
     try {
-      await authApi.preferencias({ modoTela })
+      await authApi.preferencias(prefs)
     } catch (erro) {
       // Não salvou: volta ao que estava
-      if (anterior) setUsuario((u) => (u ? { ...u, modoTela: anterior as UsuarioLogado['modoTela'] } : u))
+      if (anterior) setUsuario((u) => (u ? { ...u, ...anterior } : u))
       throw erro
     }
   }, [])
+  const definirModoTela = useCallback((modoTela: UsuarioLogado['modoTela']) => definirPreferencias({ modoTela }), [definirPreferencias])
 
   const valor = useMemo(
-    () => ({ usuario, carregando, entrar, sair, trocarSenha, atualizarMarca, definirModoTela }),
-    [usuario, carregando, entrar, sair, trocarSenha, atualizarMarca, definirModoTela],
+    () => ({ usuario, carregando, entrar, sair, trocarSenha, atualizarMarca, definirModoTela, definirPreferencias }),
+    [usuario, carregando, entrar, sair, trocarSenha, atualizarMarca, definirModoTela, definirPreferencias],
   )
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>

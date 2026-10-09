@@ -49,8 +49,17 @@ export type LinkSenhaInfo = z.infer<typeof linkSenhaInfoSchema>
 
 export const MODOS_TELA = ['claro', 'escuro', 'sistema'] as const
 export type ModoTelaUsuario = (typeof MODOS_TELA)[number]
-/** Preferências do próprio usuário (modo claro/escuro) */
-export const preferenciasSchema = z.object({ modoTela: z.enum(MODOS_TELA) })
+/** Fonte do texto do sistema (cada pessoa escolhe a sua; documentos e PDFs não mudam) */
+export const FONTES_TEXTO = ['inter', 'jakarta', 'lexend', 'nunito'] as const
+export type FonteTexto = (typeof FONTES_TEXTO)[number]
+/** Peso do texto: leve (mais fino, descansa a vista), normal ou forte (mais carregado) */
+export const PESOS_TEXTO = ['leve', 'normal', 'forte'] as const
+export type PesoTexto = (typeof PESOS_TEXTO)[number]
+/** Preferências do próprio usuário (modo da tela e texto); envia só o que mudou */
+export const preferenciasSchema = z
+  .object({ modoTela: z.enum(MODOS_TELA), fonte: z.enum(FONTES_TEXTO), pesoTexto: z.enum(PESOS_TEXTO) })
+  .partial()
+  .refine((p) => Object.keys(p).length > 0, 'Informe ao menos uma preferência')
 export type PreferenciasInput = z.infer<typeof preferenciasSchema>
 
 export const usuarioLogadoSchema = z.object({
@@ -61,6 +70,9 @@ export const usuarioLogadoSchema = z.object({
   deveTrocarSenha: z.boolean(),
   /** Modo da tela escolhido pelo usuário */
   modoTela: z.enum(MODOS_TELA),
+  /** Fonte e peso do texto escolhidos pelo usuário */
+  fonte: z.enum(FONTES_TEXTO),
+  pesoTexto: z.enum(PESOS_TEXTO),
   papel: z.object({ id: z.string().uuid(), codigo: z.string(), nome: z.string() }),
   /** Lista de permissões no formato "modulo:acao" */
   permissoes: z.array(z.string()),

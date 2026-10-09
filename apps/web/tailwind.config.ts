@@ -26,8 +26,17 @@ export default {
     container: { center: true, padding: '1rem', screens: { '2xl': '1400px' } },
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
-        titulo: ['Manrope', 'Inter', 'system-ui', 'sans-serif'],
+        // Fonte do texto escolhida pelo usuário (Aparência → Texto); padrão Inter
+        sans: ['var(--fonte-texto)'],
+        titulo: ['Manrope Variable', 'Manrope', 'Inter Variable', 'system-ui', 'sans-serif'],
+      },
+      // Pesos por variável: o usuário escolhe texto leve, normal ou forte (aplicarTipografia)
+      fontWeight: {
+        normal: 'var(--peso-normal)',
+        medium: 'var(--peso-medio)',
+        semibold: 'var(--peso-semi)',
+        bold: 'var(--peso-forte)',
+        extrabold: 'var(--peso-extra)',
       },
       colors: {
         // Identidade visual: grafite (cinza escuro) + verde WhatsApp, com laranja em pequenos detalhes

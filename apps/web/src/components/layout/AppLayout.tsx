@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react'
 import { paginaAtual } from '@/app/navigation'
 import { TEMAS, temaOuPadrao } from '@onprint/shared'
 import { TITULO_PADRAO, aplicarModo, aplicarTema, definirFavicon, gerarFavicon } from '@/features/aparencia/tema'
+import { aplicarTipografia } from '@/features/aparencia/tipografia'
 import { useUrlArquivo } from '@/features/configuracoes/hooks'
 import { AvisoInatividade } from '@/features/auth/AvisoInatividade'
 import { registrarSaidaPorInatividade, useInatividade } from '@/features/auth/useInatividade'
@@ -57,6 +58,12 @@ export function AppLayout() {
     aplicarModo(usuario?.modoTela ?? 'claro')
   }, [usuario?.modoTela])
   useLayoutEffect(() => () => aplicarModo(null), [])
+
+  // Fonte e peso do texto do usuário; fora do sistema, o padrão
+  useLayoutEffect(() => {
+    aplicarTipografia(usuario?.fonte ?? null, usuario?.pesoTexto ?? null)
+  }, [usuario?.fonte, usuario?.pesoTexto])
+  useLayoutEffect(() => () => aplicarTipografia(null, null), [])
 
   // Cor do tema da empresa; ao sair (login, páginas públicas) volta ao verde ONPrint
   useEffect(() => {

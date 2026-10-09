@@ -36,6 +36,19 @@ conferir('vendedora escolhe o escuro (sem permissão de configurações)', (awai
 conferir('fica salvo na conta dela', (await chamar('GET', '/auth/me', { token: vend })).json.modoTela, 'escuro')
 conferir('não muda o dos colegas', (await chamar('GET', '/auth/me', { token: admin })).json.modoTela, 'claro')
 
+console.log('\n— Texto: fonte e peso (de cada usuário) —')
+let texto = (await chamar('GET', '/auth/me', { token: vend })).json
+conferir('padrão: Inter', texto.fonte, 'inter')
+conferir('padrão: peso normal', texto.pesoTexto, 'normal')
+conferir('fonte inválida recusada', (await chamar('PUT', '/auth/preferencias', { token: vend, body: { fonte: 'comic' } })).status, 400)
+conferir('sem nenhuma preferência é recusado', (await chamar('PUT', '/auth/preferencias', { token: vend, body: {} })).status, 400)
+conferir('escolhe Lexend e texto leve', (await chamar('PUT', '/auth/preferencias', { token: vend, body: { fonte: 'lexend', pesoTexto: 'leve' } })).status, 200)
+texto = (await chamar('GET', '/auth/me', { token: vend })).json
+conferir('fonte salva', texto.fonte, 'lexend')
+conferir('peso salvo', texto.pesoTexto, 'leve')
+conferir('o modo da tela continua o mesmo', texto.modoTela, 'escuro')
+conferir('não muda a fonte dos colegas', (await chamar('GET', '/auth/me', { token: admin })).json.fonte, 'inter')
+
 console.log('\n— Saída por inatividade —')
 let empresaAtual = (await chamar('GET', '/empresa', { token: admin })).json
 const corpoEmpresa = (extra) => ({ razaoSocial: empresaAtual.razaoSocial, nomeFantasia: empresaAtual.nomeFantasia, validadeOrcamentoDias: empresaAtual.validadeOrcamentoDias, sinalPercentual: empresaAtual.sinalPercentual, areaMinimaM2: empresaAtual.areaMinimaM2, ...extra })

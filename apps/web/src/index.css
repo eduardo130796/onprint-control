@@ -4,6 +4,13 @@
 
 @layer base {
   :root {
+    /* Texto: fonte e pesos padrão; o usuário troca em Aparência → Texto (aplicarTipografia) */
+    --fonte-texto: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --peso-normal: 400;
+    --peso-medio: 500;
+    --peso-semi: 600;
+    --peso-forte: 700;
+    --peso-extra: 800;
     /* Variáveis do shadcn/ui mapeadas para a identidade ONPrint (HSL): grafite + verde WhatsApp, laranja nos detalhes */
     --background: 200 13% 95%; /* fundo #F2F4F5 */
     --foreground: 213 13% 14%; /* texto #1F2328 */
@@ -79,5 +86,20 @@
 
   body {
     @apply bg-fundo text-texto antialiased;
+  }
+}
+
+/* Texto do corpo no peso escolhido; na impressão, sempre o padrão (documento igual para todos) */
+body {
+  font-weight: var(--peso-normal);
+}
+@media print {
+  :root {
+    --fonte-texto: 'Inter Variable', 'Inter', system-ui, sans-serif !important;
+    --peso-normal: 400 !important;
+    --peso-medio: 500 !important;
+    --peso-semi: 600 !important;
+    --peso-forte: 700 !important;
+    --peso-extra: 800 !important;
   }
 }

@@ -1,4 +1,4 @@
-import type { LinkSenhaInfo, LoginInput, RespostaLogin, TrocarSenhaInput, UsuarioLogado } from '@onprint/shared'
+import type { LinkSenhaInfo, LoginInput, PreferenciasInput, RespostaLogin, TrocarSenhaInput, UsuarioLogado } from '@onprint/shared'
 import { definirAccessToken, http } from './http'
 
 export const authApi = {
@@ -32,8 +32,8 @@ export const authApi = {
     return http<void>('/auth/redefinir-senha', { method: 'POST', body: { token, novaSenha }, autenticado: false })
   },
 
-  preferencias(dados: { modoTela: 'claro' | 'escuro' | 'sistema' }) {
-    return http<{ modoTela: string }>('/auth/preferencias', { method: 'PUT', body: dados })
+  preferencias(dados: PreferenciasInput) {
+    return http<PreferenciasInput>('/auth/preferencias', { method: 'PUT', body: dados })
   },
 
   async trocarSenha(dados: TrocarSenhaInput) {

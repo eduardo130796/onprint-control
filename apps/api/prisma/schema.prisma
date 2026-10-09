@@ -25,6 +25,10 @@ model Usuario {
   deveTrocarSenha    Boolean   @default(false) @map("deve_trocar_senha")
   /// Modo da tela: claro | escuro | sistema (preferência de cada usuário)
   modoTela           String    @default("claro") @map("modo_tela")
+  /// Fonte do texto: inter | jakarta | lexend | nunito (preferência de cada usuário)
+  fonte              String    @default("inter")
+  /// Peso do texto: leve | normal | forte
+  pesoTexto          String    @default("normal") @map("peso_texto")
   /// Usuário de painel (TV da produção): não sai por inatividade
   semInatividade     Boolean   @default(false) @map("sem_inatividade")
   ultimoLogin        DateTime? @map("ultimo_login") @db.Timestamptz(3)

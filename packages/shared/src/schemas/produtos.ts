@@ -68,43 +68,73 @@ export const processoSchema = z.object({
   descricao: textoOpcional,
   maquinaPadraoId: uuidOpcional,
   tempoPadraoMinutos: inteiroOpcional,
+  /** Mão de obra sem máquina: vale quando a máquina não tem custo/hora */
+  custoHora: valorMonetario.default('0'),
   ativo: z.boolean().default(true),
 })
 export type ProcessoInput = z.input<typeof processoSchema>
 
 // ─── Produtos ───────────────────────────────────────────────────────────────
 
-export const produtoSchema = z
-  .object({
-    codigo: z.preprocess((v) => (typeof v === 'string' && !v.trim() ? null : v), z.string().trim().toUpperCase().max(30).nullable().optional()),
-    nome,
-    descricao: textoOpcional,
-    categoriaId: uuidOpcional,
-    unidadeMedidaId: uuidOpcional,
-    tipo: z.enum(TIPOS_PRODUTO).default('produto'),
-    modoCalculo: z.enum(MODOS_CALCULO).default('unidade'),
-    precoVenda: valorMonetario.default('0'),
-    custo: valorMonetario.default('0'),
-    margem: z
-      .union([z.string(), z.number()])
-      .transform(normalizarDecimal)
-      .refine((v) => /^\d{1,5}(\.\d{1,2})?$/.test(v), 'Margem inválida.')
-      .default('0'),
-    precoMinimo: valorOpcional,
-    larguraPadrao: medidaOpcional,
-    alturaPadrao: medidaOpcional,
-    larguraMaxima: medidaOpcional,
-    alturaMaxima: medidaOpcional,
-    prazoProducaoDias: z.coerce.number().int().min(0).max(365).default(0),
-    controlaEstoque: z.boolean().default(false),
-    estoqueMinimo: decimal3.default('0'),
-    ativo: z.boolean().default(true),
-  })
-  .refine((p) => !p.precoMinimo || Number(p.precoMinimo) <= Number(p.precoVenda), {
-    message: 'O preço mínimo não pode ser maior que o preço de venda.',
-    path: ['precoMinimo'],
-  })
+/** Custo por unidade de cálculo: até 4 casas (insumos e custo calculado pela composição). */
+const custo4 = z
+  .union([z.string(), z.number()])
+  .transform(normalizarDecimal)
+  .refine((v) => /^\d{1,8}(\.\d{1,4})?$/.test(v), 'Custo inválido.')
+const margem = z
+  .union([z.string(), z.number()])
+  .transform(normalizarDecimal)
+  .refine((v) => /^\d{1,5}(\.\d{1,2})?$/.test(v), 'Margem inválida.')
+/** Ausente = não muda; vazio/null = limpa (padrão da empresa). */
+const semPadrao = <T extends z.ZodTypeAny>(s: T) => z.preprocess((v) => (v === '' ? null : v), s.nullable().optional())
+
+const produtoBase = z.object({
+  codigo: z.preprocess((v) => (typeof v === 'string' && !v.trim() ? null : v), z.string().trim().toUpperCase().max(30).nullable().optional()),
+  nome,
+  descricao: textoOpcional,
+  categoriaId: uuidOpcional,
+  unidadeMedidaId: uuidOpcional,
+  tipo: z.enum(TIPOS_PRODUTO).default('produto'),
+  modoCalculo: z.enum(MODOS_CALCULO).default('unidade'),
+  precoVenda: valorMonetario.default('0'),
+  custo: custo4.default('0'),
+  margem: margem.default('0'),
+  precoMinimo: valorOpcional,
+  /** Custo e preço completos ficam em PUT /produtos/:id/composicao; aqui são opcionais */
+  modoCusto: z.enum(['simples', 'composicao']).optional(),
+  lucroDesejado: semPadrao(percentual),
+  lucroMinimo: semPadrao(percentual),
+  larguraPadrao: medidaOpcional,
+  alturaPadrao: medidaOpcional,
+  larguraMaxima: medidaOpcional,
+  alturaMaxima: medidaOpcional,
+  prazoProducaoDias: z.coerce.number().int().min(0).max(365).default(0),
+  controlaEstoque: z.boolean().default(false),
+  estoqueMinimo: decimal3.default('0'),
+  ativo: z.boolean().default(true),
+})
+
+const minimoAteVenda = {
+  message: 'O preço mínimo não pode ser maior que o preço de venda.',
+  path: ['precoMinimo'],
+}
+
+export const produtoSchema = produtoBase.refine((p) => !p.precoMinimo || Number(p.precoMinimo) <= Number(p.precoVenda), minimoAteVenda)
 export type ProdutoInput = z.input<typeof produtoSchema>
+
+/**
+ * Edição (PUT /produtos/:id): preço, custo, margem, preço mínimo e lucro só mudam quando enviados
+ * (ausente = mantém; a tela de Custo e preço é a dona desses campos).
+ */
+export const produtoAtualizacaoSchema = produtoBase
+  .extend({
+    precoVenda: valorMonetario.optional(),
+    custo: custo4.optional(),
+    margem: margem.optional(),
+    precoMinimo: semPadrao(valorMonetario),
+  })
+  .refine((p) => !p.precoMinimo || p.precoVenda === undefined || Number(p.precoMinimo) <= Number(p.precoVenda), minimoAteVenda)
+export type ProdutoAtualizacaoInput = z.input<typeof produtoAtualizacaoSchema>
 
 export const produtosQuerySchema = cadastroQuerySchema.extend({
   tipo: z.enum(TIPOS_PRODUTO).optional(),

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeft, Loader2, Save } from 'lucide-react'
@@ -17,29 +17,24 @@ import { usePermission } from '@/hooks/usePermission'
 import { useMutacao, useProduto } from '../hooks'
 import { AbaEstoque } from '../components/produto/AbaEstoque'
 import { AbaGeral } from '../components/produto/AbaGeral'
-import { AbaPreco } from '../components/produto/AbaPreco'
 import { AcabamentosEditor } from '../components/produto/AcabamentosEditor'
-import { FichaTecnicaEditor } from '../components/produto/FichaTecnicaEditor'
-import { ProcessosEditor } from '../components/produto/ProcessosEditor'
 import { SimuladorPreco } from '../components/produto/SimuladorPreco'
-import { ABA_DO_CAMPO, valoresProduto, type ProdutoSaida } from '../components/produto/formProduto'
-
-/** Abas que dependem do produto já salvo */
-const ABAS_COMPOSICAO = [
-  { valor: 'acabamentos', titulo: 'Acabamentos' },
-  { valor: 'ficha', titulo: 'Ficha técnica' },
-  { valor: 'processos', titulo: 'Processos' },
-  { valor: 'simulador', titulo: 'Simulador de preço' },
-] as const
+import { AbaCustoPreco } from '../components/custo/AbaCustoPreco'
+import { ABA_DO_CAMPO, semPrecoECusto, valoresProduto, type ProdutoSaida } from '../components/produto/formProduto'
 
 function Formulario({ produto }: { produto?: ProdutoDetalhe }) {
   const navigate = useNavigate()
   const podeSalvar = usePermission('produtos', produto ? 'editar' : 'criar')
   const veCustos = usePermission('produtos', 'editar')
   const podeVerEstoque = usePermission('estoque')
-  const [aba, setAba] = useState('geral')
+  // ?aba=custo abre direto na aba (links do reajuste e do insumo)
+  const [params] = useSearchParams()
+  const [aba, setAba] = useState(() => (produto && params.get('aba')) || 'geral')
+  // A aba "Custo e preço" fica montada depois da primeira visita (não perde o que foi digitado ao trocar de aba)
+  const [custoVisitado, setCustoVisitado] = useState(aba === 'custo')
   const form = useForm<ProdutoInput, unknown, ProdutoSaida>({ resolver: zodResolver(produtoSchema), defaultValues: valoresProduto(produto) })
-  const salvar = useMutacao(['produtos'], (d: ProdutoSaida) => (produto ? produtosApi.atualizar(produto.id, d) : produtosApi.criar(d)))
+  // Na edição, preço e custo não vão: quem cuida deles é a aba "Custo e preço"
+  const salvar = useMutacao(['produtos'], (d: ProdutoSaida) => (produto ? produtosApi.atualizar(produto.id, semPrecoECusto(d)) : produtosApi.criar(d)))
   const { isDirty } = form.formState
 
   const onSubmit = form.handleSubmit(
@@ -61,15 +56,27 @@ function Formulario({ produto }: { produto?: ProdutoDetalhe }) {
     },
   )
 
+  // Custo e preço só para quem vê custos (quem edita produtos)
+  const abas = [
+    ...(veCustos ? [{ valor: 'custo', titulo: 'Custo e preço' }] : []),
+    { valor: 'acabamentos', titulo: 'Acabamentos' },
+    { valor: 'simulador', titulo: 'Simulador de preço' },
+  ]
+
   // Todas as abas do formulário ficam montadas (só escondidas) para manter os campos registrados
   const conteudo = 'pt-6 data-[state=inactive]:hidden'
 
   return (
-    <Tabs value={aba} onValueChange={setAba}>
+    <Tabs
+      value={aba}
+      onValueChange={(v) => {
+        setAba(v)
+        if (v === 'custo') setCustoVisitado(true)
+      }}
+    >
       <TabsList>
         <TabsTrigger value="geral">Geral</TabsTrigger>
-        <TabsTrigger value="preco">Preço e cálculo</TabsTrigger>
-        {ABAS_COMPOSICAO.map((a) => (
+        {abas.map((a) => (
           <TabsTrigger key={a.valor} value={a.valor} disabled={!produto} title={produto ? undefined : 'Disponível após salvar'}>
             {a.titulo}
           </TabsTrigger>
@@ -82,14 +89,11 @@ function Formulario({ produto }: { produto?: ProdutoDetalhe }) {
           <TabsContent value="geral" forceMount className={conteudo}>
             <AbaGeral form={form} produto={produto} podeEditar={podeSalvar} />
           </TabsContent>
-          <TabsContent value="preco" forceMount className={conteudo}>
-            <AbaPreco form={form} veCustos={veCustos} />
-          </TabsContent>
           <TabsContent value="estoque" forceMount className={conteudo}>
             <AbaEstoque form={form} siglaUnidade={produto?.unidadeMedida?.sigla} />
           </TabsContent>
         </fieldset>
-        {podeSalvar && ['geral', 'preco', 'estoque'].includes(aba) && (
+        {podeSalvar && ['geral', 'estoque'].includes(aba) && (
           <div className="mt-6 flex justify-end">
             <Button type="submit" disabled={salvar.isPending || (Boolean(produto) && !isDirty)}>
               {salvar.isPending ? <Loader2 className="animate-spin" /> : <Save />}
@@ -108,14 +112,13 @@ function Formulario({ produto }: { produto?: ProdutoDetalhe }) {
 
       {produto && (
         <>
+          {veCustos && custoVisitado && (
+            <TabsContent value="custo" forceMount className="pt-6 data-[state=inactive]:hidden">
+              <AbaCustoPreco produtoId={produto.id} podeEditar={podeSalvar} geralPendente={isDirty} />
+            </TabsContent>
+          )}
           <TabsContent value="acabamentos">
             <AcabamentosEditor key={produto.updatedAt} produto={produto} podeEditar={podeSalvar} />
-          </TabsContent>
-          <TabsContent value="ficha">
-            <FichaTecnicaEditor key={produto.updatedAt} produto={produto} podeEditar={podeSalvar} veCustos={veCustos} />
-          </TabsContent>
-          <TabsContent value="processos">
-            <ProcessosEditor key={produto.updatedAt} produto={produto} podeEditar={podeSalvar} />
           </TabsContent>
           <TabsContent value="simulador">
             <SimuladorPreco produto={produto} alteracoesPendentes={isDirty} />
@@ -142,7 +145,7 @@ export function ProdutoPage() {
   if (novo) {
     return (
       <>
-        <PageHeader titulo="Novo produto ou serviço" subtitulo="Acabamentos, ficha técnica, processos e simulador ficam disponíveis após salvar." acoes={voltar} />
+        <PageHeader titulo="Novo produto ou serviço" subtitulo="Custo e preço, acabamentos e simulador ficam disponíveis após salvar." acoes={voltar} />
         <Formulario />
       </>
     )
@@ -151,6 +154,8 @@ export function ProdutoPage() {
   if (consulta.isError) return <Card><EstadoErro erro={consulta.error} onTentarNovamente={() => void consulta.refetch()} /></Card>
 
   const p = consulta.data
+  // Insumo tem tela própria
+  if (p.tipo === 'insumo') return <Navigate to={`/produtos/insumos/${p.id}`} replace />
   return (
     <>
       <PageHeader

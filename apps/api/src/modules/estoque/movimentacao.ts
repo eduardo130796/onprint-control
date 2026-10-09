@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
 import { Decimal, custoMedioAposEntrada, type TipoMovimentacao } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
+import { consolidar } from './consultas'
 
 type Tx = Prisma.TransactionClient
 
@@ -103,8 +104,12 @@ export async function movimentar(tx: Tx, m: NovaMovimentacao): Promise<{ id: str
     },
   })
   await tx.estoqueSaldo.update({ where: { id: saldo.id }, data: { quantidade: novoSaldo.toFixed(3), custoMedio } })
-  // O custo do cadastro acompanha o custo médio das compras (base do custo estimado nos orçamentos)
-  if (ehEntrada && m.tipo === 'entrada') await tx.produto.update({ where: { id: m.produtoId }, data: { custo: new Decimal(custoMedio).toDecimalPlaces(2).toFixed(2) } })
+  // O custo do cadastro acompanha o custo médio consolidado das compras (todos os locais, 4 casas): base da
+  // composição dos produtos, que é recalculada depois do commit (entradas.service)
+  if (ehEntrada && m.tipo === 'entrada') {
+    const saldos = await tx.estoqueSaldo.findMany({ where: { produtoId: m.produtoId }, select: { quantidade: true, custoMedio: true, local: { select: { id: true, nome: true } } } })
+    await tx.produto.update({ where: { id: m.produtoId }, data: { custo: consolidar(saldos, produto.estoqueMinimo).custoMedio } })
+  }
 
   const minimo = new Decimal(produto.estoqueMinimo.toString())
   const totalDepois = totalAntes.plus(m.quantidade)

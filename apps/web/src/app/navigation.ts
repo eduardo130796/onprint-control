@@ -1,4 +1,4 @@
-import type { Modulo } from '@onprint/shared'
+import type { Acao, Modulo } from '@onprint/shared'
 import {
   BarChart3,
   Boxes,
@@ -30,6 +30,10 @@ export interface NavLeaf {
   path: string
   fase: number
   novo?: string
+  /** Ação exigida além de visualizar (ex.: reajuste de preços só para quem edita produtos) */
+  acao?: Acao
+  /** Atalho para uma tela de outro grupo: aparece no menu só se o grupo também for permitido; não gera rota */
+  atalho?: boolean
 }
 
 export interface NavModulo {
@@ -94,8 +98,10 @@ export const navegacao: NavModulo[] = [
     filhos: [
       { titulo: 'Categorias', path: '/produtos/categorias', fase: 2, novo: 'Nova categoria' },
       { titulo: 'Produtos e Serviços', path: '/produtos', fase: 2, novo: 'Novo produto' },
+      { titulo: 'Insumos e materiais', path: '/produtos/insumos', fase: 2, novo: 'Novo insumo' },
       { titulo: 'Acabamentos', path: '/produtos/acabamentos', fase: 2, novo: 'Novo acabamento' },
       { titulo: 'Máquinas e Processos', path: '/produtos/maquinas', fase: 2, novo: 'Nova máquina' },
+      { titulo: 'Reajuste de preços', path: '/produtos/reajuste', fase: 2, acao: 'editar' },
     ],
   },
   {
@@ -105,6 +111,7 @@ export const navegacao: NavModulo[] = [
     fase: 5,
     filhos: [
       { titulo: 'Estoque atual', path: '/estoque', fase: 5 },
+      { titulo: 'Insumos', path: '/produtos/insumos', fase: 5, modulo: 'produtos', atalho: true },
       { titulo: 'Entrada de estoque', path: '/estoque/entradas', fase: 5, novo: 'Nova entrada' },
       { titulo: 'Movimentações', path: '/estoque/movimentacoes', fase: 5, novo: 'Nova movimentação' },
       { titulo: 'Alertas de estoque baixo', path: '/estoque/alertas', fase: 5 },
@@ -161,6 +168,7 @@ export const navegacao: NavModulo[] = [
       { titulo: 'Aparência', path: '/configuracoes/aparencia', fase: 14 },
       { titulo: 'Usuários', path: '/configuracoes/usuarios', fase: 1, novo: 'Novo usuário', modulo: 'usuarios' },
       { titulo: 'Permissões', path: '/configuracoes/permissoes', fase: 1, modulo: 'permissoes' },
+      { titulo: 'Precificação', path: '/configuracoes/precificacao', fase: 2 },
       { titulo: 'Templates de mensagens', path: '/configuracoes/templates', fase: 1, novo: 'Novo template' },
       { titulo: 'Máquinas', path: '/configuracoes/maquinas', fase: 2, novo: 'Nova máquina', modulo: 'produtos' },
       { titulo: 'Processos', path: '/configuracoes/processos', fase: 2, novo: 'Novo processo', modulo: 'produtos' },
@@ -180,7 +188,7 @@ export interface PaginaNav extends NavLeaf {
 /** Lista achatada de todas as páginas navegáveis (rotas, busca e FAB). */
 export const paginas: PaginaNav[] = navegacao.flatMap((m) =>
   m.filhos
-    ? m.filhos.map((f) => ({ ...f, modulo: f.modulo ?? m.modulo, moduloTitulo: m.titulo, icone: m.icone }))
+    ? m.filhos.filter((f) => !f.atalho).map((f) => ({ ...f, modulo: f.modulo ?? m.modulo, moduloTitulo: m.titulo, icone: m.icone }))
     : [
         {
           titulo: m.titulo,
@@ -203,18 +211,18 @@ export function paginaAtual(pathname: string): PaginaNav | undefined {
     .sort((a, b) => b.path.length - a.path.length)[0]
 }
 
-type Pode = (modulo: Modulo) => boolean
+type Pode = (modulo: Modulo, acao?: Acao) => boolean
 
 /** Menu visível para o usuário: esconde itens sem permissão de visualizar e grupos vazios. */
 export function filtrarNavegacao(pode: Pode): NavModulo[] {
   return navegacao.flatMap((m) => {
     if (!m.filhos) return pode(m.modulo) ? [m] : []
-    const filhos = m.filhos.filter((f) => pode(f.modulo ?? m.modulo))
+    const filhos = m.filhos.filter((f) => pode(f.modulo ?? m.modulo, f.acao) && (!f.atalho || pode(m.modulo)))
     return filhos.length ? [{ ...m, filhos }] : []
   })
 }
 
 /** Primeira tela que o usuário pode abrir (usado quando ele não tem acesso ao Dashboard). */
 export function primeiraPaginaPermitida(pode: Pode): string | undefined {
-  return paginas.find((p) => p.path !== '/' && pode(p.modulo))?.path
+  return paginas.find((p) => p.path !== '/' && pode(p.modulo, p.acao))?.path
 }

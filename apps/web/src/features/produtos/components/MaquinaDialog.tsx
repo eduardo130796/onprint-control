@@ -31,7 +31,7 @@ export function MaquinaDialog({ maquina, onFechar }: { maquina?: Maquina; onFech
     },
   })
   const { errors } = form.formState
-  const salvar = useMutacao(['maquinas'], (d: Saida) => (maquina ? maquinasApi.atualizar(maquina.id, d) : maquinasApi.criar(d)))
+  const salvar = useMutacao(['maquinas', 'produtos'], (d: Saida) => (maquina ? maquinasApi.atualizar(maquina.id, d) : maquinasApi.criar(d)))
 
   const onSubmit = form.handleSubmit(async (d) => {
     try {

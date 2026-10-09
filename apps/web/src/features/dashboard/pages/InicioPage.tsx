@@ -8,6 +8,6 @@ import { DashboardPage } from './DashboardPage'
 export function InicioPage() {
   const pode = usePermissoes()
   if (pode('dashboard')) return <DashboardPage />
-  const destino = primeiraPaginaPermitida((m) => pode(m))
+  const destino = primeiraPaginaPermitida((m, a) => pode(m, a))
   return destino ? <Navigate to={destino} replace /> : <ExigePermissao modulo="dashboard">{null}</ExigePermissao>
 }

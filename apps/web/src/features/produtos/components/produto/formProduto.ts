@@ -33,6 +33,13 @@ export function valoresProduto(p?: Produto): ProdutoInput {
   }
 }
 
+/** Preço e custo têm dono próprio (aba "Custo e preço", PUT /produtos/:id/composicao): a edição não os envia. */
+export function semPrecoECusto(d: ProdutoSaida): Partial<ProdutoSaida> {
+  const resto: Partial<ProdutoSaida> = { ...d }
+  for (const campo of ['precoVenda', 'custo', 'margem', 'precoMinimo'] as const) delete resto[campo]
+  return resto
+}
+
 /** Em qual aba está cada campo — para levar o usuário ao erro de validação. */
 export const ABA_DO_CAMPO: Record<string, string> = {
   codigo: 'geral',
@@ -42,15 +49,15 @@ export const ABA_DO_CAMPO: Record<string, string> = {
   unidadeMedidaId: 'geral',
   tipo: 'geral',
   prazoProducaoDias: 'geral',
-  modoCalculo: 'preco',
-  precoVenda: 'preco',
-  custo: 'preco',
-  margem: 'preco',
-  precoMinimo: 'preco',
-  larguraPadrao: 'preco',
-  alturaPadrao: 'preco',
-  larguraMaxima: 'preco',
-  alturaMaxima: 'preco',
+  modoCalculo: 'geral',
+  precoVenda: 'geral',
+  custo: 'geral',
+  margem: 'geral',
+  precoMinimo: 'geral',
+  larguraPadrao: 'geral',
+  alturaPadrao: 'geral',
+  larguraMaxima: 'geral',
+  alturaMaxima: 'geral',
   controlaEstoque: 'estoque',
   estoqueMinimo: 'estoque',
 }

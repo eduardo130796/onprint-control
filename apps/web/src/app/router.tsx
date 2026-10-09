@@ -1,6 +1,6 @@
 import { Suspense, type ReactElement } from 'react'
 import { createBrowserRouter, type RouteObject } from 'react-router-dom'
-import type { Modulo } from '@onprint/shared'
+import type { Acao, Modulo } from '@onprint/shared'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { NaoEncontradoPage } from '@/components/shared/NaoEncontradoPage'
 import { PlaceholderPage } from '@/components/shared/PlaceholderPage'
@@ -57,6 +57,10 @@ import {
   ProducaoKanbanPage,
   ProdutoPage,
   ProdutosPage,
+  InsumosPage,
+  InsumoPage,
+  ReajustePage,
+  PrecificacaoPage,
   SolicitacoesPage,
   StatusPage,
   AparenciaPage,
@@ -123,6 +127,10 @@ const telas: Record<string, ReactElement> = {
   '/fornecedores/novo': <FornecedorPage />,
   '/produtos': <ProdutosPage />,
   '/produtos/novo': <ProdutoPage />,
+  '/produtos/insumos': <InsumosPage />,
+  '/produtos/insumos/novo': <InsumoPage />,
+  '/produtos/reajuste': <ReajustePage />,
+  '/configuracoes/precificacao': <PrecificacaoPage />,
   '/produtos/categorias': <CategoriasPage />,
   '/produtos/categorias/novo': <CategoriasPage />,
   '/produtos/acabamentos': <AcabamentosPage />,
@@ -150,6 +158,7 @@ const detalhes: { path: string; modulo: Modulo; elemento: ReactElement }[] = [
   { path: '/clientes/:id', modulo: 'clientes', elemento: <ClienteFichaPage /> },
   { path: '/fornecedores/:id', modulo: 'fornecedores', elemento: <FornecedorPage /> },
   { path: '/produtos/:id', modulo: 'produtos', elemento: <ProdutoPage /> },
+  { path: '/produtos/insumos/:id', modulo: 'produtos', elemento: <InsumoPage /> },
   { path: '/orcamentos/:id', modulo: 'orcamentos', elemento: <OrcamentoEditorPage /> },
   { path: '/pedidos/:id', modulo: 'pedidos', elemento: <PedidoPage /> },
   { path: '/producao/ordens/:id', modulo: 'producao', elemento: <OpPage /> },
@@ -160,7 +169,7 @@ const detalhes: { path: string; modulo: Modulo; elemento: ReactElement }[] = [
 /** Rotas fora do AppLayout precisam do próprio Suspense (o layout tem o dele). */
 const comCarregamento = (elemento: ReactElement) => <Suspense fallback={<TelaCarregando />}>{elemento}</Suspense>
 
-function protegida(path: string, modulo: Modulo, elemento: ReactElement, acao: 'visualizar' | 'criar' = 'visualizar'): RouteObject {
+function protegida(path: string, modulo: Modulo, elemento: ReactElement, acao: Acao = 'visualizar'): RouteObject {
   return {
     path,
     element: (
@@ -175,7 +184,7 @@ const rotasInternas: RouteObject[] = paginas.flatMap((p) => {
   if (p.path === '/') return [{ path: '/', element: <InicioPage /> }]
   // Sem exigir permissão: com a assinatura bloqueada, é a única tela que funciona
   if (p.path === '/assinatura') return [{ path: '/assinatura', element: <MinhaAssinaturaPage /> }]
-  const rotas = [protegida(p.path, p.modulo, telas[p.path] ?? <PlaceholderPage />)]
+  const rotas = [protegida(p.path, p.modulo, telas[p.path] ?? <PlaceholderPage />, p.acao)]
   if (p.novo) rotas.push(protegida(`${p.path}/novo`, p.modulo, telas[`${p.path}/novo`] ?? <PlaceholderPage />, 'criar'))
   return rotas
 })

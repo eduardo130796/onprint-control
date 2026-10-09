@@ -155,6 +155,16 @@ model EmpresaConfig {
   sinalPercentual       Decimal  @default(50) @map("sinal_percentual") @db.Decimal(5, 2)
   chavePix              String?  @map("chave_pix")
   areaMinimaM2          Decimal  @default(0) @map("area_minima_m2") @db.Decimal(10, 3)
+  /// Precificação: percentuais sobre o preço, rateio dos custos fixos e lucro padrão (docs/PRECIFICACAO.md)
+  impostosPercentual    Decimal  @default(0) @map("impostos_percentual") @db.Decimal(5, 2)
+  comissaoPercentual    Decimal  @default(0) @map("comissao_percentual") @db.Decimal(5, 2)
+  custoFixoPercentual   Decimal  @default(0) @map("custo_fixo_percentual") @db.Decimal(5, 2)
+  /// nenhum | percentual | por_hora
+  rateioModo            String   @default("nenhum") @map("rateio_modo")
+  custoFixoMensal       Decimal  @default(0) @map("custo_fixo_mensal") @db.Decimal(12, 2)
+  horasProdutivasMes    Int      @default(0) @map("horas_produtivas_mes")
+  lucroDesejadoPadrao   Decimal  @default(30) @map("lucro_desejado_padrao") @db.Decimal(5, 2)
+  lucroMinimoPadrao     Decimal  @default(15) @map("lucro_minimo_padrao") @db.Decimal(5, 2)
   createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdBy             String?  @map("created_by") @db.Uuid
@@ -407,6 +417,7 @@ model Fornecedor {
   entradasEstoque       EstoqueEntrada[]      @relation("EntradaFornecedor")
   movimentacoesEstoque  EstoqueMovimentacao[] @relation("MovimentacaoFornecedor")
   contasPagar           ContaPagar[]          @relation("ContaPagarFornecedor")
+  insumosPreferidos     Produto[]             @relation("InsumoFornecedorPreferido")
 
   @@index([nome])
   @@map("fornecedores")
@@ -490,35 +501,53 @@ model Categoria {
 }
 
 model Produto {
-  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  codigo            String      @unique
-  nome              String
-  descricao         String?
-  categoriaId       String?     @map("categoria_id") @db.Uuid
-  unidadeMedidaId   String?     @map("unidade_medida_id") @db.Uuid
-  tipo              TipoProduto @default(produto)
-  modoCalculo       ModoCalculo @default(unidade) @map("modo_calculo")
-  precoVenda        Decimal     @default(0) @map("preco_venda") @db.Decimal(12, 2)
-  custo             Decimal     @default(0) @db.Decimal(12, 2)
-  /// Markup sobre o custo, em %
-  margem            Decimal     @default(0) @db.Decimal(7, 2)
-  precoMinimo       Decimal?    @map("preco_minimo") @db.Decimal(12, 2)
-  larguraPadrao     Decimal?    @map("largura_padrao") @db.Decimal(10, 3)
-  alturaPadrao      Decimal?    @map("altura_padrao") @db.Decimal(10, 3)
-  larguraMaxima     Decimal?    @map("largura_maxima") @db.Decimal(10, 3)
-  alturaMaxima      Decimal?    @map("altura_maxima") @db.Decimal(10, 3)
-  prazoProducaoDias Int         @default(0) @map("prazo_producao_dias")
-  controlaEstoque   Boolean     @default(false) @map("controla_estoque")
-  estoqueMinimo     Decimal     @default(0) @map("estoque_minimo") @db.Decimal(12, 3)
-  imagemArquivoId   String?     @map("imagem_arquivo_id") @db.Uuid
-  ativo             Boolean     @default(true)
-  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
-  createdBy         String?     @map("created_by") @db.Uuid
+  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  codigo                String      @unique
+  nome                  String
+  descricao             String?
+  categoriaId           String?     @map("categoria_id") @db.Uuid
+  unidadeMedidaId       String?     @map("unidade_medida_id") @db.Uuid
+  tipo                  TipoProduto @default(produto)
+  modoCalculo           ModoCalculo @default(unidade) @map("modo_calculo")
+  precoVenda            Decimal     @default(0) @map("preco_venda") @db.Decimal(12, 2)
+  /// Custo por unidade de cálculo (insumo: por unidade de uso); na composição, calculado
+  custo                 Decimal     @default(0) @db.Decimal(12, 4)
+  /// Legado: markup sobre o custo, em % (substituído por lucroDesejado)
+  margem                Decimal     @default(0) @db.Decimal(7, 2)
+  precoMinimo           Decimal?    @map("preco_minimo") @db.Decimal(12, 2)
+  /// simples (custo digitado) | composicao (materiais + produção + extras)
+  modoCusto             String      @default("simples") @map("modo_custo")
+  /// % sobre o preço; null = padrão da empresa
+  lucroDesejado         Decimal?    @map("lucro_desejado") @db.Decimal(5, 2)
+  lucroMinimo           Decimal?    @map("lucro_minimo") @db.Decimal(5, 2)
+  /// Detalhamento do custo de referência (CustoItem) gravado no recálculo
+  custoDetalhe          Json?       @map("custo_detalhe")
+  custoCalculadoEm      DateTime?   @map("custo_calculado_em") @db.Timestamptz(3)
+  /// Insumo: como é comprado (rolo, chapa, pacote, caixa, galao, unidade)
+  embalagem             String?     @map("embalagem")
+  embalagemLargura      Decimal?    @map("embalagem_largura") @db.Decimal(12, 3)
+  embalagemComprimento  Decimal?    @map("embalagem_comprimento") @db.Decimal(12, 3)
+  embalagemConteudo     Decimal?    @map("embalagem_conteudo") @db.Decimal(12, 3)
+  precoEmbalagem        Decimal?    @map("preco_embalagem") @db.Decimal(12, 2)
+  fornecedorPreferidoId String?     @map("fornecedor_preferido_id") @db.Uuid
+  larguraPadrao         Decimal?    @map("largura_padrao") @db.Decimal(10, 3)
+  alturaPadrao          Decimal?    @map("altura_padrao") @db.Decimal(10, 3)
+  larguraMaxima         Decimal?    @map("largura_maxima") @db.Decimal(10, 3)
+  alturaMaxima          Decimal?    @map("altura_maxima") @db.Decimal(10, 3)
+  prazoProducaoDias     Int         @default(0) @map("prazo_producao_dias")
+  controlaEstoque       Boolean     @default(false) @map("controla_estoque")
+  estoqueMinimo         Decimal     @default(0) @map("estoque_minimo") @db.Decimal(12, 3)
+  imagemArquivoId       String?     @map("imagem_arquivo_id") @db.Uuid
+  ativo                 Boolean     @default(true)
+  createdAt             DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdBy             String?     @map("created_by") @db.Uuid
 
   categoria            Categoria?            @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
   unidadeMedida        UnidadeMedida?        @relation(fields: [unidadeMedidaId], references: [id], onDelete: Restrict)
   imagem               Arquivo?              @relation(fields: [imagemArquivoId], references: [id], onDelete: SetNull)
+  fornecedorPreferido  Fornecedor?           @relation("InsumoFornecedorPreferido", fields: [fornecedorPreferidoId], references: [id], onDelete: SetNull)
+  custosExtras         ProdutoCustoExtra[]
   acabamentos          ProdutoAcabamento[]
   insumos              ProdutoInsumo[]       @relation("FichaTecnica")
   usadoComo            ProdutoInsumo[]       @relation("InsumoDaFicha")
@@ -533,7 +562,24 @@ model Produto {
   @@index([categoriaId])
   @@index([tipo])
   @@index([nome])
+  @@index([fornecedorPreferidoId])
   @@map("produtos")
+}
+
+/// Outros custos da composição (embalagem, frete…): valor por unidade, m², metro ou item.
+model ProdutoCustoExtra {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  produtoId String  @map("produto_id") @db.Uuid
+  nome      String
+  valor     Decimal @db.Decimal(12, 4)
+  /// por_unidade | por_m2 | por_metro_linear | por_item
+  base      String  @default("por_item")
+  ordem     Int     @default(0)
+
+  produto Produto @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+
+  @@index([produtoId])
+  @@map("produto_custos_extras")
 }
 
 /// Ficha técnica: insumos consumidos por peça, m² ou metro do produto.
@@ -620,6 +666,8 @@ model Processo {
   descricao          String?
   maquinaPadraoId    String?  @map("maquina_padrao_id") @db.Uuid
   tempoPadraoMinutos Int?     @map("tempo_padrao_minutos")
+  /// Mão de obra sem máquina (vale quando a máquina não tem custo/hora)
+  custoHora          Decimal  @default(0) @map("custo_hora") @db.Decimal(12, 2)
   ativo              Boolean  @default(true)
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -634,13 +682,18 @@ model Processo {
 }
 
 model ProdutoProcesso {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  produtoId  String   @map("produto_id") @db.Uuid
-  processoId String   @map("processo_id") @db.Uuid
-  maquinaId  String?  @map("maquina_id") @db.Uuid
-  ordem      Int
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  produtoId    String   @map("produto_id") @db.Uuid
+  processoId   String   @map("processo_id") @db.Uuid
+  maquinaId    String?  @map("maquina_id") @db.Uuid
+  ordem        Int
+  /// Minutos por base; null = velocidade da máquina (por m²) ou tempo padrão do processo
+  minutos      Decimal? @db.Decimal(10, 2)
+  /// por_unidade | por_m2 | por_metro_linear | por_item
+  base         String   @default("por_unidade")
+  setupMinutos Decimal  @default(0) @map("setup_minutos") @db.Decimal(10, 2)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   produto  Produto  @relation(fields: [produtoId], references: [id], onDelete: Cascade)
   processo Processo @relation(fields: [processoId], references: [id], onDelete: Restrict)
@@ -1694,11 +1747,11 @@ model Assinante {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  logins      IndiceLogin[]
-  tokensSenha TokenSenha[]
-  assinatura  Assinatura?
-  eventos     EventoAssinatura[]
-  cobrancas   Cobranca[]
+  logins       IndiceLogin[]
+  tokensSenha  TokenSenha[]
+  assinatura   Assinatura?
+  eventos      EventoAssinatura[]
+  cobrancas    Cobranca[]
   cuponsUsados CupomUso[]
 
   @@map("assinantes")

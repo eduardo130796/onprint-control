@@ -51,7 +51,7 @@ export function BuscaGlobal() {
   const resultados = useMemo<Resultado[]>(() => {
     const t = normalizar(termo.trim())
     const telas = paginas
-      .filter((p) => pode(p.modulo) && (!t || normalizar(`${p.moduloTitulo} ${p.titulo}`).includes(t)))
+      .filter((p) => pode(p.modulo, p.acao) && (!t || normalizar(`${p.moduloTitulo} ${p.titulo}`).includes(t)))
       .slice(0, t ? 5 : 12)
       .map((p) => ({ chave: `tela:${p.path}`, grupo: 'Telas', icone: p.icone, titulo: p.titulo, detalhe: p.moduloTitulo !== p.titulo ? p.moduloTitulo : undefined, path: p.path }))
     const r = termoApi.length >= 2 ? registros.data : undefined

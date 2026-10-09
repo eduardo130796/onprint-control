@@ -213,3 +213,11 @@ Pedido do usuário: "puxar os dados do CNPJ e endereço onde tiver, puxar pelo C
 - [x] Verificado: testes unitários (api: normalização, ordem dos serviços, cache, rotas; web: preenchimento só dos vazios; shared: capitalização) e capturas no navegador (computador e celular, claro e escuro) com os serviços reais
 - [ ] Aceite validado pelo usuário
 - [x] **Saída por inatividade** (padrão 30 min, configurável; aviso 1 min antes; todas as abas; regra também no servidor; usuário de painel para a TV da produção); e2e `fase15`
+
+### Insumos, composição de custo e preço (fases 1 e 2) — em andamento
+Pedido do usuário: "dentro do produto ter a composição dos custos, buscando os insumos; tudo interligado". Especificação em `docs/PRECIFICACAO.md` (D206).
+- [x] API e banco: migração `composicao_custos` (custo com 4 casas, modo de custo, lucro sobre o preço migrado da margem, embalagem do insumo, roteiro com minutos/base/preparo, custo/hora do processo, outros custos, precificação da empresa); `/insumos`; `GET/PUT /produtos/:id/composicao`; `GET/POST /produtos/reajuste`; `GET/PUT /empresa/precificacao`; recálculo em lote com aviso de reajuste (insumo, entrada de estoque, máquina, processo, precificação); `GET /produtos` sem insumos; edição do produto sem tocar no preço não enviado; catálogo de exemplo com embalagens e dois produtos em composição
+- [x] Verificado (API): testes unitários (`tests/custos.test.ts`) e e2e `fase17` (insumo pela embalagem, composição, custo médio consolidado, aviso, reajuste, precificação, gatilhos, permissões); `fase2`, `fase3`, `fase5` sem regressão
+- [x] Telas: Produtos → Insumos e materiais (lista + página única com embalagem e custo ao vivo, onde é usado), aba Custo e preço do produto (Sei meu custo / Montar a composição, resumo ao vivo com preço sugerido e semáforo; substitui Preço, Ficha técnica e Processos), Reajuste de preços (com contador no menu), Configurações → Precificação (exemplo ao vivo), entrada de estoque em embalagens, custo/hora no processo, atalho Insumos no Estoque
+- [x] Verificado (web): tsc, eslint, vitest (helpers de custo, composição e embalagem) e navegador (desktop, 390 px e modo escuro)
+- [ ] Aceite validado pelo usuário

@@ -228,6 +228,8 @@ export interface Processo extends Auditavel {
   maquinaPadraoId: string | null
   maquinaPadrao: { id: string; nome: string } | null
   tempoPadraoMinutos: number | null
+  /** Mão de obra sem máquina */
+  custoHora: string
   ativo: boolean
 }
 
@@ -246,6 +248,13 @@ export interface Produto extends Auditavel {
   custo?: string
   margem?: string
   precoMinimo: string | null
+  /** simples (custo digitado) | composicao (calculado) */
+  modoCusto: 'simples' | 'composicao'
+  /** Lucro sobre o preço (%); null = padrão da empresa. Só para quem vê custos */
+  lucroDesejado?: string | null
+  lucroMinimo?: string | null
+  /** Quando a composição recalculou o custo pela última vez */
+  custoCalculadoEm: string | null
   larguraPadrao: string | null
   alturaPadrao: string | null
   larguraMaxima: string | null

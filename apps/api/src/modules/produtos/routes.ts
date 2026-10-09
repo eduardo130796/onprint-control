@@ -8,11 +8,15 @@ import {
   maquinaSchema,
   maquinasQuerySchema,
   processoSchema,
+  aplicarReajusteSchema,
+  composicaoProdutoSchema,
   produtoAcabamentosSchema,
+  produtoAtualizacaoSchema,
   produtoInsumosSchema,
   produtoProcessosSchema,
   produtoSchema,
   produtosQuerySchema,
+  reajusteQuerySchema,
   simulacaoSchema,
 } from '@onprint/shared'
 import { registrarRotasCrud } from '../../core/crud-rotas'
@@ -21,19 +25,22 @@ import { criarCadastrosProdutos } from './cadastros'
 import { criarCategoriasService } from './categorias.service'
 import { criarComposicaoService } from './composicao.service'
 import { criarProdutosController } from './controller'
+import { criarCustosService } from './custos.service'
 import { criarPrecificacaoService } from './precificacao.service'
 import { criarProdutosService } from './produtos.service'
 
 /** Módulo Produtos: categorias, unidades, acabamentos, máquinas, processos e produtos. */
 export const produtosRoutes: FastifyPluginAsyncZod = async (app) => {
+  const custos = criarCustosService(app)
   const c = criarProdutosController(app, {
-    produtos: criarProdutosService(app, criarArquivosService(app)),
+    produtos: criarProdutosService(app, criarArquivosService(app), custos),
+    custos,
     composicao: criarComposicaoService(app),
     precificacao: criarPrecificacaoService(app),
     categorias: criarCategoriasService(app),
   })
   const pode = (acao: 'visualizar' | 'criar' | 'editar' | 'excluir') => ({ onRequest: [app.exigirPermissao('produtos', acao)] })
-  const cadastros = criarCadastrosProdutos(app)
+  const cadastros = criarCadastrosProdutos(app, custos)
 
   await app.register(
     async (r) => registrarRotasCrud(r, { modulo: 'produtos', tags: ['acabamentos'], nome: 'acabamento', corpo: acabamentoSchema, query: cadastroQuerySchema, service: cadastros.acabamentos }),
@@ -80,7 +87,7 @@ export const produtosRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post('/produtos', { ...pode('criar'), schema: { tags, summary: 'Cria produto (código automático se vazio)', body: produtoSchema } }, async (req, reply) =>
     reply.status(201).send(await c.criar(req, req.body)),
   )
-  app.put('/produtos/:id', { ...pode('editar'), schema: { tags, summary: 'Atualiza produto', params: idParamSchema, body: produtoSchema } }, (req) =>
+  app.put('/produtos/:id', { ...pode('editar'), schema: { tags, summary: 'Atualiza produto', params: idParamSchema, body: produtoAtualizacaoSchema } }, (req) =>
     c.atualizar(req, req.params.id, req.body),
   )
   app.delete('/produtos/:id', { ...pode('excluir'), schema: { tags, summary: 'Desativa produto', params: idParamSchema } }, (req) =>
@@ -109,6 +116,27 @@ export const produtosRoutes: FastifyPluginAsyncZod = async (app) => {
     { ...pode('editar'), schema: { tags, summary: 'Substitui o roteiro de processos', params: idParamSchema, body: produtoProcessosSchema } },
     (req) => c.processos(req, req.params.id, req.body),
   )
+
+  // Composição de custo e preço (docs/PRECIFICACAO.md)
+  app.get(
+    '/produtos/:id/composicao',
+    { ...pode('editar'), schema: { tags, summary: 'Composição de custo, custo de referência, lucro e preço sugerido', params: idParamSchema } },
+    (req) => c.obterComposicao(req.params.id),
+  )
+  app.put(
+    '/produtos/:id/composicao',
+    { ...pode('editar'), schema: { tags, summary: 'Salva modo de custo, materiais, produção, extras, lucro e preço (recalcula)', params: idParamSchema, body: composicaoProdutoSchema } },
+    (req) => c.salvarComposicao(req, req.params.id, req.body),
+  )
+  app.get(
+    '/produtos/reajuste',
+    { ...pode('editar'), schema: { tags, summary: 'Produtos abaixo do lucro mínimo (ou todos) com o preço sugerido', querystring: reajusteQuerySchema } },
+    (req) => c.listarReajuste(req.query.situacao),
+  )
+  app.post('/produtos/reajuste', { ...pode('editar'), schema: { tags, summary: 'Aplica os preços escolhidos', body: aplicarReajusteSchema } }, (req) =>
+    c.aplicarReajuste(req, req.body),
+  )
+
   app.post(
     '/produtos/:id/simular',
     // Só calcula, não grava: continua liberado no modo só leitura da assinatura

@@ -1,4 +1,7 @@
 import type { Prisma, PrismaClient } from '@prisma/client'
+import { custoPorUnidadeDeUso, markupParaLucro } from '@onprint/shared'
+import { parametrosPreco, referenciaDoProduto } from '../../src/modules/produtos/custos'
+import { incluirComposicao } from '../../src/modules/produtos/custos.service'
 
 export const UNIDADES = [
   { sigla: 'un', nome: 'Unidade' },
@@ -9,6 +12,7 @@ export const UNIDADES = [
   { sigla: 'fl', nome: 'Folha' },
   { sigla: 'kg', nome: 'Quilo' },
   { sigla: 'l', nome: 'Litro' },
+  { sigla: 'ml', nome: 'Mililitro' },
   { sigla: 'rl', nome: 'Rolo' },
   { sigla: 'cx', nome: 'Caixa' },
 ]
@@ -38,10 +42,10 @@ export async function criarCatalogoExemplo(prisma: PrismaClient) {
   const prensa = await prisma.maquina.create({ data: { nome: 'Prensa térmica de caneca', tipo: 'Sublimação', custoHora: '15' } })
 
   const impressao = await prisma.processo.create({ data: { nome: 'Impressão digital', maquinaPadraoId: plotter.id } })
-  const acabamento = await prisma.processo.create({ data: { nome: 'Acabamento', tempoPadraoMinutos: 20 } })
-  const corte = await prisma.processo.create({ data: { nome: 'Corte e refile', tempoPadraoMinutos: 10 } })
+  const acabamento = await prisma.processo.create({ data: { nome: 'Acabamento', tempoPadraoMinutos: 20, custoHora: '25' } })
+  const corte = await prisma.processo.create({ data: { nome: 'Corte e refile', tempoPadraoMinutos: 10, custoHora: '25' } })
   const sublimacao = await prisma.processo.create({ data: { nome: 'Sublimação', maquinaPadraoId: prensa.id, tempoPadraoMinutos: 5 } })
-  await prisma.processo.create({ data: { nome: 'Instalação' } })
+  await prisma.processo.create({ data: { nome: 'Instalação', custoHora: '40' } })
 
   const ilhos = await prisma.acabamento.create({
     data: { nome: 'Ilhós a cada 50 cm', tipoCobranca: 'por_perimetro', valor: '2.00', custo: '0.60' },
@@ -56,13 +60,30 @@ export async function criarCatalogoExemplo(prisma: PrismaClient) {
 
   let seq = 0
   const produto = (data: Omit<Prisma.ProdutoUncheckedCreateInput, 'codigo'>) =>
-    prisma.produto.create({ data: { ...data, codigo: `PRD-${String(++seq).padStart(4, '0')}` } })
+    prisma.produto.create({
+      data: {
+        ...data,
+        // Margem antiga (markup) → lucro sobre o preço, como na migração
+        lucroDesejado: data.lucroDesejado ?? (data.margem ? markupParaLucro(data.margem.toString()) : undefined),
+        codigo: `PRD-${String(++seq).padStart(4, '0')}`,
+      },
+    })
 
-  // Insumos
-  const lona = await produto({ nome: 'Lona 440 g (rolo 3,20 m)', tipo: 'insumo', modoCalculo: 'm2', custo: '9.50', unidadeMedidaId: await un('m²'), categoriaId: materiais.id, controlaEstoque: true, estoqueMinimo: '50' })
-  const vinil = await produto({ nome: 'Vinil adesivo branco', tipo: 'insumo', modoCalculo: 'm2', custo: '12.00', unidadeMedidaId: await un('m²'), categoriaId: materiais.id, controlaEstoque: true, estoqueMinimo: '30' })
-  const couche = await produto({ nome: 'Papel couché 300 g (folha SRA3)', tipo: 'insumo', custo: '1.20', unidadeMedidaId: await un('fl'), categoriaId: materiais.id, controlaEstoque: true, estoqueMinimo: '500' })
-  const canecaBranca = await produto({ nome: 'Caneca branca para sublimação', tipo: 'insumo', custo: '8.00', unidadeMedidaId: await un('un'), categoriaId: materiais.id, controlaEstoque: true, estoqueMinimo: '24' })
+  // Insumos: custo por unidade de uso = preço da embalagem ÷ o que vem nela
+  const insumo = (data: Omit<Prisma.ProdutoUncheckedCreateInput, 'codigo' | 'tipo' | 'custo'> & { precoEmbalagem: string }, fator: number) =>
+    produto({ ...data, tipo: 'insumo', categoriaId: materiais.id, controlaEstoque: true, custo: custoPorUnidadeDeUso(data.precoEmbalagem, fator) ?? '0' })
+  const lona = await insumo(
+    { nome: 'Lona 440 g (rolo 3,20 m)', modoCalculo: 'm2', unidadeMedidaId: await un('m²'), estoqueMinimo: '50', embalagem: 'rolo', embalagemLargura: '3.2', embalagemComprimento: '50', precoEmbalagem: '1450.00' },
+    3.2 * 50,
+  )
+  const vinil = await insumo(
+    { nome: 'Vinil adesivo branco', modoCalculo: 'm2', unidadeMedidaId: await un('m²'), estoqueMinimo: '30', embalagem: 'rolo', embalagemLargura: '1.27', embalagemComprimento: '50', precoEmbalagem: '762.00' },
+    1.27 * 50,
+  )
+  const couche = await insumo({ nome: 'Papel couché 300 g (folha SRA3)', unidadeMedidaId: await un('fl'), estoqueMinimo: '500', embalagem: 'pacote', embalagemConteudo: '125', precoEmbalagem: '150.00' }, 125)
+  const canecaBranca = await insumo({ nome: 'Caneca branca para sublimação', unidadeMedidaId: await un('un'), estoqueMinimo: '24', embalagem: 'caixa', embalagemConteudo: '36', precoEmbalagem: '288.00' }, 36)
+  const tinta = await insumo({ nome: 'Tinta eco-solvente (galão 5 l)', unidadeMedidaId: await un('ml'), estoqueMinimo: '2000', embalagem: 'galao', embalagemConteudo: '5000', precoEmbalagem: '450.00' }, 5000)
+  await insumo({ nome: 'Ilhós latão nº 0', unidadeMedidaId: await un('un'), estoqueMinimo: '500', embalagem: 'caixa', embalagemConteudo: '1000', precoEmbalagem: '60.00' }, 1000)
 
   // Produtos e serviços
   const banner = await produto({
@@ -79,12 +100,14 @@ export async function criarCatalogoExemplo(prisma: PrismaClient) {
     unidadeMedidaId: await un('m²'),
     categoriaId: banners.id,
   })
+  // Adesivo e caneca: custo montado pela composição (materiais + produção), recalculado no fim
   const adesivo = await produto({
     nome: 'Adesivo vinil impresso',
     modoCalculo: 'm2',
+    modoCusto: 'composicao',
     precoVenda: '70.00',
-    custo: '28.00',
-    margem: '150',
+    custo: '0',
+    lucroDesejado: '50',
     precoMinimo: '60.00',
     larguraMaxima: '1.5',
     alturaMaxima: '50',
@@ -105,9 +128,10 @@ export async function criarCatalogoExemplo(prisma: PrismaClient) {
   const caneca = await produto({
     nome: 'Caneca personalizada',
     modoCalculo: 'unidade',
+    modoCusto: 'composicao',
     precoVenda: '35.00',
-    custo: '12.00',
-    margem: '191.67',
+    custo: '0',
+    lucroDesejado: '50',
     prazoProducaoDias: 2,
     unidadeMedidaId: await un('un'),
     categoriaId: personalizados.id,
@@ -135,21 +159,30 @@ export async function criarCatalogoExemplo(prisma: PrismaClient) {
     data: [
       { produtoId: banner.id, insumoId: lona.id, quantidade: '1', base: 'por_m2', perdaPercentual: '5' },
       { produtoId: adesivo.id, insumoId: vinil.id, quantidade: '1', base: 'por_m2', perdaPercentual: '8' },
+      { produtoId: adesivo.id, insumoId: tinta.id, quantidade: '10', base: 'por_m2', perdaPercentual: '5' },
       { produtoId: cartao.id, insumoId: couche.id, quantidade: '0.0417', base: 'por_unidade', perdaPercentual: '3' },
       { produtoId: caneca.id, insumoId: canecaBranca.id, quantidade: '1', base: 'por_unidade', perdaPercentual: '2' },
     ],
   })
+  // Roteiro: sem minutos = tempo padrão do processo, por item; impressão por m² = pela velocidade da plotter
   await prisma.produtoProcesso.createMany({
     data: [
-      { produtoId: banner.id, processoId: impressao.id, maquinaId: plotter.id, ordem: 1 },
-      { produtoId: banner.id, processoId: acabamento.id, ordem: 2 },
-      { produtoId: adesivo.id, processoId: impressao.id, maquinaId: plotter.id, ordem: 1 },
-      { produtoId: adesivo.id, processoId: corte.id, ordem: 2 },
-      { produtoId: cartao.id, processoId: impressao.id, maquinaId: laser.id, ordem: 1 },
-      { produtoId: cartao.id, processoId: corte.id, ordem: 2 },
-      { produtoId: caneca.id, processoId: sublimacao.id, maquinaId: prensa.id, ordem: 1 },
+      { produtoId: banner.id, processoId: impressao.id, maquinaId: plotter.id, ordem: 1, base: 'por_item' },
+      { produtoId: banner.id, processoId: acabamento.id, ordem: 2, base: 'por_item' },
+      { produtoId: adesivo.id, processoId: impressao.id, maquinaId: plotter.id, ordem: 1, base: 'por_m2', setupMinutos: '5' },
+      { produtoId: adesivo.id, processoId: corte.id, ordem: 2, base: 'por_m2', minutos: '2' },
+      { produtoId: cartao.id, processoId: impressao.id, maquinaId: laser.id, ordem: 1, base: 'por_item' },
+      { produtoId: cartao.id, processoId: corte.id, ordem: 2, base: 'por_item' },
+      { produtoId: caneca.id, processoId: sublimacao.id, maquinaId: prensa.id, ordem: 1, base: 'por_unidade', minutos: '5' },
     ],
   })
+  await prisma.produtoCustoExtra.create({ data: { produtoId: caneca.id, nome: 'Caixinha para presente', valor: '1.20', base: 'por_unidade', ordem: 1 } })
+
+  // Custo de referência das composições (o mesmo cálculo da API, sem impostos nem rateio configurados)
+  for (const p of await prisma.produto.findMany({ where: { modoCusto: 'composicao' }, include: incluirComposicao })) {
+    const ref = referenciaDoProduto(p, parametrosPreco(null))
+    await prisma.produto.update({ where: { id: p.id }, data: { custo: ref.porUnidade, custoDetalhe: ref as unknown as Prisma.InputJsonValue, custoCalculadoEm: new Date() } })
+  }
 
   // A próxima numeração automática de produto continua de onde o exemplo parou
   await prisma.numeracao.upsert({

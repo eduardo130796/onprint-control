@@ -78,7 +78,7 @@ export function ProdutosPage() {
         id: 'preco',
         header: 'Preço',
         meta: { ordenavel: 'precoVenda' },
-        cell: ({ row: { original: p } }) => (p.tipo === 'insumo' ? <span className="text-texto-secundario">—</span> : formatarPrecoUnitario(p.precoVenda, p.modoCalculo)),
+        cell: ({ row: { original: p } }) => formatarPrecoUnitario(p.precoVenda, p.modoCalculo),
       },
       {
         id: 'acoes',
@@ -113,8 +113,8 @@ export function ProdutosPage() {
   return (
     <>
       <PageHeader
-        titulo="Produtos e serviços"
-        subtitulo="Catálogo com preço, forma de cálculo, acabamentos, ficha técnica e roteiro de produção."
+        titulo="Produtos e Serviços"
+        subtitulo="O que você vende: forma de cobrança, custo e preço, acabamentos. Os materiais ficam em Insumos e materiais."
         acoes={
           <Can modulo="produtos" acao="criar">
             <Button onClick={() => navigate('/produtos/novo')}>
@@ -136,11 +136,11 @@ export function ProdutosPage() {
         onPageSizeChange={lista.setPageSize}
         onSortChange={lista.setSort}
         idLinha={(p) => p.id}
-        onLinhaClick={(p) => navigate(`/produtos/${p.id}`)}
+        onLinhaClick={(p) => navigate(p.tipo === 'insumo' ? `/produtos/insumos/${p.id}` : `/produtos/${p.id}`)}
         busca={{ valor: lista.busca, onChange: lista.setBusca, placeholder: 'Nome ou código…' }}
         filtros={
           <>
-            {filtro('tipo', 'Todos os tipos', TIPOS_PRODUTO.map((t) => ({ valor: t, texto: TIPO_PRODUTO_ROTULOS[t] })), 'w-40')}
+            {filtro('tipo', 'Todos os tipos', TIPOS_PRODUTO.filter((t) => t !== 'insumo').map((t) => ({ valor: t, texto: TIPO_PRODUTO_ROTULOS[t] })), 'w-40')}
             {filtro('modoCalculo', 'Qualquer cálculo', MODOS_CALCULO.map((m) => ({ valor: m, texto: MODO_CALCULO_ROTULOS[m] })))}
             {filtro('categoriaId', 'Todas as categorias', (categorias.data ?? []).map((c) => ({ valor: c.id, texto: c.caminho })), 'w-56')}
             {filtro('ativo', 'Ativos', [{ valor: 'false', texto: 'Desativados' }, { valor: 'todos', texto: 'Todos' }], 'w-36')}

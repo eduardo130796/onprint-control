@@ -64,6 +64,7 @@ const colunasProcessos: ColumnDef<Processo, unknown>[] = [
   },
   { id: 'maquina', header: 'Máquina padrão', cell: ({ row }) => row.original.maquinaPadrao?.nome ?? '—' },
   { id: 'tempo', header: 'Tempo padrão', cell: ({ row }) => (row.original.tempoPadraoMinutos ? `${row.original.tempoPadraoMinutos} min` : '—') },
+  { id: 'custo', header: 'Mão de obra/hora', cell: ({ row }) => (Number(row.original.custoHora ?? 0) > 0 ? formatarMoeda(row.original.custoHora) : '—') },
 ]
 
 /** Máquinas e processos numa tela só (acessível por Produtos e por Configurações). */

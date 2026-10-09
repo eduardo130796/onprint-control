@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
-import { EXTENSOES_IMAGEM, type produtoSchema, type produtosQuerySchema } from '@onprint/shared'
+import { EXTENSOES_IMAGEM, type produtoAtualizacaoSchema, type produtoSchema, type produtosQuerySchema } from '@onprint/shared'
 import type { z } from 'zod'
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
@@ -8,8 +8,10 @@ import { proximoCodigo } from '../../core/numeracao'
 import { filtroAtivo, paginacao, paginado } from '../../core/paginacao'
 import { comConflitoAmigavel } from '../../core/prisma-erros'
 import type { ArquivosService } from '../arquivos/service'
+import type { CustosService } from './custos.service'
 
 type Dados = z.output<typeof produtoSchema>
+type DadosEdicao = z.output<typeof produtoAtualizacaoSchema>
 type Query = z.output<typeof produtosQuerySchema>
 
 const CONFLITOS = { codigo: 'Já existe um produto com este código.' }
@@ -32,10 +34,19 @@ export const incluirDetalhe = {
   },
 } satisfies Prisma.ProdutoInclude
 
-export function criarProdutosService(app: FastifyInstance, arquivos: ArquivosService) {
+/** Código automático (PRD-0001…) de produtos e insumos; pula números já usados manualmente. */
+export async function gerarCodigoProduto(tx: Prisma.TransactionClient) {
+  for (let tentativa = 0; tentativa < 20; tentativa++) {
+    const candidato = await proximoCodigo(tx, 'produto')
+    if (!(await tx.produto.findUnique({ where: { codigo: candidato }, select: { id: true } }))) return candidato
+  }
+  throw AppError.conflito('Não foi possível gerar o código do produto. Informe um código.')
+}
+
+export function criarProdutosService(app: FastifyInstance, arquivos: ArquivosService, custos: CustosService) {
   const { prisma } = app
 
-  async function validarReferencias(dados: Dados) {
+  async function validarReferencias(dados: Pick<Dados, 'categoriaId' | 'unidadeMedidaId'>) {
     if (dados.categoriaId) {
       const c = await prisma.categoria.findUnique({ where: { id: dados.categoriaId } })
       if (!c?.ativo) throw AppError.regraNegocio('Categoria inválida ou desativada.')
@@ -58,7 +69,8 @@ export function criarProdutosService(app: FastifyInstance, arquivos: ArquivosSer
       const texto = q.busca ? { contains: q.busca, mode: 'insensitive' as const } : undefined
       const where: Prisma.ProdutoWhereInput = {
         ...filtroAtivo(q.ativo),
-        ...(q.tipo ? { tipo: q.tipo } : {}),
+        // Insumos têm tela própria: só aparecem pedindo tipo=insumo
+        tipo: q.tipo ?? { not: 'insumo' },
         ...(q.modoCalculo ? { modoCalculo: q.modoCalculo } : {}),
         ...(q.categoriaId ? { categoriaId: q.categoriaId } : {}),
         ...(texto ? { OR: [{ nome: texto }, { codigo: texto }, { descricao: texto }] } : {}),
@@ -82,13 +94,7 @@ export function criarProdutosService(app: FastifyInstance, arquivos: ArquivosSer
       return comConflitoAmigavel(
         () =>
           prisma.$transaction(async (tx) => {
-            let codigo = dados.codigo
-            // Código automático (PRD-0001…); pula números já usados manualmente
-            for (let tentativa = 0; !codigo && tentativa < 20; tentativa++) {
-              const candidato = await proximoCodigo(tx, 'produto')
-              if (!(await tx.produto.findUnique({ where: { codigo: candidato }, select: { id: true } }))) codigo = candidato
-            }
-            if (!codigo) throw AppError.conflito('Não foi possível gerar o código do produto. Informe um código.')
+            const codigo = dados.codigo ?? (await gerarCodigoProduto(tx))
             const p = await tx.produto.create({ data: { ...dados, codigo, createdBy: usuarioId }, include: incluirResumo })
             await registrarAuditoria(tx, { tabela: 'produtos', registroId: p.id, acao: 'criar', depois: p, usuarioId })
             return p
@@ -97,15 +103,22 @@ export function criarProdutosService(app: FastifyInstance, arquivos: ArquivosSer
       )
     },
 
-    async atualizar(id: string, dados: Dados, usuarioId: string) {
+    /** Preço, custo, margem, preço mínimo e lucro só mudam quando enviados (ausente = mantém). */
+    async atualizar(id: string, dados: DadosEdicao, usuarioId: string) {
       const antes = await obterBase(id)
       await validarReferencias(dados)
-      return comConflitoAmigavel(
+      const modoCusto = dados.modoCusto ?? antes.modoCusto
+      // Na composição o custo é calculado: o digitado é ignorado
+      const custo = modoCusto === 'composicao' ? undefined : dados.custo
+      const precoVenda = dados.precoVenda ?? antes.precoVenda.toString()
+      const precoMinimo = dados.precoMinimo !== undefined ? dados.precoMinimo : antes.precoMinimo?.toString()
+      if (precoMinimo && Number(precoMinimo) > Number(precoVenda)) throw AppError.regraNegocio('O preço mínimo não pode ser maior que o preço de venda.')
+      const p = await comConflitoAmigavel(
         () =>
           prisma.$transaction(async (tx) => {
             const p = await tx.produto.update({
               where: { id },
-              data: { ...dados, codigo: dados.codigo ?? antes.codigo },
+              data: { ...dados, custo, codigo: dados.codigo ?? antes.codigo },
               include: incluirResumo,
             })
             await registrarAuditoria(tx, { tabela: 'produtos', registroId: id, acao: 'editar', antes, depois: p, usuarioId })
@@ -113,6 +126,10 @@ export function criarProdutosService(app: FastifyInstance, arquivos: ArquivosSer
           }),
         CONFLITOS,
       )
+      // Medidas/modo podem mudar o custo de referência; custo de insumo/revenda muda os produtos que o usam
+      if (p.modoCusto === 'composicao') await custos.recalcularCustos([id])
+      if (!antes.custo.eq(p.custo)) await custos.aposMudarCustoInsumo({ id, nome: p.nome, unidade: p.unidadeMedida?.sigla ?? null }, antes.custo.toString(), p.custo.toString())
+      return p.modoCusto === 'composicao' ? { ...p, ...(await prisma.produto.findUniqueOrThrow({ where: { id }, select: { custo: true, custoCalculadoEm: true } })) } : p
     },
 
     async alterarAtivo(id: string, ativo: boolean, usuarioId: string) {

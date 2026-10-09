@@ -6,6 +6,7 @@ import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
 import { proximoNumero } from '../../core/numeracao'
 import { paginacao, paginado } from '../../core/paginacao'
+import { criarCustosService } from '../produtos/custos.service'
 import { formatarProdutoRef, produtoRef } from './consultas'
 import { movimentar } from './movimentacao'
 
@@ -24,6 +25,7 @@ const dataBanco = (iso: string) => new Date(`${iso}T00:00:00Z`)
 /** Entradas de estoque (nota do fornecedor): cada item vira movimentação "entrada" e atualiza o custo médio. */
 export function criarEntradasService(app: FastifyInstance) {
   const { prisma } = app
+  const custos = criarCustosService(app)
 
   async function obter(id: string) {
     const e = await prisma.estoqueEntrada.findUnique({
@@ -60,6 +62,7 @@ export function criarEntradasService(app: FastifyInstance) {
 
       const itens = d.itens.map((i) => ({ ...i, total: new Decimal(i.quantidade).mul(i.custoUnitario).toDecimalPlaces(2).toFixed(2) }))
       const total = itens.reduce((s, i) => s.plus(i.total), new Decimal(0)).toFixed(2)
+      const custosAntes = await prisma.produto.findMany({ where: { id: { in: itens.map((i) => i.produtoId) } }, select: { id: true, custo: true } })
       const id = await prisma.$transaction(async (tx) => {
         const entrada = await tx.estoqueEntrada.create({
           data: {
@@ -90,6 +93,14 @@ export function criarEntradasService(app: FastifyInstance) {
         await registrarAuditoria(tx, { tabela: 'estoque_entradas', registroId: entrada.id, acao: 'criar', depois: { numero: entrada.numero, total, itens: itens.length }, usuarioId })
         return entrada.id
       })
+      // Depois do commit: o custo médio mudou → recalcula os produtos que usam o insumo (e avisa do reajuste)
+      const depois = await prisma.produto
+        .findMany({ where: { id: { in: custosAntes.map((p) => p.id) } }, select: { id: true, nome: true, custo: true, unidadeMedida: { select: { sigla: true } } } })
+        .catch((erro) => (app.log.error({ err: erro }, 'Falha ao recalcular custos após a entrada'), []))
+      for (const p of depois) {
+        const antes = custosAntes.find((a) => a.id === p.id)!
+        if (!antes.custo.eq(p.custo)) await custos.aposMudarCustoInsumo({ id: p.id, nome: p.nome, unidade: p.unidadeMedida?.sigla ?? null }, antes.custo.toString(), p.custo.toString())
+      }
       return obter(id)
     },
   }

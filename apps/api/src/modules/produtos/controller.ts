@@ -1,7 +1,10 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type {
   categoriaSchema,
+  aplicarReajusteSchema,
+  composicaoProdutoSchema,
   produtoAcabamentosSchema,
+  produtoAtualizacaoSchema,
   produtoInsumosSchema,
   produtoProcessosSchema,
   produtoSchema,
@@ -11,23 +14,29 @@ import type {
 import type { z } from 'zod'
 import type { criarCategoriasService } from './categorias.service'
 import type { criarComposicaoService } from './composicao.service'
+import type { CustosService } from './custos.service'
 import type { criarPrecificacaoService } from './precificacao.service'
 import type { ProdutosService } from './produtos.service'
 
 interface Servicos {
   produtos: ProdutosService
   composicao: ReturnType<typeof criarComposicaoService>
+  custos: CustosService
   precificacao: ReturnType<typeof criarPrecificacaoService>
   categorias: ReturnType<typeof criarCategoriasService>
 }
 
-type ComCusto = { custo?: unknown; margem?: unknown }
+type ComCusto = { custo?: unknown; margem?: unknown; lucroDesejado?: unknown; lucroMinimo?: unknown; custoDetalhe?: unknown; precoEmbalagem?: unknown }
 
 /** Custo e margem só aparecem para quem pode editar produtos (seção 9: margem só com permissão). */
 function ocultarCustos<T extends ComCusto>(produto: T): T {
   const copia = { ...produto }
   delete copia.custo
   delete copia.margem
+  delete copia.lucroDesejado
+  delete copia.lucroMinimo
+  delete copia.custoDetalhe
+  delete copia.precoEmbalagem
   return copia
 }
 
@@ -48,7 +57,7 @@ export function criarProdutosController(app: FastifyInstance, s: Servicos) {
     },
 
     criar: (req: FastifyRequest, d: z.output<typeof produtoSchema>) => s.produtos.criar(d, autor(req)),
-    atualizar: (req: FastifyRequest, id: string, d: z.output<typeof produtoSchema>) => s.produtos.atualizar(id, d, autor(req)),
+    atualizar: (req: FastifyRequest, id: string, d: z.output<typeof produtoAtualizacaoSchema>) => s.produtos.atualizar(id, d, autor(req)),
     alterarAtivo: (req: FastifyRequest, id: string, ativo: boolean) => s.produtos.alterarAtivo(id, ativo, autor(req)),
     trocarImagem: (req: FastifyRequest, id: string) => s.produtos.trocarImagem(req, id, autor(req)),
 
@@ -58,10 +67,12 @@ export function criarProdutosController(app: FastifyInstance, s: Servicos) {
     },
     async insumos(req: FastifyRequest, id: string, d: z.output<typeof produtoInsumosSchema>) {
       await s.composicao.insumos(id, d.itens, autor(req))
+      await s.custos.recalcularCustos([id])
       return this.obter(req, id)
     },
     async processos(req: FastifyRequest, id: string, d: z.output<typeof produtoProcessosSchema>) {
       await s.composicao.processos(id, d.itens, autor(req))
+      await s.custos.recalcularCustos([id])
       return this.obter(req, id)
     },
 
@@ -69,6 +80,14 @@ export function criarProdutosController(app: FastifyInstance, s: Servicos) {
       const r = await s.precificacao.simular(id, d)
       return (await veCustos(req)) ? r : { ...r, custoTotal: null, margemPercentual: null }
     },
+
+    obterComposicao: (id: string) => s.custos.obterComposicao(id),
+    async salvarComposicao(req: FastifyRequest, id: string, d: z.output<typeof composicaoProdutoSchema>) {
+      await s.custos.salvarComposicao(id, d, autor(req))
+      return s.custos.obterComposicao(id)
+    },
+    listarReajuste: (situacao: 'abaixo' | 'todos') => s.custos.listarReajuste(situacao),
+    aplicarReajuste: (req: FastifyRequest, d: z.output<typeof aplicarReajusteSchema>) => s.custos.aplicarReajuste(d.itens, autor(req)),
 
     listarCategorias: (ativo: 'true' | 'false' | 'todos') => s.categorias.listar(ativo),
     criarCategoria: (req: FastifyRequest, d: z.output<typeof categoriaSchema>) => s.categorias.criar(d, autor(req)),

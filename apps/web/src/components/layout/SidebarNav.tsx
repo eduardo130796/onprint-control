@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useContagemAlertas } from '@/features/estoque/hooks'
+import { useContagemReajuste } from '@/features/produtos/hooks'
 import { usePermissoes } from '@/hooks/usePermission'
 import { cn } from '@/lib/utils'
 
@@ -53,16 +54,17 @@ function Contador({ valor, className }: { valor?: number; className?: string }) 
 }
 
 function moduloAtivo(modulo: NavModulo, pathname: string) {
-  return modulo.filhos?.some((f) => pathname === f.path || pathname.startsWith(`${f.path}/`)) ?? false
+  return modulo.filhos?.some((f) => !f.atalho && (pathname === f.path || pathname.startsWith(`${f.path}/`))) ?? false
 }
 
 export function SidebarNav({ recolhida = false, onNavegar }: SidebarNavProps) {
   const { pathname } = useLocation()
   const [abertos, setAbertos] = useState<Record<string, boolean>>({})
   const pode = usePermissoes()
-  const itens = useMemo(() => filtrarNavegacao((m) => pode(m)), [pode])
+  const itens = useMemo(() => filtrarNavegacao((m, a) => pode(m, a)), [pode])
   const alertasEstoque = useContagemAlertas()
-  const badges: Record<string, number | undefined> = { '/estoque/alertas': alertasEstoque.data }
+  const reajuste = useContagemReajuste()
+  const badges: Record<string, number | undefined> = { '/estoque/alertas': alertasEstoque.data, '/produtos/reajuste': reajuste.data }
   const badgeDoModulo = (m: NavModulo) => m.filhos?.reduce((s, f) => s + (badges[f.path] ?? 0), 0)
 
   return (

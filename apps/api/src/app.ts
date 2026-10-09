@@ -13,6 +13,7 @@ import { fornecedoresRoutes } from './modules/fornecedores/routes'
 import { orcamentosRoutes } from './modules/orcamentos/routes'
 import { publicoRoutes } from './modules/publico/routes'
 import { healthRoutes } from './modules/health/routes'
+import { insumosRoutes } from './modules/insumos/routes'
 import { artesRoutes } from './modules/artes/routes'
 import { assinaturaRoutes } from './modules/assinatura/routes'
 import { cadastroRoutes } from './modules/plataforma/cadastro'
@@ -94,6 +95,7 @@ export async function buildApp(config: Env) {
       await v1.register(fornecedoresRoutes, { prefix: '/fornecedores' })
       await v1.register(consultasRoutes, { prefix: '/consultas' })
       await v1.register(produtosRoutes)
+      await v1.register(insumosRoutes, { prefix: '/insumos' })
       await v1.register(orcamentosRoutes)
       await v1.register(pedidosRoutes)
       await v1.register(artesRoutes)

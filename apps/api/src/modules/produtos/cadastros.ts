@@ -3,9 +3,10 @@ import type { acabamentoSchema, cadastroQuerySchema, maquinaSchema, maquinasQuer
 import type { z } from 'zod'
 import { AppError } from '../../core/AppError'
 import { criarCrud } from '../../core/crud'
+import type { CustosService } from './custos.service'
 
-/** Acabamentos, máquinas e processos usam o CRUD padrão (core/crud). */
-export function criarCadastrosProdutos(app: FastifyInstance) {
+/** Acabamentos, máquinas e processos usam o CRUD padrão; custo/hora e tempo recalculam as composições. */
+export function criarCadastrosProdutos(app: FastifyInstance, custos: CustosService) {
   const acabamentos = criarCrud<z.output<typeof acabamentoSchema>, z.output<typeof cadastroQuerySchema>>(app, {
     tabela: 'acabamentos',
     rotulo: 'Acabamento',
@@ -40,5 +41,26 @@ export function criarCadastrosProdutos(app: FastifyInstance) {
     },
   })
 
-  return { acabamentos, maquinas, processos }
+  // Mudou o que entra no custo de produção: recalcula os produtos em composição (depois do commit)
+  const mudou = (antes: Record<string, unknown>, depois: Record<string, unknown>, campos: string[]) => campos.some((c) => String(antes[c] ?? '') !== String(depois[c] ?? ''))
+  const maquinasComCusto = {
+    ...maquinas,
+    async atualizar(id: string, dados: z.output<typeof maquinaSchema>, usuarioId: string) {
+      const antes = await maquinas.obter(id)
+      const depois = await maquinas.atualizar(id, dados, usuarioId)
+      if (mudou(antes, depois, ['custoHora', 'velocidadeM2Hora'])) await custos.aposMudarMaquina(depois)
+      return depois
+    },
+  }
+  const processosComCusto = {
+    ...processos,
+    async atualizar(id: string, dados: z.output<typeof processoSchema>, usuarioId: string) {
+      const antes = await processos.obter(id)
+      const depois = await processos.atualizar(id, dados, usuarioId)
+      if (mudou(antes, depois, ['custoHora', 'tempoPadraoMinutos', 'maquinaPadraoId'])) await custos.aposMudarProcesso(depois)
+      return depois
+    },
+  }
+
+  return { acabamentos, maquinas: maquinasComCusto, processos: processosComCusto }
 }

@@ -1,10 +1,12 @@
 import { Suspense, useEffect, useLayoutEffect, useState } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { paginaAtual } from '@/app/navigation'
 import { TEMAS, temaOuPadrao } from '@onprint/shared'
 import { TITULO_PADRAO, aplicarModo, aplicarTema, definirFavicon, gerarFavicon } from '@/features/aparencia/tema'
 import { useUrlArquivo } from '@/features/configuracoes/hooks'
+import { AvisoInatividade } from '@/features/auth/AvisoInatividade'
+import { registrarSaidaPorInatividade, useInatividade } from '@/features/auth/useInatividade'
 import { useAuth } from '@/hooks/useAuth'
 import { useTempoReal } from '@/hooks/useTempoReal'
 import { cn } from '@/lib/utils'
@@ -29,11 +31,25 @@ function lerRecolhida() {
 export function AppLayout() {
   const [recolhida, setRecolhida] = useState(lerRecolhida)
   const [mobileAberta, setMobileAberta] = useState(false)
-  const { usuario } = useAuth()
+  const { usuario, sair } = useAuth()
+  const navigate = useNavigate()
   const { pathname } = useLocation()
   const larga = TELAS_LARGAS.includes(pathname)
   useTempoReal(Boolean(usuario) && !usuario?.deveTrocarSenha && usuario?.assinatura?.nivel !== 'bloqueado')
   const empresa = usuario?.empresa
+
+  // Saída por inatividade (tempo da empresa); usuário de painel (TV da produção) não sai
+  const sairPorInatividade = () => {
+    registrarSaidaPorInatividade()
+    void sair()
+      .catch(() => undefined)
+      .finally(() => navigate('/login', { replace: true }))
+  }
+  const inatividade = useInatividade({
+    limiteMin: empresa?.inatividadeMinutos ?? 30,
+    ativo: Boolean(usuario) && !usuario?.semInatividade,
+    aoExpirar: sairPorInatividade,
+  })
   const logo = useUrlArquivo(empresa?.logoArquivoId)
 
   // Modo claro/escuro do usuário (antes de pintar a tela, sem piscar); fora do sistema, sempre claro
@@ -114,6 +130,7 @@ export function AppLayout() {
         </div>
       </main>
       <FloatingActionButton />
+      <AvisoInatividade restanteMs={inatividade.restanteMs} onContinuar={inatividade.continuar} onSair={sairPorInatividade} />
     </div>
   )
 }

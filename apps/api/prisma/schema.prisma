@@ -25,6 +25,8 @@ model Usuario {
   deveTrocarSenha    Boolean   @default(false) @map("deve_trocar_senha")
   /// Modo da tela: claro | escuro | sistema (preferência de cada usuário)
   modoTela           String    @default("claro") @map("modo_tela")
+  /// Usuário de painel (TV da produção): não sai por inatividade
+  semInatividade     Boolean   @default(false) @map("sem_inatividade")
   ultimoLogin        DateTime? @map("ultimo_login") @db.Timestamptz(3)
   ativo              Boolean   @default(true)
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -146,6 +148,8 @@ model EmpresaConfig {
   logoArquivoId         String?  @map("logo_arquivo_id") @db.Uuid
   /// Cor do tema do sistema (paleta TEMAS: verde, azul, roxo…); null = verde ONPrint
   corTema               String?  @map("cor_tema")
+  /// Minutos sem uso até o sistema sair sozinho (15, 30, 60, 120 ou 240)
+  inatividadeMinutos    Int      @default(30) @map("inatividade_minutos")
   validadeOrcamentoDias Int      @default(7) @map("validade_orcamento_dias")
   condicoesPadrao       String?  @map("condicoes_padrao")
   sinalPercentual       Decimal  @default(50) @map("sinal_percentual") @db.Decimal(5, 2)

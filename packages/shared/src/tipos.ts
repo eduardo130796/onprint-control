@@ -105,6 +105,7 @@ export interface UsuarioResumo extends Auditavel {
   deveTrocarSenha: boolean
   ultimoLogin: string | null
   ativo: boolean
+  semInatividade: boolean
 }
 
 export interface OpcaoSelect {
@@ -139,6 +140,8 @@ export interface EmpresaConfig extends Auditavel {
   logoArquivoId: string | null
   /** Cor do tema do sistema (TEMAS); null = verde ONPrint */
   corTema: string | null
+  /** Minutos sem uso até o sistema sair sozinho */
+  inatividadeMinutos: number
   validadeOrcamentoDias: number
   condicoesPadrao: string | null
   sinalPercentual: string

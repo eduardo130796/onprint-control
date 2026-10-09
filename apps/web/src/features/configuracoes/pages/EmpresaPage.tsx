@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ImageIcon, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
-import { EXTENSOES_IMAGEM, empresaSchema, type EmpresaConfig, type EmpresaInput } from '@onprint/shared'
+import { EXTENSOES_IMAGEM, TEMPOS_INATIVIDADE, empresaSchema, type EmpresaConfig, type EmpresaInput } from '@onprint/shared'
 import type { z } from 'zod'
 import { empresaApi } from '@/api/configuracoes'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -15,7 +15,7 @@ import { FileUploader } from '@/components/shared/FileUploader'
 import { CpfCnpjInput, NumberInput, PhoneInput } from '@/components/shared/inputs'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Textarea } from '@/components/ui/form-controls'
+import { Select, Textarea } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/hooks/useAuth'
@@ -49,6 +49,7 @@ function valores(e: EmpresaConfig): EmpresaInput {
     sinalPercentual: decimalParaInput(e.sinalPercentual),
     chavePix: e.chavePix ?? '',
     areaMinimaM2: decimalParaInput(e.areaMinimaM2, 3),
+    inatividadeMinutos: e.inatividadeMinutos,
   }
 }
 
@@ -177,6 +178,25 @@ function EmpresaForm({ empresa, podeEditar }: { empresa: EmpresaConfig; podeEdit
                 <Textarea id="emp-condicoes" {...r('condicoesPadrao')} />
               </CampoFormulario>
             </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Segurança</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <CampoFormulario id="emp-inatividade" rotulo="Sair sozinho depois de" erro={errors.inatividadeMinutos?.message}>
+              <Select id="emp-inatividade" {...r('inatividadeMinutos')}>
+                {TEMPOS_INATIVIDADE.map((m) => (
+                  <option key={m} value={m}>
+                    {m < 60 ? `${m} minutos` : m === 60 ? '1 hora' : `${m / 60} horas`} sem uso
+                  </option>
+                ))}
+              </Select>
+            </CampoFormulario>
+            <p className="self-end pb-2 text-sm text-texto-secundario">
+              Vale para todos os usuários. Um minuto antes aparece um aviso para continuar conectado. Para a TV da produção, marque o usuário como "usuário de painel".
+            </p>
           </CardContent>
         </Card>
         {podeEditar && (

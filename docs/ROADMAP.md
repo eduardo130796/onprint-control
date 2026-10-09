@@ -212,3 +212,4 @@ Pedido do usuário: "puxar os dados do CNPJ e endereço onde tiver, puxar pelo C
 - [x] CNPJ preenche os campos vazios (empresa, fornecedor, cliente), avisa situação diferente de ATIVA; cliente novo ganha o endereço principal da Receita ao salvar; cliente PJ sem endereço tem "Adicionar endereço da Receita"
 - [x] Verificado: testes unitários (api: normalização, ordem dos serviços, cache, rotas; web: preenchimento só dos vazios; shared: capitalização) e capturas no navegador (computador e celular, claro e escuro) com os serviços reais
 - [ ] Aceite validado pelo usuário
+- [x] **Saída por inatividade** (padrão 30 min, configurável; aviso 1 min antes; todas as abas; regra também no servidor; usuário de painel para a TV da produção); e2e `fase15`

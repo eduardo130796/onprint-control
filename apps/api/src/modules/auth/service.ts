@@ -38,7 +38,7 @@ export function criarAuthService(app: FastifyInstance) {
     const permissoes = usuario.papel.permissoes.map((pp) => `${pp.permissao.modulo}:${pp.permissao.acao}`).sort()
     const assinatura = empresa.assinatura
     // Marca da empresa no sistema: nome, logo e cor (o "Minha Empresa" padrão não conta como nome)
-    const config = await prisma.empresaConfig.findFirst({ orderBy: { createdAt: 'asc' }, select: { nomeFantasia: true, razaoSocial: true, logoArquivoId: true, corTema: true } })
+    const config = await prisma.empresaConfig.findFirst({ orderBy: { createdAt: 'asc' }, select: { nomeFantasia: true, razaoSocial: true, logoArquivoId: true, corTema: true, inatividadeMinutos: true } })
     const razao = config?.razaoSocial && config.razaoSocial !== 'Minha Empresa' ? config.razaoSocial : null
     return {
       id: usuario.id,
@@ -50,7 +50,8 @@ export function criarAuthService(app: FastifyInstance) {
       papel: { id: usuario.papel.id, codigo: usuario.papel.codigo, nome: usuario.papel.nome },
       // Módulos fora do plano, ações de escrita no modo só leitura e tudo no bloqueio saem da lista
       permissoes: assinatura ? filtrarPermissoes(permissoes, assinatura.modulos, assinatura.acesso.nivel) : permissoes,
-      empresa: { id: empresa.id, nome: empresa.nome, slug: empresa.slug, exibicao: config?.nomeFantasia || razao || empresa.nome, logoArquivoId: config?.logoArquivoId ?? null, corTema: config?.corTema ?? null },
+      empresa: { id: empresa.id, nome: empresa.nome, slug: empresa.slug, exibicao: config?.nomeFantasia || razao || empresa.nome, logoArquivoId: config?.logoArquivoId ?? null, corTema: config?.corTema ?? null, inatividadeMinutos: config?.inatividadeMinutos ?? 30 },
+      semInatividade: usuario.semInatividade,
       assinatura: assinatura ? { plano: assinatura.plano.nome, ...assinatura.acesso } : null,
     }
   }
@@ -167,6 +168,20 @@ export function criarAuthService(app: FastifyInstance) {
     const sessao = await prisma.sessao.findUnique({ where: { refreshTokenHash: hash } })
     if (!sessao) throw AppError.naoAutenticado()
     const agora = new Date()
+    // Inatividade: com o sistema em uso, a sessão é renovada pelo menos a cada access token (15 min); sessão
+    // parada há mais que o limite da empresa (ex.: aba fechada e reaberta horas depois) não volta sozinha.
+    // Usuário de painel (TV da produção) fica de fora.
+    if (!sessao.revogada) {
+      const [dono, cfg] = await Promise.all([
+        prisma.usuario.findUnique({ where: { id: sessao.usuarioId }, select: { semInatividade: true } }),
+        prisma.empresaConfig.findFirst({ orderBy: { createdAt: 'asc' }, select: { inatividadeMinutos: true } }),
+      ])
+      const limiteMs = (cfg?.inatividadeMinutos ?? 30) * 60_000 + config.JWT_ACCESS_EXPIRES.ms
+      if (!dono?.semInatividade && agora.getTime() - sessao.createdAt.getTime() > limiteMs) {
+        await prisma.sessao.updateMany({ where: { id: sessao.id, revogada: false }, data: { revogada: true } })
+        throw AppError.naoAutenticado('Sessão encerrada por inatividade. Entre de novo.')
+      }
+    }
     const r = await prisma.sessao.updateMany({
       where: { id: sessao.id, revogada: false, expiraEm: { gt: agora } },
       data: { revogada: true, expiraEm: agora, updatedAt: agora },

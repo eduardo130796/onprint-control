@@ -15,6 +15,10 @@ import {
 
 const senhaProvisoria = z.string().min(SENHA_MIN, `A senha precisa ter pelo menos ${SENHA_MIN} caracteres.`).max(SENHA_MAX)
 
+/** Minutos sem uso até o sistema sair sozinho (escolha do administrador da empresa) */
+export const TEMPOS_INATIVIDADE = [15, 30, 60, 120, 240] as const
+export const INATIVIDADE_PADRAO = 30
+
 // ─── Usuários ───────────────────────────────────────────────────────────────
 
 const camposUsuario = {
@@ -23,6 +27,8 @@ const camposUsuario = {
   telefone: telefoneOpcional,
   papelId: z.string().uuid('Selecione o papel.'),
   comissaoPercentual: percentual.default('0'),
+  /** Usuário de painel (TV da produção): não sai por inatividade */
+  semInatividade: z.boolean().default(false),
 }
 
 /** Sem senha provisória, o usuário cria a senha pelo link do e-mail de convite. */
@@ -72,6 +78,10 @@ export const empresaSchema = z.object({
   sinalPercentual: percentual,
   chavePix: textoOpcional,
   areaMinimaM2: decimal3,
+  inatividadeMinutos: z.coerce
+    .number()
+    .refine((v) => (TEMPOS_INATIVIDADE as readonly number[]).includes(v), 'Escolha um dos tempos da lista.')
+    .optional(),
 })
 export type EmpresaInput = z.input<typeof empresaSchema>
 

@@ -4,6 +4,8 @@ import { NavLink, Navigate, Outlet, useNavigate } from 'react-router-dom'
 import { BellRing, Building2, Gauge, Layers, Loader2, LogOut, ShieldCheck, TicketPercent } from 'lucide-react'
 import { iniciais } from '@onprint/shared'
 import { TelaCarregando } from '@/components/shared/TelaCarregando'
+import { AvisoInatividade } from '@/features/auth/AvisoInatividade'
+import { useInatividade } from '@/features/auth/useInatividade'
 import { cn } from '@/lib/utils'
 import { plataformaApi, sessaoPlataforma } from '../api'
 
@@ -20,6 +22,12 @@ export function PlataformaLayout() {
   const navigate = useNavigate()
   const temToken = Boolean(sessaoPlataforma.token())
   const eu = useQuery({ queryKey: ['plataforma', 'eu'], queryFn: plataformaApi.eu, enabled: temToken, retry: false })
+  // Painel controla todas as empresas: sai sozinho após 30 min sem uso
+  const sairPorInatividade = () => {
+    sessaoPlataforma.definir(null)
+    navigate('/plataforma/login', { replace: true })
+  }
+  const inatividade = useInatividade({ limiteMin: 30, ativo: temToken, aoExpirar: sairPorInatividade })
 
   if (!temToken) return <Navigate to="/plataforma/login" replace />
   if (eu.isPending) return <TelaCarregando />
@@ -97,6 +105,7 @@ export function PlataformaLayout() {
           <Outlet />
         </Suspense>
       </main>
+      <AvisoInatividade restanteMs={inatividade.restanteMs} onContinuar={inatividade.continuar} onSair={sairPorInatividade} />
     </div>
   )
 }

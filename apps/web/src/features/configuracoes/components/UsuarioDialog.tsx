@@ -41,6 +41,7 @@ export function UsuarioDialog({ usuario, onFechar }: UsuarioDialogProps) {
       papelId: usuario?.papel.id ?? '',
       comissaoPercentual: decimalParaInput(usuario?.comissaoPercentual ?? 0),
       ativo: usuario?.ativo ?? true,
+      semInatividade: usuario?.semInatividade ?? false,
       senhaProvisoria: '',
     },
   })
@@ -101,6 +102,13 @@ export function UsuarioDialog({ usuario, onFechar }: UsuarioDialogProps) {
           </CampoFormulario>
         )}
       </div>
+      <label className="flex items-start gap-2 text-sm">
+        <Checkbox className="mt-0.5" {...form.register('semInatividade')} />
+        <span>
+          Usuário de painel: não sair por inatividade
+          <span className="block text-xs text-texto-secundario">Para a TV ou monitor da produção. Use um usuário só para isso, com acesso apenas de visualização. Só o administrador marca.</span>
+        </span>
+      </label>
       {usuario ? (
         <label className="flex items-center gap-2 text-sm">
           <Checkbox {...form.register('ativo')} /> Usuário ativo (desmarcar encerra as sessões abertas)

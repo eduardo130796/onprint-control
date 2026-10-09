@@ -7,6 +7,9 @@ import { definirEmpresaAtual } from '@/lib/empresaAtual'
 import { AuthContext } from '../authContext'
 import type { MarcaEmpresa } from '../types'
 
+/** Avisa as outras abas que a sessão acabou */
+const CHAVE_SAIDA = 'onprint:saida'
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
   const [usuario, setUsuario] = useState<UsuarioLogado | null>(null)
@@ -62,7 +65,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setUsuario(null)
       queryClient.clear()
+      try {
+        localStorage.setItem(CHAVE_SAIDA, String(Date.now()))
+      } catch {
+        // sem armazenamento: as outras abas saem quando a sessão falhar
+      }
     }
+  }, [queryClient])
+
+  // Saiu em outra aba (ou por inatividade): esta aba sai junto
+  useEffect(() => {
+    const aoMudar = (e: StorageEvent) => {
+      if (e.key !== CHAVE_SAIDA) return
+      setUsuario(null)
+      queryClient.clear()
+    }
+    window.addEventListener('storage', aoMudar)
+    return () => window.removeEventListener('storage', aoMudar)
   }, [queryClient])
 
   const trocarSenha = useCallback(async (dados: TrocarSenhaInput) => {

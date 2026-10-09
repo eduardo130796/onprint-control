@@ -28,6 +28,7 @@ const selecionar = {
   deveTrocarSenha: true,
   ultimoLogin: true,
   ativo: true,
+  semInatividade: true,
   createdAt: true,
   updatedAt: true,
   papel: { select: { id: true, codigo: true, nome: true } },
@@ -122,6 +123,7 @@ export function criarUsuariosService(app: FastifyInstance) {
     async criar(dados: Criar, autorId: string) {
       const papel = await validarPapel(dados.papelId)
       await exigirAdminSe(papel.codigo === 'admin', autorId, 'Somente um administrador pode atribuir o papel de administrador.')
+      await exigirAdminSe(Boolean(dados.semInatividade), autorId, 'Somente um administrador pode marcar um usuário de painel (sem saída por inatividade).')
       await garantirVaga()
       const { senhaProvisoria, ...resto } = dados
       if (!senhaProvisoria && !app.email.configurado) {
@@ -169,6 +171,8 @@ export function criarUsuariosService(app: FastifyInstance) {
       if (id === autorId && !dados.ativo) throw AppError.regraNegocio('Você não pode desativar o próprio usuário.')
       await exigirAdminSe(antes.papel.codigo === 'admin' && id !== autorId, autorId, 'Somente um administrador pode alterar outro administrador.')
       await exigirAdminSe(papel.codigo === 'admin' && antes.papel.codigo !== 'admin', autorId, 'Somente um administrador pode atribuir o papel de administrador.')
+      // Usuário sem saída por inatividade (painel/TV) afrouxa a segurança: só o administrador marca
+      await exigirAdminSe(dados.semInatividade && !antes.semInatividade, autorId, 'Somente um administrador pode marcar um usuário de painel (sem saída por inatividade).')
       const deixaDeSerAdmin = antes.papel.codigo === 'admin' && (papel.codigo !== 'admin' || !dados.ativo)
       if (deixaDeSerAdmin) await garantirOutroAdmin(id)
       if (dados.ativo && !antes.ativo) await garantirVaga()

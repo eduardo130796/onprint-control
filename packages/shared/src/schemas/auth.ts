@@ -74,7 +74,11 @@ export const usuarioLogadoSchema = z.object({
     logoArquivoId: z.string().uuid().nullable(),
     /** Cor do tema (TEMAS); null = verde ONPrint */
     corTema: z.string().nullable(),
+    /** Minutos sem uso até sair sozinho */
+    inatividadeMinutos: z.number(),
   }),
+  /** Usuário de painel (TV da produção): não sai por inatividade */
+  semInatividade: z.boolean(),
   /** Situação da assinatura para avisos e bloqueio na tela (as permissões já vêm filtradas por ela) */
   assinatura: z
     .object({

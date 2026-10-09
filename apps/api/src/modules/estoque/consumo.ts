@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client'
-import { Decimal, consumoDeInsumo } from '@onprint/shared'
+import { Decimal, consumoDeInsumo, consumoDoAcabamento } from '@onprint/shared'
+import { quantidadeComPerda } from '../produtos/custos'
 import { movimentar, type AlertaEstoque } from './movimentacao'
 
 type Tx = Prisma.TransactionClient
@@ -12,8 +13,10 @@ export async function localPadrao(tx: Tx) {
 
 /**
  * Baixa automática ao concluir a OP (seção 9), na mesma transação do movimento do kanban:
- * cada insumo da ficha técnica que controla estoque sai pela área real + perda. Um item de
- * revenda/insumo vendido direto (sem ficha) baixa a própria quantidade.
+ * - cada insumo da ficha técnica/composição que controla estoque sai pela área real + perda;
+ * - os insumos dos acabamentos do item (ilhós, bastão…) saem pelas medidas do item (`consumoDoAcabamento`);
+ * - a quantidade produzida inclui as peças perdidas apontadas (refeitas) — fase 3 da precificação;
+ * - um item de revenda/insumo vendido direto (sem ficha) baixa a própria quantidade.
  * Acontece uma única vez por OP: se a OP voltar e concluir de novo, não baixa em dobro.
  */
 export async function baixarInsumosDaOp(tx: Tx, opId: string, usuarioId: string | null): Promise<AlertaEstoque[]> {
@@ -28,8 +31,15 @@ export async function baixarInsumosDaOp(tx: Tx, opId: string, usuarioId: string 
       largura: true,
       altura: true,
       areaM2: true,
+      apontamentos: { select: { perda: true } },
       pedidoItem: {
         select: {
+          acabamentos: {
+            select: {
+              tipoCobranca: true,
+              acabamento: { select: { nome: true, insumos: { select: { quantidade: true, perdaPercentual: true, insumo: { select: { id: true, controlaEstoque: true } } }, orderBy: { ordem: 'asc' } } } },
+            },
+          },
           produto: {
             select: {
               id: true,
@@ -42,40 +52,57 @@ export async function baixarInsumosDaOp(tx: Tx, opId: string, usuarioId: string 
       },
     },
   })
-  const produto = op.pedidoItem.produto
-  const linhas = produto.insumos
-    .filter((i) => i.insumo.controlaEstoque)
-    .map((i) => ({ produtoId: i.insumo.id, quantidade: consumoDeInsumo({ base: i.base, quantidade: i.quantidade.toString(), perdaPercentual: i.perdaPercentual.toString() }, {
-      quantidade: op.quantidade.toString(),
-      largura: op.largura?.toString(),
-      altura: op.altura?.toString(),
-      areaM2: op.areaM2.toString(),
-    }) }))
-  if (produto.insumos.length === 0 && produto.controlaEstoque && ['revenda', 'insumo'].includes(produto.tipo)) {
-    linhas.push({ produtoId: produto.id, quantidade: new Decimal(op.quantidade.toString()).toFixed(3) })
+  // Peças refeitas também gastaram material
+  const quantidade = new Decimal(quantidadeComPerda(op.quantidade, op.apontamentos.map((a) => a.perda)))
+  const proporcao = op.quantidade.gt(0) ? quantidade.div(op.quantidade.toString()) : new Decimal(1)
+  const medidas = {
+    quantidade: quantidade.toFixed(3),
+    largura: op.largura?.toString(),
+    altura: op.altura?.toString(),
+    areaM2: new Decimal(op.areaM2.toString()).mul(proporcao).toFixed(3),
   }
-  if (linhas.length === 0) return []
+  const produto = op.pedidoItem.produto
+  const grupos: { motivo: string; linhas: { produtoId: string; quantidade: string }[] }[] = []
+  const daFicha = produto.insumos
+    .filter((i) => i.insumo.controlaEstoque)
+    .map((i) => ({ produtoId: i.insumo.id, quantidade: consumoDeInsumo({ base: i.base, quantidade: i.quantidade.toString(), perdaPercentual: i.perdaPercentual.toString() }, medidas) }))
+  if (produto.insumos.length === 0 && produto.controlaEstoque && ['revenda', 'insumo'].includes(produto.tipo)) {
+    daFicha.push({ produtoId: produto.id, quantidade: quantidade.toFixed(3) })
+  }
+  grupos.push({ motivo: 'Baixa pela ficha técnica (área real + perda)', linhas: daFicha })
+  const dosAcabamentos = op.pedidoItem.acabamentos.flatMap((a) =>
+    a.acabamento.insumos
+      .filter((i) => i.insumo.controlaEstoque)
+      .map((i) => ({ produtoId: i.insumo.id, quantidade: consumoDoAcabamento({ tipoCobranca: a.tipoCobranca }, { quantidade: i.quantidade.toString(), perdaPercentual: i.perdaPercentual.toString() }, medidas) })),
+  )
+  grupos.push({ motivo: 'Baixa dos acabamentos (medidas reais + perda)', linhas: dosAcabamentos })
 
   const local = await localPadrao(tx)
   if (!local) return []
   const alertas: AlertaEstoque[] = []
-  for (const l of linhas) {
-    if (new Decimal(l.quantidade).isZero()) continue
-    const r = await movimentar(tx, {
-      tipo: 'consumo_producao',
-      produtoId: l.produtoId,
-      localId: local.id,
-      quantidade: new Decimal(l.quantidade).neg(),
-      motivo: 'Baixa pela ficha técnica (área real + perda)',
-      opId,
-      pedidoId: op.pedidoId,
-      usuarioId,
-      permitirNegativo: true,
-    })
-    if (r.alerta) alertas.push(r.alerta)
+  for (const g of grupos) {
+    // Mesmo insumo em mais de uma linha (ex.: dois acabamentos com ilhós): uma movimentação só
+    const somas = new Map<string, Decimal>()
+    for (const l of g.linhas) somas.set(l.produtoId, (somas.get(l.produtoId) ?? new Decimal(0)).plus(l.quantidade))
+    for (const [produtoId, qtd] of somas) {
+      if (qtd.isZero()) continue
+      const r = await movimentar(tx, {
+        tipo: 'consumo_producao',
+        produtoId,
+        localId: local.id,
+        quantidade: qtd.neg(),
+        motivo: g.motivo,
+        opId,
+        pedidoId: op.pedidoId,
+        usuarioId,
+        permitirNegativo: true,
+      })
+      if (r.alerta) alertas.push(r.alerta)
+    }
   }
   return alertas
 }
+
 
 /**
  * Estorno no cancelamento do pedido (opcional, decidido por quem cancela): devolve ao mesmo local

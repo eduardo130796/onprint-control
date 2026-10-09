@@ -1,8 +1,13 @@
 import type { Prisma } from '@prisma/client'
 import { Decimal, hojeISO } from '@onprint/shared'
 import { proximoNumero } from '../../core/numeracao'
+import { horasDaComposicao } from '../produtos/custos'
+import { incluirComposicao } from '../produtos/custos.service'
 
-/** Horas estimadas: área ÷ velocidade da máquina; sem isso, a soma dos tempos padrão dos processos. */
+/**
+ * Horas estimadas: área ÷ velocidade da máquina; sem isso, a soma dos tempos padrão dos processos.
+ * Produto em composição usa os minutos da produção da composição (`horasDaComposicao`).
+ */
 export function estimarHoras(areaM2: string, velocidadeM2Hora: string | null | undefined, minutosProcessos: number): string {
   const area = new Decimal(areaM2 || 0)
   const velocidade = new Decimal(velocidadeM2Hora || 0)
@@ -24,14 +29,8 @@ export async function gerarOpsDoPedido(tx: Prisma.TransactionClient, pedidoId: s
         orderBy: { ordem: 'asc' },
         include: {
           ordensProducao: { where: { cancelada: false }, select: { id: true } },
-          produto: {
-            select: {
-              processos: {
-                orderBy: { ordem: 'asc' },
-                select: { maquina: true, processo: { select: { tempoPadraoMinutos: true, maquinaPadrao: true } } },
-              },
-            },
-          },
+          // Composição: o tempo da OP sai dos minutos da produção (fase 3 da precificação)
+          produto: { include: incluirComposicao },
         },
       },
     },
@@ -56,7 +55,10 @@ export async function gerarOpsDoPedido(tx: Prisma.TransactionClient, pedidoId: s
         areaM2: item.areaM2,
         maquinaId: maquina?.id ?? null,
         prioridade: pedido.prioridade,
-        horasEstimadas: estimarHoras(item.areaM2.toString(), maquina?.velocidadeM2Hora?.toString(), minutos),
+        horasEstimadas:
+          item.produto.modoCusto === 'composicao' && etapas.length > 0
+            ? horasDaComposicao(item.produto, { quantidade: item.quantidade.toString(), largura: item.largura?.toString(), altura: item.altura?.toString() })
+            : estimarHoras(item.areaM2.toString(), maquina?.velocidadeM2Hora?.toString(), minutos),
         dataInicioPrevista: dataBanco(hojeISO()),
         dataFimPrevista: pedido.dataPrevistaEntrega,
         ordemKanban: ordem++,

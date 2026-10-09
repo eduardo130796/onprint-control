@@ -3,9 +3,9 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ArrowLeft, CheckCircle2, Plus, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatarDataHora, formatarDataSimples, orcamentoSchema, type OrcamentoDetalhe } from '@onprint/shared'
+import { formatarDataHora, formatarDataSimples, orcamentoSchema } from '@onprint/shared'
 import { clientesApi } from '@/api/cadastros'
-import { orcamentosApi } from '@/api/comercial'
+import { orcamentosApi, type OrcamentoComAnalise } from '@/api/comercial'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { EstadoErro } from '@/components/shared/EstadoErro'
@@ -24,11 +24,12 @@ import { ItemOrcamento } from '../components/editor/ItemOrcamento'
 import { PedidoGerado } from '../components/editor/PedidoGerado'
 import { TotaisOrcamento } from '../components/editor/TotaisOrcamento'
 import { formDoOrcamento, itemVazio, novaChave, payloadDoForm, type FormOrcamento } from '../components/editor/formOrcamento'
+import { useAnaliseOrcamento } from '../components/editor/useAnaliseOrcamento'
 import { useCalculoOrcamento } from '../components/editor/useCalculoOrcamento'
 
 const ABERTOS = ['rascunho', 'enviado', 'em_negociacao']
 
-function Editor({ orcamento, solicitacaoId, clienteInicial }: { orcamento?: OrcamentoDetalhe; solicitacaoId?: string | null; clienteInicial?: { id: string; rotulo: string } | null }) {
+function Editor({ orcamento, solicitacaoId, clienteInicial }: { orcamento?: OrcamentoComAnalise; solicitacaoId?: string | null; clienteInicial?: { id: string; rotulo: string } | null }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const empresa = useEmpresa()
@@ -38,6 +39,8 @@ function Editor({ orcamento, solicitacaoId, clienteInicial }: { orcamento?: Orca
   const alterado = useMemo(() => JSON.stringify(form) !== JSON.stringify(inicial), [form, inicial])
   const editavel = podeSalvar && (!orcamento || ABERTOS.includes(orcamento.status))
   const calculo = useCalculoOrcamento(form, empresa.data?.areaMinimaM2)
+  // Semáforo do lucro: o salvo (GET) ou ao vivo (POST /orcamentos/analisar) para quem pode editar
+  const analise = useAnaliseOrcamento(form, calculo.itens, { orcamento, alterado, podeAnalisar: editavel })
   const salvar = useMutacao(['orcamentos', 'solicitacoes'], (dados: unknown) => (orcamento ? orcamentosApi.atualizar(orcamento.id, dados) : orcamentosApi.criar(dados)))
 
   // Avisa antes de sair com alterações não salvas
@@ -103,7 +106,7 @@ function Editor({ orcamento, solicitacaoId, clienteInicial }: { orcamento?: Orca
       )}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <Card>
             <CardContent className="pt-6">
               <CampoFormulario id="orc-cliente" rotulo="Cliente *">
@@ -119,6 +122,8 @@ function Editor({ orcamento, solicitacaoId, clienteInicial }: { orcamento?: Orca
               total={form.itens.length}
               item={item}
               calculo={calculo.itens[i]!}
+              analise={analise.itens.get(item.chave)}
+              analiseDesatualizada={analise.desatualizado}
               editavel={editavel}
               onChange={(novo) => mudarItens((itens) => itens.map((x, j) => (j === i ? novo : x)))}
               onRemover={() => mudarItens((itens) => itens.filter((_, j) => j !== i))}
@@ -157,7 +162,7 @@ function Editor({ orcamento, solicitacaoId, clienteInicial }: { orcamento?: Orca
           </Card>
         </div>
 
-        <div className="space-y-4 xl:sticky xl:top-24 xl:self-start">
+        <div className="min-w-0 space-y-4 xl:sticky xl:top-24 xl:self-start">
           <TotaisOrcamento
             form={form}
             onChange={atualizar}
@@ -166,7 +171,8 @@ function Editor({ orcamento, solicitacaoId, clienteInicial }: { orcamento?: Orca
             prazoDias={calculo.prazoDias}
             previsaoEntrega={calculo.previsaoEntrega}
             editavel={editavel}
-            margemPercentual={alterado ? undefined : orcamento?.margemPercentual}
+            analise={analise.total}
+            analiseDesatualizada={analise.desatualizado}
           />
           {orcamento?.pedido && <PedidoGerado pedido={orcamento.pedido} />}
         </div>

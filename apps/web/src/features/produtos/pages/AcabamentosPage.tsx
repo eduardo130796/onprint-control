@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useQuery } from '@tanstack/react-query'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
@@ -19,8 +21,12 @@ import { FormDialog } from '@/components/shared/FormDialog'
 import { MoneyInput, NumberInput } from '@/components/shared/inputs'
 import { Checkbox, Select, Textarea } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import { usePermission } from '@/hooks/usePermission'
 import { decimalParaInput } from '@/lib/mascaras'
+import { MateriaisAcabamento } from '../components/acabamento/MateriaisAcabamento'
+import { materiaisParaApi, novaLinhaMaterial, type MaterialAcabamentoLinha } from '../components/acabamento/linhasMaterial'
+import { numero, paraCampo } from '../custos'
 import { useMutacao } from '../hooks'
 
 type Saida = z.output<typeof acabamentoSchema>
@@ -34,8 +40,24 @@ const EXEMPLOS: Record<string, string> = {
   por_perimetro: 'Multiplicado pelo perímetro 2 × (L + A) × quantidade (ex.: ilhós, bainha).',
 }
 
+const linhasDoAcabamento = (a: Acabamento): MaterialAcabamentoLinha[] =>
+  (a.materiais ?? []).map((m) => ({
+    ...novaLinhaMaterial(),
+    insumoId: m.insumoId,
+    nome: m.nome,
+    unidade: m.unidade,
+    custoUnitario: m.custoUnitario ?? '0',
+    quantidade: paraCampo(m.quantidade),
+    perdaPercentual: Number(m.perdaPercentual) > 0 ? paraCampo(m.perdaPercentual, 2) : '',
+  }))
+
 function AcabamentoDialog({ acabamento, onFechar }: { acabamento?: Acabamento; onFechar: () => void }) {
   const podeCusto = usePermission('produtos', 'editar')
+  // Materiais vêm do detalhe (a lista pode não trazê-los); só são enviados se a pessoa mexer (ausente = API mantém)
+  const detalhe = useQuery({ queryKey: ['acabamentos', 'detalhe', acabamento?.id], queryFn: () => acabamentosApi.obter(acabamento!.id), enabled: Boolean(acabamento) })
+  const [materiais, setMateriais] = useState<MaterialAcabamentoLinha[] | null>(null)
+  const linhasMateriais = materiais ?? (acabamento ? (detalhe.data ? linhasDoAcabamento(detalhe.data) : null) : [])
+  const mexeuMateriais = materiais !== null
   const form = useForm<AcabamentoInput, unknown, Saida>({
     resolver: zodResolver(acabamentoSchema),
     defaultValues: {
@@ -50,11 +72,14 @@ function AcabamentoDialog({ acabamento, onFechar }: { acabamento?: Acabamento; o
   })
   const { errors } = form.formState
   const tipo = form.watch('tipoCobranca')
+  const custoManual = form.watch('custo')
   const salvar = useMutacao(['acabamentos'], (d: Saida) => (acabamento ? acabamentosApi.atualizar(acabamento.id, d) : acabamentosApi.criar(d)))
 
   const onSubmit = form.handleSubmit(async (d) => {
+    const linhas = linhasMateriais ?? []
+    if (linhas.some((l) => l.insumoId && numero(l.quantidade) <= 0)) return void toast.error('Informe quanto vai de cada material.')
     try {
-      await salvar.mutateAsync(d)
+      await salvar.mutateAsync(mexeuMateriais || !acabamento ? { ...d, materiais: materiaisParaApi(linhas) } : d)
       toast.success('Acabamento salvo.')
       onFechar()
     } catch (e) {
@@ -63,7 +88,7 @@ function AcabamentoDialog({ acabamento, onFechar }: { acabamento?: Acabamento; o
   })
 
   return (
-    <FormDialog aberto onAbertoChange={(v) => !v && onFechar()} titulo={acabamento ? 'Editar acabamento' : 'Novo acabamento'} salvando={salvar.isPending} onSubmit={onSubmit}>
+    <FormDialog aberto largo onAbertoChange={(v) => !v && onFechar()} titulo={acabamento ? 'Editar acabamento' : 'Novo acabamento'} salvando={salvar.isPending} onSubmit={onSubmit}>
       <CampoFormulario id="ac-nome" rotulo="Nome *" erro={errors.nome?.message}>
         <Input id="ac-nome" autoFocus {...form.register('nome')} />
       </CampoFormulario>
@@ -90,6 +115,15 @@ function AcabamentoDialog({ acabamento, onFechar }: { acabamento?: Acabamento; o
           <NumberInput id="ac-prazo" casas={0} sufixo="dias" {...form.register('prazoAdicionalDias')} />
         </CampoFormulario>
       </div>
+      {linhasMateriais === null ? (
+        detalhe.isError ? (
+          <p className="rounded-2xl bg-fundo p-3 text-sm text-texto-secundario">Não foi possível carregar os materiais deste acabamento. Os que já estão cadastrados continuam como estão.</p>
+        ) : (
+          <Skeleton className="h-28 w-full rounded-2xl" />
+        )
+      ) : (
+        <MateriaisAcabamento linhas={linhasMateriais} tipoCobranca={tipo ?? 'por_unidade'} custoManual={String(custoManual ?? '')} veCustos={podeCusto} onChange={setMateriais} />
+      )}
       <CampoFormulario id="ac-descricao" rotulo="Descrição">
         <Textarea id="ac-descricao" rows={2} {...form.register('descricao')} />
       </CampoFormulario>

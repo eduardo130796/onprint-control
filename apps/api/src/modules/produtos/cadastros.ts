@@ -1,21 +1,12 @@
 import type { FastifyInstance } from 'fastify'
-import type { acabamentoSchema, cadastroQuerySchema, maquinaSchema, maquinasQuerySchema, processoSchema } from '@onprint/shared'
+import type { cadastroQuerySchema, maquinaSchema, maquinasQuerySchema, processoSchema } from '@onprint/shared'
 import type { z } from 'zod'
 import { AppError } from '../../core/AppError'
 import { criarCrud } from '../../core/crud'
 import type { CustosService } from './custos.service'
 
-/** Acabamentos, máquinas e processos usam o CRUD padrão; custo/hora e tempo recalculam as composições. */
+/** Máquinas e processos usam o CRUD padrão (acabamentos: acabamentos.service.ts); custo/hora e tempo recalculam as composições. */
 export function criarCadastrosProdutos(app: FastifyInstance, custos: CustosService) {
-  const acabamentos = criarCrud<z.output<typeof acabamentoSchema>, z.output<typeof cadastroQuerySchema>>(app, {
-    tabela: 'acabamentos',
-    rotulo: 'Acabamento',
-    delegate: (db) => db.acabamento,
-    busca: ['nome', 'descricao'],
-    ordenaveis: ['nome', 'valor', 'createdAt'],
-    padrao: { campo: 'nome', direcao: 'asc' },
-  })
-
   const maquinas = criarCrud<z.output<typeof maquinaSchema>, z.output<typeof maquinasQuerySchema>>(app, {
     tabela: 'maquinas',
     rotulo: 'Máquina',
@@ -62,5 +53,5 @@ export function criarCadastrosProdutos(app: FastifyInstance, custos: CustosServi
     },
   }
 
-  return { acabamentos, maquinas: maquinasComCusto, processos: processosComCusto }
+  return { maquinas: maquinasComCusto, processos: processosComCusto }
 }

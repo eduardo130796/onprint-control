@@ -1,13 +1,15 @@
 import { randomBytes } from 'node:crypto'
 import type { Prisma } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
-import { STATUS_ORCAMENTO_ABERTOS, adicionarDias, hojeISO, type orcamentoSchema, type orcamentosQuerySchema } from '@onprint/shared'
+import { STATUS_ORCAMENTO_ABERTOS, adicionarDias, hojeISO, type AnaliseOrcamento, type orcamentoSchema, type orcamentosQuerySchema } from '@onprint/shared'
 import type { z } from 'zod'
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
 import { escopoProprio, type ContextoUsuario } from '../../core/escopo'
+import { analisarDocumento } from '../produtos/custos'
 import { proximoNumero } from '../../core/numeracao'
 import { paginacao, paginado } from '../../core/paginacao'
+import type { analiseOrcamentoSchema } from './analise'
 import { itensParaCriar, recalcularItens, totalDoOrcamento } from './calculo'
 import { incluirDetalhe, incluirResumo } from './consultas'
 
@@ -89,6 +91,17 @@ export function criarOrcamentosService(app: FastifyInstance) {
 
   return {
     obter,
+
+    /** Semáforo do lucro ao vivo (nada é gravado; preço abaixo do mínimo não bloqueia a análise). */
+    async analisar(d: z.output<typeof analiseOrcamentoSchema>, ctx: ContextoUsuario): Promise<AnaliseOrcamento> {
+      const calc = await recalcularItens(prisma, d.itens, { usuarioId: ctx.usuarioId, podeAprovar: true })
+      return analisarDocumento(
+        calc.itens.map((i, k) => ({ total: i.total, custoEstimado: i.custoEstimado, lucroMinimo: calc.lucrosMinimos[k], linhas: i.custoDetalhe.linhas })),
+        calc.parametros,
+        ctx.veCustos,
+        { desconto: d.desconto, acrescimo: d.acrescimo },
+      )
+    },
 
     async listar(q: Query, ctx: ContextoUsuario) {
       const texto = q.busca ? { contains: q.busca, mode: 'insensitive' as const } : undefined

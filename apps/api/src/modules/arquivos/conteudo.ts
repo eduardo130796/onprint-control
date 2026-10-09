@@ -21,7 +21,7 @@ const comeca = (bytes: Buffer, assinatura: Buffer) => bytes.subarray(0, assinatu
 
 /** SVG é texto: depois de BOM e espaços, precisa abrir com <svg, <?xml ou <!DOCTYPE svg. */
 function ehSvg(bytes: Buffer) {
-  const texto = bytes.toString('utf8').replace(/^﻿/, '').trimStart().toLowerCase()
+  const texto = bytes.toString('utf8').replace(/^\uFEFF/, '').trimStart().toLowerCase()
   return texto.startsWith('<svg') || texto.startsWith('<?xml') || texto.startsWith('<!doctype svg')
 }
 

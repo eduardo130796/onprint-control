@@ -1,8 +1,9 @@
-import { formatarDataSimples, formatarMoeda } from '@onprint/shared'
+import { formatarDataSimples, formatarMoeda, type AnaliseLucro } from '@onprint/shared'
 import { MoneyInput } from '@/components/shared/inputs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { LucroDoTotal } from '@/features/produtos/components/custo/LucroAnalise'
 import type { FormOrcamento } from './formOrcamento'
 
 interface TotaisProps {
@@ -13,11 +14,12 @@ interface TotaisProps {
   prazoDias: number
   previsaoEntrega: string
   editavel: boolean
-  /** Margem calculada pela API (só para quem vê custos) */
-  margemPercentual?: string | null
+  /** Lucro do orçamento (semáforo para todos; números só para quem vê custos) */
+  analise?: AnaliseLucro | null
+  analiseDesatualizada?: boolean
 }
 
-export function TotaisOrcamento({ form, onChange, subtotal, total, prazoDias, previsaoEntrega, editavel, margemPercentual }: TotaisProps) {
+export function TotaisOrcamento({ form, onChange, subtotal, total, prazoDias, previsaoEntrega, editavel, analise, analiseDesatualizada }: TotaisProps) {
   const linha = (rotulo: string, campo: 'desconto' | 'acrescimo' | 'frete') => (
     <div className="flex items-center justify-between gap-3">
       <Label htmlFor={`tot-${campo}`} className="font-normal text-texto-secundario">
@@ -46,7 +48,7 @@ export function TotaisOrcamento({ form, onChange, subtotal, total, prazoDias, pr
           <span className="font-semibold text-tinta">Total</span>
           <span className={Number(total) < 0 ? 'text-2xl font-bold text-coral-escuro' : 'text-2xl font-bold text-tinta'}>{formatarMoeda(total)}</span>
         </div>
-        {margemPercentual != null && <p className="text-right text-xs text-texto-secundario">Margem estimada (salva): {Number(margemPercentual).toLocaleString('pt-BR')}%</p>}
+        {analise && <LucroDoTotal analise={analise} desatualizado={analiseDesatualizada} className="border-t border-border pt-3" />}
         <div className="space-y-1 border-t border-border pt-3 text-texto-secundario">
           <p>
             Produção: <strong className="text-texto">{prazoDias} dia(s) úteis</strong>

@@ -1,10 +1,13 @@
-import { formatarMoeda, type PedidoDetalhe } from '@onprint/shared'
+import { Fragment } from 'react'
+import { formatarMoeda } from '@onprint/shared'
+import type { PedidoComAnalise } from '@/api/producao'
 import { Card, CardContent } from '@/components/ui/card'
+import { LucroDoItem, LucroDoTotal } from '@/features/produtos/components/custo/LucroAnalise'
 
 const num = (v: string | null) => (v ? Number(v).toLocaleString('pt-BR') : '')
 
 /** Itens do pedido (congelados na conversão do orçamento) e totais. */
-export function AbaItens({ pedido }: { pedido: PedidoDetalhe }) {
+export function AbaItens({ pedido }: { pedido: PedidoComAnalise }) {
   const linhas: [string, string][] = [
     ['Subtotal', pedido.subtotal],
     ...(Number(pedido.desconto) > 0 ? ([['Desconto', `-${pedido.desconto}`]] as [string, string][]) : []),
@@ -26,20 +29,30 @@ export function AbaItens({ pedido }: { pedido: PedidoDetalhe }) {
             </thead>
             <tbody className="divide-y divide-border">
               {pedido.itens.map((i) => (
-                <tr key={i.id} className="align-top">
-                  <td className="px-4 py-3">
-                    <p className="font-medium">{i.descricao}</p>
-                    <p className="text-xs text-texto-secundario">
-                      {i.produto.codigo}
-                      {i.largura && ` · ${num(i.largura)} × ${num(i.altura)} m (${num(i.areaM2)} m²)`}
-                      {i.acabamentos.length > 0 && ` · ${i.acabamentos.map((a) => a.nome).join(', ')}`}
-                    </p>
-                    {i.observacao && <p className="mt-1 text-xs">{i.observacao}</p>}
-                  </td>
-                  <td className="px-4 py-3 text-right">{num(i.quantidade)}</td>
-                  <td className="px-4 py-3 text-right">{formatarMoeda(i.precoUnitario)}</td>
-                  <td className="px-4 py-3 text-right font-medium">{formatarMoeda(i.total)}</td>
-                </tr>
+                <Fragment key={i.id}>
+                  <tr className="align-top">
+                    <td className="px-4 py-3">
+                      <p className="font-medium">{i.descricao}</p>
+                      <p className="text-xs text-texto-secundario">
+                        {i.produto.codigo}
+                        {i.largura && ` · ${num(i.largura)} × ${num(i.altura)} m (${num(i.areaM2)} m²)`}
+                        {i.acabamentos.length > 0 && ` · ${i.acabamentos.map((a) => a.nome).join(', ')}`}
+                      </p>
+                      {i.observacao && <p className="mt-1 text-xs">{i.observacao}</p>}
+                    </td>
+                    <td className="px-4 py-3 text-right">{num(i.quantidade)}</td>
+                    <td className="px-4 py-3 text-right">{formatarMoeda(i.precoUnitario)}</td>
+                    <td className="px-4 py-3 text-right font-medium">{formatarMoeda(i.total)}</td>
+                  </tr>
+                  {/* Lucro numa linha inteira: no celular a coluna do item é estreita para a composição */}
+                  {i.analise && (
+                    <tr className="!border-t-0">
+                      <td colSpan={4} className="px-4 pb-3 pt-0">
+                        <LucroDoItem analise={i.analise} className="sticky left-4 max-w-[calc(100vw-4rem)] sm:static sm:max-w-none" />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -55,6 +68,7 @@ export function AbaItens({ pedido }: { pedido: PedidoDetalhe }) {
             <dt>Total</dt>
             <dd>{formatarMoeda(pedido.total)}</dd>
           </div>
+          {pedido.analise && <LucroDoTotal analise={pedido.analise} rotulo="Lucro do pedido" className="!mt-3 border-t border-border pt-3" />}
         </dl>
         {(pedido.observacoes || pedido.observacoesInternas) && (
           <div className="grid gap-3 border-t border-border p-4 text-sm sm:grid-cols-2">

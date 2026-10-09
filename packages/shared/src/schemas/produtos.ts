@@ -44,6 +44,21 @@ export const acabamentoSchema = z.object({
   custo: valorMonetario.default('0'),
   prazoAdicionalDias: z.coerce.number().int().min(0).max(365).default(0),
   ativo: z.boolean().default(true),
+  /** Insumos que o acabamento consome, por unidade da cobrança (ilhós: 2 por metro de perímetro) — custo e baixa de estoque */
+  materiais: z
+    .array(
+      z.object({
+        insumoId: z.string().uuid(),
+        quantidade: z
+          .union([z.string(), z.number()])
+          .transform(normalizarDecimal)
+          .refine((v) => /^\d{1,8}(\.\d{1,4})?$/.test(v) && Number(v) > 0, 'Quantidade inválida.'),
+        perdaPercentual: percentual.default('0'),
+      }),
+    )
+    .max(30)
+    // Não enviado = não mexe nos materiais (telas antigas)
+    .optional(),
 })
 export type AcabamentoInput = z.input<typeof acabamentoSchema>
 

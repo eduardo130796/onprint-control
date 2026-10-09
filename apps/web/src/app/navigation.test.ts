@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filtrarNavegacao, navegacao, paginaAtual, paginas } from './navigation'
+import { filtrarNavegacao, navegacao, paginaAtual, paginas, podeAbrir } from './navigation'
 
 describe('navegação', () => {
   it('não tem rotas duplicadas', () => {
@@ -29,5 +29,15 @@ describe('navegação', () => {
     expect(produtos?.filhos?.map((f) => f.path)).toContain('/produtos/insumos')
     expect(produtos?.filhos?.map((f) => f.path)).not.toContain('/produtos/reajuste')
     expect(paginaAtual('/produtos/insumos/novo')?.titulo).toBe('Insumos e materiais')
+  })
+
+  it('mostra Lucratividade só para quem vê relatórios E custos (produtos:editar)', () => {
+    const relatorios = (pode: (m: string, a?: string) => boolean) => filtrarNavegacao(pode as never).find((m) => m.modulo === 'relatorios')?.filhos?.map((f) => f.path) ?? []
+    expect(relatorios(() => true)).toContain('/relatorios/lucratividade')
+    expect(relatorios((m, a) => m === 'relatorios' || (m === 'produtos' && a !== 'editar'))).not.toContain('/relatorios/lucratividade')
+    expect(relatorios((m, a) => m === 'relatorios' || (m === 'produtos' && a !== 'editar'))).toContain('/relatorios/vendas')
+    const pagina = paginas.find((p) => p.path === '/relatorios/lucratividade')!
+    expect(podeAbrir(((m: string) => m === 'produtos') as never, pagina)).toBe(false)
+    expect(podeAbrir((() => true) as never, pagina)).toBe(true)
   })
 })

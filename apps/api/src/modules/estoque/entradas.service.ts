@@ -1,11 +1,12 @@
 import type { Prisma } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
 import type { z } from 'zod'
-import { Decimal, type entradaEstoqueSchema, type entradasQuerySchema } from '@onprint/shared'
+import { Decimal, formatarMoeda, hojeISO, statusTitulo, type entradaEstoqueSchema, type entradasQuerySchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
 import { proximoNumero } from '../../core/numeracao'
 import { paginacao, paginado } from '../../core/paginacao'
+import { categoriaPorCodigo } from '../financeiro/baixa'
 import { criarCustosService } from '../produtos/custos.service'
 import { formatarProdutoRef, produtoRef } from './consultas'
 import { movimentar } from './movimentacao'
@@ -22,7 +23,55 @@ const incluirResumo = {
 
 const dataBanco = (iso: string) => new Date(`${iso}T00:00:00Z`)
 
-/** Entradas de estoque (nota do fornecedor): cada item vira movimentação "entrada" e atualiza o custo médio. */
+type ContaPagarEntrada = NonNullable<Entrada['contaPagar']>
+
+/** Categoria "Compra de insumos" (`compras_insumos`); empresas antigas sem ela ganham a categoria agora. */
+async function categoriaComprasInsumos(tx: Prisma.TransactionClient) {
+  const existente = await categoriaPorCodigo(tx, 'compras_insumos')
+  if (existente) return existente
+  const pai = await tx.categoriaFinanceira.findFirst({ where: { nome: 'Custos de produção', tipo: 'despesa', paiId: null }, select: { id: true } })
+  const nova = await tx.categoriaFinanceira.create({ data: { nome: 'Compra de insumos', tipo: 'despesa', codigo: 'compras_insumos', paiId: pai?.id ?? null } })
+  return nova.id
+}
+
+/** Contas a pagar da compra a prazo: uma por parcela, documento = NF, "Compra NF 123 — Fornecedor". */
+async function lancarContasPagar(
+  tx: Prisma.TransactionClient,
+  c: ContaPagarEntrada,
+  entrada: { numero: string; notaFiscal: string | null; fornecedor: { id: string; nome: string } },
+  usuarioId: string,
+) {
+  const categoriaId = c.categoriaId ?? (await categoriaComprasInsumos(tx))
+  const base = `Compra ${entrada.notaFiscal ? `NF ${entrada.notaFiscal}` : entrada.numero} — ${entrada.fornecedor.nome}`
+  const hoje = hojeISO()
+  const total = c.parcelas.length
+  const criadas: string[] = []
+  for (const [i, p] of c.parcelas.entries()) {
+    const conta = await tx.contaPagar.create({
+      data: {
+        fornecedorId: entrada.fornecedor.id,
+        descricao: total > 1 ? `${base} (${i + 1}/${total})` : base,
+        documento: entrada.notaFiscal,
+        parcela: i + 1,
+        totalParcelas: total,
+        valor: p.valor,
+        vencimento: dataBanco(p.vencimento),
+        status: statusTitulo(p.valor, 0, p.vencimento, hoje),
+        categoriaId,
+        formaPagamentoId: c.formaPagamentoId ?? null,
+        observacao: `Entrada de estoque ${entrada.numero}`,
+        createdBy: usuarioId,
+      },
+    })
+    criadas.push(conta.id)
+  }
+  return criadas
+}
+
+/**
+ * Entradas de estoque (nota do fornecedor): cada item vira movimentação "entrada" e atualiza o custo médio.
+ * Compra a prazo (`contaPagar`) gera as contas a pagar das parcelas na mesma transação.
+ */
 export function criarEntradasService(app: FastifyInstance) {
   const { prisma } = app
   const custos = criarCustosService(app)
@@ -35,6 +84,18 @@ export function criarEntradasService(app: FastifyInstance) {
     if (!e) throw AppError.naoEncontrado('Entrada não encontrada.')
     const { _count, itens, ...resto } = e
     return { ...resto, itensCount: _count.itens, itens: itens.map(({ produto, ...i }) => ({ ...i, produto: formatarProdutoRef(produto) })) }
+  }
+
+  async function validarContaPagar(c: ContaPagarEntrada, total: string, fornecedor: { id: string } | null) {
+    if (!fornecedor) throw AppError.regraNegocio('Informe o fornecedor para lançar a compra a prazo.')
+    const soma = c.parcelas.reduce((s, p) => s.plus(p.valor), new Decimal(0))
+    if (!soma.eq(total)) {
+      throw AppError.regraNegocio(`A soma das parcelas (${formatarMoeda(soma.toFixed(2))}) precisa ser igual ao total da entrada (${formatarMoeda(total)}).`)
+    }
+    if (c.categoriaId && !(await prisma.categoriaFinanceira.findFirst({ where: { id: c.categoriaId, tipo: 'despesa', ativo: true } }))) {
+      throw AppError.regraNegocio('Categoria financeira inválida (escolha uma categoria de despesa ativa).')
+    }
+    if (c.formaPagamentoId && !(await prisma.formaPagamento.findFirst({ where: { id: c.formaPagamentoId, ativo: true } }))) throw AppError.regraNegocio('Forma de pagamento inválida.')
   }
 
   return {
@@ -58,10 +119,12 @@ export function criarEntradasService(app: FastifyInstance) {
     async criar(d: Entrada, usuarioId: string) {
       const repetidos = d.itens.map((i) => i.produtoId).filter((id, i, l) => l.indexOf(id) !== i)
       if (repetidos.length) throw AppError.regraNegocio('O mesmo produto aparece mais de uma vez na entrada. Some as quantidades numa linha só.')
-      if (d.fornecedorId && !(await prisma.fornecedor.findUnique({ where: { id: d.fornecedorId } }))) throw AppError.regraNegocio('Fornecedor não encontrado.')
+      const fornecedor = d.fornecedorId ? await prisma.fornecedor.findUnique({ where: { id: d.fornecedorId }, select: { id: true, nome: true } }) : null
+      if (d.fornecedorId && !fornecedor) throw AppError.regraNegocio('Fornecedor não encontrado.')
 
       const itens = d.itens.map((i) => ({ ...i, total: new Decimal(i.quantidade).mul(i.custoUnitario).toDecimalPlaces(2).toFixed(2) }))
       const total = itens.reduce((s, i) => s.plus(i.total), new Decimal(0)).toFixed(2)
+      if (d.contaPagar) await validarContaPagar(d.contaPagar, total, fornecedor)
       const custosAntes = await prisma.produto.findMany({ where: { id: { in: itens.map((i) => i.produtoId) } }, select: { id: true, custo: true } })
       const id = await prisma.$transaction(async (tx) => {
         const entrada = await tx.estoqueEntrada.create({
@@ -90,7 +153,9 @@ export function criarEntradasService(app: FastifyInstance) {
             usuarioId,
           })
         }
-        await registrarAuditoria(tx, { tabela: 'estoque_entradas', registroId: entrada.id, acao: 'criar', depois: { numero: entrada.numero, total, itens: itens.length }, usuarioId })
+        // Compra a prazo: as contas a pagar nascem na mesma transação da entrada
+        const contasPagar = d.contaPagar && fornecedor ? await lancarContasPagar(tx, d.contaPagar, { numero: entrada.numero, notaFiscal: d.notaFiscal ?? null, fornecedor }, usuarioId) : []
+        await registrarAuditoria(tx, { tabela: 'estoque_entradas', registroId: entrada.id, acao: 'criar', depois: { numero: entrada.numero, total, itens: itens.length, contasPagar }, usuarioId })
         return entrada.id
       })
       // Depois do commit: o custo médio mudou → recalcula os produtos que usam o insumo (e avisa do reajuste)

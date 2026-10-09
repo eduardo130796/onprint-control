@@ -551,6 +551,7 @@ model Produto {
   acabamentos          ProdutoAcabamento[]
   insumos              ProdutoInsumo[]       @relation("FichaTecnica")
   usadoComo            ProdutoInsumo[]       @relation("InsumoDaFicha")
+  usadoEmAcabamentos   AcabamentoInsumo[]    @relation("InsumoDoAcabamento")
   processos            ProdutoProcesso[]
   orcamentoItens       OrcamentoItem[]       @relation("OrcamentoItemProduto")
   pedidoItens          PedidoItem[]          @relation("PedidoItemProduto")
@@ -564,6 +565,24 @@ model Produto {
   @@index([nome])
   @@index([fornecedorPreferidoId])
   @@map("produtos")
+}
+
+/// Insumos que o acabamento consome (ilhós, bastão, fita…), por unidade da cobrança do acabamento
+model AcabamentoInsumo {
+  id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  acabamentoId    String  @map("acabamento_id") @db.Uuid
+  insumoId        String  @map("insumo_id") @db.Uuid
+  /// Por unidade da cobrança do acabamento (peça, m², metro, perímetro)
+  quantidade      Decimal @db.Decimal(12, 4)
+  perdaPercentual Decimal @default(0) @map("perda_percentual") @db.Decimal(5, 2)
+  ordem           Int     @default(0)
+
+  acabamento Acabamento @relation(fields: [acabamentoId], references: [id], onDelete: Cascade)
+  insumo     Produto    @relation("InsumoDoAcabamento", fields: [insumoId], references: [id], onDelete: Restrict)
+
+  @@unique([acabamentoId, insumoId])
+  @@index([insumoId])
+  @@map("acabamento_insumos")
 }
 
 /// Outros custos da composição (embalagem, frete…): valor por unidade, m², metro ou item.
@@ -617,6 +636,7 @@ model Acabamento {
   produtos       ProdutoAcabamento[]
   orcamentoItens OrcamentoItemAcabamento[] @relation("OrcamentoItemAcabamento")
   pedidoItens    PedidoItemAcabamento[]    @relation("PedidoItemAcabamento")
+  insumos        AcabamentoInsumo[]
 
   @@index([nome])
   @@map("acabamentos")
@@ -872,6 +892,8 @@ model OrcamentoItem {
   desconto           Decimal  @default(0) @db.Decimal(12, 2)
   total              Decimal  @db.Decimal(12, 2)
   custoEstimado      Decimal  @default(0) @map("custo_estimado") @db.Decimal(12, 2)
+  /// Linhas do custo direto com as medidas reais (CustoVenda)
+  custoDetalhe       Json?    @map("custo_detalhe")
   prazoDias          Int      @default(0) @map("prazo_dias")
   ordem              Int
   observacao         String?
@@ -899,6 +921,8 @@ model OrcamentoItemAcabamento {
   valorUnitario Decimal      @map("valor_unitario") @db.Decimal(12, 2)
   base          Decimal      @db.Decimal(12, 3)
   valor         Decimal      @db.Decimal(12, 2)
+  /// Custo do acabamento no momento da venda (manual + insumos)
+  custo         Decimal      @default(0) @db.Decimal(12, 2)
 
   item       OrcamentoItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
   acabamento Acabamento    @relation("OrcamentoItemAcabamento", fields: [acabamentoId], references: [id], onDelete: Restrict)
@@ -971,6 +995,8 @@ model PedidoItem {
   desconto         Decimal  @default(0) @db.Decimal(12, 2)
   total            Decimal  @db.Decimal(12, 2)
   custoEstimado    Decimal  @default(0) @map("custo_estimado") @db.Decimal(12, 2)
+  /// Linhas do custo direto (CustoVenda), copiadas do orçamento
+  custoDetalhe     Json?    @map("custo_detalhe")
   prazoDias        Int      @default(0) @map("prazo_dias")
   ordem            Int
   observacao       String?
@@ -997,6 +1023,8 @@ model PedidoItemAcabamento {
   valorUnitario Decimal      @map("valor_unitario") @db.Decimal(12, 2)
   base          Decimal      @db.Decimal(12, 3)
   valor         Decimal      @db.Decimal(12, 2)
+  /// Custo do acabamento no momento da venda (manual + insumos)
+  custo         Decimal      @default(0) @db.Decimal(12, 2)
 
   item       PedidoItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
   acabamento Acabamento @relation("PedidoItemAcabamento", fields: [acabamentoId], references: [id], onDelete: Restrict)
@@ -1718,6 +1746,8 @@ model VendaPdvItem {
   quantidade    Decimal @db.Decimal(12, 3)
   precoUnitario Decimal @map("preco_unitario") @db.Decimal(12, 2)
   total         Decimal @db.Decimal(12, 2)
+  /// Custo direto da venda (materiais da composição/ficha ou custo do produto), para os relatórios
+  custo         Decimal? @db.Decimal(12, 2)
 
   venda   VendaPdv @relation(fields: [vendaId], references: [id], onDelete: Cascade)
   produto Produto  @relation("VendaPdvItemProduto", fields: [produtoId], references: [id], onDelete: Restrict)

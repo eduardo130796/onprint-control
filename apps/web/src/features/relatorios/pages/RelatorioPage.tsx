@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { BarChart3, FileDown, FileSpreadsheet, Info, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { RELATORIOS, adicionarDias, formatarDataSimples, hojeISO, type TipoRelatorio } from '@onprint/shared'
+import { RELATORIOS, formatarDataSimples, type TipoRelatorio } from '@onprint/shared'
 import { relatoriosApi } from '@/api/relatorios'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -10,8 +10,6 @@ import { EstadoErro } from '@/components/shared/EstadoErro'
 import { BarrasHorizontais, BarrasVerticais } from '@/components/shared/graficos/Barras'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Select } from '@/components/ui/form-controls'
-import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useEmpresa } from '@/features/configuracoes/hooks'
 import { usePermission } from '@/hooks/usePermission'
@@ -19,35 +17,29 @@ import { baixarArquivo, gerarCsv } from '@/lib/csv'
 import { formatarValor, valorCsv } from '@/lib/formatoValor'
 import { bandejaAbas, classeAba } from '@/lib/estilosAbas'
 import { cn } from '@/lib/utils'
+import { SeletorPeriodo } from '../components/SeletorPeriodo'
+import { usePeriodo } from '../periodo'
 
-const PERIODOS = { mes: 'Este mês', anterior: 'Mês passado', '90': 'Últimos 90 dias', ano: 'Este ano', livre: 'Escolher datas' } as const
-type Periodo = keyof typeof PERIODOS
-
-function intervalo(p: Periodo, hoje: string) {
-  const [a, m] = hoje.split('-').map(Number) as [number, number]
-  const ultimoDia = (ano: number, mes: number) => String(new Date(Date.UTC(ano, mes, 0)).getUTCDate()).padStart(2, '0')
-  if (p === 'anterior') {
-    const [pa, pm] = m === 1 ? [a - 1, 12] : [a, m - 1]
-    const mes = `${pa}-${String(pm).padStart(2, '0')}`
-    return { de: `${mes}-01`, ate: `${mes}-${ultimoDia(pa, pm)}` }
-  }
-  if (p === '90') return { de: adicionarDias(hoje, -89), ate: hoje }
-  if (p === 'ano') return { de: `${a}-01-01`, ate: hoje }
-  return { de: `${hoje.slice(0, 8)}01`, ate: hoje }
+/**
+ * DRE: a linha "Custo dos materiais consumidos" é informativa (vem das baixas de estoque, não do caixa).
+ * Reconhece pela marca `informativo` ou pelo nome da linha.
+ */
+function linhaInformativa(l: Record<string, unknown>): boolean {
+  if (l.informativo === true || l.informativo === 'true' || l.informativo === 1) return true
+  return Object.values(l).some((v) => typeof v === 'string' && /custo dos materiais consumidos/i.test(v))
 }
+const DICA_MATERIAIS = 'Informativo: pelas baixas de estoque do período (produção, balcão e perdas), ao custo da movimentação. A DRE segue por caixa nas demais linhas.'
 
 /** Relatório genérico (seção 11): visões em abas, período, resumo, gráfico, tabela e exportação CSV/PDF. */
 export function RelatorioPage({ tipo }: { tipo: TipoRelatorio }) {
   const def = RELATORIOS[tipo]
   const visoes = Object.entries(def.visoes)
-  const hoje = hojeISO()
   const empresa = useEmpresa()
   const podeExportar = usePermission('relatorios', 'exportar')
   const [visao, setVisao] = useState(visoes[0]![0])
-  const [periodo, setPeriodo] = useState<Periodo>('mes')
-  const [livre, setLivre] = useState(intervalo('mes', hoje))
+  const periodo = usePeriodo()
   const [gerandoPdf, setGerandoPdf] = useState(false)
-  const datas = periodo === 'livre' ? livre : intervalo(periodo, hoje)
+  const { datas } = periodo
   const q = { visao, ...datas }
   const consulta = useQuery({ queryKey: ['relatorios', tipo, q], queryFn: () => relatoriosApi.obter(tipo, q), placeholderData: keepPreviousData })
   const r = consulta.data
@@ -105,23 +97,8 @@ export function RelatorioPage({ tipo }: { tipo: TipoRelatorio }) {
           </button>
         ))}
       </nav>
-      <div className="mb-4 flex flex-wrap gap-2">
-        <div className="w-44">
-          <Select value={periodo} onChange={(e) => setPeriodo(e.target.value as Periodo)} aria-label="Período">
-            {Object.entries(PERIODOS).map(([k, t]) => (
-              <option key={k} value={k}>
-                {t}
-              </option>
-            ))}
-          </Select>
-        </div>
-        {periodo === 'livre' && (
-          <>
-            <Input type="date" className="w-40" value={livre.de} onChange={(e) => setLivre((l) => ({ ...l, de: e.target.value }))} aria-label="De" />
-            <Input type="date" className="w-40" value={livre.ate} onChange={(e) => setLivre((l) => ({ ...l, ate: e.target.value }))} aria-label="Até" />
-          </>
-        )}
-        {consulta.isFetching && <Loader2 className="h-5 w-5 animate-spin self-center text-marca-escuro" />}
+      <div className="mb-4">
+        <SeletorPeriodo estado={periodo} carregando={consulta.isFetching} />
       </div>
 
       {consulta.isPending ? (
@@ -150,9 +127,9 @@ export function RelatorioPage({ tipo }: { tipo: TipoRelatorio }) {
                 <Card>
                   <CardContent className="pt-6">
                     {r.grafico.tipo === 'barras' ? (
-                      <BarrasVerticais dados={r.linhas} rotulo={r.grafico.rotulo} series={r.grafico.series} formato={r.grafico.formato} />
+                      <BarrasVerticais dados={r.linhas.filter((l) => !linhaInformativa(l))} rotulo={r.grafico.rotulo} series={r.grafico.series} formato={r.grafico.formato} />
                     ) : (
-                      <BarrasHorizontais dados={r.linhas} rotulo={r.grafico.rotulo} series={r.grafico.series} formato={r.grafico.formato} />
+                      <BarrasHorizontais dados={r.linhas.filter((l) => !linhaInformativa(l))} rotulo={r.grafico.rotulo} series={r.grafico.series} formato={r.grafico.formato} />
                     )}
                   </CardContent>
                 </Card>
@@ -169,15 +146,24 @@ export function RelatorioPage({ tipo }: { tipo: TipoRelatorio }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {r.linhas.map((l, i) => (
-                      <tr key={i} className="hover:bg-fundo/40">
-                        {r.colunas.map((c) => (
-                          <td key={c.chave} className={cn('px-4 py-2.5', !['texto', 'data'].includes(c.formato) && 'text-right tabular-nums')}>
-                            {formatarValor(l[c.chave], c.formato)}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
+                    {r.linhas.map((l, i) => {
+                      const informativa = linhaInformativa(l)
+                      const ultimaTexto = informativa ? r.colunas.filter((c) => c.formato === 'texto').at(-1)?.chave : undefined
+                      return (
+                        <tr key={i} className={cn('hover:bg-fundo/40', informativa && 'bg-fundo/60 italic text-texto-secundario')} title={informativa ? DICA_MATERIAIS : undefined}>
+                          {r.colunas.map((c) => (
+                            <td key={c.chave} className={cn('px-4 py-2.5', !['texto', 'data'].includes(c.formato) && 'text-right tabular-nums')}>
+                              {formatarValor(l[c.chave], c.formato)}
+                              {c.chave === ultimaTexto && (
+                                <span className="mt-0.5 flex items-start gap-1 text-xs not-italic text-texto-secundario">
+                                  <Info className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" /> {DICA_MATERIAIS}
+                                </span>
+                              )}
+                            </td>
+                          ))}
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </Card>

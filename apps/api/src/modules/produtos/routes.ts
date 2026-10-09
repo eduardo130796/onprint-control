@@ -1,4 +1,5 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import type { FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import {
   acabamentoSchema,
@@ -21,6 +22,7 @@ import {
 } from '@onprint/shared'
 import { registrarRotasCrud } from '../../core/crud-rotas'
 import { criarArquivosService } from '../arquivos/service'
+import { criarAcabamentosService } from './acabamentos.service'
 import { criarCadastrosProdutos } from './cadastros'
 import { criarCategoriasService } from './categorias.service'
 import { criarComposicaoService } from './composicao.service'
@@ -42,9 +44,27 @@ export const produtosRoutes: FastifyPluginAsyncZod = async (app) => {
   const pode = (acao: 'visualizar' | 'criar' | 'editar' | 'excluir') => ({ onRequest: [app.exigirPermissao('produtos', acao)] })
   const cadastros = criarCadastrosProdutos(app, custos)
 
-  await app.register(
-    async (r) => registrarRotasCrud(r, { modulo: 'produtos', tags: ['acabamentos'], nome: 'acabamento', corpo: acabamentoSchema, query: cadastroQuerySchema, service: cadastros.acabamentos }),
-    { prefix: '/acabamentos' },
+  // Acabamentos: CRUD com os insumos que o acabamento gasta (custo do insumo só para quem vê custos)
+  const acabamentos = criarAcabamentosService(app)
+  const veCustos = (req: FastifyRequest) => app.temPermissao(req, 'produtos', 'editar')
+  const tagsAc = ['acabamentos']
+  app.get('/acabamentos', { ...pode('visualizar'), schema: { tags: tagsAc, summary: 'Lista acabamentos', querystring: cadastroQuerySchema } }, async (req) =>
+    acabamentos.listar(req.query, await veCustos(req)),
+  )
+  app.get('/acabamentos/:id', { ...pode('visualizar'), schema: { tags: tagsAc, summary: 'Detalhe de acabamento (com os insumos que gasta)', params: idParamSchema } }, async (req) =>
+    acabamentos.obter(req.params.id, await veCustos(req)),
+  )
+  app.post('/acabamentos', { ...pode('criar'), schema: { tags: tagsAc, summary: 'Cria acabamento', body: acabamentoSchema } }, async (req, reply) =>
+    reply.status(201).send(await acabamentos.criar(req.body, req.user.sub, await veCustos(req))),
+  )
+  app.put('/acabamentos/:id', { ...pode('editar'), schema: { tags: tagsAc, summary: 'Atualiza acabamento (materiais ausentes = não mexe)', params: idParamSchema, body: acabamentoSchema } }, async (req) =>
+    acabamentos.atualizar(req.params.id, req.body, req.user.sub, await veCustos(req)),
+  )
+  app.delete('/acabamentos/:id', { ...pode('excluir'), schema: { tags: tagsAc, summary: 'Desativa acabamento', params: idParamSchema } }, async (req) =>
+    acabamentos.alterarAtivo(req.params.id, false, req.user.sub, await veCustos(req)),
+  )
+  app.post('/acabamentos/:id/reativar', { ...pode('editar'), schema: { tags: tagsAc, summary: 'Reativa acabamento', params: idParamSchema } }, async (req) =>
+    acabamentos.alterarAtivo(req.params.id, true, req.user.sub, await veCustos(req)),
   )
   await app.register(
     async (r) => registrarRotasCrud(r, { modulo: 'produtos', tags: ['maquinas'], nome: 'máquina', corpo: maquinaSchema, query: maquinasQuerySchema, service: cadastros.maquinas }),

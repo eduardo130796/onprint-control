@@ -1,13 +1,13 @@
 import { Prisma } from '@prisma/client'
 import { hojeISO, type Relatorio } from '@onprint/shared'
-import { col, n, relatorio, soma, type Contexto } from './comum'
+import { col, n, noPeriodo, relatorio, soma, type Contexto } from './comum'
 
 /**
  * Financeiro (regime de caixa, pelos movimentos realizados; transferências ficam de fora):
  * DRE simplificado por categoria, inadimplência (títulos vencidos hoje) e fluxo mensal.
  * Estornos entram com sinal contrário na mesma categoria, então se anulam.
  */
-export async function relatorioFinanceiro({ prisma, de, ate }: Contexto, visao: string): Promise<Relatorio> {
+export async function relatorioFinanceiro({ prisma, de, ate, veCustos }: Contexto, visao: string): Promise<Relatorio> {
   const periodo = { de, ate }
   const movs = Prisma.sql`movimentos_financeiros m WHERE m.transferencia_id IS NULL AND m.data BETWEEN ${de}::date AND ${ate}::date`
 
@@ -80,6 +80,18 @@ export async function relatorioFinanceiro({ prisma, de, ate }: Contexto, visao: 
     GROUP BY 1, 2 ORDER BY 1 DESC, 3 DESC`)
   const receitas = soma(linhas.filter((l) => l.grupo === 'Receitas'), 'valor')
   const despesas = soma(linhas.filter((l) => l.grupo === 'Despesas'), 'valor')
+
+  // Linha informativa (fase 3 da precificação): materiais que saíram do estoque no período (produção, balcão e
+  // perdas) pelo custo da movimentação — não entra no resultado, que continua por caixa. Só para quem vê custos.
+  let materiais: number | null = null
+  if (veCustos) {
+    const [r] = await prisma.$queryRaw<{ valor: Prisma.Decimal | null }[]>(Prisma.sql`
+      SELECT SUM(-m.quantidade * m.custo_unitario) AS valor FROM estoque_movimentacoes m
+      WHERE m.tipo IN ('consumo_producao', 'venda_pdv', 'perda') AND ${noPeriodo(Prisma.sql`m.created_at`, de, ate)}`)
+    materiais = n(r?.valor)
+    const ultimaReceita = linhas.reduce<number>((u, l, i) => (l.grupo === 'Receitas' ? i : u), -1)
+    linhas.splice(ultimaReceita + 1, 0, { grupo: 'Informativo', categoria: 'Custo dos materiais consumidos', valor: materiais })
+  }
   return relatorio({
     titulo: 'DRE simplificado',
     periodo,
@@ -88,10 +100,12 @@ export async function relatorioFinanceiro({ prisma, de, ate }: Contexto, visao: 
       { rotulo: 'Despesas', valor: despesas, formato: 'moeda' },
       { rotulo: 'Resultado', valor: n(receitas - despesas), formato: 'moeda' },
       { rotulo: 'Margem', valor: receitas ? n(((receitas - despesas) / receitas) * 100) : 0, formato: 'percentual' },
+      ...(materiais === null ? [] : [{ rotulo: 'Custo dos materiais consumidos', valor: materiais, formato: 'moeda' as const }]),
     ],
     grafico: { tipo: 'barras_horizontais', rotulo: 'categoria', series: [{ chave: 'valor', titulo: 'Valor' }], formato: 'moeda' },
     colunas: [col('grupo', 'Grupo'), col('categoria', 'Categoria'), col('valor', 'Valor', 'moeda')],
     linhas,
-    observacao: 'Regime de caixa: considera o que entrou e saiu de fato (baixas, vendas no balcão, taxas, comissões pagas). Sangria e suprimento não entram.',
+    observacao: 'Regime de caixa: considera o que entrou e saiu de fato (baixas, vendas no balcão, taxas, comissões pagas). Sangria e suprimento não entram.' +
+      (materiais === null ? '' : ' O custo dos materiais consumidos é informativo (baixas de produção, balcão e perdas, pelo custo médio) e não entra no resultado.'),
   })
 }

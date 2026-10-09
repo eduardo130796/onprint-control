@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
 import { Decimal, adicionarDiasUteis, gerarParcelas, hojeISO, type conversaoSchema } from '@onprint/shared'
 import type { z } from 'zod'
@@ -87,12 +88,14 @@ export function criarConversaoService(app: FastifyInstance, orcamentos: Orcament
                 desconto: i.desconto,
                 total: i.total,
                 custoEstimado: i.custoEstimado,
+                // Custo detalhado do momento da venda (fase 3 da precificação)
+                custoDetalhe: i.custoDetalhe ?? Prisma.DbNull,
                 prazoDias: i.prazoDias,
                 ordem: i.ordem,
                 observacao: i.observacao,
                 acabamentos: {
-                  create: i.acabamentos.map(({ acabamentoId, nome, tipoCobranca, valorUnitario, base, valor }) => ({
-                    acabamentoId, nome, tipoCobranca, valorUnitario, base, valor,
+                  create: i.acabamentos.map(({ acabamentoId, nome, tipoCobranca, valorUnitario, base, valor, custo }) => ({
+                    acabamentoId, nome, tipoCobranca, valorUnitario, base, valor, custo,
                   })),
                 },
                 // Uma arte por item, aguardando o arquivo (versões na Fase 4)

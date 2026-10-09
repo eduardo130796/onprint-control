@@ -59,7 +59,13 @@ export function criarCuponsService(app: FastifyInstance) {
     })
   }
 
-  const publico = <T extends { _usos: unknown; _pagas: unknown }>({ _usos, _pagas, ...c }: T) => c
+  /** Tira os campos internos (_usos, _pagas) da resposta */
+  const publico = <T extends { _usos: unknown; _pagas: unknown }>(c: T): Omit<T, '_usos' | '_pagas'> => {
+    const resto: Partial<T> = { ...c }
+    delete resto._usos
+    delete resto._pagas
+    return resto as Omit<T, '_usos' | '_pagas'>
+  }
 
   function dados(d: z.output<typeof cupomSchema>) {
     return {

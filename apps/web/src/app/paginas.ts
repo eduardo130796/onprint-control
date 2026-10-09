@@ -80,3 +80,4 @@ export const RelatorioProducaoPage = carregar(() => import('@/features/relatorio
 export const RelatorioEstoquePage = carregar(() => import('@/features/relatorios/pages/RelatorioPage'), 'RelatorioEstoquePage')
 export const RelatorioFinanceiroPage = carregar(() => import('@/features/relatorios/pages/RelatorioPage'), 'RelatorioFinanceiroPage')
 export const RelatorioComissoesPage = carregar(() => import('@/features/relatorios/pages/RelatorioPage'), 'RelatorioComissoesPage')
+export const RelatorioLucratividadePage = carregar(() => import('@/features/relatorios/pages/LucratividadePage'), 'LucratividadePage')

@@ -81,6 +81,86 @@ Detalhes da implementação (API):
 - **Precificação** (Configurações): impostos %, comissão padrão %, custos fixos (nenhum / % do preço / por hora: custo fixo mensal ÷ horas produtivas = R$ X por hora), lucro desejado padrão, lucro mínimo padrão — com exemplo calculado ao vivo.
 - Custos só aparecem para quem pode editar produtos (D41); o vendedor continua sem ver custo.
 
+## Fase 3 — tudo interligado (orçamento → produção → venda → compra → lucro)
+
+Motor: `custoDaVenda` (custos.ts) = composição do produto com as **medidas reais** (ou, no modo simples, custo por
+unidade × quantidade real — a área mínima é só cobrança) + acabamentos (`custoDoAcabamento`: custo manual por
+unidade da cobrança + insumos consumidos via `consumoDoAcabamento`). Contrato em `schemas/custos.ts`
+(`AnaliseLucro`, `AnaliseOrcamento`, `lucratividadeQuerySchema`, `LinhaLucratividade`, `RelatorioLucratividade`),
+`acabamentoSchema.materiais` (opcional: não enviado = não mexe) e `entradaEstoqueSchema.contaPagar`.
+
+### 1. Custo e lucro no orçamento e no pedido
+- O cálculo do item (`apps/api/src/modules/orcamentos/calculo.ts`) passa a usar `custoDaVenda` com a composição
+  do produto (insumos ao custo atual, produção pela regra da fase 2, rateio por hora) e os acabamentos com seus
+  insumos. `custoEstimado` = custo direto; novo `custo_detalhe` (JSONB) no item do orçamento e do pedido (copiado
+  na conversão) com as linhas; `*_item_acabamentos.custo` guarda o custo do acabamento no momento.
+- Lucro do item = `analisarPreco(total do item depois do desconto, custo direto, percentuais da empresa, lucro
+  mínimo do produto ou da empresa)`; do orçamento = soma (custo e total).
+- **Semáforo para todos, números só para quem vê custos**: a resposta do orçamento/pedido traz `analise:
+  AnaliseLucro` por item e no total; sem permissão de custos, só `situacao`. O vendedor nunca recebe custo.
+- `POST /orcamentos/analisar` (permissão de criar/editar orçamento): mesmos itens do orçamento →
+  `AnaliseOrcamento`, para o editor mostrar o semáforo ao vivo (com debounce) sem expor custos.
+- Prejuízo não bloqueia (só avisa); o bloqueio continua sendo o preço mínimo (com liberação do gerente).
+
+### 2. Acabamentos que consomem insumos
+- Nova tabela `acabamento_insumos` (acabamento_id, insumo_id, quantidade DECIMAL(12,4), perda_percentual
+  DECIMAL(5,2), ordem). Na tela do acabamento: "O que este acabamento gasta" (busca de insumos, quantidade por
+  unidade da cobrança — "por peça", "por metro de perímetro"… —, perda) e o custo de referência.
+- Mudou o custo de um insumo usado em acabamento → os produtos/orçamentos novos já usam; o aviso de reajuste
+  considera também acabamentos obrigatórios dos produtos.
+- **Baixa de estoque**: ao concluir a OP, além dos materiais do produto, baixa os insumos dos acabamentos do item
+  do pedido (`consumoDoAcabamento` com as medidas do item), mesmo tipo `consumo_producao`, ligados ao pedido/OP.
+
+### 3. Produção, PDV e perdas
+- **Perda apontada**: a baixa na conclusão da OP usa quantidade + soma das perdas apontadas (peças refeitas).
+- **PDV**: produto com materiais (composição ou ficha) baixa os materiais (base por peça); senão, se controla
+  estoque, baixa ele mesmo (como hoje). Novo `venda_pdv_itens.custo` (custo direto da venda) para o relatório.
+- **Tempo da OP** (`producao/geracao.ts`): produto em composição estima as horas pelos minutos da produção
+  (`calcularCustoItem(...).minutosProducao`); senão, a regra atual.
+
+### 4. Compra gera conta a pagar
+- `POST /estoque/entradas` com `contaPagar` (exige fornecedor): cria as contas a pagar das parcelas (soma =
+  total da entrada, senão 422), documento = NF, categoria "Compras de insumos" (`compras_insumos`) ou a escolhida,
+  descrição "Compra NF 123 — Fornecedor". Na tela da entrada: "Pagamento: à vista (sem conta) / a prazo" com
+  parcelas (1×, 2×, 3×… dividindo o total e datas a cada 30 dias, editáveis).
+
+### 5. Relatórios
+- `GET /relatorios/lucratividade?inicio&fim&agrupar=pedido|produto` (relatorios:visualizar + ver custos):
+  pedidos não cancelados com data no período; receita = total dos itens; custo estimado = soma de
+  `custoEstimado`; custo real de materiais = baixas `consumo_producao` ligadas ao pedido × custo da movimentação
+  (null se não houve baixa); despesas = receita × (impostos + comissão + custo fixo %); lucro e %; situação.
+  Tela em Relatórios → "Lucratividade" com totais, filtros e exportar CSV.
+- **DRE**: nova linha informativa "Custo dos materiais consumidos" (baixas de produção, PDV e perdas no período,
+  pelo custo da movimentação) logo depois das receitas — a DRE continua por caixa nas demais linhas.
+
+### Detalhes da implementação (API, fase 3)
+- Migração `20261012100000_custos_interligados` (a tabela do PDV é `vendas_pdv_itens`).
+- `GET/POST/PUT /acabamentos` devolvem `materiais` (`custoUnitario` só com `produtos:editar`); `materiais` só aceita
+  insumos/revenda ativos, sem repetir.
+- `custoDetalhe` do item = o `CustoVenda` inteiro (materiais, produção, rateio, extras, produto, acabamentos,
+  custoDireto, minutosProducao, linhas). Some (com `custoEstimado` e o `custo` dos acabamentos) para quem não vê custos.
+- **Total da análise** = soma dos totais dos itens − desconto + acréscimo do cabeçalho (o frete fica de fora); lucro
+  mínimo do total = o da empresa. `POST /orcamentos/analisar` recebe `{ itens, desconto?, acrescimo? }`, exige
+  `orcamentos:visualizar` + (`criar` ou `editar`), não grava e não recusa preço abaixo do mínimo (só analisa).
+- **Aviso de reajuste pelos acabamentos**: quando muda o custo de um insumo usado em acabamento, os produtos com esse
+  acabamento **obrigatório** são comparados antes/depois na medida de referência (preço + valor dos acabamentos
+  obrigatórios × custo + custo dos acabamentos obrigatórios). Isso vale só para o aviso; `GET /produtos/reajuste`
+  continua pelo custo gravado do produto (o custo do acabamento não é gravado no produto).
+- **OP**: baixa por insumo e origem (ficha/composição; acabamentos), motivo "Baixa dos acabamentos (medidas reais +
+  perda)"; quantidade = a da OP + soma das perdas apontadas (a área usada sem medidas cresce na mesma proporção).
+  Horas da OP pela composição só quando o produto está em composição e tem produção.
+- **PDV**: materiais por peça com as medidas padrão do produto (materiais por m²/metro); a baixa de material pode
+  deixar o saldo negativo (como a produção); o produto sem materiais continua como antes. `custo` não aparece nas
+  respostas do caixa (só relatórios).
+- **Compra a prazo**: descrição "Compra NF 123 — Fornecedor" (sem NF: o número da entrada), "(1/2)" quando há mais
+  de uma parcela; observação com o número da entrada; status pelo vencimento. Categoria escolhida precisa ser de despesa
+  e ativa. Sem `compras_insumos` (empresa antiga): cria "Compra de insumos" dentro de "Custos de produção" (se existir).
+- **Lucratividade**: data do pedido = `created_at` (fuso de São Paulo); lucro, % e situação pelo custo estimado (o
+  real de materiais é comparativo); por produto, o real vem das baixas das OPs dos itens daquele produto e o lucro
+  mínimo é o do produto. `inicio > fim` → 422.
+- **DRE**: linha `{ grupo: 'Informativo', categoria: 'Custo dos materiais consumidos' }` logo após as receitas e um
+  cartão de resumo com o mesmo rótulo — só para quem vê custos; não entra em Despesas/Resultado.
+
 ## Fases seguintes
 
 3. Orçamento com custo pela medida real e detalhado (material/produção/acabamento), semáforo para o vendedor; acabamentos que consomem insumos; PDV e perda apontada baixando a composição; entrada de compra gerando conta a pagar; lucro por pedido/produto (estimado × real) e custo das mercadorias na DRE.

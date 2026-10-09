@@ -18,6 +18,7 @@ import { criarEntregasService } from './entregas.service'
 import { historicoDoPedido } from './historico'
 import { recebimentosDoPedido } from './recebimentos'
 import { estornoAoCancelarPedido } from '../estoque/ganchos'
+import { comAnalise, parametrosDaEmpresaAtual } from '../orcamentos/analise'
 import { criarPedidosService } from './pedidos.service'
 
 type ComItens = { itens: { custoEstimado?: unknown; artes: { miniaturaId: string | null }[] }[] }
@@ -47,7 +48,9 @@ export const pedidosRoutes: FastifyPluginAsyncZod = async (app) => {
   // "controller": lê a requisição, monta o contexto do usuário e delega aos services
   const detalhe = async (req: FastifyRequest, id: string) => {
     const c = await ctx(req)
-    return formatarDetalhe(await pedidos.obter(id, c), c.veCustos, (arquivoId) => app.storage.gerarUrlTemporaria(arquivoId, 3600))
+    // Semáforo do lucro para todos; custo e linhas só para quem vê custos (fase 3 da precificação)
+    const p = comAnalise(await pedidos.obter(id, c), await parametrosDaEmpresaAtual(app.prisma), c.veCustos)
+    return formatarDetalhe(p, c.veCustos, (arquivoId) => app.storage.gerarUrlTemporaria(arquivoId, 3600))
   }
 
   app.get('/pedidos', { ...pode('visualizar'), schema: { tags, summary: 'Lista pedidos (só os próprios sem "ver todos")', querystring: pedidosQuerySchema } }, async (req) =>

@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js'
-import type { BaseInsumo, ModoCalculo } from './enums'
+import type { BaseInsumo, ModoCalculo, TipoCobranca } from './enums'
 
 /**
  * Custo e preço dos produtos (composição de custo). Regras puras, usadas pela API (custo de referência,
@@ -106,7 +106,7 @@ export interface MedidasItem {
 }
 
 export interface LinhaCusto {
-  grupo: 'material' | 'producao' | 'rateio' | 'extra'
+  grupo: 'material' | 'producao' | 'rateio' | 'extra' | 'produto' | 'acabamento'
   nome: string
   /** Quantidade consumida (material: na unidade de uso; produção: minutos) */
   quantidade: string
@@ -219,6 +219,134 @@ export function custoDeReferencia(
   const item = calcularCustoItem(c, ref.medidas, opcoes)
   const porUnidade = ref.divisor > 0 ? reais(dec(item.custoDireto).div(ref.divisor)) : item.custoDireto
   return { ...item, porUnidade, unidade: ref.unidade }
+}
+
+// ─── Item vendido (orçamento, pedido, PDV) ────────────────────────────────────
+
+/**
+ * Acabamento com custo: o custo manual por unidade da cobrança (mão de obra, terceiro) + os insumos que ele
+ * consome por unidade da cobrança (ilhós: 2 un por metro de perímetro; bastão: 1 m por metro linear).
+ */
+export interface AcabamentoCusto {
+  nome: string
+  tipoCobranca: TipoCobranca
+  custo: Valor
+  materiais?: MaterialComposicaoAcabamento[]
+}
+
+/** Insumo do acabamento: quantidade por unidade da cobrança do acabamento (com perda) */
+export interface MaterialComposicaoAcabamento {
+  nome: string
+  custoUnitario: Valor
+  unidade?: string
+  quantidade: Valor
+  perdaPercentual: Valor
+}
+
+/** Quantidade da cobrança do acabamento com as medidas reais (sem área mínima): 1, peças, m², m ou perímetro. */
+export function baseDoAcabamento(tipo: TipoCobranca, m: MedidasItem): Decimal {
+  const pecas = dec(m.quantidade)
+  const largura = dec(m.largura)
+  const altura = dec(m.altura)
+  switch (tipo) {
+    case 'fixo':
+      return new Decimal(1)
+    case 'por_m2':
+      return largura.mul(altura).mul(pecas)
+    case 'por_metro_linear':
+      return largura.mul(pecas)
+    case 'por_perimetro':
+      return largura.plus(altura).mul(2).mul(pecas)
+    default:
+      return pecas
+  }
+}
+
+/** Consumo de um insumo do acabamento (na unidade de uso, com perda) — custo e baixa de estoque usam o mesmo. */
+export function consumoDoAcabamento(
+  a: Pick<AcabamentoCusto, 'tipoCobranca'>,
+  material: Pick<MaterialComposicaoAcabamento, 'quantidade' | 'perdaPercentual'>,
+  m: MedidasItem,
+): string {
+  return baseDoAcabamento(a.tipoCobranca, m)
+    .mul(dec(material.quantidade))
+    .mul(dec(1).plus(dec(material.perdaPercentual).div(100)))
+    .toDecimalPlaces(3, Decimal.ROUND_HALF_UP)
+    .toFixed(3)
+}
+
+export function custoDoAcabamento(a: AcabamentoCusto, m: MedidasItem): { valor: string; linhas: LinhaCusto[] } {
+  const base = baseDoAcabamento(a.tipoCobranca, m)
+  let total = base.mul(dec(a.custo))
+  const linhas: LinhaCusto[] = []
+  if (total.gt(0)) linhas.push({ grupo: 'acabamento', nome: a.nome, quantidade: base.toDecimalPlaces(3).toFixed(3), unidade: '', valor: reais(total) })
+  for (const mat of a.materiais ?? []) {
+    const qtd = dec(consumoDoAcabamento(a, mat, m))
+    const valor = qtd.mul(dec(mat.custoUnitario))
+    total = total.plus(valor)
+    linhas.push({ grupo: 'acabamento', nome: a.nome + ': ' + mat.nome, quantidade: qtd.toFixed(3), unidade: mat.unidade ?? '', valor: reais(valor) })
+  }
+  return { valor: reais(total), linhas }
+}
+
+export interface EntradaCustoVenda {
+  produto: {
+    modoCusto: 'simples' | 'composicao'
+    modoCalculo: ModoCalculo
+    /** Modo simples: custo por unidade de cálculo (R$/m², R$/un…) */
+    custoUnitario: Valor
+    composicao?: Composicao | null
+    loteMilheiro?: number
+  }
+  acabamentos: AcabamentoCusto[]
+  medidas: MedidasItem
+  custoFixoHora?: Valor
+}
+
+export interface CustoVenda extends CustoItem {
+  /** Custo do produto em si no modo simples (custo por unidade × quantidade real) */
+  produto: string
+  acabamentos: string
+}
+
+/**
+ * Custo de um item vendido com as medidas REAIS (a área mínima é só cobrança): composição do produto (ou o
+ * custo por unidade no modo simples × quantidade real) + acabamentos (custo manual + insumos).
+ */
+export function custoDaVenda(e: EntradaCustoVenda): CustoVenda {
+  const m = e.medidas
+  let base: CustoItem = { materiais: '0.00', producao: '0.00', rateio: '0.00', extras: '0.00', custoDireto: '0.00', minutosProducao: '0.0', linhas: [] }
+  let produto = new Decimal(0)
+  if (e.produto.modoCusto === 'composicao' && e.produto.composicao) {
+    base = calcularCustoItem(e.produto.composicao, m, { custoFixoHora: e.custoFixoHora })
+  } else {
+    const pecas = dec(m.quantidade)
+    let qtd: Decimal
+    switch (e.produto.modoCalculo) {
+      case 'm2':
+        qtd = dec(m.largura).mul(dec(m.altura)).mul(pecas)
+        break
+      case 'metro_linear':
+        qtd = dec(m.largura).mul(pecas)
+        break
+      case 'milheiro':
+        qtd = pecas.div(e.produto.loteMilheiro ?? 1000)
+        break
+      default:
+        qtd = pecas
+    }
+    produto = qtd.mul(dec(e.produto.custoUnitario))
+    if (produto.gt(0)) base = { ...base, linhas: [{ grupo: 'produto', nome: 'Custo do produto', quantidade: qtd.toDecimalPlaces(3).toFixed(3), unidade: '', valor: reais(produto) }] }
+  }
+  let acabamentos = new Decimal(0)
+  const linhas = [...base.linhas]
+  for (const a of e.acabamentos) {
+    const c = custoDoAcabamento(a, m)
+    acabamentos = acabamentos.plus(c.valor)
+    linhas.push(...c.linhas)
+  }
+  const custoDireto = dec(base.custoDireto).plus(produto).plus(acabamentos)
+  return { ...base, produto: reais(produto), acabamentos: reais(acabamentos), custoDireto: reais(custoDireto), linhas }
 }
 
 // ─── Preço ──────────────────────────────────────────────────────────────────

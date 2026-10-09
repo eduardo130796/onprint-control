@@ -13,6 +13,7 @@ import { paginas } from './navigation'
 import {
   RelatorioComissoesPage,
   RelatorioEstoquePage,
+  RelatorioLucratividadePage,
   RelatorioFinanceiroPage,
   RelatorioOrcamentosPage,
   RelatorioProducaoPage,
@@ -121,6 +122,7 @@ const telas: Record<string, ReactElement> = {
   '/relatorios/estoque': <RelatorioEstoquePage />,
   '/relatorios/financeiro': <RelatorioFinanceiroPage />,
   '/relatorios/comissoes': <RelatorioComissoesPage />,
+  '/relatorios/lucratividade': <RelatorioLucratividadePage />,
   '/clientes': <ClientesPage />,
   '/clientes/novo': <ClienteFichaPage />,
   '/fornecedores': <FornecedoresPage />,
@@ -184,7 +186,16 @@ const rotasInternas: RouteObject[] = paginas.flatMap((p) => {
   if (p.path === '/') return [{ path: '/', element: <InicioPage /> }]
   // Sem exigir permissão: com a assinatura bloqueada, é a única tela que funciona
   if (p.path === '/assinatura') return [{ path: '/assinatura', element: <MinhaAssinaturaPage /> }]
-  const rotas = [protegida(p.path, p.modulo, telas[p.path] ?? <PlaceholderPage />, p.acao)]
+  const tela = telas[p.path] ?? <PlaceholderPage />
+  // Permissão extra (ex.: lucratividade também exige ver custos)
+  const elemento = p.tambem ? (
+    <ExigePermissao modulo={p.tambem.modulo} acao={p.tambem.acao}>
+      {tela}
+    </ExigePermissao>
+  ) : (
+    tela
+  )
+  const rotas = [protegida(p.path, p.modulo, elemento, p.acao)]
   if (p.novo) rotas.push(protegida(`${p.path}/novo`, p.modulo, telas[`${p.path}/novo`] ?? <PlaceholderPage />, 'criar'))
   return rotas
 })

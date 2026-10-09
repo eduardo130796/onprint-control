@@ -17,7 +17,9 @@ import { formatarCusto } from '@/features/produtos/custos'
 import { decimalParaInput } from '@/lib/mascaras'
 import { cn } from '@/lib/utils'
 import { buscarFornecedoresEstoque, buscarProdutosEstoque } from '../buscas'
+import { PagamentoCompra } from '../components/PagamentoCompra'
 import { buscarEmbalagem, valoresDaLinha, type Embalagem } from '../embalagem'
+import { diferencaDasParcelas, pagamentoInicial, parcelasAtuais, parcelasParaApi, totalDaEntrada, type EstadoPagamento } from '../pagamento'
 import { useLocaisEstoque } from '../hooks'
 
 interface Linha {
@@ -52,13 +54,25 @@ export function NovaEntradaPage() {
   const [linhas, setLinhas] = useState<Linha[]>(() => [novaLinha()])
   const [erros, setErros] = useState<Record<string, string>>({})
   const [salvando, setSalvando] = useState(false)
+  const [pagamento, setPagamento] = useState<EstadoPagamento>(pagamentoInicial)
   const local = localId || ativos.find((l) => l.padrao)?.id || ativos[0]?.id || ''
   const totalLinha = (l: Linha) => {
     const v = valoresDaLinha(l)
     return numero(v.quantidade) * numero(v.custoUnitario)
   }
-  const total = linhas.reduce((s, l) => s + totalLinha(l), 0)
+  // Igual ao da API (cada item arredondado em centavos): as parcelas a prazo precisam fechar com ele
+  const total = totalDaEntrada(linhas.map(valoresDaLinha))
 
+  const escolherFornecedor = (f: OpcaoBusca | null) => {
+    setFornecedor(f)
+    // O aviso "escolha o fornecedor" some assim que ele é escolhido
+    if (f)
+      setErros((e) => {
+        const resto = { ...e }
+        delete resto.fornecedorId
+        return resto
+      })
+  }
   const alterar = (chave: number, dados: Partial<Linha>) => setLinhas((ls) => ls.map((l) => (l.chave === chave ? { ...l, ...dados } : l)))
 
   /** Ao escolher o item: se for insumo comprado em embalagem, já oferece o lançamento em embalagens. */
@@ -109,19 +123,34 @@ export function NovaEntradaPage() {
         .filter(({ l, v }) => l.produto || v.quantidade || v.custoUnitario)
         .map(({ l, v }) => ({ produtoId: l.produto?.id, quantidade: v.quantidade, custoUnitario: v.custoUnitario })),
     }
-    const r = entradaEstoqueSchema.safeParse(corpo)
-    if (!r.success) {
-      setErros(Object.fromEntries(r.error.issues.map((i) => [i.path.join('.'), i.message])))
-      toast.error('Confira os campos destacados.')
+    const parcelas = parcelasAtuais(pagamento, total, dataEntrada)
+    const contaPagar = pagamento.aPrazo
+      ? { parcelas: parcelasParaApi(parcelas), formaPagamentoId: pagamento.formaPagamentoId || null, categoriaId: pagamento.categoriaId || null }
+      : undefined
+    const r = entradaEstoqueSchema.safeParse({ ...corpo, contaPagar })
+    const novosErros: Record<string, string> = r.success ? {} : Object.fromEntries(r.error.issues.map((i) => [i.path.join('.'), i.message]))
+    if (pagamento.aPrazo) {
+      if (!fornecedor) novosErros.fornecedorId = 'Na compra a prazo, escolha o fornecedor.'
+      if (Number(diferencaDasParcelas(total, parcelas)) !== 0) novosErros.contaPagar = 'A soma das parcelas precisa ser igual ao total da entrada.'
+      else if (parcelas.some((p) => !(Number(parcelasParaApi([p])[0]!.valor) > 0) || !p.vencimento)) novosErros.contaPagar = 'Cada parcela precisa de vencimento e valor.'
+    }
+    if (!r.success || Object.keys(novosErros).length) {
+      setErros(novosErros)
+      const pagamentoErro = novosErros.fornecedorId ?? novosErros.contaPagar ?? Object.entries(novosErros).find(([k]) => k.startsWith('contaPagar'))?.[1]
+      toast.error(pagamentoErro ?? 'Confira os campos destacados.')
       return
     }
     setErros({})
     setSalvando(true)
     try {
       const entrada = await estoqueApi.registrarEntrada(r.data)
-      toast.success(`Entrada ${entrada.numero} registrada. Estoque atualizado.`)
-      // O custo dos insumos muda com a compra (e o dos produtos que os usam)
-      await Promise.all(['estoque', 'insumos', 'produtos'].map((c) => queryClient.invalidateQueries({ queryKey: [c] })))
+      toast.success(
+        contaPagar
+          ? `Entrada ${entrada.numero} registrada. ${contaPagar.parcelas.length === 1 ? 'Conta a pagar criada' : `${contaPagar.parcelas.length} contas a pagar criadas`} no Financeiro.`
+          : `Entrada ${entrada.numero} registrada. Estoque atualizado.`,
+      )
+      // O custo dos insumos muda com a compra (e o dos produtos que os usam); a prazo, as contas a pagar
+      await Promise.all(['estoque', 'insumos', 'produtos', ...(contaPagar ? ['financeiro'] : [])].map((c) => queryClient.invalidateQueries({ queryKey: [c] })))
       navigate('/estoque/entradas')
     } catch (erro) {
       toast.error((erro as Error).message)
@@ -151,8 +180,8 @@ export function NovaEntradaPage() {
       <Card className="mb-4">
         <CardContent className="grid gap-4 pt-6 md:grid-cols-4">
           <div className="md:col-span-2">
-            <CampoFormulario id="en-forn" rotulo="Fornecedor">
-              <SearchSelect id="en-forn" chave="estoque-fornecedores" buscar={buscarFornecedoresEstoque} valor={fornecedor} onChange={setFornecedor} placeholder="Buscar fornecedor…" />
+            <CampoFormulario id="en-forn" rotulo={pagamento.aPrazo ? 'Fornecedor *' : 'Fornecedor'} erro={erros.fornecedorId}>
+              <SearchSelect id="en-forn" chave="estoque-fornecedores" buscar={buscarFornecedoresEstoque} valor={fornecedor} onChange={escolherFornecedor} placeholder="Buscar fornecedor…" invalido={Boolean(erros.fornecedorId)} />
             </CampoFormulario>
           </div>
           <CampoFormulario id="en-nf" rotulo="Nota fiscal">
@@ -277,6 +306,15 @@ export function NovaEntradaPage() {
           <p className="text-right text-lg font-semibold text-tinta">Total da entrada: {formatarMoeda(total)}</p>
         </CardContent>
       </Card>
+
+      <PagamentoCompra
+        estado={pagamento}
+        onChange={(p) => setPagamento((atual) => ({ ...atual, ...p }))}
+        total={total}
+        dataCompra={dataEntrada}
+        temFornecedor={Boolean(fornecedor)}
+        erro={erros.fornecedorId ?? erros.contaPagar}
+      />
     </form>
   )
 }

@@ -17,6 +17,7 @@ import {
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
 import {
+  acabamentosNaReferencia,
   causaCustoInsumo,
   mensagemReajuste,
   parametrosPreco,
@@ -35,7 +36,7 @@ const maquinaCusto = { select: { id: true, nome: true, custoHora: true, velocida
 /** Tudo o que o cálculo do custo de referência precisa (custos atuais de insumos, máquinas e processos). */
 export const incluirComposicao = {
   insumos: {
-    include: { insumo: { select: { id: true, codigo: true, nome: true, custo: true, unidadeMedida: { select: { sigla: true } } } } },
+    include: { insumo: { select: { id: true, codigo: true, nome: true, custo: true, controlaEstoque: true, unidadeMedida: { select: { sigla: true } } } } },
     orderBy: { createdAt: 'asc' },
   },
   processos: {
@@ -47,6 +48,14 @@ export const incluirComposicao = {
   },
   custosExtras: { orderBy: { ordem: 'asc' } },
 } satisfies Prisma.ProdutoInclude
+
+/** Insumos que o acabamento consome, com o custo atual (custo do item vendido e baixa de estoque). */
+export const incluirAcabamentoCusto = {
+  insumos: {
+    include: { insumo: { select: { id: true, codigo: true, nome: true, custo: true, controlaEstoque: true, unidadeMedida: { select: { sigla: true } } } } },
+    orderBy: { ordem: 'asc' },
+  },
+} satisfies Prisma.AcabamentoInclude
 
 const semRepetidos = (ids: string[], mensagem: string) => {
   if (new Set(ids).size !== ids.length) throw AppError.regraNegocio(mensagem)
@@ -107,7 +116,8 @@ export function criarCustosService(app: FastifyInstance) {
 
   /** Uma notificação por gatilho, só se algum produto passou a ficar abaixo do lucro mínimo. */
   async function avisarReajuste(mudancas: MudancaSituacao[], causa: string) {
-    const piores = quePioraram(mudancas)
+    // Um produto pode aparecer pela composição e pelos acabamentos obrigatórios: conta uma vez
+    const piores = [...new Map(quePioraram(mudancas).map((m) => [m.id, m])).values()]
     if (piores.length === 0) return 0
     const usuarios = await quemEditaProdutos()
     if (usuarios.length === 0) return piores.length
@@ -133,6 +143,40 @@ export function criarCustosService(app: FastifyInstance) {
     return [...new Set(linhas.map((l) => l.produtoId))]
   }
 
+  /**
+   * Produtos cujos acabamentos OBRIGATÓRIOS gastam o insumo: o custo do acabamento não é gravado (é calculado
+   * na venda), então a situação antes/depois é comparada aqui, na medida de referência do produto, com o
+   * preço e o custo do produto + os dos acabamentos obrigatórios (só para o aviso de reajuste).
+   */
+  async function mudancasPorAcabamentos(insumoId: string, antes: Decimal.Value, depois: Decimal.Value): Promise<MudancaSituacao[]> {
+    const obrigatorios = { obrigatorio: true, acabamento: { ativo: true } }
+    const produtos = await prisma.produto.findMany({
+      where: { ativo: true, tipo: { not: 'insumo' }, acabamentos: { some: { ...obrigatorios, acabamento: { ativo: true, insumos: { some: { insumoId } } } } } },
+      select: {
+        id: true,
+        nome: true,
+        modoCalculo: true,
+        larguraPadrao: true,
+        alturaPadrao: true,
+        custo: true,
+        precoVenda: true,
+        lucroMinimo: true,
+        acabamentos: { where: obrigatorios, select: { acabamento: { include: incluirAcabamentoCusto } } },
+      },
+    })
+    if (produtos.length === 0) return []
+    const par = await parametros()
+    const comCusto = (custo: Decimal.Value) => (a: (typeof produtos)[number]['acabamentos'][number]) => ({
+      ...a.acabamento,
+      insumos: a.acabamento.insumos.map((i) => (i.insumoId === insumoId ? { ...i, insumo: { ...i.insumo, custo: new Decimal(custo).toString() } } : i)),
+    })
+    const situacao = (p: (typeof produtos)[number], custoInsumo: Decimal.Value) => {
+      const ac = acabamentosNaReferencia(p, p.acabamentos.map(comCusto(custoInsumo)))
+      return situacaoDoProduto({ precoVenda: p.precoVenda.plus(ac.preco).toString(), custo: p.custo.plus(ac.custo).toString(), lucroMinimo: p.lucroMinimo }, par).situacao
+    }
+    return produtos.map((p) => ({ id: p.id, nome: p.nome, antes: situacao(p, antes), depois: situacao(p, depois) }))
+  }
+
   async function idsDoRoteiro(where: Prisma.ProdutoProcessoWhereInput) {
     const linhas = await prisma.produtoProcesso.findMany({ where: { ...where, produto: { modoCusto: 'composicao' } }, select: { produtoId: true } })
     return [...new Set(linhas.map((l) => l.produtoId))]
@@ -147,6 +191,8 @@ export function criarCustosService(app: FastifyInstance) {
       seguro(`insumo ${insumo.id}`, async () => {
         if (new Decimal(antes).eq(depois)) return
         const mudancas = await recalcularCustos(await idsQueUsamInsumo([insumo.id]))
+        // Os acabamentos obrigatórios que gastam o insumo também contam (fase 3)
+        mudancas.push(...(await mudancasPorAcabamentos(insumo.id, antes, depois)))
         await avisarReajuste(mudancas, causaCustoInsumo(insumo.nome, antes.toString(), depois.toString(), insumo.unidade))
       }),
 

@@ -218,6 +218,62 @@ export interface Precificacao {
   custoFixoHora: string
 }
 
+// ─── Lucro no orçamento e no pedido (fase 3) ─────────────────────────────────
+
+/**
+ * Análise de um item (ou do total) do orçamento/pedido. TODO usuário recebe a `situacao` (semáforo); os números
+ * (custo, lucro, linhas) só vêm para quem vê custos — o vendedor nunca recebe o custo, nem no navegador.
+ */
+export interface AnaliseLucro {
+  situacao: SituacaoLucro
+  custoDireto?: string
+  lucro?: string
+  lucroPercentual?: string
+  despesasSobrePreco?: string
+  /** Detalhamento (produto/materiais/produção/rateio/extras/acabamentos) */
+  linhas?: CustoItem['linhas']
+}
+
+/** POST /orcamentos/analisar: mesmos itens do orçamento (orcamentoItemSchema) → semáforo por item e do total */
+export interface AnaliseOrcamento {
+  itens: AnaliseLucro[]
+  total: AnaliseLucro
+}
+
+// ─── Relatório de lucratividade (fase 3) ─────────────────────────────────────
+
+export const lucratividadeQuerySchema = z.object({
+  inicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  fim: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  agrupar: z.enum(['pedido', 'produto']).default('pedido'),
+})
+export type LucratividadeQuery = z.input<typeof lucratividadeQuerySchema>
+
+export interface LinhaLucratividade {
+  /** Pedido: id/número/cliente; produto: id/código/nome */
+  id: string
+  titulo: string
+  subtitulo: string | null
+  receita: string
+  /** Custo direto estimado na venda (guardado no item) */
+  custoEstimado: string
+  /** Materiais efetivamente consumidos (baixas de estoque ligadas ao pedido, ao custo médio do momento) */
+  custoMateriaisReal: string | null
+  /** Impostos + comissão + custo fixo % sobre a receita */
+  despesas: string
+  lucro: string
+  lucroPercentual: string
+  situacao: SituacaoLucro
+}
+
+export interface RelatorioLucratividade {
+  linhas: LinhaLucratividade[]
+  /** Receita e custos de todas as linhas; lucro, % e situação só das que têm custo informado */
+  totais: Omit<LinhaLucratividade, 'id' | 'titulo' | 'subtitulo'>
+  /** Vendas sem custo informado: ficam fora do lucro total (senão pareceriam 100% de lucro) */
+  semCusto: { quantidade: number; receita: string }
+}
+
 // ─── Reajuste de preços ────────────────────────────────────────────────────
 
 export const reajusteQuerySchema = z.object({ situacao: z.enum(['abaixo', 'todos']).default('abaixo') })

@@ -1,13 +1,12 @@
 import { useRef } from 'react'
 import { ExternalLink, Layers, Plus, Trash2 } from 'lucide-react'
 import { BASES_INSUMO, formatarMoeda, type BaseInsumo } from '@onprint/shared'
-import { insumosApi } from '@/api/custos'
-import { produtosApi } from '@/api/produtos'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { NumberInput } from '@/components/shared/inputs'
-import { SearchSelect, type OpcaoBusca } from '@/components/shared/SearchSelect'
+import { SearchSelect } from '@/components/shared/SearchSelect'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/form-controls'
+import { criarBuscaInsumos, type InfoInsumo } from '../../buscaInsumos'
 import { formatarCusto, numero } from '../../custos'
 import { Secao } from './Secao'
 import { novoMaterial, type MaterialLinha } from './estadoComposicao'
@@ -30,12 +29,6 @@ function explicar(l: MaterialLinha): string {
   return perda > 0 ? `${base} (${n(qtd)} ${l.unidade} + ${n(perda)}% de perda: sobra e erro de corte).` : `${base}.`
 }
 
-interface InfoInsumo {
-  nome: string
-  unidade: string
-  custo: string
-}
-
 interface Props {
   linhas: MaterialLinha[]
   custos: number[]
@@ -51,25 +44,7 @@ export function BlocoMateriais({ linhas, custos, unidadeProduto, baseNova, produ
   // Dados do insumo escolhido na busca (nome, unidade e custo) — a busca só devolve id/rótulo
   const cache = useRef(new Map<string, InfoInsumo>())
 
-  async function buscar(termo: string): Promise<OpcaoBusca[]> {
-    const busca = termo || undefined
-    const [insumos, revenda] = await Promise.all([
-      insumosApi.listar({ busca, pageSize: 20, page: 1 }),
-      produtosApi.listar({ busca, pageSize: 5, page: 1, tipo: 'revenda', ativo: 'true' }),
-    ])
-    const opcoes: OpcaoBusca[] = []
-    for (const i of insumos.data) {
-      const unidade = i.unidadeMedida?.sigla ?? 'un'
-      cache.current.set(i.id, { nome: i.nome, unidade, custo: i.custo ?? '0' })
-      opcoes.push({ id: i.id, rotulo: i.nome, detalhe: Number(i.custo ?? 0) > 0 ? `${formatarCusto(i.custo)} / ${unidade}` : `Sem custo · ${unidade}` })
-    }
-    for (const p of revenda.data.filter((p) => p.id !== produtoId)) {
-      const unidade = p.unidadeMedida?.sigla ?? 'un'
-      cache.current.set(p.id, { nome: p.nome, unidade, custo: p.custo ?? '0' })
-      opcoes.push({ id: p.id, rotulo: p.nome, detalhe: `Revenda · ${formatarCusto(p.custo)} / ${unidade}` })
-    }
-    return opcoes
-  }
+  const buscar = criarBuscaInsumos(cache.current, { revendaExceto: produtoId })
 
   const alterar = (chave: number, dados: Partial<MaterialLinha>) => onChange(linhas.map((l) => (l.chave === chave ? { ...l, ...dados } : l)))
   const adicionar = () => onChange([...linhas, novoMaterial(baseNova)])

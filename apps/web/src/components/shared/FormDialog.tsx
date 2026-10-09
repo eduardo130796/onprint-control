@@ -31,7 +31,7 @@ export function FormDialog({
   return (
     <Dialog open={aberto} onOpenChange={(v) => !salvando && onAbertoChange(v)}>
       <DialogContent className={cn('top-[5%] max-h-[90vh] gap-0 p-0', largo ? 'max-w-2xl' : 'max-w-lg')}>
-        <form onSubmit={onSubmit} noValidate className="flex max-h-[90vh] flex-col">
+        <form onSubmit={onSubmit} noValidate className="flex max-h-[90vh] min-w-0 flex-col">
           <div className="border-b border-border px-6 py-4">
             <DialogTitle>{titulo}</DialogTitle>
             <DialogDescription className={descricao ? 'mt-1' : 'sr-only'}>{descricao ?? titulo}</DialogDescription>

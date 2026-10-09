@@ -1,6 +1,10 @@
 import type {
+  AnaliseLucro,
+  AnaliseOrcamento,
   MensagemTemplate,
   OrcamentoDetalhe,
+  OrcamentoItem,
+  OrcamentoItemInput,
   Orcamento,
   OrcamentoPublico,
   OrcamentosQuery,
@@ -19,14 +23,20 @@ export const solicitacoesApi = {
   descartar: (id: string, motivo: string) => http<Solicitacao>(`/solicitacoes/${id}/descartar`, { method: 'POST', body: { motivo } }),
 }
 
+/** Fase 3: semáforo do lucro por item e do total (os números só vêm para quem vê custos). */
+export type OrcamentoComAnalise = Omit<OrcamentoDetalhe, 'itens'> & { itens: (OrcamentoItem & { analise?: AnaliseLucro })[]; analise?: AnaliseLucro }
+
 const acao = (id: string, nome: string, body?: unknown) =>
-  http<OrcamentoDetalhe>(`/orcamentos/${id}/${nome}`, { method: 'POST', body })
+  http<OrcamentoComAnalise>(`/orcamentos/${id}/${nome}`, { method: 'POST', body })
 
 export const orcamentosApi = {
   listar: (q: OrcamentosQuery) => http<Paginado<Orcamento>>(`/orcamentos${qs(q)}`),
-  obter: (id: string) => http<OrcamentoDetalhe>(`/orcamentos/${id}`),
-  criar: (dados: unknown) => http<OrcamentoDetalhe>('/orcamentos', { method: 'POST', body: dados }),
-  atualizar: (id: string, dados: unknown) => http<OrcamentoDetalhe>(`/orcamentos/${id}`, { method: 'PUT', body: dados }),
+  obter: (id: string) => http<OrcamentoComAnalise>(`/orcamentos/${id}`),
+  criar: (dados: unknown) => http<OrcamentoComAnalise>('/orcamentos', { method: 'POST', body: dados }),
+  atualizar: (id: string, dados: unknown) => http<OrcamentoComAnalise>(`/orcamentos/${id}`, { method: 'PUT', body: dados }),
+  /** Semáforo ao vivo do editor (mesmos itens do orçamento + desconto/acréscimo do cabeçalho; sem gravar) */
+  analisar: (dados: { itens: OrcamentoItemInput[]; desconto?: string; acrescimo?: string }, signal?: AbortSignal) =>
+    http<AnaliseOrcamento>('/orcamentos/analisar', { method: 'POST', body: dados, signal }),
   enviar: (id: string) => acao(id, 'enviar'),
   negociacao: (id: string) => acao(id, 'negociacao'),
   aprovar: (id: string, nome: string) => acao(id, 'aprovar', { nome }),

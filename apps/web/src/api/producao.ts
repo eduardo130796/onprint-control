@@ -1,4 +1,5 @@
 import type {
+  AnaliseLucro,
   ArtePublica,
   ArteVersao,
   Entrega,
@@ -12,6 +13,7 @@ import type {
   PcpResumo,
   Pedido,
   PedidoDetalhe,
+  PedidoItemDetalhe,
   RecebimentosPedido,
   PedidosQuery,
   StatusPedido,
@@ -19,10 +21,13 @@ import type {
 import { http, qs, upload } from './http'
 import type { LinkPublico } from './comercial'
 
+/** Fase 3 da precificação: semáforo do lucro por item e do total (números só para quem vê custos). */
+export type PedidoComAnalise = Omit<PedidoDetalhe, 'itens'> & { itens: (PedidoItemDetalhe & { analise?: AnaliseLucro })[]; analise?: AnaliseLucro }
+
 /** Pedidos, artes, entregas, produção e PCP (Fase 4). */
 export const pedidosApi = {
   listar: (q: PedidosQuery) => http<Paginado<Pedido>>(`/pedidos${qs(q)}`),
-  obter: (id: string) => http<PedidoDetalhe>(`/pedidos/${id}`),
+  obter: (id: string) => http<PedidoComAnalise>(`/pedidos/${id}`),
   recebimentos: (id: string) => http<RecebimentosPedido>(`/pedidos/${id}/recebimentos`),
   statusPersonalizado: (id: string, statusPersonalizadoId: string | null) =>
     http<PedidoDetalhe>(`/pedidos/${id}/status-personalizado`, { method: 'POST', body: { statusPersonalizadoId } }),

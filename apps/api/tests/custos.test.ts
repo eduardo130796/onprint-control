@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  acabamentosNaReferencia,
+  analisarDocumento,
   causaCustoInsumo,
+  custoDoItemVendido,
+  horasDaComposicao,
+  linhasDoDetalhe,
+  quantidadeComPerda,
   mensagemReajuste,
   modoDoInsumo,
   parametrosPreco,
@@ -11,6 +17,7 @@ import {
   usoDaUnidade,
   type LinhaProducao,
 } from '../src/modules/produtos/custos'
+import { linhaLucratividade, totaisLucratividade } from '../src/modules/relatorios/lucratividade'
 
 const plotter = { id: 'm1', nome: 'Plotter', custoHora: '45', velocidadeM2Hora: '12' }
 const semCusto = { id: 'm2', nome: 'Guilhotina', custoHora: '0', velocidadeM2Hora: null }
@@ -130,5 +137,87 @@ describe('unidade de uso do insumo', () => {
   it('m² e metro convertem rolo/chapa; o resto usa o conteúdo', () => {
     expect([usoDaUnidade('m²'), usoDaUnidade('m'), usoDaUnidade('ml'), usoDaUnidade(null)]).toEqual(['m2', 'm', 'outra', 'outra'])
     expect([modoDoInsumo('m²'), modoDoInsumo('m'), modoDoInsumo('un')]).toEqual(['m2', 'metro_linear', 'unidade'])
+  })
+})
+
+// ─── Fase 3: item vendido, lucro no orçamento, perda apontada e lucratividade ───
+
+const ilhos = {
+  nome: 'Ilhós',
+  tipoCobranca: 'por_perimetro' as const,
+  custo: '0.50',
+  valor: '1.00',
+  insumos: [{ quantidade: '2', perdaPercentual: '5', insumo: { nome: 'Ilhós metálico', custo: '0.08', unidadeMedida: { sigla: 'un' } } }],
+}
+const semComposicao = { insumos: [], processos: [], custosExtras: [], larguraPadrao: null, alturaPadrao: null }
+const par10 = { percentuais: { impostos: '10.00', comissao: '0.00', custoFixo: '0.00' }, custoFixoHora: '0.0000', lucroDesejadoPadrao: '30.00', lucroMinimoPadrao: '15.00' }
+
+describe('custo do item vendido', () => {
+  it('modo simples: custo por m² × área real + acabamento com insumos', () => {
+    const c = custoDoItemVendido({ ...semComposicao, modoCusto: 'simples', modoCalculo: 'm2', custo: '20' }, [ilhos], { quantidade: 1, largura: 2, altura: 1 }, par10)
+    // 2 m² × 20 + perímetro 6 m × 0,50 + 12,6 ilhoses × 0,08
+    expect([c.produto, c.acabamentos, c.custoDireto]).toEqual(['40.00', '4.01', '44.01'])
+    expect(c.linhas.map((l) => l.grupo)).toEqual(['produto', 'acabamento', 'acabamento'])
+  })
+  it('composição usa a produção da composição (não o custo digitado)', () => {
+    const plotter = { id: 'm1', nome: 'Plotter', custoHora: '45', velocidadeM2Hora: '12' }
+    const p = { ...semComposicao, modoCusto: 'composicao', modoCalculo: 'm2' as const, custo: '999', processos: [linha({ maquina: plotter })] }
+    // 6 m² × 5 min/m² = 30 min × R$ 45/h
+    expect(custoDoItemVendido(p, [], { quantidade: 3, largura: 2, altura: 1 }, par10).custoDireto).toBe('22.50')
+    expect(horasDaComposicao(p, { quantidade: 3, largura: 2, altura: 1 })).toBe('0.50')
+  })
+})
+
+describe('lucro no orçamento/pedido', () => {
+  const itens = [
+    { total: '100', custoEstimado: '44.01', lucroMinimo: null, linhas: [] },
+    { total: '50', custoEstimado: '48', lucroMinimo: '20' },
+  ]
+  it('quem vê custos recebe os números; o total considera o desconto do cabeçalho', () => {
+    const a = analisarDocumento(itens, par10, true, { desconto: '10' })
+    expect(a.itens[0]).toMatchObject({ situacao: 'ok', custoDireto: '44.01', lucro: '45.99', despesasSobrePreco: '10.00', linhas: [] })
+    expect(a.itens[1]).toMatchObject({ situacao: 'prejuizo', lucro: '-3.00' })
+    // 150 − 10 = 140; 140 − 14 − 92,01 = 33,99
+    expect(a.total).toMatchObject({ situacao: 'ok', custoDireto: '92.01', lucro: '33.99', lucroPercentual: '24.3' })
+  })
+  it('sem permissão de custos: só a situação (semáforo)', () => {
+    const a = analisarDocumento(itens, par10, false)
+    expect(a.itens).toEqual([{ situacao: 'ok' }, { situacao: 'prejuizo' }])
+    expect(Object.keys(a.total)).toEqual(['situacao'])
+  })
+  it('linhas do custo gravado (itens antigos não têm)', () => {
+    expect(linhasDoDetalhe({ linhas: [{ grupo: 'produto' }] })).toHaveLength(1)
+    expect(linhasDoDetalhe(null)).toBeNull()
+  })
+})
+
+describe('produção e reajuste', () => {
+  it('perda apontada soma na quantidade baixada', () => {
+    expect(quantidadeComPerda('10', ['1', '0.5'])).toBe('11.500')
+    expect(quantidadeComPerda('2', [])).toBe('2.000')
+  })
+  it('acabamentos obrigatórios na medida de referência (1 m²)', () => {
+    // perímetro 4 m: 4 × 0,50 + 8,4 ilhoses × 0,08 = 2,67; preço 4 × 1,00
+    expect(acabamentosNaReferencia({ modoCalculo: 'm2', larguraPadrao: null, alturaPadrao: null }, [ilhos])).toEqual({ custo: '2.6700', preco: '4.00' })
+  })
+})
+
+describe('lucratividade', () => {
+  it('despesas sobre a receita, lucro pelo custo estimado e real de materiais comparativo', () => {
+    const l = linhaLucratividade({ id: 'p', titulo: 'PED-1', subtitulo: 'Cliente', receita: '1000', custo: '600', real: '550', lucroMinimo: null }, par10)
+    expect(l).toMatchObject({ receita: '1000.00', custoEstimado: '600.00', custoMateriaisReal: '550.00', despesas: '100.00', lucro: '300.00', lucroPercentual: '30.0', situacao: 'ok' })
+    const sem = linhaLucratividade({ id: 'q', titulo: 'PED-2', subtitulo: null, receita: '100', custo: '95', real: null, lucroMinimo: null }, par10)
+    expect([sem.custoMateriaisReal, sem.situacao]).toEqual([null, 'prejuizo'])
+    expect(totaisLucratividade([l, sem], par10).totais).toMatchObject({ receita: '1100.00', custoEstimado: '695.00', custoMateriaisReal: '550.00', lucro: '295.00', situacao: 'ok' })
+  })
+
+  it('venda sem custo fica fora do lucro total (não infla para 100%)', () => {
+    const l = linhaLucratividade({ id: 'p', titulo: 'PED-1', subtitulo: null, receita: '1000', custo: '600', real: null, lucroMinimo: null }, par10)
+    const semCusto = linhaLucratividade({ id: 'q', titulo: 'PED-2', subtitulo: null, receita: '500', custo: '0', real: null, lucroMinimo: null }, par10)
+    expect(semCusto.situacao).toBe('sem_custo')
+    const t = totaisLucratividade([l, semCusto], par10)
+    expect(t.totais).toMatchObject({ receita: '1500.00', custoEstimado: '600.00', lucro: '300.00', lucroPercentual: '30.0', situacao: 'ok' })
+    expect(t.semCusto).toEqual({ quantidade: 1, receita: '500.00' })
+    expect(totaisLucratividade([semCusto], par10).totais.situacao).toBe('sem_custo')
   })
 })

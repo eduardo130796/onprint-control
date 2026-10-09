@@ -11,6 +11,8 @@ export interface Contexto {
   prisma: PrismaClient
   de: string
   ate: string
+  /** Vê custos (produtos:editar): linhas de custo nos relatórios (ex.: custo dos materiais na DRE) */
+  veCustos?: boolean
 }
 
 export const col = (chave: string, titulo: string, formato: FormatoValor = 'texto'): ColunaRelatorio => ({ chave, titulo, formato })

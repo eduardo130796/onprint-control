@@ -1,7 +1,9 @@
 import type { Prisma, PrismaClient } from '@prisma/client'
-import { Decimal, calcularPreco, type orcamentoItemSchema } from '@onprint/shared'
+import { Decimal, calcularPreco, custoDoAcabamento, type CustoVenda, type ParametrosPreco, type orcamentoItemSchema } from '@onprint/shared'
 import type { z } from 'zod'
 import { AppError } from '../../core/AppError'
+import { acabamentoParaCusto, custoDoItemVendido, parametrosPreco } from '../produtos/custos'
+import { incluirAcabamentoCusto, incluirComposicao } from '../produtos/custos.service'
 
 type ItemEntrada = z.output<typeof orcamentoItemSchema>
 type Db = PrismaClient | Prisma.TransactionClient
@@ -18,12 +20,15 @@ export interface ItemCalculado {
   valorAcabamentos: string
   desconto: string
   total: string
+  /** Custo direto com as medidas reais (composição + acabamentos com insumos) */
   custoEstimado: string
+  /** Linhas do custo direto (JSON `custo_detalhe`) */
+  custoDetalhe: CustoVenda
   prazoDias: number
   ordem: number
   observacao: string | null
   precoLiberadoPorId: string | null
-  acabamentos: { acabamentoId: string; nome: string; tipoCobranca: Prisma.AcabamentoCreateInput['tipoCobranca']; valorUnitario: string; base: string; valor: string }[]
+  acabamentos: { acabamentoId: string; nome: string; tipoCobranca: Prisma.AcabamentoCreateInput['tipoCobranca']; valorUnitario: string; base: string; valor: string; custo: string }[]
 }
 
 export interface Recalculo {
@@ -31,25 +36,33 @@ export interface Recalculo {
   subtotal: string
   custoEstimado: string
   prazoDias: number
+  /** Precificação da empresa usada (percentuais, rateio, lucro mínimo) */
+  parametros: ParametrosPreco
+  /** Lucro mínimo de cada item (o do produto; null = o da empresa), na ordem dos itens */
+  lucrosMinimos: (string | null)[]
 }
 
 /**
  * Recalcula todos os itens com os dados do banco (preço, medidas máximas, acabamentos, área mínima).
  * Os valores enviados pelo front são ignorados — vale sempre este cálculo (seção 9).
+ * Preço: `calcularPreco` (área mínima de cobrança); custo: `custoDaVenda` com as medidas REAIS (fase 3 da
+ * precificação) — composição do produto e insumos dos acabamentos ao custo atual.
  */
 export async function recalcularItens(
   db: Db,
   itens: ItemEntrada[],
   ctx: { usuarioId: string; podeAprovar: boolean },
 ): Promise<Recalculo> {
+  // Tudo em lote: produtos (com a composição), acabamentos (com os insumos) e a configuração da empresa
   const produtos = await db.produto.findMany({
     where: { id: { in: [...new Set(itens.map((i) => i.produtoId))] } },
-    include: { acabamentos: true },
+    include: { acabamentos: true, ...incluirComposicao },
   })
   const idsAcab = new Set(itens.flatMap((i) => i.acabamentoIds))
   for (const p of produtos) for (const pa of p.acabamentos) if (pa.obrigatorio) idsAcab.add(pa.acabamentoId)
-  const acabamentos = await db.acabamento.findMany({ where: { id: { in: [...idsAcab] } } })
-  const empresa = await db.empresaConfig.findFirst({ orderBy: { createdAt: 'asc' }, select: { areaMinimaM2: true } })
+  const acabamentos = await db.acabamento.findMany({ where: { id: { in: [...idsAcab] } }, include: incluirAcabamentoCusto })
+  const empresa = await db.empresaConfig.findFirst({ orderBy: { createdAt: 'asc' } })
+  const parametros = parametrosPreco(empresa)
 
   const calculados = itens.map((item, indice): ItemCalculado => {
     const rotulo = `Item ${indice + 1}`
@@ -85,6 +98,10 @@ export async function recalcularItens(
       )
     }
 
+    // Custo com as medidas reais (a área mínima é só cobrança)
+    const medidas = { quantidade: item.quantidade, largura: item.largura, altura: item.altura }
+    const custo = custoDoItemVendido(produto, acabs, medidas, parametros)
+
     const bruto = new Decimal(r.total)
     const desconto = Decimal.min(new Decimal(item.desconto), bruto)
     return {
@@ -99,7 +116,8 @@ export async function recalcularItens(
       valorAcabamentos: r.valorAcabamentos,
       desconto: desconto.toFixed(2),
       total: bruto.minus(desconto).toFixed(2),
-      custoEstimado: r.custoTotal,
+      custoEstimado: custo.custoDireto,
+      custoDetalhe: custo,
       prazoDias: produto.prazoProducaoDias + Math.max(0, ...acabs.map((a) => a.prazoAdicionalDias)),
       ordem: indice + 1,
       observacao: item.observacao ?? null,
@@ -111,6 +129,7 @@ export async function recalcularItens(
         valorUnitario: new Decimal(acabs[i]!.valor.toString()).toFixed(2),
         base: a.base,
         valor: a.valor,
+        custo: custoDoAcabamento(acabamentoParaCusto(acabs[i]!), medidas).valor,
       })),
     }
   })
@@ -121,6 +140,8 @@ export async function recalcularItens(
     subtotal: soma('total'),
     custoEstimado: soma('custoEstimado'),
     prazoDias: Math.max(0, ...calculados.map((i) => i.prazoDias)),
+    parametros,
+    lucrosMinimos: itens.map((i) => produtos.find((p) => p.id === i.produtoId)?.lucroMinimo?.toFixed(2) ?? null),
   }
 }
 
@@ -133,5 +154,9 @@ export function totalDoOrcamento(subtotal: string, desconto: string, acrescimo: 
 
 /** Dados de criação aninhada dos itens (orçamento ou pedido). */
 export function itensParaCriar(itens: ItemCalculado[]) {
-  return itens.map(({ acabamentos, ...item }) => ({ ...item, acabamentos: { create: acabamentos } }))
+  return itens.map(({ acabamentos, custoDetalhe, ...item }) => ({
+    ...item,
+    custoDetalhe: custoDetalhe as unknown as Prisma.InputJsonValue,
+    acabamentos: { create: acabamentos },
+  }))
 }

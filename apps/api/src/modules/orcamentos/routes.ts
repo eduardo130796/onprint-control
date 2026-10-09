@@ -12,7 +12,9 @@ import {
   solicitacoesQuerySchema,
   statusPersonalizadoSchema,
 } from '@onprint/shared'
+import { AppError } from '../../core/AppError'
 import { validarStatusPersonalizado } from '../../core/status-personalizado'
+import { analiseOrcamentoSchema } from './analise'
 import { criarCatalogoService } from './catalogo.service'
 import { criarOrcamentosController } from './controller'
 import { criarConversaoService } from './conversao.service'
@@ -73,6 +75,20 @@ export const orcamentosRoutes: FastifyPluginAsyncZod = async (app) => {
   )
   app.post('/orcamentos', { ...pode('criar'), schema: { tags, summary: 'Cria orçamento (a API recalcula tudo)', body: orcamentoSchema } }, async (req, reply) =>
     reply.status(201).send(await c.criar(req, req.body)),
+  )
+  // Semáforo ao vivo no editor: quem cria OU edita orçamentos (sem custos para quem não os vê)
+  app.post(
+    '/orcamentos/analisar',
+    {
+      onRequest: [
+        app.exigirPermissao('orcamentos', 'visualizar'),
+        async (req) => {
+          if (!(await app.temPermissao(req, 'orcamentos', 'criar')) && !(await app.temPermissao(req, 'orcamentos', 'editar'))) throw AppError.semPermissao()
+        },
+      ],
+      schema: { tags, summary: 'Lucro (semáforo) dos itens antes de salvar', body: analiseOrcamentoSchema },
+    },
+    (req) => c.analisar(req, req.body),
   )
   app.put(
     '/orcamentos/:id',

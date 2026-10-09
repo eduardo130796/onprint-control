@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { SITUACOES_ESTOQUE, TIPOS_MOVIMENTACAO } from '../estoque'
 import { paginacaoQuerySchema } from './comum'
-import { decimal3, normalizarDecimal, textoOpcional, uuidOpcional } from './campos'
+import { decimal3, normalizarDecimal, textoOpcional, uuidOpcional, valorMonetario } from './campos'
 
 const dataISO = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida (AAAA-MM-DD).')
 const dataOpcional = z.preprocess((v) => (v === '' ? undefined : v), dataISO.optional())
@@ -33,6 +33,15 @@ export const entradaEstoqueSchema = z.object({
   dataEntrada: dataISO,
   observacoes: textoOpcional,
   itens: z.array(entradaItemSchema).min(1, 'Inclua ao menos um item.').max(200),
+  /** Compra a prazo: gera as contas a pagar (exige fornecedor); a soma das parcelas = total da entrada */
+  contaPagar: z
+    .object({
+      parcelas: z.array(z.object({ vencimento: dataISO, valor: valorMonetario })).min(1).max(24),
+      formaPagamentoId: uuidOpcional,
+      /** Categoria financeira; vazio = "Compras de insumos" */
+      categoriaId: uuidOpcional,
+    })
+    .optional(),
 })
 export type EntradaEstoqueInput = z.input<typeof entradaEstoqueSchema>
 

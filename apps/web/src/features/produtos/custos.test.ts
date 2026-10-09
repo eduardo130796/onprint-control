@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { converterEmbalagem, minutosAutomaticos, paraApi, paraCampo, producaoParaMotor, textoSituacao, usoDaUnidade } from './custos'
+import { agruparLinhasCusto, converterEmbalagem, minutosAutomaticos, paraApi, paraCampo, producaoParaMotor, textoSituacao, usoDaUnidade } from './custos'
 
 describe('custos (tela)', () => {
   it('reconhece a unidade de uso pela sigla', () => {
@@ -39,5 +39,25 @@ describe('custos (tela)', () => {
     expect(textoSituacao('ok', '31.0')).toBe('Lucro de 31%')
     expect(textoSituacao('prejuizo', '-4.5')).toBe('Prejuízo de 4,5%')
     expect(textoSituacao('sem_custo', '0')).toBe('Informe o custo')
+  })
+})
+
+describe('composição do custo (orçamento/pedido)', () => {
+  it('agrupa as linhas na ordem fixa e soma em centavos', () => {
+    const g = agruparLinhasCusto([
+      { grupo: 'acabamento', nome: 'Ilhós: Ilhós latão', quantidade: '8.000', unidade: 'un', valor: '0.80' },
+      { grupo: 'material', nome: 'Lona', quantidade: '1.100', unidade: 'm²', valor: '9.97' },
+      { grupo: 'producao', nome: 'Impressão', quantidade: '6.0', unidade: 'min', valor: '3.00' },
+      { grupo: 'extra', nome: 'Embalagem', quantidade: '1.000', unidade: '', valor: '0.10' },
+      { grupo: 'rateio', nome: 'Custos fixos', quantidade: '6.0', unidade: 'min', valor: '0.20' },
+      { grupo: 'produto', nome: 'Custo do produto', quantidade: '1.000', unidade: '', valor: '1.00' },
+    ])
+    expect(g.map((x) => [x.grupo, x.valor, x.linhas.length])).toEqual([
+      ['materiais', '10.97', 2],
+      ['producao', '3.00', 1],
+      ['acabamentos', '0.80', 1],
+      ['outros', '0.30', 2],
+    ])
+    expect(agruparLinhasCusto(undefined)).toEqual([])
   })
 })

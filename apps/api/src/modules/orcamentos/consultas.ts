@@ -11,7 +11,7 @@ export const incluirDetalhe = {
   itens: {
     orderBy: { ordem: 'asc' },
     include: {
-      produto: { select: { id: true, codigo: true, nome: true, modoCalculo: true } },
+      produto: { select: { id: true, codigo: true, nome: true, modoCalculo: true, lucroMinimo: true } },
       acabamentos: true,
       precoLiberadoPor: { select: { id: true, nome: true } },
     },

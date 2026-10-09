@@ -34,6 +34,8 @@ export interface NavLeaf {
   acao?: Acao
   /** Atalho para uma tela de outro grupo: aparece no menu só se o grupo também for permitido; não gera rota */
   atalho?: boolean
+  /** Permissão exigida além da do módulo (ex.: lucratividade = relatórios + ver custos, que é produtos:editar) */
+  tambem?: { modulo: Modulo; acao: Acao }
 }
 
 export interface NavModulo {
@@ -155,6 +157,7 @@ export const navegacao: NavModulo[] = [
       { titulo: 'Estoque', path: '/relatorios/estoque', fase: 7 },
       { titulo: 'Financeiro', path: '/relatorios/financeiro', fase: 7 },
       { titulo: 'Comissões', path: '/relatorios/comissoes', fase: 7 },
+      { titulo: 'Lucratividade', path: '/relatorios/lucratividade', fase: 7, tambem: { modulo: 'produtos', acao: 'editar' } },
     ],
   },
   { modulo: 'whatsapp', titulo: 'WhatsApp', icone: MessageCircle, path: '/whatsapp', fase: 9 },
@@ -213,16 +216,21 @@ export function paginaAtual(pathname: string): PaginaNav | undefined {
 
 type Pode = (modulo: Modulo, acao?: Acao) => boolean
 
+/** A pessoa pode abrir a página: permissão do módulo (+ a ação) e a permissão extra, se houver. */
+export function podeAbrir(pode: Pode, p: Pick<NavLeaf, 'acao' | 'tambem'> & { modulo: Modulo }): boolean {
+  return pode(p.modulo, p.acao) && (!p.tambem || pode(p.tambem.modulo, p.tambem.acao))
+}
+
 /** Menu visível para o usuário: esconde itens sem permissão de visualizar e grupos vazios. */
 export function filtrarNavegacao(pode: Pode): NavModulo[] {
   return navegacao.flatMap((m) => {
     if (!m.filhos) return pode(m.modulo) ? [m] : []
-    const filhos = m.filhos.filter((f) => pode(f.modulo ?? m.modulo, f.acao) && (!f.atalho || pode(m.modulo)))
+    const filhos = m.filhos.filter((f) => podeAbrir(pode, { ...f, modulo: f.modulo ?? m.modulo }) && (!f.atalho || pode(m.modulo)))
     return filhos.length ? [{ ...m, filhos }] : []
   })
 }
 
 /** Primeira tela que o usuário pode abrir (usado quando ele não tem acesso ao Dashboard). */
 export function primeiraPaginaPermitida(pode: Pode): string | undefined {
-  return paginas.find((p) => p.path !== '/' && pode(p.modulo, p.acao))?.path
+  return paginas.find((p) => p.path !== '/' && podeAbrir(pode, p))?.path
 }

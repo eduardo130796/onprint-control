@@ -46,9 +46,13 @@ export const estoqueRoutes: FastifyPluginAsyncZod = async (app) => {
 
   app.get('/estoque/entradas', { ...pode('visualizar'), schema: { tags, summary: 'Entradas de estoque', querystring: entradasQuerySchema } }, (req) => entradas.listar(req.query))
   app.get('/estoque/entradas/:id', { ...pode('visualizar'), schema: { tags, summary: 'Entrada com itens', params: idParamSchema } }, (req) => entradas.obter(req.params.id))
-  app.post('/estoque/entradas', { ...pode('criar'), schema: { tags, summary: 'Registra entrada (nota do fornecedor)', body: entradaEstoqueSchema } }, async (req, reply) =>
-    reply.status(201).send(await entradas.criar(req.body, req.user.sub)),
-  )
+  app.post('/estoque/entradas', { ...pode('criar'), schema: { tags, summary: 'Registra entrada (nota do fornecedor)', body: entradaEstoqueSchema } }, async (req, reply) => {
+    // Compra a prazo gera contas a pagar: precisa também poder lançar no financeiro
+    if (req.body.contaPagar && !(await app.temPermissao(req, 'financeiro', 'criar'))) {
+      throw AppError.semPermissao('Para gerar contas a pagar na compra a prazo, é preciso ter acesso ao Financeiro.')
+    }
+    return reply.status(201).send(await entradas.criar(req.body, req.user.sub))
+  })
   // Fornecedores para a entrada, sem exigir o módulo Fornecedores (papel produção)
   app.get(
     '/estoque/fornecedores',

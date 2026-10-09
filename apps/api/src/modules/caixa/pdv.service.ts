@@ -1,12 +1,14 @@
 import type { Prisma } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
 import type { z } from 'zod'
-import { Decimal, calcularVendaPdv, hojeISO, type recebimentoCaixaSchema, type vendaPdvSchema, type vendasPdvQuerySchema } from '@onprint/shared'
+import { Decimal, calcularVendaPdv, consumoDeInsumo, hojeISO, type recebimentoCaixaSchema, type vendaPdvSchema, type vendasPdvQuerySchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
 import { proximoNumero } from '../../core/numeracao'
 import { paginacao, paginado } from '../../core/paginacao'
 import { localPadrao } from '../estoque/consumo'
+import { custoDoItemVendido, parametrosPreco } from '../produtos/custos'
+import { incluirComposicao } from '../produtos/custos.service'
 import { avisarAlertas, movimentar, type AlertaEstoque } from '../estoque/movimentacao'
 import { baixarTitulo, categoriaPorCodigo, estornarMovimento, registrarTaxa } from '../financeiro/baixa'
 import type { SessaoService } from './sessao.service'
@@ -15,7 +17,8 @@ const ref = { select: { id: true, nome: true } } as const
 const incluirVenda = {
   cliente: ref,
   usuario: ref,
-  itens: { orderBy: { id: 'asc' } },
+  // O custo da venda é só para os relatórios (quem opera o caixa não vê custo)
+  itens: { orderBy: { id: 'asc' }, omit: { custo: true } },
   caixaMovimentos: { where: { tipo: 'venda' }, select: { valor: true, formaPagamento: { select: { nome: true } } } },
 } satisfies Prisma.VendaPdvInclude
 type VendaComRelacoes = Prisma.VendaPdvGetPayload<{ include: typeof incluirVenda }>
@@ -61,12 +64,16 @@ export function criarPdvService(app: FastifyInstance, sessoes: SessaoService) {
      */
     async vender(d: z.output<typeof vendaPdvSchema>, usuarioId: string) {
       const sessao = await sessoes.exigirAberta(usuarioId)
-      const produtos = await prisma.produto.findMany({ where: { id: { in: d.itens.map((i) => i.produtoId) }, ativo: true } })
+      // Com a composição/ficha: custo da venda e baixa dos materiais (fase 3 da precificação)
+      const produtos = await prisma.produto.findMany({ where: { id: { in: d.itens.map((i) => i.produtoId) }, ativo: true }, include: incluirComposicao })
+      const parametros = parametrosPreco(await prisma.empresaConfig.findFirst({ orderBy: { createdAt: 'asc' } }))
       const formas = await prisma.formaPagamento.findMany({ where: { id: { in: d.pagamentos.map((p) => p.formaPagamentoId) }, ativo: true } })
       const itens = d.itens.map((i) => {
         const p = produtos.find((x) => x.id === i.produtoId)
         if (!p) throw AppError.regraNegocio('Produto inválido ou inativo na venda.')
-        return { produto: p, quantidade: i.quantidade, precoUnitario: p.precoVenda.toFixed(2) }
+        // Vendido por peça: as medidas padrão do produto valem para materiais por m²/metro
+        const medidas = { quantidade: i.quantidade, largura: p.larguraPadrao?.toString(), altura: p.alturaPadrao?.toString() }
+        return { produto: p, quantidade: i.quantidade, precoUnitario: p.precoVenda.toFixed(2), medidas, custo: custoDoItemVendido(p, [], medidas, parametros).custoDireto }
       })
       const pagamentos = d.pagamentos.map((p) => {
         const forma = formas.find((f) => f.id === p.formaPagamentoId)
@@ -97,15 +104,41 @@ export function criarPdvService(app: FastifyInstance, sessoes: SessaoService) {
                 quantidade: i.quantidade,
                 precoUnitario: i.precoUnitario,
                 total: new Decimal(i.quantidade).mul(i.precoUnitario).toDecimalPlaces(2).toFixed(2),
+                custo: i.custo,
               })),
             },
           },
         })
         const local = await localPadrao(tx)
-        for (const i of itens.filter((x) => x.produto.controlaEstoque)) {
-          if (!local) throw AppError.regraNegocio('Cadastre um local de estoque padrão.')
-          const r = await movimentar(tx, { tipo: 'venda_pdv', produtoId: i.produto.id, localId: local.id, quantidade: new Decimal(i.quantidade).neg(), motivo: `Venda ${numero}`, vendaPdvId: venda.id, usuarioId })
-          alertas.push(r.alerta)
+        // Produto com materiais (composição ou ficha): baixa os materiais; senão, se controla estoque, ele mesmo
+        for (const i of itens) {
+          const baixas = i.produto.insumos.length
+            ? i.produto.insumos
+                .filter((m) => m.insumo.controlaEstoque)
+                .map((m) => ({
+                  produtoId: m.insumoId,
+                  quantidade: consumoDeInsumo({ base: m.base, quantidade: m.quantidade.toString(), perdaPercentual: m.perdaPercentual.toString() }, i.medidas),
+                  material: true,
+                }))
+            : i.produto.controlaEstoque
+              ? [{ produtoId: i.produto.id, quantidade: new Decimal(i.quantidade).toFixed(3), material: false }]
+              : []
+          for (const b of baixas) {
+            if (new Decimal(b.quantidade).isZero()) continue
+            if (!local) throw AppError.regraNegocio('Cadastre um local de estoque padrão.')
+            const r = await movimentar(tx, {
+              tipo: 'venda_pdv',
+              produtoId: b.produtoId,
+              localId: local.id,
+              quantidade: new Decimal(b.quantidade).neg(),
+              motivo: b.material ? `Venda ${numero} (material de ${i.produto.nome})` : `Venda ${numero}`,
+              vendaPdvId: venda.id,
+              usuarioId,
+              // O material já foi usado: como na produção, o saldo pode ficar negativo
+              permitirNegativo: b.material,
+            })
+            alertas.push(r.alerta)
+          }
         }
         // O troco sai do pagamento em dinheiro: entra no financeiro só o valor líquido
         let troco = new Decimal(calc.troco)

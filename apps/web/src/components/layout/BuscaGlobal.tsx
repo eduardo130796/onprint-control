@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { CornerDownLeft, FileText, Loader2, Search, ShoppingCart, User, type LucideIcon } from 'lucide-react'
 import { buscaApi } from '@/api/relatorios'
-import { paginas } from '@/app/navigation'
+import { paginas, podeAbrir } from '@/app/navigation'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -51,7 +51,7 @@ export function BuscaGlobal() {
   const resultados = useMemo<Resultado[]>(() => {
     const t = normalizar(termo.trim())
     const telas = paginas
-      .filter((p) => pode(p.modulo, p.acao) && (!t || normalizar(`${p.moduloTitulo} ${p.titulo}`).includes(t)))
+      .filter((p) => podeAbrir(pode, p) && (!t || normalizar(`${p.moduloTitulo} ${p.titulo}`).includes(t)))
       .slice(0, t ? 5 : 12)
       .map((p) => ({ chave: `tela:${p.path}`, grupo: 'Telas', icone: p.icone, titulo: p.titulo, detalhe: p.moduloTitulo !== p.titulo ? p.moduloTitulo : undefined, path: p.path }))
     const r = termoApi.length >= 2 ? registros.data : undefined

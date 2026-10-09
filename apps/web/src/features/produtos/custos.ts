@@ -1,4 +1,4 @@
-import { normalizarDecimal, type BaseTempo, type ProducaoComposicao, type SituacaoLucro } from '@onprint/shared'
+import { normalizarDecimal, type BaseTempo, type LinhaCusto, type ProducaoComposicao, type SituacaoLucro, type TipoCobranca } from '@onprint/shared'
 
 /**
  * Regras pequenas das telas de custo (insumos, composição, entrada de estoque): conversões entre o que a
@@ -95,4 +95,58 @@ export function textoSituacao(situacao: SituacaoLucro, lucroPercentual: string |
   if (situacao === 'sem_custo') return 'Informe o custo'
   if (situacao === 'prejuizo') return `Prejuízo de ${formatarPercentual(Math.abs(Number(lucroPercentual ?? 0)))}`
   return `Lucro de ${formatarPercentual(lucroPercentual)}`
+}
+
+/** Semáforo sem números (quem não vê custos, como o vendedor): só a cor e o rótulo. */
+export const ROTULO_SEMAFORO: Record<SituacaoLucro, string> = {
+  ok: 'Lucro ok',
+  baixo: 'Lucro baixo',
+  prejuizo: 'Prejuízo',
+  sem_custo: 'Sem custo',
+}
+
+export type GrupoComposicao = 'materiais' | 'producao' | 'acabamentos' | 'outros'
+
+export const GRUPO_COMPOSICAO_ROTULOS: Record<GrupoComposicao, string> = {
+  materiais: 'Produto e materiais',
+  producao: 'Produção',
+  acabamentos: 'Acabamentos',
+  outros: 'Outros custos',
+}
+
+const GRUPO_DA_LINHA: Record<LinhaCusto['grupo'], GrupoComposicao> = {
+  produto: 'materiais',
+  material: 'materiais',
+  producao: 'producao',
+  acabamento: 'acabamentos',
+  rateio: 'outros',
+  extra: 'outros',
+}
+
+/**
+ * Linhas do custo de um item (motor custoDaVenda) agrupadas para a "Composição do custo": produto/materiais,
+ * produção, acabamentos e outros (rateio de custos fixos e extras). Grupos vazios ficam de fora; a ordem é fixa.
+ */
+export function agruparLinhasCusto(linhas: LinhaCusto[] | null | undefined): { grupo: GrupoComposicao; rotulo: string; valor: string; linhas: LinhaCusto[] }[] {
+  const grupos = new Map<GrupoComposicao, LinhaCusto[]>()
+  for (const l of linhas ?? []) {
+    const g = GRUPO_DA_LINHA[l.grupo] ?? 'outros'
+    grupos.set(g, [...(grupos.get(g) ?? []), l])
+  }
+  return (Object.keys(GRUPO_COMPOSICAO_ROTULOS) as GrupoComposicao[]).flatMap((grupo) => {
+    const ls = grupos.get(grupo)
+    if (!ls?.length) return []
+    // Soma em centavos (evita 0,1 + 0,2)
+    const centavos = ls.reduce((s, l) => s + Math.round(Number(l.valor) * 100), 0)
+    return [{ grupo, rotulo: GRUPO_COMPOSICAO_ROTULOS[grupo], valor: (centavos / 100).toFixed(2), linhas: ls }]
+  })
+}
+
+/** Quantidade do insumo do acabamento "por" unidade da cobrança, em linguagem do dia a dia. */
+export const UNIDADE_COBRANCA_ACABAMENTO: Record<TipoCobranca, string> = {
+  fixo: 'por pedido',
+  por_unidade: 'por peça',
+  por_m2: 'por m²',
+  por_metro_linear: 'por metro',
+  por_perimetro: 'por metro de perímetro',
 }

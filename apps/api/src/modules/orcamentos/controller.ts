@@ -9,6 +9,7 @@ import type {
 import type { z } from 'zod'
 import { AppError } from '../../core/AppError'
 import { contextoUsuario } from '../../core/escopo'
+import { comAnalise, parametrosDaEmpresaAtual, type analiseOrcamentoSchema } from './analise'
 import type { criarCatalogoService } from './catalogo.service'
 import type { criarConversaoService } from './conversao.service'
 import type { OrcamentosService } from './orcamentos.service'
@@ -40,8 +41,11 @@ function comMargem<T extends { total: { toString(): string }; custoEstimado: { t
 export function criarOrcamentosController(app: FastifyInstance, s: Servicos) {
   const ctx = (req: FastifyRequest) => contextoUsuario(app, req, 'orcamentos')
 
+  // Semáforo do lucro para todos; números só para quem vê custos (fase 3 da precificação)
   async function detalhe(req: FastifyRequest, o: Awaited<ReturnType<OrcamentosService['obter']>>) {
-    return (await ctx(req)).veCustos ? comMargem(o) : ocultarCustos(o)
+    const c = await ctx(req)
+    const comLucro = comAnalise(o, await parametrosDaEmpresaAtual(app.prisma), c.veCustos)
+    return c.veCustos ? comMargem(comLucro) : ocultarCustos(comLucro)
   }
 
   return {
@@ -73,6 +77,9 @@ export function criarOrcamentosController(app: FastifyInstance, s: Servicos) {
     recusar: async (req: FastifyRequest, id: string, motivo: string) => detalhe(req, await s.orcamentos.recusar(id, motivo, await ctx(req))),
     reabrir: async (req: FastifyRequest, id: string) => detalhe(req, await s.orcamentos.reabrir(id, await ctx(req))),
     duplicar: async (req: FastifyRequest, id: string) => detalhe(req, await s.orcamentos.duplicar(id, await ctx(req))),
+
+    /** Semáforo ao vivo no editor (sem gravar; sem custos para quem não os vê) */
+    analisar: async (req: FastifyRequest, d: z.output<typeof analiseOrcamentoSchema>) => s.orcamentos.analisar(d, await ctx(req)),
 
     async converter(req: FastifyRequest, id: string, d: z.output<typeof conversaoSchema>) {
       if (!(await app.temPermissao(req, 'pedidos', 'criar'))) throw AppError.semPermissao('Você não pode criar pedidos.')

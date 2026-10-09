@@ -209,6 +209,8 @@ export interface Acabamento extends Auditavel {
   custo: string
   prazoAdicionalDias: number
   ativo: boolean
+  /** Insumos consumidos por unidade da cobrança (custo só para quem vê custos) */
+  materiais?: { insumoId: string; nome: string; unidade: string; quantidade: string; perdaPercentual: string; custoUnitario?: string }[]
 }
 
 export interface Maquina extends Auditavel {

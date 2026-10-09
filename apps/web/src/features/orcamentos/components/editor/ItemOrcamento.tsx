@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ArrowDown, ArrowUp, Copy, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { MODO_CALCULO_SUFIXO, TIPO_COBRANCA_ROTULOS, formatarMoeda, type ModoCalculo } from '@onprint/shared'
+import { MODO_CALCULO_SUFIXO, TIPO_COBRANCA_ROTULOS, formatarMoeda, type AnaliseLucro, type ModoCalculo } from '@onprint/shared'
 import { orcamentosApi } from '@/api/comercial'
 import { AcaoIcone } from '@/components/shared/AcaoIcone'
 import { MoneyInput, NumberInput } from '@/components/shared/inputs'
@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { LucroDoItem } from '@/features/produtos/components/custo/LucroAnalise'
 import { decimalParaInput } from '@/lib/mascaras'
 import { cn } from '@/lib/utils'
 import { buscarProdutos } from '../../buscas'
@@ -21,6 +22,9 @@ interface ItemOrcamentoProps {
   total: number
   item: ItemForm
   calculo: ItemCalculadoTela
+  /** Semáforo do lucro do item (números só para quem vê custos) */
+  analise?: AnaliseLucro
+  analiseDesatualizada?: boolean
   editavel: boolean
   onChange: (item: ItemForm) => void
   onRemover: () => void
@@ -28,7 +32,7 @@ interface ItemOrcamentoProps {
   onMover: (direcao: -1 | 1) => void
 }
 
-export function ItemOrcamento({ indice, total, item, calculo, editavel, onChange, onRemover, onDuplicar, onMover }: ItemOrcamentoProps) {
+export function ItemOrcamento({ indice, total, item, calculo, analise, analiseDesatualizada, editavel, onChange, onRemover, onDuplicar, onMover }: ItemOrcamentoProps) {
   const queryClient = useQueryClient()
   const produto = calculo.produto
   const r = calculo.resultado
@@ -144,6 +148,7 @@ export function ItemOrcamento({ indice, total, item, calculo, editavel, onChange
             </p>
           )}
           <p className="text-lg font-semibold text-tinta">{formatarMoeda(calculo.total)}</p>
+          {r.ok && analise && <LucroDoItem analise={analise} desatualizado={analiseDesatualizada} className="w-full" />}
         </div>
       )}
     </Card>

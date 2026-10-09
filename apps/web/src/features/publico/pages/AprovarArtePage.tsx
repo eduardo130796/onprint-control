@@ -143,7 +143,7 @@ export function AprovarArtePage() {
                 <p className="text-sm text-texto-secundario">
                   Pedido {a.pedido.numero} · {a.pedido.cliente}
                 </p>
-                <h1 className="text-2xl font-semibold text-grafite">{a.item.descricao}</h1>
+                <h1 className="text-2xl font-semibold text-tinta">{a.item.descricao}</h1>
                 <p className="text-sm text-texto-secundario">
                   Versão {a.versao} · Qtd. {Number(a.item.quantidade).toLocaleString('pt-BR')}
                   {a.item.largura && ` · ${metros(a.item.largura)} × ${metros(a.item.altura)} m`}
@@ -163,7 +163,7 @@ export function AprovarArtePage() {
             {a.comentarios.length > 0 && (
               <Card>
                 <CardContent className="space-y-2 pt-6">
-                  <p className="text-sm font-semibold text-grafite">Conversa sobre esta arte</p>
+                  <p className="text-sm font-semibold text-tinta">Conversa sobre esta arte</p>
                   {a.comentarios.map((c, i) => (
                     <div key={i} className={cn('rounded-lg p-2.5 text-sm', c.origem === 'cliente' ? 'bg-ambar/10' : 'bg-fundo')}>
                       <p className="text-xs text-texto-secundario">

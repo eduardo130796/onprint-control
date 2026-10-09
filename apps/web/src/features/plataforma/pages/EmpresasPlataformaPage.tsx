@@ -44,7 +44,7 @@ function UltimoPagamento({ e }: { e: EmpresaPlataformaResumo }) {
   if (!e.ultimoPagamento) return <span className="text-texto-secundario">—</span>
   return (
     <span className="whitespace-nowrap">
-      <span className="block tabular-nums text-grafite">{formatarData(e.ultimoPagamento.data)}</span>
+      <span className="block tabular-nums text-tinta">{formatarData(e.ultimoPagamento.data)}</span>
       <span className="block text-xs tabular-nums text-texto-secundario">{formatarMoeda(e.ultimoPagamento.valor)}</span>
     </span>
   )
@@ -110,7 +110,7 @@ export function EmpresasPlataformaPage() {
           <button
             type="button"
             onClick={() => definir('categoria', '')}
-            className={cn('inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-semibold ring-1 transition-colors', !filtros.categoria ? 'bg-grafite text-white ring-grafite' : 'bg-card text-grafite ring-border hover:bg-fundo')}
+            className={cn('inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-semibold ring-1 transition-colors', !filtros.categoria ? 'bg-grafite text-white ring-tinta' : 'bg-card text-tinta ring-border hover:bg-fundo')}
           >
             Todas <span className={cn('rounded-full px-1.5 text-xs tabular-nums', !filtros.categoria ? 'bg-white/15' : 'bg-fundo')}>{todas.data?.length ?? '…'}</span>
           </button>
@@ -122,7 +122,7 @@ export function EmpresasPlataformaPage() {
                 type="button"
                 onClick={() => definir('categoria', ativo ? '' : c)}
                 aria-pressed={ativo}
-                className={cn('inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-semibold ring-1 transition-colors', ativo ? 'bg-grafite text-white ring-grafite' : 'bg-card text-grafite ring-border hover:bg-fundo', contagem[c] === 0 && !ativo && 'opacity-60')}
+                className={cn('inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-semibold ring-1 transition-colors', ativo ? 'bg-grafite text-white ring-tinta' : 'bg-card text-tinta ring-border hover:bg-fundo', contagem[c] === 0 && !ativo && 'opacity-60')}
               >
                 <span className={cn('h-2 w-2 rounded-full', PONTO_CATEGORIA[c])} aria-hidden="true" />
                 {CATEGORIA_SINGULAR[c]}
@@ -163,9 +163,9 @@ export function EmpresasPlataformaPage() {
       <section className="overflow-hidden rounded-3xl bg-card shadow-suave" aria-label="Assinaturas">
         {consulta.data && (
           <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-b border-border px-5 py-3 text-sm">
-            <span className="font-semibold text-grafite">{lista.length} assinatura(s)</span>
+            <span className="font-semibold text-tinta">{lista.length} assinatura(s)</span>
             <span className="text-texto-secundario">
-              Cobrado por mês (ativas): <strong className="tabular-nums text-grafite">{formatarMoeda(totais.mensal)}</strong>
+              Cobrado por mês (ativas): <strong className="tabular-nums text-tinta">{formatarMoeda(totais.mensal)}</strong>
             </span>
             {totais.atraso > 0 && (
               <span className="text-texto-secundario">
@@ -211,7 +211,7 @@ export function EmpresasPlataformaPage() {
                     <tr key={e.id} className="cursor-pointer align-middle transition-colors hover:bg-fundo/70" onClick={() => navigate(`/plataforma/empresas/${e.id}`)}>
                       <td className="relative max-w-[260px] py-3 pl-5 pr-3">
                         {e.categoria && <span className={cn('absolute inset-y-2 left-0 w-1 rounded-r-full', PONTO_CATEGORIA[e.categoria])} aria-hidden="true" />}
-                        <Link to={`/plataforma/empresas/${e.id}`} className="block max-w-[200px] truncate font-semibold text-grafite hover:underline" onClick={(ev) => ev.stopPropagation()}>
+                        <Link to={`/plataforma/empresas/${e.id}`} className="block max-w-[200px] truncate font-semibold text-tinta hover:underline" onClick={(ev) => ev.stopPropagation()}>
                           {e.nome}
                         </Link>
                         <span className="block max-w-[200px] truncate text-xs text-texto-secundario">
@@ -222,17 +222,17 @@ export function EmpresasPlataformaPage() {
                       <td className="max-w-[220px] px-3 py-3">
                         <Situacao e={e} />
                       </td>
-                      <td className="px-3 py-3 text-grafite">{e.plano ?? '—'}</td>
+                      <td className="px-3 py-3 text-tinta">{e.plano ?? '—'}</td>
                       <td className="px-3 py-3">
                         <ValorCobrado e={e} empilhado />
                       </td>
-                      <td className="px-3 py-3 text-grafite">
+                      <td className="px-3 py-3 text-tinta">
                         <FormaPagamento forma={e.formaPagamento} />
                       </td>
                       <td className="px-3 py-3">
                         <UltimoPagamento e={e} />
                       </td>
-                      <td className="whitespace-nowrap px-3 py-3 tabular-nums text-grafite">{e.proximoVencimento ? formatarDataSimples(e.proximoVencimento) : '—'}</td>
+                      <td className="whitespace-nowrap px-3 py-3 tabular-nums text-tinta">{e.proximoVencimento ? formatarDataSimples(e.proximoVencimento) : '—'}</td>
                       <td className="max-w-[180px] px-3 py-3">
                         <ChipBeneficio beneficio={e.beneficio} />
                       </td>
@@ -254,7 +254,7 @@ export function EmpresasPlataformaPage() {
                   <Link to={`/plataforma/empresas/${e.id}`} className="min-w-0 flex-1 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate font-semibold text-grafite">{e.nome}</p>
+                        <p className="truncate font-semibold text-tinta">{e.nome}</p>
                         <p className="truncate text-xs text-texto-secundario">
                           /{e.slug} · {e.plano ?? 'sem plano'}
                         </p>

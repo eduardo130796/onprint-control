@@ -1,5 +1,23 @@
 import type { Config } from 'tailwindcss'
+import paleta from 'tailwindcss/colors'
+import plugin from 'tailwindcss/plugin'
 import animate from 'tailwindcss-animate'
+
+/**
+ * Modo escuro: as famílias de cor usadas em selos e avisos viram variáveis; no escuro a escala se inverte
+ * (50↔950, 100↔900…), então "fundo claro + texto escuro" vira "fundo escuro + texto claro" com o mesmo contraste.
+ */
+const FAMILIAS = ['amber', 'sky', 'violet', 'slate', 'red', 'green', 'purple'] as const
+const TONS = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'] as const
+const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(' ')
+const familia = (nome: string) => Object.fromEntries(TONS.map((t) => [t, `rgb(var(--${nome}-${t}) / <alpha-value>)`]))
+const varsFamilias = (inverter: boolean) =>
+  Object.fromEntries(
+    FAMILIAS.flatMap((f) =>
+      TONS.map((t, i) => [`--${f}-${t}`, rgb((paleta[f] as Record<string, string>)[TONS[inverter ? TONS.length - 1 - i : i]] as string)]),
+    ),
+  )
+const cor = (nome: string) => `rgb(var(--${nome}) / <alpha-value>)`
 
 export default {
   darkMode: ['class'],
@@ -13,7 +31,11 @@ export default {
       },
       colors: {
         // Identidade visual: grafite (cinza escuro) + verde WhatsApp, com laranja em pequenos detalhes
-        grafite: { DEFAULT: '#2B3036', escuro: '#1E2226' },
+        // Grafite: superfícies escuras (topo, cartões em destaque); no modo escuro, um pouco mais claras que o fundo
+        grafite: { DEFAULT: cor('grafite'), escuro: cor('grafite-escuro') },
+        // Tinta: texto forte (títulos, valores); escurece no claro e clareia no escuro
+        tinta: cor('tinta'),
+        ...Object.fromEntries(FAMILIAS.map((f) => [f, familia(f)])),
         // Cor da marca: a do tema da empresa (Configurações → Aparência; padrão verde ONPrint), em variáveis RGB
         // para aceitar opacidade (bg-marca/15). DEFAULT: botões, barras, destaques; escuro: texto na cor sobre fundo
         // claro (contraste AA); hover: botão; suave: fundo de destaque; contraste: texto sobre a cor
@@ -26,11 +48,11 @@ export default {
         },
         // DEFAULT: detalhe decorativo; escuro: selos/contadores com texto branco (contraste AA)
         laranja: { DEFAULT: '#F97316', escuro: '#C2410C', suave: '#FFF1E6' },
-        fundo: '#F2F4F5',
-        coral: { DEFAULT: '#EF5A57', escuro: '#C8322F' },
+        fundo: cor('fundo'),
+        coral: { DEFAULT: '#EF5A57', escuro: cor('coral-escuro') },
         verde: '#22C55E',
         ambar: '#F59E0B',
-        texto: { DEFAULT: '#1F2328', secundario: '#5A6169' },
+        texto: { DEFAULT: cor('texto'), secundario: cor('texto-secundario') },
         // Variáveis do shadcn/ui
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -58,5 +80,11 @@ export default {
       },
     },
   },
-  plugins: [animate],
+  plugins: [
+    animate,
+    plugin(({ addBase }) => {
+      // Superfícies escuras (topo, cartões grafite) já foram desenhadas com tons claros de texto: lá a escala não inverte
+      addBase({ ':root': varsFamilias(false), '.dark': varsFamilias(true), '.dark .bg-grafite, .dark .bg-grafite-escuro': varsFamilias(false) })
+    }),
+  ],
 } satisfies Config

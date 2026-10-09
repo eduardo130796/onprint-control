@@ -25,7 +25,7 @@ export function FinanceiroDoCliente({ clienteId }: { clienteId: string }) {
         {[['Total', resumo.valor], ['Recebido', resumo.pago], ['Em aberto', resumo.saldo]].map(([r, v]) => (
           <Card key={r} className="p-4">
             <p className="text-xs text-texto-secundario">{r}</p>
-            <p className="text-lg font-semibold text-grafite">{formatarMoeda(v)}</p>
+            <p className="text-lg font-semibold text-tinta">{formatarMoeda(v)}</p>
           </Card>
         ))}
       </div>

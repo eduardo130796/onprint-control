@@ -82,7 +82,7 @@ export function TitulosPage({ tipo }: { tipo: TipoTitulo }) {
       {r && (
         <div className="mb-4 grid gap-3 sm:grid-cols-3">
           {[
-            ['Total no filtro', r.valor, 'text-grafite'],
+            ['Total no filtro', r.valor, 'text-tinta'],
             [receber ? 'Recebido' : 'Pago', r.pago, 'text-green-800'],
             [receber ? 'A receber' : 'A pagar', r.saldo, receber ? 'text-marca-escuro' : 'text-coral-escuro'],
           ].map(([rotulo, valor, cor]) => (

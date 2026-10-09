@@ -28,7 +28,7 @@ export function AuthLayout({ titulo, descricao, children }: AuthLayoutProps) {
       </aside>
       <main className="flex flex-1 items-center justify-center px-4 py-10">
         <div className="w-full max-w-sm">
-          <h1 className="font-titulo text-2xl font-extrabold tracking-tight text-grafite">{titulo}</h1>
+          <h1 className="font-titulo text-2xl font-extrabold tracking-tight text-tinta">{titulo}</h1>
           {descricao && <p className="mt-1 text-sm text-texto-secundario">{descricao}</p>}
           <div className="mt-8">{children}</div>
         </div>

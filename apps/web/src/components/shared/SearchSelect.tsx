@@ -129,7 +129,7 @@ export function SearchSelect({ chave, buscar, valor, onChange, placeholder = 'Bu
                   type="button"
                   onMouseEnter={() => setAtivo(i)}
                   onClick={() => escolher(o)}
-                  className={cn('flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm', i === ativo && 'bg-accent text-grafite')}
+                  className={cn('flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm', i === ativo && 'bg-accent text-tinta')}
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">{o.rotulo}</span>

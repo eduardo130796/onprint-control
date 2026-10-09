@@ -77,13 +77,13 @@ export function CabecalhoStatus({ a, onAssinar }: { a: MinhaAssinatura; onAssina
         </span>
         <div className="min-w-0 flex-1 basis-64">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-texto-secundario">Situação da assinatura</p>
-          <p className="font-titulo text-2xl font-extrabold text-grafite">{s.rotulo}</p>
+          <p className="font-titulo text-2xl font-extrabold text-tinta">{s.rotulo}</p>
           <p className="mt-0.5 text-sm text-texto-secundario">{detalhe(a)}</p>
         </div>
         {precisaPagar && vencidas.length > 0 && (
           <div className="text-right">
             <p className="text-xs text-texto-secundario">{vencidas.length > 1 ? `${vencidas.length} cobranças vencidas` : 'Vencida'}</p>
-            <p className="font-titulo text-xl font-extrabold tabular-nums text-grafite">{formatarMoeda(vencidas.reduce((soma, c) => soma + Number(c.valor), 0).toFixed(2))}</p>
+            <p className="font-titulo text-xl font-extrabold tabular-nums text-tinta">{formatarMoeda(vencidas.reduce((soma, c) => soma + Number(c.valor), 0).toFixed(2))}</p>
           </div>
         )}
         {acao}

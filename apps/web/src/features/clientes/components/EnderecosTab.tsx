@@ -41,7 +41,7 @@ export function EnderecosTab({ cliente }: { cliente: ClienteDetalhe }) {
               <div key={e.id} className="flex gap-3 rounded-2xl border border-border p-4">
                 <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-marca-escuro" />
                 <div className="min-w-0 flex-1 text-sm">
-                  <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-grafite">
+                  <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-tinta">
                     {TIPO_ENDERECO_ROTULOS[e.tipo]}
                   </span>
                   <p className="mt-2 font-medium">{l.rua}</p>

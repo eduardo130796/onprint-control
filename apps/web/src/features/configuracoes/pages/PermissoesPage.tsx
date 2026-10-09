@@ -91,7 +91,7 @@ export function PermissoesPage() {
             onClick={() => setPapelId(p.id)}
             className={cn(
               'shrink-0 rounded-xl border px-4 py-2 text-sm transition-colors',
-              p.id === papel?.id ? 'border-grafite bg-grafite text-white' : 'border-border bg-card hover:border-marca',
+              p.id === papel?.id ? 'border-tinta bg-grafite text-white' : 'border-border bg-card hover:border-marca',
             )}
           >
             {p.nome}
@@ -101,7 +101,7 @@ export function PermissoesPage() {
       </div>
 
       {papel?.codigo === 'admin' && (
-        <p className="mb-4 flex items-center gap-2 rounded-xl bg-accent p-3 text-sm text-grafite">
+        <p className="mb-4 flex items-center gap-2 rounded-xl bg-accent p-3 text-sm text-tinta">
           <Lock className="h-4 w-4" /> O administrador sempre tem acesso a tudo; esta matriz não pode ser alterada.
         </p>
       )}

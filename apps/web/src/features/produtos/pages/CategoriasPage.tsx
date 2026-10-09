@@ -104,7 +104,7 @@ export function CategoriasPage() {
               <li key={c.id} className="flex items-center gap-3 px-4 py-3 hover:bg-fundo/60" style={{ paddingLeft: `${16 + nivel(c) * 24}px` }}>
                 <FolderTree className="h-4 w-4 shrink-0 text-marca-escuro" />
                 <span className="flex-1 text-sm">
-                  <span className={nivel(c) === 0 ? 'font-semibold text-grafite' : ''}>{c.nome}</span>
+                  <span className={nivel(c) === 0 ? 'font-semibold text-tinta' : ''}>{c.nome}</span>
                   <BadgeInativo ativo={c.ativo} />
                 </span>
                 <span className="text-xs text-texto-secundario">{c._count?.produtos ?? 0} produto(s)</span>

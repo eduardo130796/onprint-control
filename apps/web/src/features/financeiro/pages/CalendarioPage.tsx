@@ -45,7 +45,7 @@ export function CalendarioPage() {
             <Button variant="outline" size="icon" aria-label="Mês anterior" onClick={() => setMes((x) => mudarMes(x, -1))}>
               <ChevronLeft />
             </Button>
-            <span className="w-40 text-center font-semibold capitalize text-grafite">
+            <span className="w-40 text-center font-semibold capitalize text-tinta">
               {MESES[m - 1]} de {ano}
             </span>
             <Button variant="outline" size="icon" aria-label="Próximo mês" onClick={() => setMes((x) => mudarMes(x, 1))}>

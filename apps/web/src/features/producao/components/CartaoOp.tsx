@@ -33,7 +33,7 @@ export function CartaoOp({ op, acoes }: { op: OrdemProducao; acoes?: AcoesCartao
       )}
       <div className="p-3.5">
         <div className="flex items-center justify-between gap-2">
-          <Link to={`/producao/ordens/${op.id}`} className="font-mono text-xs font-semibold text-grafite hover:underline" onPointerDown={(e) => e.stopPropagation()}>
+          <Link to={`/producao/ordens/${op.id}`} className="font-mono text-xs font-semibold text-tinta hover:underline" onPointerDown={(e) => e.stopPropagation()}>
             {op.numero}
           </Link>
           <Link to={`/pedidos/${op.pedidoId}`} className="font-mono text-[11px] text-texto-secundario hover:underline" onPointerDown={(e) => e.stopPropagation()}>

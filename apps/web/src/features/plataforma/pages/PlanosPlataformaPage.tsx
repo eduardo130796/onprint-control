@@ -181,14 +181,14 @@ export function PlanosPlataformaPage() {
                     ].map(([r, v]) => (
                       <div key={r} className="rounded-xl bg-fundo p-2">
                         <dt className="text-[11px] text-texto-secundario">{r}</dt>
-                        <dd className="font-titulo text-lg font-extrabold text-grafite">{v}</dd>
+                        <dd className="font-titulo text-lg font-extrabold text-tinta">{v}</dd>
                       </div>
                     ))}
                   </dl>
                   <p className="text-xs text-texto-secundario">Com atraso: só leitura a partir de {p.diasAteSomenteLeitura} dias, bloqueio com {p.diasAteBloqueio}.</p>
                   <ul className="mt-auto flex flex-wrap gap-1.5">
                     {modulos.map((m) => (
-                      <li key={m} className="rounded-full bg-fundo px-2.5 py-1 text-xs font-medium text-grafite ring-1 ring-border">
+                      <li key={m} className="rounded-full bg-fundo px-2.5 py-1 text-xs font-medium text-tinta ring-1 ring-border">
                         {MODULO_ROTULOS[m as keyof typeof MODULO_ROTULOS] ?? m}
                       </li>
                     ))}

@@ -89,14 +89,14 @@ export function BannerAssinatura() {
           <v.Icone className="h-5 w-5" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-titulo font-extrabold text-grafite">{v.titulo}</p>
+          <p className="font-titulo font-extrabold text-tinta">{v.titulo}</p>
           <p className="text-sm text-texto-secundario">{v.texto ?? a.mensagem}</p>
         </div>
         <Button asChild size="sm" variant={v.dispensavel ? 'outline' : 'default'}>
           <Link to="/assinatura">{v.acao}</Link>
         </Button>
         {v.dispensavel && (
-          <button type="button" onClick={fechar} className="rounded-lg p-1.5 text-texto-secundario hover:bg-fundo hover:text-grafite" aria-label="Fechar aviso">
+          <button type="button" onClick={fechar} className="rounded-lg p-1.5 text-texto-secundario hover:bg-fundo hover:text-tinta" aria-label="Fechar aviso">
             <X className="h-4 w-4" />
           </button>
         )}

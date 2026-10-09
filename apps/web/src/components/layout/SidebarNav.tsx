@@ -22,7 +22,7 @@ interface SidebarNavProps {
 
 const itemBase =
   'group flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-const itemInativo = 'text-grafite/80 hover:bg-fundo hover:text-grafite'
+const itemInativo = 'text-tinta/80 hover:bg-fundo hover:text-tinta'
 // Item ativo: grafite com um traço laranja à esquerda (detalhe da identidade)
 const itemAtivo = 'relative bg-grafite text-white hover:bg-grafite before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-r-full before:bg-laranja'
 
@@ -34,7 +34,7 @@ function IconeMenu({ icone: Icone, estado }: { icone: LucideIcon; estado: Estado
     <span
       className={cn(
         'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors',
-        estado === 'ativo' ? 'bg-marca text-marca-contraste' : estado === 'aberto' ? 'bg-marca-suave text-marca-escuro' : 'bg-fundo text-grafite group-hover:bg-marca-suave group-hover:text-marca-escuro',
+        estado === 'ativo' ? 'bg-marca text-marca-contraste' : estado === 'aberto' ? 'bg-marca-suave text-marca-escuro' : 'bg-fundo text-tinta group-hover:bg-marca-suave group-hover:text-marca-escuro',
       )}
     >
       <Icone className="h-[18px] w-[18px]" />
@@ -114,7 +114,7 @@ export function SidebarNav({ recolhida = false, onNavegar }: SidebarNavProps) {
                 </span>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="right" align="start">
-                <DropdownMenuLabel className="font-semibold text-grafite">{modulo.titulo}</DropdownMenuLabel>
+                <DropdownMenuLabel className="font-semibold text-tinta">{modulo.titulo}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {modulo.filhos.map((f) => (
                   <DropdownMenuItem key={f.path} asChild>
@@ -135,7 +135,7 @@ export function SidebarNav({ recolhida = false, onNavegar }: SidebarNavProps) {
             <button
               type="button"
               onClick={() => setAbertos((a) => ({ ...a, [modulo.modulo]: !aberto }))}
-              className={cn(itemBase, ativo ? 'text-grafite' : itemInativo)}
+              className={cn(itemBase, ativo ? 'text-tinta' : itemInativo)}
               aria-expanded={aberto}
             >
               <IconeMenu icone={Icone} estado={ativo ? 'aberto' : 'normal'} />
@@ -155,8 +155,8 @@ export function SidebarNav({ recolhida = false, onNavegar }: SidebarNavProps) {
                       cn(
                         'flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
                         isActive
-                          ? 'bg-accent font-medium text-grafite'
-                          : 'text-texto-secundario hover:bg-fundo hover:text-grafite',
+                          ? 'bg-accent font-medium text-tinta'
+                          : 'text-texto-secundario hover:bg-fundo hover:text-tinta',
                       )
                     }
                   >

@@ -62,8 +62,8 @@ export function ResumoPreco({ resultado: r, sufixo }: { resultado: ResultadoPrec
               ))}
             </div>
             <div className="flex items-baseline justify-between border-t border-border pt-3">
-              <span className="font-semibold text-grafite">Total</span>
-              <span className="text-2xl font-bold text-grafite">{formatarMoeda(r.total)}</span>
+              <span className="font-semibold text-tinta">Total</span>
+              <span className="text-2xl font-bold text-tinta">{formatarMoeda(r.total)}</span>
             </div>
             <p className="text-right text-xs text-texto-secundario">{formatarMoeda(r.valorPorPeca)} por peça</p>
             {r.abaixoDoMinimo && (

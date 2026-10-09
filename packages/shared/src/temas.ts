@@ -96,3 +96,33 @@ export function temaMaisProximo(hex: string): CodigoTema {
   }
   return melhor
 }
+
+/** Cartão no modo escuro (fundo das telas é um pouco mais escuro que ele) */
+export const CARTAO_ESCURO = '#1A1E23'
+
+/** Mistura duas cores: p = quanto de `b` (0 a 1). */
+export function misturar(a: string, b: string, p: number): string {
+  const [x, y] = [hexParaRgb(a), hexParaRgb(b)]
+  return `#${x.map((v, i) => Math.round(v + ((y[i] as number) - v) * p).toString(16).padStart(2, '0')).join('')}`
+}
+
+/**
+ * Variações da cor do tema para o modo escuro: a cor, o hover e o texto sobre ela continuam;
+ * o "suave" vira um fundo escuro tingido; o "escuro" (texto na cor) clareia até ler bem sobre o
+ * cartão escuro e sobre o suave (contraste AA).
+ */
+export function temaNoEscuro(t: CoresTema): CoresTema {
+  // Cor escura demais some sobre o cartão escuro (tema grafite): clareia enquanto o texto sobre ela ainda lê bem
+  let cor: string = t.cor
+  let hover: string = t.hover
+  for (let p = 0.05; contraste(cor, CARTAO_ESCURO) < 2 && p <= 0.5; p += 0.05) {
+    const candidata = misturar(t.cor, '#FFFFFF', p)
+    if (contraste(t.contraste, candidata) < 4.5) break
+    cor = candidata
+    hover = misturar(t.hover, '#FFFFFF', p)
+  }
+  const suave = misturar(CARTAO_ESCURO, cor, 0.18)
+  let escuro = cor
+  for (let p = 0; p <= 1 && (contraste(escuro, CARTAO_ESCURO) < 4.5 || contraste(escuro, suave) < 4.5); p += 0.05) escuro = misturar(cor, '#FFFFFF', p)
+  return { cor, hover, contraste: t.contraste, suave, escuro }
+}

@@ -87,7 +87,7 @@ function Venda({ sessao }: { sessao: CaixaSessaoDetalhe }) {
                 className={cn('rounded-xl border border-border bg-card p-3 text-left text-sm shadow-sm transition hover:border-marca hover:shadow', semEstoque && 'opacity-60')}
               >
                 <p className="line-clamp-2 min-h-10 font-medium">{p.nome}</p>
-                <p className="mt-1 text-base font-semibold text-grafite">{formatarMoeda(p.precoVenda)}</p>
+                <p className="mt-1 text-base font-semibold text-tinta">{formatarMoeda(p.precoVenda)}</p>
                 <p className={cn('text-xs', semEstoque ? 'text-coral-escuro' : 'text-texto-secundario')}>
                   {p.controlaEstoque ? `estoque ${Number(p.saldo).toLocaleString('pt-BR')}` : (p.categoria ?? p.codigo)}
                 </p>
@@ -137,8 +137,8 @@ function Venda({ sessao }: { sessao: CaixaSessaoDetalhe }) {
             </div>
           </div>
           <div className="flex items-baseline justify-between border-t border-border pt-2">
-            <span className="font-semibold text-grafite">Total</span>
-            <span className="text-2xl font-bold text-grafite">{formatarMoeda(calc.total)}</span>
+            <span className="font-semibold text-tinta">Total</span>
+            <span className="text-2xl font-bold text-tinta">{formatarMoeda(calc.total)}</span>
           </div>
 
           <div className="space-y-2">

@@ -7,7 +7,7 @@ export function PreviaTroca({ p, planoAtual }: { p: PreviaTrocaPlano; planoAtual
     return (
       <span className="block space-y-3 text-left">
         <span className="flex items-start gap-3 rounded-2xl bg-fundo p-4">
-          <ArrowDownRight className="mt-0.5 h-5 w-5 shrink-0 text-grafite" aria-hidden="true" />
+          <ArrowDownRight className="mt-0.5 h-5 w-5 shrink-0 text-tinta" aria-hidden="true" />
           <span>
             Você já pagou o <strong>{planoAtual}</strong> neste período: ele continua valendo até <strong>{formatarDataSimples(p.valeA)}</strong>. A partir daí, o plano passa a ser o{' '}
             <strong>{p.plano.nome}</strong> por <strong>{formatarMoeda(p.novaMensalidade.valor)}/mês</strong>.

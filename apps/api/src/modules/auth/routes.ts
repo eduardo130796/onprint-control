@@ -8,7 +8,7 @@ import {
   loginSchema,
   novaSenhaPorLinkSchema,
   respostaLoginSchema,
-  trocarSenhaSchema,
+  preferenciasSchema, trocarSenhaSchema,
   usuarioLogadoSchema,
 } from '@onprint/shared'
 import { criarAuthController } from './controller'
@@ -76,6 +76,20 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     controller.me,
+  )
+
+  // Preferência visual do próprio usuário: vale mesmo no modo só leitura ou bloqueado
+  app.put(
+    '/preferencias',
+    {
+      onRequest: [app.autenticarPermitindoTrocaSenha],
+      config: { assinaturaLivre: true },
+      schema: { tags: ['auth'], summary: 'Preferências do usuário (modo claro/escuro)', security: [{ bearerAuth: [] }], body: preferenciasSchema },
+    },
+    async (request) => {
+      await app.prisma.usuario.update({ where: { id: request.user.sub }, data: { modoTela: request.body.modoTela } })
+      return { modoTela: request.body.modoTela }
+    },
   )
 
   app.post(

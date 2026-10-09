@@ -101,7 +101,7 @@ export function CupomPlataformaPage() {
                     {c.empresas.map((u) => (
                       <tr key={`${u.id}-${u.aplicadoEm}`}>
                         <td className="py-3 pl-5 pr-3 sm:pl-7">
-                          <Link to={`/plataforma/empresas/${u.id}`} className="font-semibold text-grafite hover:underline">
+                          <Link to={`/plataforma/empresas/${u.id}`} className="font-semibold text-tinta hover:underline">
                             {u.nome}
                           </Link>
                           <span className="block text-xs text-texto-secundario">/{u.slug}</span>

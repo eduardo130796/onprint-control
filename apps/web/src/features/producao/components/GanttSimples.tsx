@@ -57,7 +57,7 @@ export function GanttSimples({ ops, inicio, onSelecionar }: GanttProps) {
         </div>
         {grupos.map(([maquina, lista]) => (
           <div key={maquina} className="border-b border-border py-1">
-            <p className="py-1 font-semibold text-grafite">{maquina}</p>
+            <p className="py-1 font-semibold text-tinta">{maquina}</p>
             {lista.map((op) => {
               const p = periodo(op, hoje)
               const col = Math.max(0, diferenca(inicio, p.inicio))

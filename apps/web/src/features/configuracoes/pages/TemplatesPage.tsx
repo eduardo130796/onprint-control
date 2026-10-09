@@ -68,7 +68,7 @@ export function TemplatesPage() {
                   {itens.map((t) => (
                     <Card key={t.id} className="flex flex-col p-5">
                       <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-semibold text-grafite">{t.nome}</h3>
+                        <h3 className="font-semibold text-tinta">{t.nome}</h3>
                         {!t.ativo && <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs">Inativo</span>}
                       </div>
                       <p className="mt-2 line-clamp-4 flex-1 whitespace-pre-wrap text-sm text-texto-secundario">{t.conteudo}</p>

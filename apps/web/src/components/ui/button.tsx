@@ -12,8 +12,8 @@ export const buttonVariants = cva(
         secondary: 'bg-grafite text-white hover:bg-grafite-escuro',
         destructive: 'bg-coral-escuro text-white hover:bg-coral-escuro/90',
         // Secundário com peso: borda marcada, sombra e texto forte; no hover, o verde da marca
-        outline: 'border border-grafite/20 bg-card font-semibold text-grafite shadow-sm hover:border-marca hover:bg-marca-suave',
-        ghost: 'font-semibold text-grafite hover:bg-grafite/5',
+        outline: 'border border-tinta/20 bg-card font-semibold text-tinta shadow-sm hover:border-marca hover:bg-marca-suave',
+        ghost: 'font-semibold text-tinta hover:bg-tinta/5',
         link: 'text-marca-escuro underline-offset-4 hover:underline',
       },
       size: {

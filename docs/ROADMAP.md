@@ -183,7 +183,7 @@ Decisões do usuário: todas as empresas no mesmo sistema; bloqueio escalonado (
 
 - [x] **Marca da gráfica:** logo e nome da empresa no topo, "por ONPrint" discreto no menu, aba do navegador com "Página · Empresa" e a logo como ícone
 - [x] **Aparência** (Configurações): cor do tema por empresa (paleta de 9 cores com contraste testado), prévia ao vivo, sugestão pela logo; e2e `fase15`
-- [ ] Modo claro/escuro por usuário (sobre as mesmas variáveis de cor)
+- [x] **Modo claro/escuro por usuário** (Claro, Escuro, Igual ao sistema), salvo na conta; escolhido no menu do usuário ou em Aparência; verificado em capturas (painel, assinatura, aparência, listas, kanban, formulários) e no e2e `fase15`
 - [ ] Marca própria completa (domínio próprio, sem ONPrint) como módulo pago
 
 ### Fase 13 — Painel da plataforma ✅ (aguardando OK)

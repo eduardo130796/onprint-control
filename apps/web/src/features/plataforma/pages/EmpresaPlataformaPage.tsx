@@ -201,7 +201,7 @@ export function EmpresaPlataformaPage() {
                 <ul className="space-y-3 text-sm">
                   {e.usuarios.admins.map((u) => (
                     <li key={u.email} className="min-w-0">
-                      <p className="truncate font-semibold text-grafite">{u.nome}</p>
+                      <p className="truncate font-semibold text-tinta">{u.nome}</p>
                       <p className="truncate text-xs text-texto-secundario">{u.email}</p>
                       <p className="text-xs text-texto-secundario">{u.ultimoLogin ? `Último acesso ${formatarData(u.ultimoLogin)}` : 'Nunca entrou'}</p>
                     </li>
@@ -212,7 +212,7 @@ export function EmpresaPlataformaPage() {
                 <Secao titulo="Módulos" subtitulo={a.modulosExtras.length ? `${a.modulosExtras.length} extra(s) além do plano.` : 'Os do plano.'} icone={Layers}>
                   <ul className="flex flex-wrap gap-1.5">
                     {a.modulos.map((m) => (
-                      <li key={m} className={cn('rounded-full px-2.5 py-1 text-xs font-medium ring-1', a.modulosExtras.includes(m) ? 'bg-marca-suave text-marca-escuro ring-marca/30' : 'bg-fundo text-grafite ring-border')}>
+                      <li key={m} className={cn('rounded-full px-2.5 py-1 text-xs font-medium ring-1', a.modulosExtras.includes(m) ? 'bg-marca-suave text-marca-escuro ring-marca/30' : 'bg-fundo text-tinta ring-border')}>
                         {MODULO_ROTULOS[m as Modulo] ?? m}
                       </li>
                     ))}

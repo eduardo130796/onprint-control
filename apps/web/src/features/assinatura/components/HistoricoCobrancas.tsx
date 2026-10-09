@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 const SITUACAO: Record<CobrancaResumo['situacao'], { rotulo: string; ponto: string; texto: string }> = {
-  pendente: { rotulo: 'Em aberto', ponto: 'bg-sky-500', texto: 'text-grafite' },
+  pendente: { rotulo: 'Em aberto', ponto: 'bg-sky-500', texto: 'text-tinta' },
   vencida: { rotulo: 'Vencida', ponto: 'bg-coral', texto: 'text-coral-escuro' },
   paga: { rotulo: 'Paga', ponto: 'bg-marca', texto: 'text-marca-escuro' },
   cancelada: { rotulo: 'Cancelada', ponto: 'bg-slate-300', texto: 'text-texto-secundario' },
@@ -24,7 +24,7 @@ export function HistoricoCobrancas({ cobrancas }: { cobrancas: CobrancaResumo[] 
   if (cobrancas.length === 0) return null
   return (
     <section className="rounded-3xl bg-card p-6 shadow-suave sm:p-8" aria-label="Mensalidades">
-      <h3 className="font-titulo text-lg font-extrabold text-grafite">Mensalidades</h3>
+      <h3 className="font-titulo text-lg font-extrabold text-tinta">Mensalidades</h3>
       <p className="text-sm text-texto-secundario">Pagamentos e notas fiscais da sua assinatura.</p>
 
       <div className="mt-5 hidden grid-cols-[110px_120px_130px_1fr_auto] gap-4 border-b border-border pb-2 text-xs font-semibold uppercase tracking-wide text-texto-secundario md:grid">
@@ -40,12 +40,12 @@ export function HistoricoCobrancas({ cobrancas }: { cobrancas: CobrancaResumo[] 
           const f = c.forma ? FORMA[c.forma] : undefined
           return (
             <li key={c.id} className="grid grid-cols-2 items-center gap-x-4 gap-y-1 py-3.5 text-sm md:grid-cols-[110px_120px_130px_1fr_auto]">
-              <span className="font-medium tabular-nums text-grafite">
+              <span className="font-medium tabular-nums text-tinta">
                 {formatarDataSimples(c.vencimento)}
                 {c.tipo === 'proporcional' && <span className="block text-[11px] font-normal text-texto-secundario">Diferença proporcional</span>}
               </span>
               <span className="text-right tabular-nums md:text-left">
-                <span className={cn('font-semibold', c.situacao === 'abonada' ? 'text-texto-secundario line-through' : 'text-grafite')}>{formatarMoeda(c.valor)}</span>
+                <span className={cn('font-semibold', c.situacao === 'abonada' ? 'text-texto-secundario line-through' : 'text-tinta')}>{formatarMoeda(c.valor)}</span>
                 {c.desconto && <span className="block text-[11px] text-marca-escuro">cupom −{formatarMoeda(c.desconto)}</span>}
               </span>
               <span className={cn('inline-flex items-center gap-2 font-medium', s.texto)}>
@@ -70,7 +70,7 @@ export function HistoricoCobrancas({ cobrancas }: { cobrancas: CobrancaResumo[] 
                       href={c.notaFiscal.linkPdf}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-full bg-fundo px-3 py-1 text-xs font-semibold text-grafite ring-1 ring-border hover:bg-marca-suave"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-fundo px-3 py-1 text-xs font-semibold text-tinta ring-1 ring-border hover:bg-marca-suave"
                     >
                       <FileText className="h-3.5 w-3.5" aria-hidden="true" /> {NOTA[c.notaFiscal.situacao]} {c.notaFiscal.numero ?? ''}
                     </a>

@@ -37,11 +37,11 @@ export function AbrirCaixa() {
     <Card className="mx-auto max-w-md">
       <CardContent className="space-y-4 pt-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent text-grafite">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent text-tinta">
             <LockOpen className="h-6 w-6" />
           </div>
           <div>
-            <p className="text-lg font-semibold text-grafite">Caixa fechado</p>
+            <p className="text-lg font-semibold text-tinta">Caixa fechado</p>
             <p className="text-sm text-texto-secundario">Conte o dinheiro da gaveta e abra o caixa para vender e receber.</p>
           </div>
         </div>

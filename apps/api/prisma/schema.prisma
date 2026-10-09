@@ -23,6 +23,8 @@ model Usuario {
   papelId            String    @map("papel_id") @db.Uuid
   comissaoPercentual Decimal   @default(0) @map("comissao_percentual") @db.Decimal(5, 2)
   deveTrocarSenha    Boolean   @default(false) @map("deve_trocar_senha")
+  /// Modo da tela: claro | escuro | sistema (preferência de cada usuário)
+  modoTela           String    @default("claro") @map("modo_tela")
   ultimoLogin        DateTime? @map("ultimo_login") @db.Timestamptz(3)
   ativo              Boolean   @default(true)
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)

@@ -43,7 +43,7 @@ export function CartaoPedido({ pedido: p, acoes }: { pedido: Pedido; acoes: Acoe
   return (
     <article className={cn('rounded-xl border bg-card p-3.5 text-sm shadow-sm transition-shadow hover:shadow-md', p.atrasado ? 'border-coral/60' : 'border-transparent')}>
       <div className="flex items-start justify-between gap-2">
-        <Link to={`/pedidos/${p.id}`} className="font-mono text-xs font-semibold text-grafite hover:underline" onPointerDown={(e) => e.stopPropagation()}>
+        <Link to={`/pedidos/${p.id}`} className="font-mono text-xs font-semibold text-tinta hover:underline" onPointerDown={(e) => e.stopPropagation()}>
           {p.numero}
         </Link>
         <ValorPedido pedido={p} />

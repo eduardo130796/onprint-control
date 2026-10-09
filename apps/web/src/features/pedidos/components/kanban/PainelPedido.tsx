@@ -100,7 +100,7 @@ export function PainelPedido({ pedido: resumo, onFechar }: { pedido: Pedido; onF
                                 key={o.id}
                                 type="button"
                                 onClick={() => ir(`/producao/ordens/${o.id}`)}
-                                className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-grafite hover:bg-fundo"
+                                className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-tinta hover:bg-fundo"
                                 title="Abrir a OP"
                               >
                                 <Factory className="h-3 w-3" /> {o.numero} · {mapa.get(`producao:${o.etapaAtual}`)?.rotulo ?? o.etapaAtual}

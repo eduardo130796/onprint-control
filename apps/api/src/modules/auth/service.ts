@@ -42,6 +42,7 @@ export function criarAuthService(app: FastifyInstance) {
       email: usuario.email,
       avatar: usuario.avatar,
       deveTrocarSenha: usuario.deveTrocarSenha,
+      modoTela: (['claro', 'escuro', 'sistema'].includes(usuario.modoTela) ? usuario.modoTela : 'claro') as UsuarioLogado['modoTela'],
       papel: { id: usuario.papel.id, codigo: usuario.papel.codigo, nome: usuario.papel.nome },
       // Módulos fora do plano, ações de escrita no modo só leitura e tudo no bloqueio saem da lista
       permissoes: assinatura ? filtrarPermissoes(permissoes, assinatura.modulos, assinatura.acesso.nivel) : permissoes,

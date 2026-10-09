@@ -104,10 +104,10 @@ export function FluxoPage() {
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {[
-              ['Saldo inicial', f.saldoInicial, 'text-grafite'],
+              ['Saldo inicial', f.saldoInicial, 'text-tinta'],
               ['Entradas (+ previstas)', `${f.totais.entradas}|${f.totais.previstoEntradas}`, 'text-green-800'],
               ['Saídas (+ previstas)', `${f.totais.saidas}|${f.totais.previstoSaidas}`, 'text-coral-escuro'],
-              ['Saldo realizado', f.totais.saldoFinal, 'text-grafite'],
+              ['Saldo realizado', f.totais.saldoFinal, 'text-tinta'],
               ['Saldo projetado', f.totais.saldoProjetado, Number(f.totais.saldoProjetado) < 0 ? 'text-coral-escuro' : 'text-marca-escuro'],
             ].map(([rotulo = '', valor = '', cor]) => {
               const [real, prev] = valor.split('|')

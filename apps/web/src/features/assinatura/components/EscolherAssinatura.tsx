@@ -27,7 +27,7 @@ function Titulo({ passo, children, detalhe }: { passo: number; children: React.R
     <div className="mb-4 flex items-start gap-3">
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-grafite font-titulo text-sm font-extrabold text-white">{passo}</span>
       <div>
-        <h3 className="font-titulo text-lg font-extrabold text-grafite">{children}</h3>
+        <h3 className="font-titulo text-lg font-extrabold text-tinta">{children}</h3>
         {detalhe && <p className="text-sm text-texto-secundario">{detalhe}</p>}
       </div>
     </div>
@@ -73,7 +73,7 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
     <section ref={ref} className="scroll-mt-24 space-y-8 rounded-3xl bg-card p-6 shadow-suave sm:p-8" aria-label="Assinar">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-marca-escuro">{a.situacao === 'teste' || a.situacao === 'cortesia' ? 'Continue sem interrupção' : a.situacao === 'cancelada' ? 'Volte a usar o ONPrint' : 'Regularize pelo pagamento online'}</p>
-        <h2 className="mt-1 font-titulo text-2xl font-extrabold text-grafite sm:text-3xl">Escolha como assinar</h2>
+        <h2 className="mt-1 font-titulo text-2xl font-extrabold text-tinta sm:text-3xl">Escolha como assinar</h2>
       </div>
 
       <div>
@@ -101,11 +101,11 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca-escuro',
                 )}
               >
-                <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', marcado ? 'bg-marca text-marca-contraste' : 'bg-fundo text-grafite')}>
+                <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', marcado ? 'bg-marca text-marca-contraste' : 'bg-fundo text-tinta')}>
                   <Icone className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <span>
-                  <span className="flex flex-wrap items-center gap-2 font-semibold text-grafite">
+                  <span className="flex flex-wrap items-center gap-2 font-semibold text-tinta">
                     {FORMA_ASSINATURA_ROTULOS[f]}
                     {FORMAS_AUTOMATICAS.includes(f) && (
                       <span className="inline-flex items-center gap-0.5 rounded-full bg-grafite px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
@@ -148,7 +148,7 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
           )}
           <div className="mt-5">
             {cupomValido || (descontoGuardado && !cupom) ? (
-              <p className="flex flex-wrap items-center gap-2 rounded-xl bg-marca-suave px-3 py-2 text-sm text-grafite">
+              <p className="flex flex-wrap items-center gap-2 rounded-xl bg-marca-suave px-3 py-2 text-sm text-tinta">
                 <TicketPercent className="h-4 w-4 text-marca-escuro" aria-hidden="true" />
                 Cupom <strong className="font-mono">{cupomValido?.codigo ?? descontoGuardado?.codigo}</strong>: {cupomValido?.descricao ?? descontoGuardado?.descricao}
                 {cupomValido && (

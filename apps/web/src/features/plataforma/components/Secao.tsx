@@ -15,7 +15,7 @@ export function Secao({ titulo, subtitulo, icone: Icone, acoes, children, classN
               </span>
             )}
             <div className="min-w-0">
-              {titulo && <h2 className="font-titulo text-lg font-extrabold text-grafite">{titulo}</h2>}
+              {titulo && <h2 className="font-titulo text-lg font-extrabold text-tinta">{titulo}</h2>}
               {subtitulo && <p className="text-sm text-texto-secundario">{subtitulo}</p>}
             </div>
           </div>
@@ -33,7 +33,7 @@ export function CabecalhoPlataforma({ sobretitulo, titulo, subtitulo, acoes }: {
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
         {sobretitulo && <p className="text-xs font-semibold uppercase tracking-[0.2em] text-marca-escuro">{sobretitulo}</p>}
-        <h1 className="font-titulo text-2xl font-extrabold tracking-tight text-grafite sm:text-3xl">{titulo}</h1>
+        <h1 className="font-titulo text-2xl font-extrabold tracking-tight text-tinta sm:text-3xl">{titulo}</h1>
         {subtitulo && <p className="mt-1 max-w-2xl text-sm text-texto-secundario">{subtitulo}</p>}
       </div>
       {acoes && <div className="flex flex-wrap gap-2">{acoes}</div>}

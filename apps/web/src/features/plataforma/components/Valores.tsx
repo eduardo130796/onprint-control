@@ -33,7 +33,7 @@ export function ValorCobrado({ e, claro, empilhado }: { e: Pick<EmpresaPlataform
   const comDesconto = Number(cobrado) < Number(e.valorMensal)
   return (
     <span className="whitespace-nowrap">
-      <span className={cn('font-semibold tabular-nums', claro ? 'text-white' : 'text-grafite')}>{e.situacao === 'cortesia' ? 'Grátis' : formatarMoeda(cobrado)}</span>
+      <span className={cn('font-semibold tabular-nums', claro ? 'text-white' : 'text-tinta')}>{e.situacao === 'cortesia' ? 'Grátis' : formatarMoeda(cobrado)}</span>
       {comDesconto && <span className={cn('text-xs tabular-nums line-through', empilhado ? 'block' : 'ml-1.5', claro ? 'text-white/50' : 'text-texto-secundario')}>{formatarMoeda(e.valorMensal)}</span>}
     </span>
   )

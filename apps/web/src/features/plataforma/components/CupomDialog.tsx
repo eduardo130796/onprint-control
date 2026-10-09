@@ -38,8 +38,8 @@ export function CodigoCupom({ codigo, claro, grande }: { codigo: string; claro?:
   }
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5">
-      <span className={cn('truncate font-mono font-bold tracking-wider', grande ? 'text-2xl sm:text-3xl' : 'text-base', claro ? 'text-white' : 'text-grafite')}>{codigo}</span>
-      <button type="button" onClick={copiar} className={cn('rounded-md p-1.5 transition-colors', claro ? 'text-white/60 hover:bg-white/10 hover:text-white' : 'text-texto-secundario hover:bg-fundo hover:text-grafite')} aria-label={`Copiar ${codigo}`}>
+      <span className={cn('truncate font-mono font-bold tracking-wider', grande ? 'text-2xl sm:text-3xl' : 'text-base', claro ? 'text-white' : 'text-tinta')}>{codigo}</span>
+      <button type="button" onClick={copiar} className={cn('rounded-md p-1.5 transition-colors', claro ? 'text-white/60 hover:bg-white/10 hover:text-white' : 'text-texto-secundario hover:bg-fundo hover:text-tinta')} aria-label={`Copiar ${codigo}`}>
         <Copy className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
     </span>
@@ -88,7 +88,7 @@ export function CupomDialog({ cupom, onFechar }: { cupom: CupomPlataforma | null
     }
   })
 
-  const segmento = (ativo: boolean) => cn('flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50', ativo ? 'bg-grafite text-white shadow-sm' : 'text-grafite hover:bg-white')
+  const segmento = (ativo: boolean) => cn('flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50', ativo ? 'bg-grafite text-white shadow-sm' : 'text-tinta hover:bg-white')
 
   return (
     <FormDialog
@@ -152,7 +152,7 @@ export function CupomDialog({ cupom, onFechar }: { cupom: CupomPlataforma | null
               type="button"
               disabled={travado}
               onClick={() => form.setValue('duracaoMeses', m)}
-              className={cn('rounded-full px-3 py-1.5 text-sm font-semibold ring-1 disabled:cursor-not-allowed disabled:opacity-50', Number(v.duracaoMeses) === m ? 'bg-grafite text-white ring-grafite' : 'bg-card text-grafite ring-border hover:bg-fundo')}
+              className={cn('rounded-full px-3 py-1.5 text-sm font-semibold ring-1 disabled:cursor-not-allowed disabled:opacity-50', Number(v.duracaoMeses) === m ? 'bg-grafite text-white ring-tinta' : 'bg-card text-tinta ring-border hover:bg-fundo')}
             >
               {m === 1 ? '1ª mensalidade' : `${m} meses`}
             </button>
@@ -161,7 +161,7 @@ export function CupomDialog({ cupom, onFechar }: { cupom: CupomPlataforma | null
             type="button"
             disabled={travado}
             onClick={() => form.setValue('duracaoMeses', '')}
-            className={cn('rounded-full px-3 py-1.5 text-sm font-semibold ring-1 disabled:cursor-not-allowed disabled:opacity-50', paraSempre ? 'bg-grafite text-white ring-grafite' : 'bg-card text-grafite ring-border hover:bg-fundo')}
+            className={cn('rounded-full px-3 py-1.5 text-sm font-semibold ring-1 disabled:cursor-not-allowed disabled:opacity-50', paraSempre ? 'bg-grafite text-white ring-tinta' : 'bg-card text-tinta ring-border hover:bg-fundo')}
           >
             Para sempre
           </button>
@@ -196,7 +196,7 @@ export function CupomDialog({ cupom, onFechar }: { cupom: CupomPlataforma | null
                   type="button"
                   aria-pressed={sel}
                   onClick={() => form.setValue('planos', sel ? planosSel.filter((x) => x !== p.codigo) : [...planosSel, p.codigo])}
-                  className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ring-1', sel ? 'bg-marca-suave text-marca-escuro ring-marca' : 'bg-card text-grafite ring-border hover:bg-fundo')}
+                  className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ring-1', sel ? 'bg-marca-suave text-marca-escuro ring-marca' : 'bg-card text-tinta ring-border hover:bg-fundo')}
                 >
                   {sel && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
                   {p.nome}

@@ -31,6 +31,46 @@
     --marca-hover: 30 190 90; /* #1EBE5A */
     --marca-suave: 233 249 239; /* #E9F9EF */
     --marca-contraste: 30 34 38; /* #1E2226 */
+    /* Tokens da identidade (RGB) */
+    --fundo: 242 244 245; /* #F2F4F5 */
+    --texto: 31 35 40; /* #1F2328 */
+    --texto-secundario: 90 97 105; /* #5A6169 */
+    --tinta: 43 48 54; /* #2B3036 */
+    --grafite: 43 48 54; /* #2B3036 */
+    --grafite-escuro: 30 34 38; /* #1E2226 */
+    --coral-escuro: 200 50 47; /* #C8322F */
+    color-scheme: light;
+  }
+
+  /* Modo escuro (preferência de cada usuário; a classe vai no <html>) */
+  .dark {
+    --background: 214 17% 8%;
+    --foreground: 210 14% 91%;
+    --card: 213 15% 12%; /* #1A1E23 */
+    --card-foreground: 210 14% 91%;
+    --popover: 213 15% 12%;
+    --popover-foreground: 210 14% 91%;
+    --secondary: 213 13% 17%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 213 13% 16%;
+    --muted-foreground: 211 9% 64%;
+    --accent: 213 13% 18%;
+    --accent-foreground: 210 14% 91%;
+    --destructive: 0 91% 71%;
+    --destructive-foreground: 213 15% 10%;
+    --border: 213 12% 21%;
+    --input: 213 11% 26%;
+    --fundo: 17 20 24; /* #111418 */
+    --texto: 230 233 236; /* #E6E9EC */
+    --texto-secundario: 155 164 174; /* #9BA4AE */
+    --tinta: 238 241 244; /* #EEF1F4 */
+    --grafite: 38 43 50; /* #262B32 */
+    --grafite-escuro: 27 31 36; /* #1B1F24 */
+    --coral-escuro: 248 113 113; /* #F87171 */
+    /* Verde ONPrint no escuro (os outros temas são gerados por aplicarTema) */
+    --marca-escuro: 37 211 102;
+    --marca-suave: 28 63 47;
+    color-scheme: dark;
   }
 
   * {

@@ -32,6 +32,10 @@ export const authApi = {
     return http<void>('/auth/redefinir-senha', { method: 'POST', body: { token, novaSenha }, autenticado: false })
   },
 
+  preferencias(dados: { modoTela: 'claro' | 'escuro' | 'sistema' }) {
+    return http<{ modoTela: string }>('/auth/preferencias', { method: 'PUT', body: dados })
+  },
+
   async trocarSenha(dados: TrocarSenhaInput) {
     const resposta = await http<RespostaLogin>('/auth/trocar-senha', { method: 'POST', body: dados })
     definirAccessToken(resposta.accessToken)

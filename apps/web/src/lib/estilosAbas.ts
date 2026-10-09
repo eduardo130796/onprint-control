@@ -10,5 +10,5 @@ export const bandejaAbas =
 export const classeAba = (ativa: boolean) =>
   cn(
     'shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-    ativa ? 'bg-grafite text-white shadow-sm' : 'text-grafite/75 hover:bg-fundo hover:text-grafite',
+    ativa ? 'bg-grafite text-white shadow-sm' : 'text-tinta/75 hover:bg-fundo hover:text-tinta',
   )

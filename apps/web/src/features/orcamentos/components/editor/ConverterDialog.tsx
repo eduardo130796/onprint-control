@@ -107,7 +107,7 @@ export function ConverterDialog({ orcamento, onFechar }: { orcamento: OrcamentoD
       {tipoEntrega !== 'retirada' && <p className="text-xs text-texto-secundario">Será usado o endereço principal do cliente (cadastre-o na ficha, se ainda não houver).</p>}
 
       <div className="rounded-2xl bg-fundo p-4">
-        <p className="mb-2 text-sm font-medium text-grafite">Contas a receber que serão geradas</p>
+        <p className="mb-2 text-sm font-medium text-tinta">Contas a receber que serão geradas</p>
         {previa.length === 0 ? (
           <p className="text-sm text-coral-escuro">Sinal deve estar entre 0 e 100%.</p>
         ) : (

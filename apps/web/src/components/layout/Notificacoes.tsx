@@ -35,7 +35,7 @@ export function Notificacoes() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[22rem] max-w-[calc(100vw-1rem)] p-0">
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
-          <span className="text-sm font-semibold text-grafite">Notificações</span>
+          <span className="text-sm font-semibold text-tinta">Notificações</span>
           {naoLidas > 0 && (
             <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => void notificacoesApi.marcarTodas().then(atualizar)}>
               <CheckCheck /> Marcar todas como lidas

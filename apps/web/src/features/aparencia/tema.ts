@@ -1,28 +1,62 @@
-import { TEMAS, hexParaHsl, hexParaRgb, temaOuPadrao } from '@onprint/shared'
+import { TEMAS, TEMA_PADRAO, hexParaHsl, hexParaRgb, temaNoEscuro, temaOuPadrao, type CoresTema } from '@onprint/shared'
 
 const rgb = (hex: string) => hexParaRgb(hex).join(' ')
 
+function variaveis(t: CoresTema) {
+  return [
+    `--marca: ${rgb(t.cor)}`,
+    `--marca-escuro: ${rgb(t.escuro)}`,
+    `--marca-hover: ${rgb(t.hover)}`,
+    `--marca-suave: ${rgb(t.suave)}`,
+    `--marca-contraste: ${rgb(t.contraste)}`,
+    `--primary: ${hexParaHsl(t.cor)}`,
+    `--primary-foreground: ${hexParaHsl(t.contraste)}`,
+    `--accent: ${hexParaHsl(t.suave)}`,
+    `--ring: ${hexParaHsl(t.escuro)}`,
+  ].join('; ')
+}
+
 /**
- * Aplica a cor do tema da empresa nas variáveis do CSS (classes marca-* do Tailwind e as do shadcn).
- * Sem código (ou o padrão), volta ao verde ONPrint definido no index.css.
+ * Aplica a cor do tema da empresa: uma folha de estilo com as variáveis do modo claro (:root) e do escuro
+ * (.dark, com o texto na cor clareado e o fundo suave tingido). Sem código, volta ao verde ONPrint do index.css.
  */
 export function aplicarTema(codigo: string | null | undefined) {
-  const raiz = document.documentElement.style
-  const nomes = ['--marca', '--marca-escuro', '--marca-hover', '--marca-suave', '--marca-contraste', '--primary', '--primary-foreground', '--accent', '--ring']
-  if (!codigo || temaOuPadrao(codigo) === 'verde') {
-    for (const n of nomes) raiz.removeProperty(n)
+  let estilo = document.getElementById('tema-empresa')
+  if (!codigo || temaOuPadrao(codigo) === TEMA_PADRAO) {
+    estilo?.remove()
     return
   }
   const t = TEMAS[temaOuPadrao(codigo)]
-  raiz.setProperty('--marca', rgb(t.cor))
-  raiz.setProperty('--marca-escuro', rgb(t.escuro))
-  raiz.setProperty('--marca-hover', rgb(t.hover))
-  raiz.setProperty('--marca-suave', rgb(t.suave))
-  raiz.setProperty('--marca-contraste', rgb(t.contraste))
-  raiz.setProperty('--primary', hexParaHsl(t.cor))
-  raiz.setProperty('--primary-foreground', hexParaHsl(t.contraste))
-  raiz.setProperty('--accent', hexParaHsl(t.suave))
-  raiz.setProperty('--ring', hexParaHsl(t.escuro))
+  if (!estilo) {
+    estilo = document.createElement('style')
+    estilo.id = 'tema-empresa'
+    document.head.appendChild(estilo)
+  }
+  estilo.textContent = `:root { ${variaveis(t)} } .dark { ${variaveis(temaNoEscuro(t))} }`
+}
+
+export type ModoTela = 'claro' | 'escuro' | 'sistema'
+export const MODO_ROTULOS: Record<ModoTela, string> = { claro: 'Claro', escuro: 'Escuro', sistema: 'Igual ao sistema' }
+let pararDeOuvir: (() => void) | null = null
+
+/** Liga ou desliga o modo escuro no <html>; "sistema" acompanha o Windows/celular enquanto a tela estiver aberta. */
+export function aplicarModo(modo: ModoTela | null) {
+  pararDeOuvir?.()
+  pararDeOuvir = null
+  const raiz = document.documentElement
+  if (!modo) {
+    raiz.classList.remove('dark')
+    return
+  }
+  if (modo !== 'sistema') {
+    raiz.classList.toggle('dark', modo === 'escuro')
+    return
+  }
+  const consulta = window.matchMedia('(prefers-color-scheme: dark)')
+  const atualizar = () => raiz.classList.toggle('dark', consulta.matches)
+  atualizar()
+  consulta.addEventListener('change', atualizar)
+  pararDeOuvir = () => consulta.removeEventListener('change', atualizar)
 }
 
 const FAVICON_PADRAO = '/favicon.svg'

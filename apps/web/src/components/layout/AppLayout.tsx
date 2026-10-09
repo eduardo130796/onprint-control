@@ -1,8 +1,8 @@
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useLayoutEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { paginaAtual } from '@/app/navigation'
-import { TITULO_PADRAO, aplicarTema, definirFavicon } from '@/features/aparencia/tema'
+import { TITULO_PADRAO, aplicarModo, aplicarTema, definirFavicon } from '@/features/aparencia/tema'
 import { useUrlArquivo } from '@/features/configuracoes/hooks'
 import { useAuth } from '@/hooks/useAuth'
 import { useTempoReal } from '@/hooks/useTempoReal'
@@ -34,6 +34,12 @@ export function AppLayout() {
   useTempoReal(Boolean(usuario) && !usuario?.deveTrocarSenha && usuario?.assinatura?.nivel !== 'bloqueado')
   const empresa = usuario?.empresa
   const logo = useUrlArquivo(empresa?.logoArquivoId)
+
+  // Modo claro/escuro do usuário (antes de pintar a tela, sem piscar); fora do sistema, sempre claro
+  useLayoutEffect(() => {
+    aplicarModo(usuario?.modoTela ?? 'claro')
+  }, [usuario?.modoTela])
+  useLayoutEffect(() => () => aplicarModo(null), [])
 
   // Cor do tema da empresa; ao sair (login, páginas públicas) volta ao verde ONPrint
   useEffect(() => {

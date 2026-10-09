@@ -42,12 +42,12 @@ export function GerenciarAssinatura({ a }: { a: MinhaAssinatura }) {
     <section className="rounded-3xl bg-card p-6 shadow-suave sm:p-8" aria-label="Pagamento da assinatura">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-4">
-          <span className={cn('flex h-14 w-14 items-center justify-center rounded-2xl', automatica ? 'bg-marca text-marca-contraste' : 'bg-fundo text-grafite')}>
+          <span className={cn('flex h-14 w-14 items-center justify-center rounded-2xl', automatica ? 'bg-marca text-marca-contraste' : 'bg-fundo text-tinta')}>
             <Icone className="h-6 w-6" aria-hidden="true" />
           </span>
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-texto-secundario">Forma de pagamento</p>
-            <h3 className="font-titulo text-xl font-extrabold text-grafite">{atual ? FORMA_ASSINATURA_ROTULOS[atual] : 'Online'}</h3>
+            <h3 className="font-titulo text-xl font-extrabold text-tinta">{atual ? FORMA_ASSINATURA_ROTULOS[atual] : 'Online'}</h3>
             <p className="text-sm text-texto-secundario">
               {automatica ? (
                 <span className="inline-flex items-center gap-1 font-medium text-marca-escuro">
@@ -76,9 +76,9 @@ export function GerenciarAssinatura({ a }: { a: MinhaAssinatura }) {
 
       {a.planoAgendado && (
         <div className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl bg-fundo p-4 ring-1 ring-border">
-          <CalendarClock className="h-5 w-5 shrink-0 text-grafite" aria-hidden="true" />
+          <CalendarClock className="h-5 w-5 shrink-0 text-tinta" aria-hidden="true" />
           <p className="min-w-0 flex-1 text-sm">
-            <strong className="text-grafite">Troca agendada:</strong> o plano passa a ser o {a.planoAgendado.nome} ({formatarMoeda(a.planoAgendado.valorMensal)}/mês) em {formatarDataSimples(a.planoAgendado.em)}. Até lá, continua o {a.plano.nome}, já pago.
+            <strong className="text-tinta">Troca agendada:</strong> o plano passa a ser o {a.planoAgendado.nome} ({formatarMoeda(a.planoAgendado.valorMensal)}/mês) em {formatarDataSimples(a.planoAgendado.em)}. Até lá, continua o {a.plano.nome}, já pago.
           </p>
           {a.podeGerenciar && atualPlano && (
             <Button variant="outline" size="sm" onClick={() => setPlanoNovo(atualPlano.codigo)}>
@@ -96,7 +96,7 @@ export function GerenciarAssinatura({ a }: { a: MinhaAssinatura }) {
               <li key={c.id} className={cn('flex flex-wrap items-center gap-4 rounded-2xl p-4 ring-1', vencida ? 'bg-coral/10 ring-coral/30' : 'bg-fundo ring-border')}>
                 {vencida && <AlertTriangle className="h-5 w-5 shrink-0 text-coral-escuro" aria-hidden="true" />}
                 <div className="min-w-0 flex-1">
-                  <p className={cn('font-semibold', vencida ? 'text-coral-escuro' : 'text-grafite')}>
+                  <p className={cn('font-semibold', vencida ? 'text-coral-escuro' : 'text-tinta')}>
                     {c.tipo === 'proporcional' ? 'Diferença proporcional' : 'Mensalidade'} de {formatarMoeda(c.valor)} · {vencida ? 'venceu' : 'vence'} em {formatarDataSimples(c.vencimento)}
                   </p>
                   {c.tipo === 'proporcional' && c.descricao && <p className="text-sm text-texto-secundario">{c.descricao}</p>}
@@ -184,7 +184,7 @@ export function GerenciarAssinatura({ a }: { a: MinhaAssinatura }) {
                     <I className="h-5 w-5" aria-hidden="true" />
                   </span>
                   <span>
-                    <span className="block font-semibold text-grafite">{FORMA_ASSINATURA_ROTULOS[f]}</span>
+                    <span className="block font-semibold text-tinta">{FORMA_ASSINATURA_ROTULOS[f]}</span>
                     <span className="block text-sm text-texto-secundario">{FORMA_ASSINATURA_DETALHES[f]}</span>
                   </span>
                 </button>

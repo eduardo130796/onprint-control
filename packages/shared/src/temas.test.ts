@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CODIGOS_TEMA, TEMAS, contraste, hexParaHsl, temaMaisProximo } from './temas'
+import { CARTAO_ESCURO, CODIGOS_TEMA, TEMAS, contraste, hexParaHsl, temaMaisProximo, temaNoEscuro } from './temas'
 
 describe('temas', () => {
   it.each(CODIGOS_TEMA)('%s: texto sobre a cor e a versão escura sobre fundo claro passam no contraste AA', (codigo) => {
@@ -18,5 +18,12 @@ describe('temas', () => {
     expect(temaMaisProximo('#E11D48')).toBe('vinho')
     expect(temaMaisProximo('#16A34A')).toBe('verde')
     expect(temaMaisProximo('#111111')).toBe('grafite')
+  })
+
+  it.each(CODIGOS_TEMA)('%s no modo escuro: texto na cor lê bem sobre o cartão e o fundo suave', (codigo) => {
+    const t = temaNoEscuro(TEMAS[codigo])
+    expect(contraste(t.escuro, CARTAO_ESCURO)).toBeGreaterThanOrEqual(4.5)
+    expect(contraste(t.escuro, t.suave)).toBeGreaterThanOrEqual(4.5)
+    expect(contraste(t.contraste, t.cor)).toBeGreaterThanOrEqual(4.5)
   })
 })

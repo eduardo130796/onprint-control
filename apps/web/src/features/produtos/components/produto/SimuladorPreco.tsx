@@ -121,7 +121,7 @@ export function SimuladorPreco({ produto, alteracoesPendentes }: { produto: Prod
                   />
                   {a.acabamento.nome}
                   <span className="text-xs text-texto-secundario">{formatarMoeda(a.acabamento.valor)}</span>
-                  {a.obrigatorio && <span className="rounded-full bg-accent px-2 text-xs text-grafite">obrigatório</span>}
+                  {a.obrigatorio && <span className="rounded-full bg-accent px-2 text-xs text-tinta">obrigatório</span>}
                 </label>
               ))}
             </fieldset>

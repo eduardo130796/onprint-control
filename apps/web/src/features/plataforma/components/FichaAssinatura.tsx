@@ -64,7 +64,7 @@ export function AcoesFicha({ empresa: e, onPedir }: { empresa: EmpresaPlataforma
   const grupos: { titulo: string; tom: string; acoes: TipoAcao[] }[] = [
     { titulo: 'Benefícios', tom: 'text-violet-700', acoes: cancelada ? [] : [cortesia ? 'encerrar_cortesia' : 'cortesia', ...(cortesia ? [] : (['meses_gratis', 'aplicar_cupom'] as TipoAcao[]))] },
     { titulo: 'Cobrança', tom: 'text-marca-escuro', acoes: ['cobranca_manual', 'registrar_pagamento', 'liberar_ate', 'ativar', 'teste_ate', 'atraso_desde'] },
-    { titulo: 'Plano e acesso', tom: 'text-grafite', acoes: ['plano', 'modulos_extras', a.bloqueioManual ? 'desbloquear' : 'bloquear', cancelada ? 'reativar' : 'cancelar'] },
+    { titulo: 'Plano e acesso', tom: 'text-tinta', acoes: ['plano', 'modulos_extras', a.bloqueioManual ? 'desbloquear' : 'bloquear', cancelada ? 'reativar' : 'cancelar'] },
   ]
   const pedir = (tipo: TipoAcao) => onPedir({ tipo, empresa: { id: e.id, nome: e.nome, planoCodigo: a.planoCodigo, modulosExtras: a.modulosExtras } })
 
@@ -87,7 +87,7 @@ export function AcoesFicha({ empresa: e, onPedir }: { empresa: EmpresaPlataforma
                         onClick={() => pedir(t)}
                         className={cn(
                           'group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold ring-1 transition-colors',
-                          perigo ? 'text-coral-escuro ring-coral/30 hover:bg-coral/5' : 'text-grafite ring-border hover:bg-marca-suave hover:ring-marca/40',
+                          perigo ? 'text-coral-escuro ring-coral/30 hover:bg-coral/5' : 'text-tinta ring-border hover:bg-marca-suave hover:ring-marca/40',
                         )}
                       >
                         <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', perigo ? 'bg-coral/10' : 'bg-fundo group-hover:bg-white')}>
@@ -138,10 +138,10 @@ export function BeneficiosFicha({ empresa: e, onPedir }: { empresa: EmpresaPlata
           <div className="rounded-2xl bg-laranja-suave p-4 ring-1 ring-laranja/30">
             <div className="flex items-center gap-2">
               <TicketPercent className="h-4 w-4 text-laranja-escuro" aria-hidden="true" />
-              <p className="font-mono text-base font-bold tracking-wide text-grafite">{a.cupom.codigo}</p>
+              <p className="font-mono text-base font-bold tracking-wide text-tinta">{a.cupom.codigo}</p>
               <span className="ml-auto rounded-full bg-white px-2 py-0.5 text-xs font-bold text-laranja-escuro ring-1 ring-laranja/30">−{formatarMoeda(a.cupom.desconto)}/mês</span>
             </div>
-            <p className="mt-1.5 text-sm text-grafite">{a.cupom.descricao}</p>
+            <p className="mt-1.5 text-sm text-tinta">{a.cupom.descricao}</p>
             <p className="mt-1 text-xs text-texto-secundario">
               {/* Sem "desde": a janela só é fixada na 1ª mensalidade gerada com o cupom */}
               {!a.cupom.desde ? `Começa na próxima mensalidade gerada · ${a.cupom.duracaoMeses == null ? 'para sempre' : a.cupom.duracaoMeses === 1 ? '1 mensalidade' : `${a.cupom.duracaoMeses} mensalidades`}` : a.cupom.ate ? `Mensalidades de ${mesAno(a.cupom.desde)} a ${mesAno(a.cupom.ate)}` : `A partir de ${mesAno(a.cupom.desde)}, para sempre`}
@@ -155,7 +155,7 @@ export function BeneficiosFicha({ empresa: e, onPedir }: { empresa: EmpresaPlata
           <div className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-200">
             <div className="flex items-center gap-2">
               <Unlock className="h-4 w-4 text-sky-700" aria-hidden="true" />
-              <p className="font-semibold text-grafite">Liberado pelo suporte</p>
+              <p className="font-semibold text-tinta">Liberado pelo suporte</p>
               <span className="ml-auto text-xs font-semibold text-sky-800">até {formatarDataSimples(a.liberadoAte)}</span>
             </div>
             <p className="mt-1 text-xs text-texto-secundario">Acesso normal até a data, mesmo com atraso.</p>
@@ -190,7 +190,7 @@ export function BeneficiosFicha({ empresa: e, onPedir }: { empresa: EmpresaPlata
 // ─── Mensalidades ─────────────────────────────────────────────────────────
 
 const SITUACAO_COBRANCA: Record<Cobranca['situacao'], { rotulo: string; ponto: string; texto: string }> = {
-  pendente: { rotulo: 'Em aberto', ponto: 'bg-sky-500', texto: 'text-grafite' },
+  pendente: { rotulo: 'Em aberto', ponto: 'bg-sky-500', texto: 'text-tinta' },
   vencida: { rotulo: 'Vencida', ponto: 'bg-coral', texto: 'text-coral-escuro' },
   paga: { rotulo: 'Paga', ponto: 'bg-marca', texto: 'text-marca-escuro' },
   cancelada: { rotulo: 'Cancelada', ponto: 'bg-slate-300', texto: 'text-texto-secundario' },
@@ -224,11 +224,11 @@ export function CobrancasFicha({ empresa: e, onPedir }: { empresa: EmpresaPlataf
                 return (
                   <tr key={c.id} className={cn('align-top', c.situacao === 'vencida' && 'bg-coral/[0.04]')}>
                     <td className="py-3 pl-5 pr-3 sm:pl-7">
-                      <span className="font-medium tabular-nums text-grafite">{formatarDataSimples(c.vencimento)}</span>
+                      <span className="font-medium tabular-nums text-tinta">{formatarDataSimples(c.vencimento)}</span>
                       <span className="block text-[11px] text-texto-secundario">{c.tipo === 'proporcional' ? 'Diferença proporcional' : 'Mensalidade'}</span>
                     </td>
                     <td className="px-3 py-3">
-                      <span className={cn('font-semibold tabular-nums', c.situacao === 'abonada' || c.situacao === 'cancelada' ? 'text-texto-secundario line-through' : 'text-grafite')}>{formatarMoeda(c.valor)}</span>
+                      <span className={cn('font-semibold tabular-nums', c.situacao === 'abonada' || c.situacao === 'cancelada' ? 'text-texto-secundario line-through' : 'text-tinta')}>{formatarMoeda(c.valor)}</span>
                       {c.desconto && Number(c.desconto) > 0 && (
                         <span className="mt-0.5 flex w-max items-center gap-1 rounded-full bg-laranja-suave px-1.5 py-0.5 text-[11px] font-semibold text-laranja-escuro">
                           <TicketPercent className="h-3 w-3" aria-hidden="true" /> −{formatarMoeda(c.desconto)} cupom
@@ -244,7 +244,7 @@ export function CobrancasFicha({ empresa: e, onPedir }: { empresa: EmpresaPlataf
                     </td>
                     <td className="px-3 py-3 text-texto-secundario">
                       {c.situacao === 'paga' ? (
-                        <span className="text-grafite">
+                        <span className="text-tinta">
                           {FORMA_COBRANCA[c.forma ?? ''] ?? c.forma ?? '—'}
                           {c.pagoEm && <span className="block text-xs text-texto-secundario">em {formatarData(c.pagoEm)}</span>}
                         </span>
@@ -302,7 +302,7 @@ const TOM_EVENTO = {
   violeta: 'bg-violet-50 text-violet-700 ring-violet-300',
   laranja: 'bg-laranja-suave text-laranja-escuro ring-laranja/30',
   azul: 'bg-sky-50 text-sky-700 ring-sky-300',
-  cinza: 'bg-fundo text-grafite ring-border',
+  cinza: 'bg-fundo text-tinta ring-border',
 } as const
 
 /** Ícone e cor de cada tipo de evento ("suporte_x" usa o mesmo de "x"). */
@@ -371,7 +371,7 @@ export function LinhaDoTempo({ empresa: e }: { empresa: EmpresaPlataformaDetalhe
                   <Icone className="h-4 w-4" aria-hidden="true" />
                 </span>
                 <div className="min-w-0 flex-1 pt-1">
-                  <p className="text-sm font-medium text-grafite">{it.titulo}</p>
+                  <p className="text-sm font-medium text-tinta">{it.titulo}</p>
                   {it.detalhe && <p className="text-xs text-texto-secundario">{it.detalhe}</p>}
                   <p className="mt-0.5 text-xs text-texto-secundario">
                     {formatarDataHora(it.data)}

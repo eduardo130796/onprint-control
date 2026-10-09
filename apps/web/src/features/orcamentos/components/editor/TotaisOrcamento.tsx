@@ -43,8 +43,8 @@ export function TotaisOrcamento({ form, onChange, subtotal, total, prazoDias, pr
         {linha('(+) Acréscimo', 'acrescimo')}
         {linha('(+) Frete / instalação', 'frete')}
         <div className="flex items-baseline justify-between border-t border-border pt-3">
-          <span className="font-semibold text-grafite">Total</span>
-          <span className={Number(total) < 0 ? 'text-2xl font-bold text-coral-escuro' : 'text-2xl font-bold text-grafite'}>{formatarMoeda(total)}</span>
+          <span className="font-semibold text-tinta">Total</span>
+          <span className={Number(total) < 0 ? 'text-2xl font-bold text-coral-escuro' : 'text-2xl font-bold text-tinta'}>{formatarMoeda(total)}</span>
         </div>
         {margemPercentual != null && <p className="text-right text-xs text-texto-secundario">Margem estimada (salva): {Number(margemPercentual).toLocaleString('pt-BR')}%</p>}
         <div className="space-y-1 border-t border-border pt-3 text-texto-secundario">

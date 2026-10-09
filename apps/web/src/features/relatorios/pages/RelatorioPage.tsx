@@ -136,7 +136,7 @@ export function RelatorioPage({ tipo }: { tipo: TipoRelatorio }) {
             {r.resumo.map((x) => (
               <Card key={x.rotulo} className="p-4">
                 <p className="text-xs text-texto-secundario">{x.rotulo}</p>
-                <p className="text-xl font-semibold text-grafite">{formatarValor(x.valor, x.formato)}</p>
+                <p className="text-xl font-semibold text-tinta">{formatarValor(x.valor, x.formato)}</p>
               </Card>
             ))}
           </div>

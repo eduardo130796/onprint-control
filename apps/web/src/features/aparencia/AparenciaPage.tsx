@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Loader2, Palette, RotateCcw, Save, Sparkles, Wand2 } from 'lucide-react'
+import { Check, Loader2, Monitor, Moon, Palette, RotateCcw, Save, Sparkles, Sun, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { CODIGOS_TEMA, TEMAS, temaMaisProximo, temaOuPadrao, type CodigoTema } from '@onprint/shared'
 import { empresaApi } from '@/api/configuracoes'
@@ -40,11 +40,11 @@ function Previa({ nome, logo }: { nome: string; logo: string | null | undefined 
             <Palette className="h-3.5 w-3.5" /> Pedidos
           </span>
           <span className="flex items-center gap-2 rounded-lg bg-marca-suave px-2.5 py-1.5 text-xs font-semibold text-marca-escuro">Orçamentos</span>
-          <span className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-grafite">Clientes</span>
+          <span className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-tinta">Clientes</span>
         </div>
         <div className="space-y-3 rounded-xl bg-card p-4 shadow-suave">
           <div className="flex items-center justify-between gap-2">
-            <p className="font-titulo text-sm font-extrabold text-grafite">Pedido #1042</p>
+            <p className="font-titulo text-sm font-extrabold text-tinta">Pedido #1042</p>
             <span className="rounded-full bg-marca-suave px-2 py-0.5 text-[11px] font-semibold text-marca-escuro">Em produção</span>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-fundo">
@@ -57,6 +57,44 @@ function Previa({ nome, logo }: { nome: string; logo: string | null | undefined 
         </div>
       </div>
     </div>
+  )
+}
+
+const MODOS = [
+  { modo: 'claro', rotulo: 'Claro', Icone: Sun },
+  { modo: 'escuro', rotulo: 'Escuro', Icone: Moon },
+  { modo: 'sistema', rotulo: 'Igual ao sistema', Icone: Monitor },
+] as const
+
+/** Modo claro/escuro: preferência de cada pessoa (não muda para os colegas). */
+function ModoDaTela() {
+  const { usuario, definirModoTela } = useAuth()
+  return (
+    <section className="rounded-3xl bg-card p-6 shadow-suave" aria-label="Modo da tela">
+      <h2 className="font-titulo text-lg font-extrabold text-tinta">Modo da tela</h2>
+      <p className="text-sm text-texto-secundario">Só para você: cada pessoa escolhe o seu.</p>
+      <div role="radiogroup" aria-label="Modo da tela" className="mt-4 grid grid-cols-3 gap-2">
+        {MODOS.map(({ modo, rotulo, Icone }) => {
+          const marcado = usuario?.modoTela === modo
+          return (
+            <button
+              key={modo}
+              type="button"
+              role="radio"
+              aria-checked={marcado}
+              onClick={() => definirModoTela(modo).catch((erro: Error) => toast.error(erro.message))}
+              className={cn(
+                'flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3 text-xs font-semibold ring-1 transition',
+                marcado ? 'bg-marca-suave text-marca-escuro ring-2 ring-marca' : 'text-tinta ring-border hover:bg-fundo',
+              )}
+            >
+              <Icone className="h-5 w-5" aria-hidden="true" />
+              {rotulo}
+            </button>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
@@ -110,7 +148,7 @@ export function AparenciaPage() {
 
   return (
     <>
-      <PageHeader titulo="Aparência" subtitulo="A cor do sistema e a logo da sua empresa. Vale para todos os usuários." />
+      <PageHeader titulo="Aparência" subtitulo="A cor e a logo da empresa (para todos) e o modo claro ou escuro (para você)." />
       {consulta.isPending ? (
         <Skeleton className="h-96 w-full rounded-3xl" />
       ) : consulta.isError ? (
@@ -121,7 +159,7 @@ export function AparenciaPage() {
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           <section className="space-y-6 rounded-3xl bg-card p-6 shadow-suave sm:p-8" aria-label="Cor do tema">
             <div>
-              <h2 className="font-titulo text-xl font-extrabold text-grafite">Cor do sistema</h2>
+              <h2 className="font-titulo text-xl font-extrabold text-tinta">Cor do sistema</h2>
               <p className="text-sm text-texto-secundario">Botões, menu, barras e destaques. Os documentos enviados aos clientes usam a sua logo e não mudam de cor.</p>
             </div>
 
@@ -141,15 +179,15 @@ export function AparenciaPage() {
                     onClick={() => setEscolhido(codigo)}
                     className={cn(
                       'relative flex items-center gap-3 rounded-2xl p-3 text-left ring-1 transition',
-                      marcado ? 'bg-fundo ring-2 ring-grafite' : 'bg-card ring-border hover:bg-fundo',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grafite disabled:cursor-default',
+                      marcado ? 'bg-fundo ring-2 ring-tinta' : 'bg-card ring-border hover:bg-fundo',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tinta disabled:cursor-default',
                     )}
                   >
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm" style={{ background: t.cor, color: t.contraste }}>
                       {marcado && <Check className="h-5 w-5" />}
                     </span>
                     <span className="min-w-0">
-                      <span className="block text-sm font-semibold text-grafite">{t.nome}</span>
+                      <span className="block text-sm font-semibold text-tinta">{t.nome}</span>
                       {codigo === 'verde' && <span className="block text-[11px] text-texto-secundario">Padrão</span>}
                       {sugestao.data === codigo && (
                         <span className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-texto-secundario">
@@ -185,6 +223,7 @@ export function AparenciaPage() {
           </section>
 
           <div className="space-y-4">
+            <ModoDaTela />
             <LogoCard empresa={consulta.data} podeEditar={podeEditar} />
             <p className="px-1 text-xs text-texto-secundario">
               A logo aparece no topo do sistema, como ícone da aba do navegador e nos documentos. Use PNG ou SVG com fundo transparente para o melhor resultado.

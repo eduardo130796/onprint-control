@@ -39,7 +39,7 @@ export function CartoesPlanos({ planos, selecionado, onEscolher, acao }: Props) 
             )}
           >
             <div className="flex items-center justify-between gap-2">
-              <h3 className="font-titulo text-xl font-extrabold text-grafite">{p.nome}</h3>
+              <h3 className="font-titulo text-xl font-extrabold text-tinta">{p.nome}</h3>
               {p.atual ? (
                 <span className="rounded-full bg-grafite px-2.5 py-0.5 text-[11px] font-bold text-white">Seu plano</span>
               ) : p.codigo === destaque ? (
@@ -50,12 +50,12 @@ export function CartoesPlanos({ planos, selecionado, onEscolher, acao }: Props) 
             </div>
             <p className="mt-1 min-h-10 text-sm text-texto-secundario">{p.descricao}</p>
             <p className="mt-4">
-              <span className="font-titulo text-4xl font-extrabold tracking-tight text-grafite">{formatarMoeda(p.valorMensal)}</span>
+              <span className="font-titulo text-4xl font-extrabold tracking-tight text-tinta">{formatarMoeda(p.valorMensal)}</span>
               <span className="text-sm text-texto-secundario">/mês</span>
             </p>
 
             <ul className="mt-5 space-y-2 border-t border-border pt-5 text-sm">
-              <li className="flex items-center gap-2 font-semibold text-grafite">
+              <li className="flex items-center gap-2 font-semibold text-tinta">
                 <Check className="h-4 w-4 shrink-0 text-marca-escuro" aria-hidden="true" />
                 {p.limiteUsuarios ? `Até ${p.limiteUsuarios} usuários` : 'Usuários ilimitados'}
               </li>
@@ -73,7 +73,7 @@ export function CartoesPlanos({ planos, selecionado, onEscolher, acao }: Props) 
               </Button>
             )}
             {clicavel && (
-              <span className={cn('mt-6 flex h-10 items-center justify-center rounded-xl text-sm font-bold', marcado ? 'bg-marca text-marca-contraste' : 'bg-fundo text-grafite')}>
+              <span className={cn('mt-6 flex h-10 items-center justify-center rounded-xl text-sm font-bold', marcado ? 'bg-marca text-marca-contraste' : 'bg-fundo text-tinta')}>
                 {marcado ? 'Selecionado' : 'Escolher'}
               </span>
             )}

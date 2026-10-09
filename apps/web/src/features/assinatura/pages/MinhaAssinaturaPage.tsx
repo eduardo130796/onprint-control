@@ -59,10 +59,10 @@ export function MinhaAssinaturaPage() {
           {a.cancelarEm && (
             <div className="flex flex-wrap items-center gap-4 rounded-3xl bg-card p-6 shadow-suave">
               <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-fundo">
-                <CalendarX className="h-6 w-6 text-grafite" aria-hidden="true" />
+                <CalendarX className="h-6 w-6 text-tinta" aria-hidden="true" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="font-titulo text-lg font-extrabold text-grafite">Assinatura cancelada</p>
+                <p className="font-titulo text-lg font-extrabold text-tinta">Assinatura cancelada</p>
                 <p className="text-sm text-texto-secundario">O sistema funciona normalmente até {formatarDataSimples(a.cancelarEm)}. Mudou de ideia? É só assinar de novo abaixo.</p>
               </div>
             </div>
@@ -78,7 +78,7 @@ export function MinhaAssinaturaPage() {
               <EscolherAssinatura ref={assinar} a={a} />
             ) : (
               <section className="space-y-4">
-                <h2 className="font-titulo text-xl font-extrabold text-grafite">Planos</h2>
+                <h2 className="font-titulo text-xl font-extrabold text-tinta">Planos</h2>
                 <CartoesPlanos planos={a.planos} />
               </section>
             ))}
@@ -98,7 +98,7 @@ export function MinhaAssinaturaPage() {
                 {a.suporte && (
                   <>
                     {' '}
-                    <strong className="text-grafite">{a.suporte}</strong>
+                    <strong className="text-tinta">{a.suporte}</strong>
                   </>
                 )}
               </span>

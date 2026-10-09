@@ -23,7 +23,7 @@ export function AvisosGatewayPage() {
     },
     onError: (e) => toast.error((e as Error).message),
   })
-  const aba = (ativo: boolean) => cn('rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors', ativo ? 'bg-grafite text-white shadow-sm' : 'text-grafite hover:bg-white')
+  const aba = (ativo: boolean) => cn('rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors', ativo ? 'bg-grafite text-white shadow-sm' : 'text-tinta hover:bg-white')
 
   return (
     <>
@@ -57,11 +57,11 @@ export function AvisosGatewayPage() {
               const Icone = e.erro ? XCircle : e.processadoEm ? CheckCircle2 : Clock
               return (
                 <li key={e.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl p-3 text-sm ring-1 ring-border">
-                  <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-xl', e.erro ? 'bg-coral/10 text-coral-escuro' : e.processadoEm ? 'bg-marca-suave text-marca-escuro' : 'bg-fundo text-grafite')}>
+                  <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-xl', e.erro ? 'bg-coral/10 text-coral-escuro' : e.processadoEm ? 'bg-marca-suave text-marca-escuro' : 'bg-fundo text-tinta')}>
                     <Icone className="h-4 w-4" aria-hidden="true" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="break-all font-mono text-xs font-semibold text-grafite">{e.tipo}</p>
+                    <p className="break-all font-mono text-xs font-semibold text-tinta">{e.tipo}</p>
                     <p className={cn('text-sm', e.erro ? 'text-coral-escuro' : 'text-texto-secundario')}>{e.erro ?? (e.processadoEm ? 'Aplicado' : 'Pendente')}</p>
                   </div>
                   <div className="text-right text-xs text-texto-secundario">

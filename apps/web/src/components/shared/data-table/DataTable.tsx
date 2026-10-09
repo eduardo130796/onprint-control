@@ -114,7 +114,7 @@ export function DataTable<T>(props: DataTableProps<T>) {
                     return (
                       <th key={h.id} className={cn('px-4 py-3 font-medium', h.column.columnDef.meta?.className)}>
                         {campo && props.onSortChange ? (
-                          <button type="button" onClick={() => alternarOrdem(campo)} className="inline-flex items-center gap-1 uppercase hover:text-grafite">
+                          <button type="button" onClick={() => alternarOrdem(campo)} className="inline-flex items-center gap-1 uppercase hover:text-tinta">
                             {flexRender(h.column.columnDef.header, h.getContext())}
                             <Icone className={cn('h-3.5 w-3.5', atual !== campo && 'opacity-40')} />
                           </button>

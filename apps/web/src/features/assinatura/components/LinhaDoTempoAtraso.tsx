@@ -21,24 +21,24 @@ export function LinhaDoTempoAtraso({ a, informativo = false }: { a: MinhaAssinat
   if (informativo) {
     return (
       <div className="rounded-2xl border border-dashed border-border p-5">
-        <p className="text-sm font-semibold text-grafite">Se a mensalidade atrasar</p>
+        <p className="text-sm font-semibold text-tinta">Se a mensalidade atrasar</p>
         <ol className="mt-3 grid gap-3 text-sm sm:grid-cols-3">
           <li className="flex gap-3">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
             <span>
-              <strong className="text-grafite">1º ao {plano.diasAteSomenteLeitura - 1}º dia:</strong> tudo funciona, com um aviso no topo.
+              <strong className="text-tinta">1º ao {plano.diasAteSomenteLeitura - 1}º dia:</strong> tudo funciona, com um aviso no topo.
             </span>
           </li>
           <li className="flex gap-3">
             <Eye className="mt-0.5 h-4 w-4 shrink-0 text-coral-escuro" aria-hidden="true" />
             <span>
-              <strong className="text-grafite">A partir do {plano.diasAteSomenteLeitura}º dia:</strong> só consulta e exportação.
+              <strong className="text-tinta">A partir do {plano.diasAteSomenteLeitura}º dia:</strong> só consulta e exportação.
             </span>
           </li>
           <li className="flex gap-3">
-            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-grafite" aria-hidden="true" />
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-tinta" aria-hidden="true" />
             <span>
-              <strong className="text-grafite">A partir do {plano.diasAteBloqueio}º dia:</strong> bloqueio até o pagamento. Os dados ficam guardados.
+              <strong className="text-tinta">A partir do {plano.diasAteBloqueio}º dia:</strong> bloqueio até o pagamento. Os dados ficam guardados.
             </span>
           </li>
         </ol>
@@ -51,7 +51,7 @@ export function LinhaDoTempoAtraso({ a, informativo = false }: { a: MinhaAssinat
     <section className="rounded-3xl bg-card p-6 shadow-suave" aria-label="Situação do atraso">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="font-titulo text-lg font-extrabold text-grafite">{atual === 3 ? 'Seu acesso está pausado' : 'Regularize para não perder o acesso'}</h3>
+          <h3 className="font-titulo text-lg font-extrabold text-tinta">{atual === 3 ? 'Seu acesso está pausado' : 'Regularize para não perder o acesso'}</h3>
           <p className="mt-1 text-sm text-texto-secundario">
             {atual === 3
               ? 'Assim que o pagamento for confirmado, tudo volta na hora. Nenhum dado foi apagado.'
@@ -79,7 +79,7 @@ export function LinhaDoTempoAtraso({ a, informativo = false }: { a: MinhaAssinat
               >
                 {feita ? <Check className="h-5 w-5" aria-hidden="true" /> : <e.Icone className="h-5 w-5" aria-hidden="true" />}
               </span>
-              <span className={cn('mt-2 text-xs font-semibold sm:text-sm', agora ? 'text-grafite' : 'text-texto-secundario')}>{e.rotulo}</span>
+              <span className={cn('mt-2 text-xs font-semibold sm:text-sm', agora ? 'text-tinta' : 'text-texto-secundario')}>{e.rotulo}</span>
               <span className="text-[11px] text-texto-secundario sm:text-xs">{e.data ? formatarDataSimples(e.data) : '—'}</span>
             </li>
           )

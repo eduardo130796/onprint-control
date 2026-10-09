@@ -26,7 +26,7 @@ export function ResumoFormas({ porForma, conferencia }: { porForma: ResumoFormaC
       {linhas.map((p) => (
         <div key={p.formaPagamentoId ?? p.nome} className="rounded-xl bg-fundo p-3 text-sm">
           <p className="text-xs text-texto-secundario">{p.nome}</p>
-          <p className="text-lg font-semibold text-grafite">{formatarMoeda(p.calculado)}</p>
+          <p className="text-lg font-semibold text-tinta">{formatarMoeda(p.calculado)}</p>
           {p.informado !== undefined && (
             <p className={cn('text-xs', Number(p.diferenca) === 0 ? 'text-texto-secundario' : Number(p.diferenca) > 0 ? 'text-green-800' : 'text-coral-escuro')}>
               contado {formatarMoeda(p.informado)} · diferença {formatarMoeda(p.diferenca)}

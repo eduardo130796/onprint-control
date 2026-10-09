@@ -23,7 +23,7 @@ function CartaoKpi({ k }: { k: KpiDashboard }) {
   const conteudo = (
     <Card className={cn('h-full p-4 transition hover:shadow-md', k.alerta && 'ring-1 ring-coral/40')}>
       <p className="text-xs text-texto-secundario">{k.rotulo}</p>
-      <p className={cn('mt-1 text-2xl font-semibold', k.alerta ? 'text-coral-escuro' : 'text-grafite')}>{formatarValor(k.valor, k.formato)}</p>
+      <p className={cn('mt-1 text-2xl font-semibold', k.alerta ? 'text-coral-escuro' : 'text-tinta')}>{formatarValor(k.valor, k.formato)}</p>
       {k.detalhe && <p className="text-xs text-texto-secundario">{k.detalhe}</p>}
     </Card>
   )

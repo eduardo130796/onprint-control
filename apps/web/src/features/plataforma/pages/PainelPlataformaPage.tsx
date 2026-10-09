@@ -132,7 +132,7 @@ export function PainelPlataformaPage() {
                     <span className={cn('h-2.5 w-2.5 rounded-full', PONTO_CATEGORIA[c])} aria-hidden="true" />
                     <span className="truncate">{CATEGORIA_SINGULAR[c]}</span>
                   </span>
-                  <span className="mt-2 block font-titulo text-3xl font-extrabold text-grafite">{p.indicadores.porCategoria[c]}</span>
+                  <span className="mt-2 block font-titulo text-3xl font-extrabold text-tinta">{p.indicadores.porCategoria[c]}</span>
                 </Link>
               ))}
             </div>
@@ -154,11 +154,11 @@ export function PainelPlataformaPage() {
                       </span>
                       <div className="min-w-0 flex-1">
                         {pr.empresa ? (
-                          <Link to={`/plataforma/empresas/${pr.empresa.id}`} className="font-semibold text-grafite hover:underline">
+                          <Link to={`/plataforma/empresas/${pr.empresa.id}`} className="font-semibold text-tinta hover:underline">
                             {pr.empresa.nome}
                           </Link>
                         ) : (
-                          <span className="font-semibold text-grafite">Asaas</span>
+                          <span className="font-semibold text-tinta">Asaas</span>
                         )}
                         <p className="text-texto-secundario">{pr.descricao}</p>
                       </div>

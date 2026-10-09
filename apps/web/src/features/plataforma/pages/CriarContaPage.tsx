@@ -86,7 +86,7 @@ export function CriarContaPage() {
                   <input type="radio" name="plano" className="sr-only" checked={escolhido === p.codigo} onChange={() => setPlano(p.codigo)} />
                   {escolhido === p.codigo ? <Check className="h-4 w-4 text-marca-escuro" /> : <span className="h-4 w-4" />}
                   <span className="min-w-0 flex-1">
-                    <span className="font-semibold text-grafite">{p.nome}</span> · {formatarMoeda(p.valorMensal)}/mês
+                    <span className="font-semibold text-tinta">{p.nome}</span> · {formatarMoeda(p.valorMensal)}/mês
                     <span className="block text-xs text-texto-secundario">{p.descricao}</span>
                   </span>
                 </label>
@@ -119,7 +119,7 @@ export function CriarContaPage() {
           </button>
         )}
         {cupom.data && codigoCupom === cupomConferido && (
-          <p className="flex items-center gap-2 rounded-xl bg-marca-suave px-3 py-2 text-sm text-grafite">
+          <p className="flex items-center gap-2 rounded-xl bg-marca-suave px-3 py-2 text-sm text-tinta">
             <TicketPercent className="h-4 w-4 text-marca-escuro" aria-hidden="true" />
             <span>
               <strong className="font-mono">{cupom.data.codigo}</strong>: {cupom.data.descricao}. Vale quando você assinar, depois do teste.

@@ -60,7 +60,8 @@ export function LogoCard({ empresa, podeEditar }: { empresa: EmpresaConfig; pode
         <CardTitle className="text-base">Logo</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex h-32 items-center justify-center rounded-2xl bg-fundo p-4">
+        {/* Fundo sempre claro: logos escuras não somem no modo escuro */}
+        <div className="flex h-32 items-center justify-center rounded-2xl bg-white p-4 ring-1 ring-border">
           {url.data ? (
             <img src={url.data} alt="Logo da empresa" className="max-h-full max-w-full object-contain" />
           ) : (

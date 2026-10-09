@@ -1,6 +1,6 @@
 // Teste ponta a ponta da aparência (marca da empresa) num banco DESCARTÁVEL recém-criado com seed.
 // Critério de aceite: o login traz nome de exibição, logo e cor; só quem edita configurações troca a cor;
-// cor fora da paleta é recusada; nome fantasia vira o nome do topo.
+// cor fora da paleta é recusada; nome fantasia vira o nome do topo; modo claro/escuro é de cada usuário.
 import { chamar, conferir, entrar, finalizar } from './e2e-util.mjs'
 
 const admin = await entrar('admin@onprint.local', 'admin123', 'Admin12345')
@@ -27,5 +27,12 @@ await chamar('POST', '/usuarios', { token: admin, body: { nome: 'Vendedora', ema
 const vend = await entrar('vend@aurora.local', 'provisoria1', 'Vendedora123')
 conferir('vendedora vê a cor da empresa', (await chamar('GET', '/auth/me', { token: vend })).json.empresa.corTema, 'roxo')
 conferir('vendedora não troca a cor', (await chamar('PUT', '/empresa/tema', { token: vend, body: { corTema: 'azul' } })).status, 403)
+
+console.log('\n— Modo da tela (de cada usuário) —')
+conferir('padrão: claro', (await chamar('GET', '/auth/me', { token: vend })).json.modoTela, 'claro')
+conferir('modo inválido recusado', (await chamar('PUT', '/auth/preferencias', { token: vend, body: { modoTela: 'neon' } })).status, 400)
+conferir('vendedora escolhe o escuro (sem permissão de configurações)', (await chamar('PUT', '/auth/preferencias', { token: vend, body: { modoTela: 'escuro' } })).status, 200)
+conferir('fica salvo na conta dela', (await chamar('GET', '/auth/me', { token: vend })).json.modoTela, 'escuro')
+conferir('não muda o dos colegas', (await chamar('GET', '/auth/me', { token: admin })).json.modoTela, 'claro')
 
 finalizar()

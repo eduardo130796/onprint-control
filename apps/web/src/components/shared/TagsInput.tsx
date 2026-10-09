@@ -21,7 +21,7 @@ export function TagsInput({ valor, onChange, desabilitado, placeholder = 'Digite
   return (
     <div className="flex min-h-10 flex-wrap items-center gap-1.5 rounded-lg border border-input bg-card px-2 py-1.5 focus-within:ring-2 focus-within:ring-ring">
       {valor.map((tag) => (
-        <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium text-grafite">
+        <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium text-tinta">
           {tag}
           {!desabilitado && (
             <button type="button" onClick={() => onChange(valor.filter((t) => t !== tag))} aria-label={`Remover ${tag}`}>

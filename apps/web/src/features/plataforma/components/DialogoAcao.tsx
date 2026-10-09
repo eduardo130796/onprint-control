@@ -120,7 +120,7 @@ export function DialogoAcao({ pedido, onFechar }: { pedido: PedidoAcao; onFechar
       {tipo === 'liberar_ate' && (
         <div className="flex flex-wrap gap-2">
           {[3, 7, 15, 30].map((d) => (
-            <button key={d} type="button" onClick={() => setData(adicionarDias(hojeISO(), d))} className={cn('rounded-full px-3 py-1 text-xs font-semibold ring-1', data === adicionarDias(hojeISO(), d) ? 'bg-grafite text-white ring-grafite' : 'bg-card text-grafite ring-border hover:bg-fundo')}>
+            <button key={d} type="button" onClick={() => setData(adicionarDias(hojeISO(), d))} className={cn('rounded-full px-3 py-1 text-xs font-semibold ring-1', data === adicionarDias(hojeISO(), d) ? 'bg-grafite text-white ring-tinta' : 'bg-card text-tinta ring-border hover:bg-fundo')}>
               +{d} dias
             </button>
           ))}
@@ -155,7 +155,7 @@ export function DialogoAcao({ pedido, onFechar }: { pedido: PedidoAcao; onFechar
               <label key={String(valor)} className={cn('flex cursor-pointer items-start gap-2 rounded-xl p-3 text-sm ring-1', semPrazo === valor ? 'bg-violet-50 ring-violet-400' : 'ring-border hover:bg-fundo')}>
                 <input type="radio" name="prazo" className="mt-0.5 accent-violet-600" checked={semPrazo === valor} onChange={() => setSemPrazo(valor as boolean)} />
                 <span>
-                  <span className="block font-semibold text-grafite">{titulo as string}</span>
+                  <span className="block font-semibold text-tinta">{titulo as string}</span>
                   <span className="block text-xs text-texto-secundario">{sub as string}</span>
                 </span>
               </label>
@@ -176,7 +176,7 @@ export function DialogoAcao({ pedido, onFechar }: { pedido: PedidoAcao; onFechar
             <p className="text-sm font-medium">Quantos meses</p>
             <div className="flex flex-wrap items-center gap-2">
               {MESES_RAPIDOS.map((m) => (
-                <button key={m} type="button" onClick={() => setMeses(m)} className={cn('h-10 min-w-12 rounded-xl px-3 text-sm font-bold ring-1', meses === m ? 'bg-grafite text-white ring-grafite' : 'bg-card text-grafite ring-border hover:bg-fundo')}>
+                <button key={m} type="button" onClick={() => setMeses(m)} className={cn('h-10 min-w-12 rounded-xl px-3 text-sm font-bold ring-1', meses === m ? 'bg-grafite text-white ring-tinta' : 'bg-card text-tinta ring-border hover:bg-fundo')}>
                   {m}
                 </button>
               ))}
@@ -191,7 +191,7 @@ export function DialogoAcao({ pedido, onFechar }: { pedido: PedidoAcao; onFechar
         <>
           <div className="flex items-center justify-between rounded-xl bg-fundo p-3 text-sm ring-1 ring-border">
             <span>Vencimento {formatarDataSimples(cobranca.vencimento)}</span>
-            <strong className="text-grafite">{formatarMoeda(cobranca.valor)}</strong>
+            <strong className="text-tinta">{formatarMoeda(cobranca.valor)}</strong>
           </div>
           {campoMotivo()}
         </>
@@ -209,7 +209,7 @@ export function DialogoAcao({ pedido, onFechar }: { pedido: PedidoAcao; onFechar
                 {disponiveis.map((c) => (
                   <li key={c.id}>
                     <button type="button" onClick={() => setTexto(c.codigo)} className={cn('flex w-full items-center gap-3 rounded-xl p-3 text-left text-sm ring-1', texto === c.codigo ? 'bg-laranja-suave ring-laranja' : 'ring-border hover:bg-fundo')}>
-                      <span className="font-mono font-bold text-grafite">{c.codigo}</span>
+                      <span className="font-mono font-bold text-tinta">{c.codigo}</span>
                       <span className="min-w-0 flex-1 truncate text-texto-secundario">{c.resumo}</span>
                       {texto === c.codigo && <Check className="h-4 w-4 text-laranja-escuro" aria-hidden="true" />}
                     </button>
@@ -222,7 +222,7 @@ export function DialogoAcao({ pedido, onFechar }: { pedido: PedidoAcao; onFechar
       )}
 
       {['desbloquear', 'cancelar', 'reativar', 'registrar_pagamento', 'encerrar_cortesia', 'remover_cupom'].includes(tipo) && (
-        <p className={cn('rounded-xl p-3 text-sm', meta.perigo ? 'bg-coral/10 text-coral-escuro' : 'bg-fundo text-grafite')}>Confirma esta ação em {empresa.nome}? Ela fica registrada no histórico com o seu e-mail.</p>
+        <p className={cn('rounded-xl p-3 text-sm', meta.perigo ? 'bg-coral/10 text-coral-escuro' : 'bg-fundo text-tinta')}>Confirma esta ação em {empresa.nome}? Ela fica registrada no histórico com o seu e-mail.</p>
       )}
     </FormDialog>
   )

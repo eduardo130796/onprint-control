@@ -11,4 +11,6 @@ export interface AuthContextValue {
   trocarSenha: (dados: TrocarSenhaInput) => Promise<void>
   /** Depois de trocar logo, nome ou cor em Configurações: o topo, a aba e o tema mudam na hora */
   atualizarMarca: (marca: MarcaEmpresa) => void
+  /** Modo claro/escuro do próprio usuário: muda na hora e fica salvo na conta */
+  definirModoTela: (modo: UsuarioLogado['modoTela']) => Promise<void>
 }

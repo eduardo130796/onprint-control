@@ -16,7 +16,7 @@ export function Logo({ claro, compacto, className }: LogoProps) {
         <circle cx="24.5" cy="7.5" r="3" fill="#F97316" />
       </svg>
       {!compacto && (
-        <span className={cn('font-titulo text-lg font-extrabold tracking-tight', claro ? 'text-white' : 'text-grafite')}>
+        <span className={cn('font-titulo text-lg font-extrabold tracking-tight', claro ? 'text-white' : 'text-tinta')}>
           ON<span className="text-[#25D366]">Print</span>
           <span className={cn('ml-1 font-medium', claro ? 'text-white/80' : 'text-texto-secundario')}>Control</span>
         </span>

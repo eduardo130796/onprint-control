@@ -126,7 +126,7 @@ export function AprovarOrcamentoPage() {
           <>
             <div>
               <p className="text-sm text-texto-secundario">Orçamento para {o.cliente.nome}</p>
-              <h1 className="text-2xl font-semibold text-grafite">{o.numero}</h1>
+              <h1 className="text-2xl font-semibold text-tinta">{o.numero}</h1>
               <p className="text-sm text-texto-secundario">Válido até {formatarDataSimples(o.validade)} · produção em {o.prazoDias} dia(s) úteis após a aprovação</p>
             </div>
             <Situacao o={o} />
@@ -151,8 +151,8 @@ export function AprovarOrcamentoPage() {
                 {Number(o.acrescimo) > 0 && <p className="flex justify-between"><span>Acréscimo</span><span>{formatarMoeda(o.acrescimo)}</span></p>}
                 {Number(o.frete) > 0 && <p className="flex justify-between"><span>Frete / instalação</span><span>{formatarMoeda(o.frete)}</span></p>}
                 <p className="flex items-baseline justify-between pt-1">
-                  <span className="font-semibold text-grafite">Total</span>
-                  <span className="text-2xl font-bold text-grafite">{formatarMoeda(o.total)}</span>
+                  <span className="font-semibold text-tinta">Total</span>
+                  <span className="text-2xl font-bold text-tinta">{formatarMoeda(o.total)}</span>
                 </p>
               </div>
             </Card>

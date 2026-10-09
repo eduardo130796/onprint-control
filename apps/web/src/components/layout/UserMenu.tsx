@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, KeyRound, LogOut } from 'lucide-react'
+import { Check, ChevronDown, KeyRound, LogOut, Monitor, Moon, Sun } from 'lucide-react'
 import { toast } from 'sonner'
 import { iniciais } from '@onprint/shared'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -13,8 +13,14 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useAuth } from '@/hooks/useAuth'
 
+const MODOS = [
+  { modo: 'claro', rotulo: 'Claro', Icone: Sun },
+  { modo: 'escuro', rotulo: 'Escuro', Icone: Moon },
+  { modo: 'sistema', rotulo: 'Igual ao sistema', Icone: Monitor },
+] as const
+
 export function UserMenu() {
-  const { usuario, sair } = useAuth()
+  const { usuario, sair, definirModoTela } = useAuth()
   const navigate = useNavigate()
   const nome = usuario?.nome ?? 'Usuário'
 
@@ -45,6 +51,20 @@ export function UserMenu() {
           <p className="text-xs font-normal text-texto-secundario">{usuario?.email}</p>
           <p className="text-xs font-normal text-texto-secundario">{usuario?.papel.nome}</p>
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-xs font-semibold uppercase tracking-wide text-texto-secundario">Aparência</DropdownMenuLabel>
+        {MODOS.map(({ modo, rotulo, Icone }) => (
+          <DropdownMenuItem
+            key={modo}
+            onSelect={(e) => {
+              e.preventDefault()
+              definirModoTela(modo).catch((erro: Error) => toast.error(erro.message))
+            }}
+          >
+            <Icone /> {rotulo}
+            {usuario?.modoTela === modo && <Check className="ml-auto text-marca-escuro" aria-label="selecionado" />}
+          </DropdownMenuItem>
+        ))}
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => navigate('/trocar-senha')}>
           <KeyRound /> Alterar senha

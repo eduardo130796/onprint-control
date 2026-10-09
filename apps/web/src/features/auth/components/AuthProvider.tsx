@@ -74,9 +74,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario((u) => (u ? { ...u, empresa: { ...u.empresa, ...marca } } : u))
   }, [])
 
+  const definirModoTela = useCallback(async (modoTela: UsuarioLogado['modoTela']) => {
+    let anterior: UsuarioLogado['modoTela'] | undefined
+    setUsuario((u) => {
+      anterior = u?.modoTela
+      return u ? { ...u, modoTela } : u
+    })
+    try {
+      await authApi.preferencias({ modoTela })
+    } catch (erro) {
+      // Não salvou: volta ao que estava
+      if (anterior) setUsuario((u) => (u ? { ...u, modoTela: anterior as UsuarioLogado['modoTela'] } : u))
+      throw erro
+    }
+  }, [])
+
   const valor = useMemo(
-    () => ({ usuario, carregando, entrar, sair, trocarSenha, atualizarMarca }),
-    [usuario, carregando, entrar, sair, trocarSenha, atualizarMarca],
+    () => ({ usuario, carregando, entrar, sair, trocarSenha, atualizarMarca, definirModoTela }),
+    [usuario, carregando, entrar, sair, trocarSenha, atualizarMarca, definirModoTela],
   )
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>

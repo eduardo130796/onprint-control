@@ -38,7 +38,7 @@ export function Sidebar({ recolhida, onAlternar, mobileAberta, onMobileAbertaCha
         <button
           type="button"
           onClick={onAlternar}
-          className="flex items-center gap-2 border-t border-border px-6 py-3 text-sm text-texto-secundario hover:text-grafite"
+          className="flex items-center gap-2 border-t border-border px-6 py-3 text-sm text-texto-secundario hover:text-tinta"
           aria-label={recolhida ? 'Expandir menu' : 'Recolher menu'}
         >
           {recolhida ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}

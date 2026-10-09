@@ -106,7 +106,7 @@ export function UsuarioDialog({ usuario, onFechar }: UsuarioDialogProps) {
           <Checkbox {...form.register('ativo')} /> Usuário ativo (desmarcar encerra as sessões abertas)
         </label>
       ) : (
-        <p className="rounded-lg bg-accent p-3 text-xs text-grafite">
+        <p className="rounded-lg bg-accent p-3 text-xs text-tinta">
           {comConvite
             ? 'O usuário recebe um e-mail com o link para criar a própria senha (vale 72 horas). Se preferir, informe também uma senha provisória para passar a ele.'
             : 'O envio de e-mails não está configurado: informe a senha provisória ao usuário. No primeiro acesso ele será obrigado a criar a própria senha.'}

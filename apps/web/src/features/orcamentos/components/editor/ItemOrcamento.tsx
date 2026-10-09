@@ -143,7 +143,7 @@ export function ItemOrcamento({ indice, total, item, calculo, editavel, onChange
               <AlertTriangle className="h-4 w-4 shrink-0" /> {r.erros.join(' ')}
             </p>
           )}
-          <p className="text-lg font-semibold text-grafite">{formatarMoeda(calculo.total)}</p>
+          <p className="text-lg font-semibold text-tinta">{formatarMoeda(calculo.total)}</p>
         </div>
       )}
     </Card>

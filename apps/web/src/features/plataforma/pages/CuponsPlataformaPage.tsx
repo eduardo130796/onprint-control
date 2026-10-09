@@ -18,7 +18,7 @@ function Numero({ rotulo, children, cor }: { rotulo: string; children: React.Rea
   return (
     <div className="min-w-0">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-texto-secundario">{rotulo}</p>
-      <p className={cn('truncate font-titulo text-lg font-extrabold tabular-nums text-grafite', cor)}>{children}</p>
+      <p className={cn('truncate font-titulo text-lg font-extrabold tabular-nums text-tinta', cor)}>{children}</p>
     </div>
   )
 }
@@ -129,10 +129,10 @@ export function CuponsPlataformaPage() {
         <>
           <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {[
-              ['Cupons ativos', String(lista.filter((c) => situacaoCupom(c) === 'ativo').length), 'text-grafite'],
+              ['Cupons ativos', String(lista.filter((c) => situacaoCupom(c) === 'ativo').length), 'text-tinta'],
               ['Empresas com desconto agora', String(soma((c) => c.emUso)), 'text-marca-escuro'],
               ['Desconto concedido', formatarMoeda(soma((c) => Number(c.descontoConcedido))), 'text-laranja-escuro'],
-              ['Receita com cupom', formatarMoeda(soma((c) => Number(c.receita))), 'text-grafite'],
+              ['Receita com cupom', formatarMoeda(soma((c) => Number(c.receita))), 'text-tinta'],
             ].map(([rotulo, valor, cor]) => (
               <div key={rotulo} className="min-w-0 rounded-2xl bg-card p-4 shadow-suave">
                 <p className="text-xs text-texto-secundario">{rotulo}</p>

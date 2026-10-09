@@ -108,7 +108,7 @@ export function TituloDetalheDialog({ tipo, id, onFechar }: { tipo: TipoTitulo; 
               ].map(([r, val]) => (
                 <div key={r} className="rounded-xl bg-fundo p-3">
                   <p className="text-xs text-texto-secundario">{r}</p>
-                  <p className="font-semibold text-grafite">{val}</p>
+                  <p className="font-semibold text-tinta">{val}</p>
                 </div>
               ))}
             </div>
@@ -121,7 +121,7 @@ export function TituloDetalheDialog({ tipo, id, onFechar }: { tipo: TipoTitulo; 
             {t.observacao && <p className="rounded-lg bg-fundo p-2">{t.observacao}</p>}
 
             <div>
-              <p className="mb-2 font-semibold text-grafite">Pagamentos</p>
+              <p className="mb-2 font-semibold text-tinta">Pagamentos</p>
               {t.movimentos.length === 0 ? (
                 <p className="text-texto-secundario">Nenhum pagamento registrado.</p>
               ) : (

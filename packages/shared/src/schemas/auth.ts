@@ -44,12 +44,20 @@ export const linkSenhaInfoSchema = z.object({
 })
 export type LinkSenhaInfo = z.infer<typeof linkSenhaInfoSchema>
 
+export const MODOS_TELA = ['claro', 'escuro', 'sistema'] as const
+export type ModoTelaUsuario = (typeof MODOS_TELA)[number]
+/** Preferências do próprio usuário (modo claro/escuro) */
+export const preferenciasSchema = z.object({ modoTela: z.enum(MODOS_TELA) })
+export type PreferenciasInput = z.infer<typeof preferenciasSchema>
+
 export const usuarioLogadoSchema = z.object({
   id: z.string().uuid(),
   nome: z.string(),
   email: z.string(),
   avatar: z.string().nullable(),
   deveTrocarSenha: z.boolean(),
+  /** Modo da tela escolhido pelo usuário */
+  modoTela: z.enum(MODOS_TELA),
   papel: z.object({ id: z.string().uuid(), codigo: z.string(), nome: z.string() }),
   /** Lista de permissões no formato "modulo:acao" */
   permissoes: z.array(z.string()),

@@ -43,7 +43,7 @@ export function PixAutomaticoQr({ a }: { a: MinhaAssinatura }) {
           ) : (
             <div className="flex h-56 w-56 items-center justify-center rounded-2xl bg-white p-6 text-center text-sm text-texto-secundario shadow">{expirado ? 'Este QR Code expirou.' : 'Use o código copia e cola ao lado.'}</div>
           )}
-          <p className="text-center font-titulo text-2xl font-extrabold text-grafite">{formatarMoeda(a.plano.valorMensal)}</p>
+          <p className="text-center font-titulo text-2xl font-extrabold text-tinta">{formatarMoeda(a.plano.valorMensal)}</p>
           {pix.expiraEm && <p className="text-xs text-texto-secundario">{expirado ? 'Expirou' : 'Vale até'} {formatarData(pix.expiraEm)}</p>}
         </div>
 
@@ -51,13 +51,13 @@ export function PixAutomaticoQr({ a }: { a: MinhaAssinatura }) {
           <p className="inline-flex items-center gap-2 rounded-full bg-grafite px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">
             <span className="h-2 w-2 animate-pulse rounded-full bg-marca" aria-hidden="true" /> Aguardando autorização
           </p>
-          <h3 className="mt-3 font-titulo text-2xl font-extrabold text-grafite">Autorize o PIX Automático</h3>
+          <h3 className="mt-3 font-titulo text-2xl font-extrabold text-tinta">Autorize o PIX Automático</h3>
           <p className="mt-1 text-sm text-texto-secundario">Um pagamento só: paga a 1ª mensalidade e autoriza as próximas. Esta tela atualiza sozinha quando o banco confirmar.</p>
 
           <ol className="mt-5 space-y-3">
             {PASSOS.map((p, i) => (
               <li key={p} className="flex gap-3 text-sm">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-fundo text-xs font-bold text-grafite">{i + 1}</span>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-fundo text-xs font-bold text-tinta">{i + 1}</span>
                 <span>{p}</span>
               </li>
             ))}
@@ -68,7 +68,7 @@ export function PixAutomaticoQr({ a }: { a: MinhaAssinatura }) {
               <Smartphone className="h-3.5 w-3.5" aria-hidden="true" /> PIX copia e cola
             </p>
             <div className="mt-2 flex gap-2">
-              <code className="block min-w-0 flex-1 truncate rounded-xl bg-fundo px-3 py-2.5 font-mono text-xs text-grafite">{pix.copiaECola}</code>
+              <code className="block min-w-0 flex-1 truncate rounded-xl bg-fundo px-3 py-2.5 font-mono text-xs text-tinta">{pix.copiaECola}</code>
               <Button type="button" onClick={() => void copiar()} disabled={expirado}>
                 {copiado ? <Check /> : <Copy />} {copiado ? 'Copiado' : 'Copiar'}
               </Button>

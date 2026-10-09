@@ -47,8 +47,8 @@ export function ColunaKanban<T>({ coluna, ids, porId, renderCartao, podeArrastar
     >
       <header className="flex items-center gap-2 px-3 pb-2 pt-3">
         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: coluna.cor }} />
-        <h2 className="text-sm font-semibold text-grafite">{coluna.titulo}</h2>
-        <span className="rounded-full bg-white px-2 text-xs text-texto-secundario">{ids.length}</span>
+        <h2 className="text-sm font-semibold text-tinta">{coluna.titulo}</h2>
+        <span className="rounded-full bg-card px-2 text-xs text-texto-secundario">{ids.length}</span>
         {coluna.extra && <span className="ml-auto text-xs text-texto-secundario">{coluna.extra}</span>}
       </header>
       <div

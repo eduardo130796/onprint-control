@@ -51,7 +51,7 @@ export function AbaItens({ pedido }: { pedido: PedidoDetalhe }) {
               <dd>{formatarMoeda(valor)}</dd>
             </div>
           ))}
-          <div className="flex justify-between border-t border-border pt-1 text-base font-semibold text-grafite">
+          <div className="flex justify-between border-t border-border pt-1 text-base font-semibold text-tinta">
             <dt>Total</dt>
             <dd>{formatarMoeda(pedido.total)}</dd>
           </div>

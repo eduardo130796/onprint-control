@@ -26,12 +26,16 @@ export function Notificacoes() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative text-white hover:bg-white/10 hover:text-white" aria-label={`Notificações${naoLidas ? ` (${naoLidas} não lidas)` : ''}`}>
-          <Bell className="!size-5" />
+        <button
+          type="button"
+          className="relative flex h-9 w-9 items-center justify-center rounded-xl text-white/75 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 data-[state=open]:bg-white/10 data-[state=open]:text-white"
+          aria-label={`Notificações${naoLidas ? ` (${naoLidas} não lidas)` : ''}`}
+        >
+          <Bell className="h-[18px] w-[18px]" />
           {naoLidas > 0 && (
-            <span className="absolute right-1 top-1 min-w-4 rounded-full bg-laranja-escuro px-1 text-[10px] font-semibold leading-4 text-white">{naoLidas > 99 ? '99+' : naoLidas}</span>
+            <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-laranja-escuro px-1 text-center text-[10px] font-bold leading-[18px] text-white ring-2 ring-grafite tabular-nums">{naoLidas > 99 ? '99+' : naoLidas}</span>
           )}
-        </Button>
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[22rem] max-w-[calc(100vw-1rem)] p-0">
         <div className="flex items-center justify-between border-b border-border px-3 py-2">

@@ -12,12 +12,12 @@ interface SidebarProps {
   onMobileAbertaChange: (aberta: boolean) => void
 }
 
-/** Assinatura discreta do sistema (a marca em destaque é a da gráfica). */
-function PorOnprint() {
+/** Assinatura discreta do sistema: só o símbolo (a marca em destaque é a da gráfica); o nome aparece no hover. */
+function SimboloOnprint({ className }: { className?: string }) {
   return (
-    <div className="flex items-center gap-1.5 border-t border-border px-6 py-2.5 text-[11px] text-texto-secundario">
-      por <Logo compacto className="[&_svg]:h-4 [&_svg]:w-4" /> <span className="font-titulo font-bold">ONPrint Control</span>
-    </div>
+    <span title="Feito com ONPrint Control" aria-label="Feito com ONPrint Control" className={cn('opacity-60 transition-opacity hover:opacity-100', className)}>
+      <Logo compacto className="[&_svg]:h-5 [&_svg]:w-5" />
+    </span>
   )
 }
 
@@ -34,16 +34,18 @@ export function Sidebar({ recolhida, onAlternar, mobileAberta, onMobileAbertaCha
         <div className="flex-1 overflow-y-auto">
           <SidebarNav recolhida={recolhida} />
         </div>
-        {!recolhida && <PorOnprint />}
-        <button
-          type="button"
-          onClick={onAlternar}
-          className="flex items-center gap-2 border-t border-border px-6 py-3 text-sm text-texto-secundario hover:text-tinta"
-          aria-label={recolhida ? 'Expandir menu' : 'Recolher menu'}
-        >
-          {recolhida ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
-          {!recolhida && 'Recolher menu'}
-        </button>
+        <div className="flex items-center border-t border-border pr-4">
+          <button
+            type="button"
+            onClick={onAlternar}
+            className="flex flex-1 items-center gap-2 px-6 py-3 text-sm text-texto-secundario hover:text-tinta"
+            aria-label={recolhida ? 'Expandir menu' : 'Recolher menu'}
+          >
+            {recolhida ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+            {!recolhida && 'Recolher menu'}
+          </button>
+          {!recolhida && <SimboloOnprint />}
+        </div>
       </aside>
 
       <Sheet open={mobileAberta} onOpenChange={onMobileAbertaChange}>
@@ -55,7 +57,9 @@ export function Sidebar({ recolhida, onAlternar, mobileAberta, onMobileAbertaCha
           <div className="flex-1 overflow-y-auto">
             <SidebarNav onNavegar={() => onMobileAbertaChange(false)} />
           </div>
-          <PorOnprint />
+          <div className="flex justify-end border-t border-border px-4 py-2.5">
+            <SimboloOnprint />
+          </div>
         </SheetContent>
       </Sheet>
     </>

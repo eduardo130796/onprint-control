@@ -62,7 +62,50 @@ export function aplicarModo(modo: ModoTela | null) {
 const FAVICON_PADRAO = '/favicon.svg'
 export const TITULO_PADRAO = 'ONPrint Control'
 
-/** Ícone da aba: a logo da empresa (quando houver) ou o da ONPrint. */
+/**
+ * Ícone da aba gerado no navegador (64 px, nítido e sem link que expira): logo quase quadrada vai centralizada
+ * num quadrado branco arredondado; logo larga (símbolo + nome) fica ilegível nesse tamanho e vira a inicial
+ * da empresa na cor do tema. Sem logo, também a inicial.
+ */
+export async function gerarFavicon(opcoes: { logoUrl: string | null | undefined; nome: string; cor: string; contraste: string }): Promise<string | null> {
+  const lado = 64
+  const canvas = document.createElement('canvas')
+  canvas.width = lado
+  canvas.height = lado
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  const quadrado = (fundo: string) => {
+    ctx.fillStyle = fundo
+    ctx.beginPath()
+    ctx.roundRect(0, 0, lado, lado, 14)
+    ctx.fill()
+  }
+  if (opcoes.logoUrl) {
+    try {
+      const bitmap = await createImageBitmap(await (await fetch(opcoes.logoUrl)).blob())
+      const proporcao = bitmap.width / bitmap.height
+      if (proporcao <= 1.5 && proporcao >= 0.67) {
+        quadrado('#FFFFFF')
+        const margem = 6
+        const escala = Math.min((lado - margem * 2) / bitmap.width, (lado - margem * 2) / bitmap.height)
+        const [w, h] = [bitmap.width * escala, bitmap.height * escala]
+        ctx.drawImage(bitmap, (lado - w) / 2, (lado - h) / 2, w, h)
+        return canvas.toDataURL('image/png')
+      }
+    } catch {
+      // logo indisponível (SVG sem tamanho, rede): segue com a inicial
+    }
+  }
+  quadrado(opcoes.cor)
+  ctx.fillStyle = opcoes.contraste
+  ctx.font = '800 40px Manrope, Inter, system-ui, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(opcoes.nome.trim().charAt(0).toUpperCase() || 'O', lado / 2, lado / 2 + 2)
+  return canvas.toDataURL('image/png')
+}
+
+/** Ícone da aba: o gerado para a empresa ou o da ONPrint. */
 export function definirFavicon(url: string | null | undefined) {
   let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
   if (!link) {

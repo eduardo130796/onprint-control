@@ -2,7 +2,8 @@ import { Suspense, useEffect, useLayoutEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { paginaAtual } from '@/app/navigation'
-import { TITULO_PADRAO, aplicarModo, aplicarTema, definirFavicon } from '@/features/aparencia/tema'
+import { TEMAS, temaOuPadrao } from '@onprint/shared'
+import { TITULO_PADRAO, aplicarModo, aplicarTema, definirFavicon, gerarFavicon } from '@/features/aparencia/tema'
 import { useUrlArquivo } from '@/features/configuracoes/hooks'
 import { useAuth } from '@/hooks/useAuth'
 import { useTempoReal } from '@/hooks/useTempoReal'
@@ -54,8 +55,16 @@ export function AppLayout() {
     document.title = pagina && pathname !== '/' ? `${pagina} · ${empresa.exibicao}` : empresa.exibicao
   }, [pathname, empresa])
   useEffect(() => {
-    definirFavicon(empresa?.logoArquivoId ? logo.data : null)
-  }, [empresa?.logoArquivoId, logo.data])
+    if (!empresa || (empresa.logoArquivoId && !logo.data)) return
+    let atual = true
+    const t = TEMAS[temaOuPadrao(empresa.corTema)]
+    void gerarFavicon({ logoUrl: empresa.logoArquivoId ? logo.data : null, nome: empresa.exibicao, cor: t.cor, contraste: t.contraste }).then((icone) => {
+      if (atual) definirFavicon(icone)
+    })
+    return () => {
+      atual = false
+    }
+  }, [empresa, logo.data])
   useEffect(
     () => () => {
       document.title = TITULO_PADRAO

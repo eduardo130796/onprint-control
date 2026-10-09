@@ -14,6 +14,7 @@ import { registrarAuditoria } from '../../core/auditoria'
 import type { ContextoUsuario } from '../../core/escopo'
 import { paginacao, paginado } from '../../core/paginacao'
 import { avisarMudancaPedido, sincronizarStatusPedido, type MudancaPedido } from '../pedidos/automacao'
+import { enfileirarEtiquetas } from '../etiquetas/fila.service'
 import { formatarOp, incluirOp } from './consultas'
 import { estimarHoras, gerarOpsDoPedido } from './geracao'
 
@@ -158,7 +159,14 @@ export function criarOpsService(app: FastifyInstance, aoConcluir: AoConcluirOp =
               usuarioId: ctx.usuarioId,
             })
           }
-          if (dados.etapa === 'concluido') aposCommit.acao = await aoConcluir(tx, id, ctx.usuarioId)
+          if (dados.etapa === 'concluido') {
+            aposCommit.acao = await aoConcluir(tx, id, ctx.usuarioId)
+            // Pronta para entregar: a etiqueta entra sozinha na fila (se já não estiver pendente)
+            await enfileirarEtiquetas(tx, [id], ctx.usuarioId, true)
+          } else if (op.etapaAtual === 'concluido') {
+            // Voltou da conclusão: sai da fila a etiqueta que tinha entrado sozinha (a adicionada à mão fica)
+            await tx.etiquetaFila.deleteMany({ where: { ordemProducaoId: id, impressaEm: null, automatica: true } })
+          }
         }
         if (dados.ordemIds.length === 0) {
           // Sem a ordem da tela (ex.: mudança pela página da OP): vai para o fim da coluna

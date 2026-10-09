@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { CalendarClock, ClipboardList, Clock, Cpu, ExternalLink, Hourglass, Pencil, Ruler, Tag, User } from 'lucide-react'
 import { formatarDataSimples, type OrdemProducao } from '@onprint/shared'
 import { BotaoCartao } from '@/components/shared/kanban/BotaoCartao'
+import { Checkbox } from '@/components/ui/form-controls'
 import { SeloAtraso, SeloPrioridade } from '@/components/shared/Selos'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { formatarDuracao } from '@/lib/datas'
@@ -12,7 +13,6 @@ export interface AcoesCartaoOp {
   /** Ausente para quem não pode editar a OP */
   onEditar?: (op: OrdemProducao) => void
   onEtiqueta: (op: OrdemProducao) => void
-  imprimindoEtiqueta: boolean
 }
 
 const num = (v: string) => Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 3 })
@@ -21,11 +21,34 @@ const num = (v: string) => Number(v).toLocaleString('pt-BR', { maximumFractionDi
  * Cartão da OP no kanban (estilo Trello): a arte como capa, cliente, item, medidas, prazo, máquina,
  * responsável, horas previstas, tempo na etapa e atalhos.
  */
-export function CartaoOp({ op, acoes }: { op: OrdemProducao; acoes?: AcoesCartaoOp }) {
+/** Modo seleção (etiquetas de várias OPs): caixa de marcar no canto do cartão. */
+export interface SelecaoCartaoOp {
+  marcado: boolean
+  onAlternar: (op: OrdemProducao) => void
+}
+
+export function CartaoOp({ op, acoes, selecao }: { op: OrdemProducao; acoes?: AcoesCartaoOp; selecao?: SelecaoCartaoOp }) {
   const prazo = op.dataFimPrevista ?? op.pedido.dataPrevistaEntrega
   const naEtapa = Math.max(0, (Date.now() - new Date(op.entrouEtapaEm).getTime()) / 1000)
   return (
-    <article className={cn('overflow-hidden rounded-xl border bg-card text-sm shadow-sm transition-shadow hover:shadow-md', op.atrasada ? 'border-coral/60' : 'border-transparent')}>
+    <article
+      className={cn(
+        'relative overflow-hidden rounded-xl border bg-card text-sm shadow-sm transition-shadow hover:shadow-md',
+        op.atrasada ? 'border-coral/60' : 'border-transparent',
+        selecao?.marcado && 'ring-2 ring-marca',
+      )}
+    >
+      {selecao && (
+        <span className="absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-lg bg-card/95 shadow-sm">
+          <Checkbox
+            checked={selecao.marcado}
+            onChange={() => selecao.onAlternar(op)}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="h-[18px] w-[18px]"
+            aria-label={`Selecionar ${op.numero}`}
+          />
+        </span>
+      )}
       {op.arte?.miniaturaUrl && (
         <div className="h-32 bg-fundo">
           <img src={op.arte.miniaturaUrl} alt={`Arte de ${op.item.descricao}`} className="h-full w-full object-cover" loading="lazy" draggable={false} />
@@ -33,7 +56,11 @@ export function CartaoOp({ op, acoes }: { op: OrdemProducao; acoes?: AcoesCartao
       )}
       <div className="p-3.5">
         <div className="flex items-center justify-between gap-2">
-          <Link to={`/producao/ordens/${op.id}`} className="font-mono text-xs font-semibold text-tinta hover:underline" onPointerDown={(e) => e.stopPropagation()}>
+          <Link
+            to={`/producao/ordens/${op.id}`}
+            className={cn('font-mono text-xs font-semibold text-tinta hover:underline', selecao && !op.arte?.miniaturaUrl && 'ml-8')}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
             {op.numero}
           </Link>
           <Link to={`/pedidos/${op.pedidoId}`} className="font-mono text-[11px] text-texto-secundario hover:underline" onPointerDown={(e) => e.stopPropagation()}>
@@ -84,7 +111,7 @@ export function CartaoOp({ op, acoes }: { op: OrdemProducao; acoes?: AcoesCartao
             <BotaoCartao icone={ExternalLink} rotulo="Abrir" onClick={() => acoes.onAbrir(op)} />
             {acoes.onEditar && <BotaoCartao icone={Pencil} rotulo="Editar" onClick={() => acoes.onEditar?.(op)} />}
             <BotaoCartao icone={ClipboardList} rotulo="Ficha" onClick={() => window.open(`/producao/ordens/${op.id}/ficha`, '_blank', 'noopener')} />
-            <BotaoCartao icone={Tag} rotulo="Etiqueta" onClick={() => acoes.onEtiqueta(op)} carregando={acoes.imprimindoEtiqueta} />
+            <BotaoCartao icone={Tag} rotulo="Etiqueta" onClick={() => acoes.onEtiqueta(op)} />
           </div>
         )}
       </div>

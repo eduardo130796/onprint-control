@@ -2,9 +2,10 @@ import argon2 from 'argon2'
 import type { FastifyRequest } from 'fastify'
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { acaoAssinaturaSchema, cupomSchema, empresasPlataformaQuerySchema, idParamSchema, loginSchema, novaEmpresaSchema, planoSchema } from '@onprint/shared'
+import { CODIGOS_ERRO, acaoAssinaturaSchema, cupomSchema, empresasPlataformaQuerySchema, idParamSchema, loginSchema, novaEmpresaSchema, planoSchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { conciliarAssinaturas } from '../../plataforma/cobrancas'
+import { LOGIN_JANELA_MS, LOGIN_MAX_FALHAS, MSG_LOGIN_TRAVADO, criarContadorTentativas } from '../auth/tentativas'
 import { criarCuponsService } from './cupons.service'
 import { criarEmpresasPlataformaService } from './empresas.service'
 import { criarPainelService } from './painel.service'
@@ -22,6 +23,8 @@ export const plataformaRoutes: FastifyPluginAsyncZod = async (app) => {
   const cupons = criarCuponsService(app)
   const protegida = { onRequest: [app.autenticarPlataforma] }
   let hashFicticio: Promise<string> | undefined
+  // Senhas erradas por e-mail, de qualquer IP (o limite da rota é por IP)
+  const falhasLogin = criarContadorTentativas({ max: LOGIN_MAX_FALHAS, janelaMs: LOGIN_JANELA_MS })
 
   const adminDa = async (request: FastifyRequest) => {
     const admin = await app.plataforma.adminPlataforma.findUnique({ where: { id: request.user.sub }, select: { id: true, nome: true, email: true } })
@@ -33,10 +36,16 @@ export const plataformaRoutes: FastifyPluginAsyncZod = async (app) => {
     '/auth/login',
     { config: { rateLimit: { max: 5, timeWindow: '1 minute' } }, schema: { tags, summary: 'Login do administrador da plataforma', body: loginSchema } },
     async (request) => {
-      const admin = await app.plataforma.adminPlataforma.findUnique({ where: { email: request.body.email } })
+      const { email } = request.body
+      if (falhasLogin.bloqueado(email)) throw new AppError(429, CODIGOS_ERRO.MUITAS_TENTATIVAS, MSG_LOGIN_TRAVADO)
+      const admin = await app.plataforma.adminPlataforma.findUnique({ where: { email } })
       // Mesmo tempo de resposta exista ou não o e-mail
       const ok = await argon2.verify(admin?.senhaHash ?? (await (hashFicticio ??= argon2.hash('senha-ficticia-plataforma'))), request.body.senha)
-      if (!admin || !ok || !admin.ativo) throw AppError.naoAutenticado('E-mail ou senha inválidos.')
+      if (!admin || !ok || !admin.ativo) {
+        falhasLogin.registrar(email)
+        throw AppError.naoAutenticado('E-mail ou senha inválidos.')
+      }
+      falhasLogin.limpar(email)
       await app.plataforma.adminPlataforma.update({ where: { id: admin.id }, data: { ultimoLogin: new Date() } })
       const accessToken = app.jwt.sign({ sub: admin.id, plat: true } as never, { expiresIn: VALIDADE_TOKEN })
       return { accessToken, admin: { id: admin.id, nome: admin.nome, email: admin.email } }

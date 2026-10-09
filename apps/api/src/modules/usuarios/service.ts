@@ -50,6 +50,20 @@ export function criarUsuariosService(app: FastifyInstance) {
     return papel
   }
 
+  /** Papel atual de quem faz a ação (lido do banco, não do token, para refletir mudanças recentes). */
+  async function autorEhAdmin(autorId: string) {
+    const autor = await prisma.usuario.findUnique({ where: { id: autorId }, select: { ativo: true, papel: { select: { codigo: true, ativo: true } } } })
+    return Boolean(autor?.ativo && autor.papel.ativo && autor.papel.codigo === 'admin')
+  }
+
+  /**
+   * Evita escalada de privilégio por quem recebeu a permissão de gerenciar usuários:
+   * só um administrador atribui o papel de administrador ou mexe em um administrador.
+   */
+  async function exigirAdminSe(condicao: boolean, autorId: string, mensagem: string) {
+    if (condicao && !(await autorEhAdmin(autorId))) throw AppError.semPermissao(mensagem)
+  }
+
   /** Impede que o sistema fique sem nenhum administrador ativo. */
   async function garantirOutroAdmin(usuarioId: string) {
     const outros = await prisma.usuario.count({
@@ -106,7 +120,8 @@ export function criarUsuariosService(app: FastifyInstance) {
 
     /** Cria o usuário e manda o convite por e-mail (link para criar a senha). */
     async criar(dados: Criar, autorId: string) {
-      await validarPapel(dados.papelId)
+      const papel = await validarPapel(dados.papelId)
+      await exigirAdminSe(papel.codigo === 'admin', autorId, 'Somente um administrador pode atribuir o papel de administrador.')
       await garantirVaga()
       const { senhaProvisoria, ...resto } = dados
       if (!senhaProvisoria && !app.email.configurado) {
@@ -150,9 +165,12 @@ export function criarUsuariosService(app: FastifyInstance) {
     async atualizar(id: string, dados: Editar, autorId: string) {
       const antes = await obter(id)
       const papel = await validarPapel(dados.papelId)
+      if (id === autorId && dados.papelId !== antes.papel.id) throw AppError.semPermissao('Você não pode alterar o próprio papel.')
+      if (id === autorId && !dados.ativo) throw AppError.regraNegocio('Você não pode desativar o próprio usuário.')
+      await exigirAdminSe(antes.papel.codigo === 'admin' && id !== autorId, autorId, 'Somente um administrador pode alterar outro administrador.')
+      await exigirAdminSe(papel.codigo === 'admin' && antes.papel.codigo !== 'admin', autorId, 'Somente um administrador pode atribuir o papel de administrador.')
       const deixaDeSerAdmin = antes.papel.codigo === 'admin' && (papel.codigo !== 'admin' || !dados.ativo)
       if (deixaDeSerAdmin) await garantirOutroAdmin(id)
-      if (id === autorId && !dados.ativo) throw AppError.regraNegocio('Você não pode desativar o próprio usuário.')
       if (dados.ativo && !antes.ativo) await garantirVaga()
 
       const gravar = () =>
@@ -166,35 +184,46 @@ export function criarUsuariosService(app: FastifyInstance) {
             }),
           CONFLITOS,
         )
-      if (dados.email === antes.email) return gravar()
+      // Desativar ou trocar o papel vale na hora (sem esperar o cache da autenticação)
+      const esquecer = <T>(r: T) => {
+        app.esquecerUsuario(contextoEmpresa.exigir().id, id)
+        return r
+      }
+      if (dados.email === antes.email) return esquecer(await gravar())
       // Troca de e-mail: reserva o novo no índice de login e só então libera o antigo
       const empresaId = contextoEmpresa.exigir().id
       const usuario = await indice.comReserva(dados.email, empresaId, id, gravar)
       await indice.liberar(antes.email, empresaId)
-      return usuario
+      return esquecer(usuario)
     },
 
     /** O admin define uma senha provisória; o usuário é obrigado a trocá-la no próximo login. */
     async redefinirSenha(id: string, senhaProvisoria: string, autorId: string) {
-      await obter(id)
+      const alvo = await obter(id)
+      // Definir a senha de um administrador daria acesso à conta dele
+      await exigirAdminSe(alvo.papel.codigo === 'admin' && id !== autorId, autorId, 'Somente um administrador pode redefinir a senha de outro administrador.')
       const senhaHash = await argon2.hash(senhaProvisoria)
       await prisma.$transaction(async (tx) => {
         await tx.usuario.update({ where: { id }, data: { senhaHash, deveTrocarSenha: true } })
         await revogarSessoes(tx, id)
         await registrarAuditoria(tx, { tabela: 'usuarios', registroId: id, acao: 'redefinir_senha', usuarioId: autorId })
       })
+      app.esquecerUsuario(contextoEmpresa.exigir().id, id)
     },
 
     async desativar(id: string, autorId: string) {
       const antes = await obter(id)
       if (id === autorId) throw AppError.regraNegocio('Você não pode desativar o próprio usuário.')
+      await exigirAdminSe(antes.papel.codigo === 'admin', autorId, 'Somente um administrador pode desativar outro administrador.')
       if (antes.papel.codigo === 'admin') await garantirOutroAdmin(id)
-      return prisma.$transaction(async (tx) => {
-        const usuario = await tx.usuario.update({ where: { id }, data: { ativo: false }, select: selecionar })
+      const usuario = await prisma.$transaction(async (tx) => {
+        const u = await tx.usuario.update({ where: { id }, data: { ativo: false }, select: selecionar })
         await revogarSessoes(tx, id)
-        await registrarAuditoria(tx, { tabela: 'usuarios', registroId: id, acao: 'desativar', antes, depois: usuario, usuarioId: autorId })
-        return usuario
+        await registrarAuditoria(tx, { tabela: 'usuarios', registroId: id, acao: 'desativar', antes, depois: u, usuarioId: autorId })
+        return u
       })
+      app.esquecerUsuario(contextoEmpresa.exigir().id, id)
+      return usuario
     },
   }
 }

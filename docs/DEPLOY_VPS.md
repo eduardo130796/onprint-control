@@ -135,10 +135,11 @@ Troque **todos** os valores marcados com `TROQUE`:
 | `APP_URL` | o mesmo domínio com `https://` |
 | `POSTGRES_PASSWORD` | uma senha gerada. Ela aparece **também** dentro de `DATABASE_URL`: troque nos dois lugares |
 | `JWT_ACCESS_SECRET` e `JWT_REFRESH_SECRET` | dois valores gerados, **diferentes entre si**. A API se recusa a subir com segredos fracos ou de exemplo |
-| `ADMIN_EMAIL` e `ADMIN_SENHA_INICIAL` | o primeiro acesso. A troca de senha é obrigatória no 1º login |
+| `ADMIN_EMAIL` e `ADMIN_SENHA_INICIAL` | o primeiro acesso. A troca de senha é obrigatória no 1º login. Numa instalação nova são **obrigatórios**: senha com 12+ caracteres e sem `TROQUE`, senão o seed para e a API não sobe |
 | `SEED_EXEMPLOS` | `false` para começar vazio; `true` cria um catálogo de exemplo (banners, canecas…) |
-| `PLATAFORMA_ADMIN_EMAIL` e `PLATAFORMA_ADMIN_SENHA` | o seu acesso ao painel da plataforma (`https://SEU_DOMINIO/plataforma`), criado na primeira subida. Use uma senha forte e diferente das outras |
+| `PLATAFORMA_ADMIN_EMAIL` e `PLATAFORMA_ADMIN_SENHA` | o seu acesso ao painel da plataforma (`https://SEU_DOMINIO/plataforma`), criado na primeira subida. Use uma senha forte (12+ caracteres, sem `TROQUE`) e diferente das outras |
 | `CADASTRO_PUBLICO` | `true` deixa as gráficas criarem conta sozinhas em `/criar-conta` (teste grátis); `false` fecha |
+| `CADASTROS_POR_HORA` | teto de cadastros pela internet por hora, somando todos os IPs (padrão 30). Passou disso, o cadastro responde "tente de novo em alguns minutos" |
 | `ASAAS_*` | chave de **produção** do Asaas (`ASAAS_AMBIENTE=producao`), token do webhook e dados da NFS-e. Passo a passo no README (seção Pagamento online). O webhook aponta para `https://SEU_DOMINIO/api/v1/plataforma/webhooks/asaas` |
 | `SMTP_*` e `EMAIL_REMETENTE` | dados SMTP do seu provedor de e-mail (tabela de exemplos no README). Sem eles, convites e "esqueci a senha" não chegam a ninguém |
 
@@ -149,6 +150,8 @@ chmod 600 .env.prod
 ```
 
 > Guarde uma cópia do `.env.prod` fora da VPS (num cofre de senhas, por exemplo). Sem ele, os backups continuam válidos, mas você precisa recriar os segredos.
+
+> O `.env.prod` só vai inteiro para o container da API. O banco recebe apenas `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB`, e o Caddy (web) apenas `DOMINIO`, sempre pelo `--env-file .env.prod` dos comandos abaixo (sem ele o compose avisa que falta `POSTGRES_USER`).
 
 ## 8. Subir o sistema
 
@@ -220,6 +223,11 @@ Confira no dia seguinte com `tail /home/onprint/backup.log` e verificando a past
 
 ## 10. Atualizar o sistema
 
+> **Atualização de segurança (D203, revisão de autenticação e implantação):** antes de atualizar uma instalação existente, confira o `.env.prod`:
+> `JWT_ACCESS_SECRET` e `JWT_REFRESH_SECRET` com 32+ caracteres, diferentes e sem `TROQUE` (a API não sobe sem isso).
+> Trocar os segredos JWT encerra as sessões abertas (todos entram de novo) e invalida links de senha já enviados.
+> `ADMIN_*`/`PLATAFORMA_ADMIN_*` só são conferidos quando o administrador ainda vai ser criado: instalações existentes não são afetadas.
+
 ```bash
 cd ~/onprint
 scripts/vps/atualizar.sh
@@ -280,8 +288,13 @@ Cada empresa assinante tem o próprio schema no mesmo banco (`plataforma` guarda
 
 Já vem pronto no sistema:
 - HTTPS obrigatório, com o http redirecionado;
-- cabeçalhos de segurança (HSTS, nosniff, anti-iframe);
-- login limitado a 5 tentativas por minuto por conta;
+- cabeçalhos de segurança (HSTS, nosniff) e, nas páginas do sistema, Content-Security-Policy e anti-iframe (a API mantém os próprios cabeçalhos, para o PDF da arte abrir na página pública de aprovação);
+- login limitado a 20 tentativas por minuto por IP e, por e-mail, 10 senhas erradas em 15 min travam aquele e-mail por 15 min (vale também no painel da plataforma);
+- "esqueci a senha" limitado por IP + e-mail e a 5 pedidos por hora por e-mail; cadastro público limitado por IP e por hora (`CADASTROS_POR_HORA`);
+- renovação de sessão com rotação única: reuso de um refresh token antigo encerra todas as sessões do usuário; troca de senha encerra as outras sessões;
+- usuário desativado ou com papel trocado perde o acesso em até ~15 s (sem esperar o token vencer), também no tempo real;
+- o IP real só é lido do proxy interno (Caddy); `X-Forwarded-For` vindo de fora é ignorado;
+- links de senha nunca aparecem no log;
 - senhas com argon2 e sessão por cookie `httpOnly` + `secure`;
 - documentação da API (`/docs`) desligada em produção.
 
@@ -292,7 +305,8 @@ Já vem pronto no sistema:
 | Navegador avisa "certificado inválido" / o site não abre | DNS ainda não aponta para a VPS, ou as portas 80/443 estão bloqueadas (ufw ou painel). Veja `onprint logs web` |
 | API reinicia sem parar | Veja `onprint logs api`. "Variáveis de ambiente inválidas" = `.env.prod` com segredo fraco, `TROQUE` ou senha do banco diferente em `DATABASE_URL` |
 | Build trava ou é morto ("Killed") | Pouca memória: confira o swap (`free -h`) e construa uma imagem por vez (`build api`, depois `build web`) |
-| "Muitas tentativas" no login | 5 erros seguidos na mesma conta: aguarde 1 minuto |
+| "Muitas tentativas" no login | 10 senhas erradas no mesmo e-mail em 15 min: aguarde 15 minutos (ou 20 tentativas por minuto do mesmo IP: aguarde 1 minuto). Reiniciar a API também zera a trava por e-mail |
+| Seed parou com "o administrador inicial não foi criado" | Instalação nova sem `ADMIN_EMAIL`/`ADMIN_SENHA_INICIAL` (ou `PLATAFORMA_ADMIN_*`), com `TROQUE` ou senha com menos de 12 caracteres. Ajuste o `.env.prod` e suba de novo |
 | Esqueceu a senha | Outro admin usa **Redefinir senha** em Configurações → Usuários |
 | Disco cheio | `docker system df`; `docker image prune -f`; confira `DIAS_RETENCAO` e o tamanho de `backups/` |
 

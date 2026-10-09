@@ -18,6 +18,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useDialogoEtiquetas } from '@/features/impressao/useDialogoEtiquetas'
 import { useImpressao } from '@/features/impressao/useImpressao'
 import { usePermission } from '@/hooks/usePermission'
 import { messagingProvider } from '@/integrations/messaging'
@@ -49,6 +50,7 @@ export function PedidoPage() {
   const templates = useTemplates()
   const podeEditar = usePermission('pedidos', 'editar')
   const impressao = useImpressao()
+  const etiquetas = useDialogoEtiquetas()
   // ?editar=1 (atalho "Editar" do kanban) já abre o diálogo de edição
   const [dialogo, setDialogo] = useState<'editar' | 'cancelar' | 'recibo' | null>(() => (params.get('editar') === '1' && podeEditar ? 'editar' : null))
   const aba = ABAS.find((a) => a === params.get('aba')) ?? 'itens'
@@ -119,7 +121,7 @@ export function PedidoPage() {
                   <Printer /> Pedido
                 </DropdownMenuItem>
                 {pedido.itens.some((i) => i.ordensProducao.some((o) => !o.cancelada)) && (
-                  <DropdownMenuItem onSelect={() => void impressao.etiquetas(pedido.id)}>
+                  <DropdownMenuItem onSelect={() => etiquetas.abrir([{ pedidoId: pedido.id }])}>
                     <Tags /> Etiquetas de entrega
                   </DropdownMenuItem>
                 )}
@@ -231,6 +233,7 @@ export function PedidoPage() {
         </TabsContent>
       </Tabs>
 
+      {etiquetas.dialogo}
       {dialogo === 'recibo' && <ReciboDialog pedidoId={pedido.id} numero={pedido.numero} onFechar={() => setDialogo(null)} />}
       {dialogo === 'editar' && !encerrado && <EditarPedidoDialog pedido={pedido} onFechar={() => setDialogo(null)} />}
       {dialogo === 'cancelar' && <CancelarPedidoDialog pedido={pedido} onFechar={() => setDialogo(null)} />}

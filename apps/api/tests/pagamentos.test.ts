@@ -63,7 +63,7 @@ describe('Asaas: PIX Automático', () => {
 })
 
 describe('gateway e segurança', () => {
-  const base = { DATABASE_URL: 'postgresql://u:s@db:5432/x', JWT_ACCESS_SECRET: 'segredo-1', JWT_REFRESH_SECRET: 'segredo-2' }
+  const base = { NODE_ENV: 'test', DATABASE_URL: 'postgresql://u:s@db:5432/x', JWT_ACCESS_SECRET: 'segredo-1', JWT_REFRESH_SECRET: 'segredo-2' }
   it('sem chave: modo manual (sem pagamento online)', () => {
     expect(criarGateway(carregarEnv(base))).toBeNull()
   })

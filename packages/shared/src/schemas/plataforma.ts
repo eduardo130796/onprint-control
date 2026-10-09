@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { TIPOS_CUPOM } from '../beneficios'
 import { MODULOS } from '../enums'
 import { codigoCupom } from './assinatura'
-import { SENHA_MIN } from './auth'
+import { SENHA_MAX, SENHA_MIN } from './auth'
 import { telefoneOpcional, valorMonetario } from './campos'
 
 const motivo = z.string().trim().min(3, 'Informe o motivo.').max(300)
@@ -63,7 +63,7 @@ export const novaEmpresaSchema = z.object({
   nome: nome('o nome da empresa'),
   email,
   responsavel: nome('o nome do responsável'),
-  senhaProvisoria: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(SENHA_MIN, `A senha precisa ter pelo menos ${SENHA_MIN} caracteres.`).optional()),
+  senhaProvisoria: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(SENHA_MIN, `A senha precisa ter pelo menos ${SENHA_MIN} caracteres.`).max(SENHA_MAX).optional()),
   plano: z.string().min(1, 'Escolha o plano.'),
   situacao: z.enum(['teste', 'ativa', 'cortesia']).default('teste'),
   exemplos: z.boolean().default(false),
@@ -86,7 +86,7 @@ export const cadastroPublicoSchema = z.object({
   nome: nome('seu nome'),
   email,
   telefone: telefoneOpcional,
-  senha: z.string().min(SENHA_MIN, `A senha precisa ter pelo menos ${SENHA_MIN} caracteres.`),
+  senha: z.string().min(SENHA_MIN, `A senha precisa ter pelo menos ${SENHA_MIN} caracteres.`).max(SENHA_MAX),
   plano: z.string().max(40).optional(),
   cupom: codigoCupom,
   aceite: z.literal(true, { message: 'Aceite os termos de uso para continuar.' }),

@@ -11,6 +11,8 @@ import { imprimirPdf } from '@/lib/imprimir'
 
 export type ModoImpressao = 'imprimir' | 'baixar'
 type Gerador = typeof import('./gerar')
+type GrupoEtiquetas = import('./gerar').GrupoEtiquetas
+type OpcoesEtiquetas = import('./gerar').OpcoesEtiquetas
 
 /**
  * Impressão e download dos documentos (orçamento, pedido, etiquetas). "Imprimir" abre o diálogo
@@ -21,6 +23,7 @@ export function useImpressao() {
   const queryClient = useQueryClient()
   const [ocupado, setOcupado] = useState<string | null>(null)
 
+  /** Gera e imprime/baixa; devolve true se deu certo (a fila de etiquetas só marca impressas nesse caso). */
   async function rodar(chave: string, modo: ModoImpressao, gerar: (g: Gerador, empresa: EmpresaConfig) => Promise<{ blob: Blob; nome: string }>) {
     setOcupado(chave)
     try {
@@ -28,8 +31,10 @@ export function useImpressao() {
       const { blob, nome } = await gerar(g, empresa)
       if (modo === 'imprimir') imprimirPdf(blob)
       else baixarArquivo(blob, nome, 'application/pdf')
+      return true
     } catch (e) {
       toast.error(`Não foi possível gerar o documento: ${(e as Error).message}`)
+      return false
     } finally {
       setOcupado(null)
     }
@@ -43,8 +48,8 @@ export function useImpressao() {
     /** Recibo dos pagamentos escolhidos do pedido */
     recibo: (pedidoId: string, recebimentos: RecebimentosPedido, modo: ModoImpressao) =>
       rodar(`recibo:${pedidoId}:${modo}`, modo, async (g, e) => g.pdfRecibo(await pedidosApi.obter(pedidoId), recebimentos, e)),
-    /** Etiquetas de entrega do pedido inteiro, ou só das OPs informadas */
-    etiquetas: (pedidoId: string, opIds?: string[]) =>
-      rodar(`etiquetas:${opIds?.join(',') ?? pedidoId}`, 'imprimir', async (g, e) => g.pdfEtiquetas(await pedidosApi.obter(pedidoId), e, opIds)),
+    /** Etiquetas de entrega de um ou vários pedidos (diálogo "Imprimir etiquetas") */
+    etiquetas: (grupos: GrupoEtiquetas[], opcoes: OpcoesEtiquetas, modo: ModoImpressao) =>
+      rodar(`etiquetas:${modo}`, modo, (g, e) => g.pdfEtiquetas(grupos, e, opcoes)),
   }
 }

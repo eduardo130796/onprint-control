@@ -1,9 +1,10 @@
 import argon2 from 'argon2'
 import type { FastifyInstance } from 'fastify'
-import { filtrarPermissoes, type LoginInput, type TrocarSenhaInput, type UsuarioLogado } from '@onprint/shared'
+import { CODIGOS_ERRO, filtrarPermissoes, type LoginInput, type TrocarSenhaInput, type UsuarioLogado } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { contextoEmpresa, type EmpresaAtual } from '../../core/contexto-empresa'
 import { empresaDoRefreshToken, gerarRefreshToken, hashRefreshToken } from '../../core/tokens'
+import { LOGIN_JANELA_MS, LOGIN_MAX_FALHAS, MSG_LOGIN_TRAVADO, criarContadorTentativas } from './tentativas'
 
 export interface MetaRequisicao {
   ip?: string
@@ -17,12 +18,15 @@ export interface ResultadoAutenticacao {
 }
 
 const CREDENCIAIS_INVALIDAS = 'E-mail ou senha inválidos.'
+/** Duas abas renovando juntas usam o mesmo token: dentro desta carência não é tratado como roubo. */
+const CARENCIA_REUSO_MS = 60_000
 
 export function criarAuthService(app: FastifyInstance) {
   const { prisma, config } = app
   // Hash fictício para que o tempo de resposta não revele se o e-mail existe
   let hashFicticio: Promise<string> | undefined
   const obterHashFicticio = () => (hashFicticio ??= argon2.hash('senha-ficticia-onprint'))
+  const falhasLogin = criarContadorTentativas({ max: LOGIN_MAX_FALHAS, janelaMs: LOGIN_JANELA_MS })
 
   async function montarUsuarioLogado(usuarioId: string): Promise<UsuarioLogado> {
     const usuario = await prisma.usuario.findUnique({
@@ -79,13 +83,22 @@ export function criarAuthService(app: FastifyInstance) {
   return {
     /** O e-mail é único na plataforma: o índice de login diz em qual empresa procurar o usuário. */
     async login(dados: LoginInput, meta: MetaRequisicao): Promise<ResultadoAutenticacao> {
-      const indice = await app.plataforma.indiceLogin.findUnique({ where: { email: dados.email } })
-      const empresa = indice ? await app.empresas.porId(indice.assinanteId) : null
-      if (!empresa) {
-        await argon2.verify(await obterHashFicticio(), dados.senha)
-        throw AppError.naoAutenticado(CREDENCIAIS_INVALIDAS)
+      // Muitas senhas erradas para o mesmo e-mail (de qualquer IP) travam o e-mail por um tempo
+      if (falhasLogin.bloqueado(dados.email)) throw new AppError(429, CODIGOS_ERRO.MUITAS_TENTATIVAS, MSG_LOGIN_TRAVADO)
+      try {
+        const indice = await app.plataforma.indiceLogin.findUnique({ where: { email: dados.email } })
+        const empresa = indice ? await app.empresas.porId(indice.assinanteId) : null
+        if (!empresa) {
+          await argon2.verify(await obterHashFicticio(), dados.senha)
+          throw AppError.naoAutenticado(CREDENCIAIS_INVALIDAS)
+        }
+        const resultado = await contextoEmpresa.com(empresa, () => entrar(dados, meta))
+        falhasLogin.limpar(dados.email)
+        return resultado
+      } catch (erro) {
+        if (erro instanceof AppError && erro.statusCode === 401) falhasLogin.registrar(dados.email)
+        throw erro
       }
-      return contextoEmpresa.com(empresa, () => entrar(dados, meta))
     },
 
     /** Valida o refresh token, revoga a sessão antiga e emite um novo par (rotação). */
@@ -108,18 +121,24 @@ export function criarAuthService(app: FastifyInstance) {
 
     me: montarUsuarioLogado,
 
-    async trocarSenha(usuarioId: string, input: TrocarSenhaInput): Promise<ResultadoAutenticacao> {
+    /** Senha nova encerra todas as sessões e links de senha pendentes; quem trocou recebe uma sessão nova. */
+    async trocarSenha(usuarioId: string, input: TrocarSenhaInput, meta: MetaRequisicao): Promise<ResultadoAutenticacao> {
       const registro = await prisma.usuario.findUnique({ where: { id: usuarioId } })
       if (!registro) throw AppError.naoAutenticado()
       if (!(await argon2.verify(registro.senhaHash, input.senhaAtual))) {
         throw AppError.regraNegocio('A senha atual está incorreta.')
       }
-      await prisma.usuario.update({
-        where: { id: usuarioId },
-        data: { senhaHash: await argon2.hash(input.novaSenha), deveTrocarSenha: false },
-      })
+      const senhaHash = await argon2.hash(input.novaSenha)
+      await prisma.$transaction([
+        prisma.usuario.update({ where: { id: usuarioId }, data: { senhaHash, deveTrocarSenha: false } }),
+        prisma.sessao.updateMany({ where: { usuarioId, revogada: false }, data: { revogada: true } }),
+      ])
+      const empresaId = contextoEmpresa.exigir().id
+      await app.plataforma.tokenSenha.updateMany({ where: { assinanteId: empresaId, usuarioId, usadoEm: null }, data: { usadoEm: new Date() } })
+      app.esquecerUsuario(empresaId, usuarioId)
       const usuario = await montarUsuarioLogado(usuarioId)
-      return { accessToken: assinarAccessToken(usuario), usuario }
+      const refreshToken = await criarSessao(usuarioId, meta)
+      return { accessToken: assinarAccessToken(usuario), refreshToken, usuario }
     },
   }
 
@@ -130,18 +149,38 @@ export function criarAuthService(app: FastifyInstance) {
     if (!registro.ativo) throw AppError.naoAutenticado('Usuário desativado. Fale com o administrador.')
 
     await prisma.usuario.update({ where: { id: registro.id }, data: { ultimoLogin: new Date() } })
+    // Login novo vê na hora o papel e a situação atuais (sem o cache curto da autenticação)
+    app.esquecerUsuario(contextoEmpresa.exigir().id, registro.id)
     const usuario = await montarUsuarioLogado(registro.id)
     const refreshToken = await criarSessao(registro.id, meta)
     return { accessToken: assinarAccessToken(usuario), refreshToken, usuario }
   }
 
+  /**
+   * Rotação: só uma requisição consegue revogar a sessão (update condicional), as demais recebem 401.
+   * A sessão rotacionada guarda o instante da troca em expiraEm (= updatedAt): é assim que se distingue
+   * de logout/troca de senha. Token já rotacionado usado de novo depois da carência = sinal de roubo:
+   * todas as sessões do usuário são encerradas.
+   */
   async function renovarNaEmpresa(refreshToken: string, meta: MetaRequisicao): Promise<ResultadoAutenticacao> {
     const hash = hashRefreshToken(refreshToken, config.JWT_REFRESH_SECRET)
     const sessao = await prisma.sessao.findUnique({ where: { refreshTokenHash: hash } })
-    if (!sessao || sessao.revogada || sessao.expiraEm < new Date()) throw AppError.naoAutenticado()
+    if (!sessao) throw AppError.naoAutenticado()
+    const agora = new Date()
+    const r = await prisma.sessao.updateMany({
+      where: { id: sessao.id, revogada: false, expiraEm: { gt: agora } },
+      data: { revogada: true, expiraEm: agora, updatedAt: agora },
+    })
+    if (r.count !== 1) {
+      const rotacionada = sessao.revogada && Math.abs(sessao.expiraEm.getTime() - sessao.updatedAt.getTime()) < 1000
+      if (rotacionada && agora.getTime() - sessao.expiraEm.getTime() > CARENCIA_REUSO_MS) {
+        await prisma.sessao.updateMany({ where: { usuarioId: sessao.usuarioId, revogada: false }, data: { revogada: true } })
+        app.log.warn({ usuarioId: sessao.usuarioId, empresaId: contextoEmpresa.exigir().id, ip: meta.ip }, 'Refresh token reutilizado: sessões do usuário encerradas')
+      }
+      throw AppError.naoAutenticado()
+    }
 
     const usuario = await montarUsuarioLogado(sessao.usuarioId)
-    await prisma.sessao.update({ where: { id: sessao.id }, data: { revogada: true } })
     const novoRefresh = await criarSessao(sessao.usuarioId, meta)
     return { accessToken: assinarAccessToken(usuario), refreshToken: novoRefresh, usuario }
   }

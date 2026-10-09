@@ -6,10 +6,19 @@
 	header {
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options nosniff
-		X-Frame-Options DENY
 		Referrer-Policy strict-origin-when-cross-origin
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 		-Server
+	}
+
+	# Só nas páginas do front (SPA): a API manda os próprios cabeçalhos (helmet) e precisa poder
+	# ser exibida num iframe da mesma origem (PDF da arte na página pública de aprovação).
+	# Sem CDN nem Google Fonts (fontes vêm do @fontsource); 'wasm-unsafe-eval' é do gerador de PDF
+	# (@react-pdf usa o yoga-layout em WebAssembly); blob: para PDFs gerados no navegador.
+	@spa not path /api/* /socket.io/*
+	header @spa {
+		X-Frame-Options DENY
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' wss://{host}; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 	}
 
 	# Uploads grandes (artes até UPLOAD_MAX_MB) vão direto para a API

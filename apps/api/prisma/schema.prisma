@@ -887,6 +887,7 @@ model Pedido {
   contasReceber        ContaReceber[]
   comissoes            Comissao[]
   ordensProducao       OrdemProducao[]
+  etiquetasFila        EtiquetaFila[]
   movimentacoesEstoque EstoqueMovimentacao[] @relation("MovimentacaoPedido")
 
   @@index([status])
@@ -1130,6 +1131,7 @@ model OrdemProducao {
   historico            OpEtapaHistorico[]
   apontamentos         OpApontamento[]
   movimentacoesEstoque EstoqueMovimentacao[] @relation("MovimentacaoOp")
+  etiquetasFila        EtiquetaFila[]
 
   @@index([pedidoId])
   @@index([pedidoItemId])
@@ -1137,6 +1139,26 @@ model OrdemProducao {
   @@index([maquinaId])
   @@index([responsavelId])
   @@map("ordens_producao")
+}
+
+/// Fila de etiquetas de entrega a imprimir (uma pendente por OP; entra sozinha ao concluir a OP).
+/// Índice único parcial na migration: só uma pendente (impressa_em nulo) por OP.
+model EtiquetaFila {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ordemProducaoId String    @map("ordem_producao_id") @db.Uuid
+  pedidoId        String    @map("pedido_id") @db.Uuid
+  /// true = entrou ao concluir a OP; false = adicionada por alguém
+  automatica      Boolean   @default(false)
+  criadaEm        DateTime  @default(now()) @map("criada_em") @db.Timestamptz(3)
+  impressaEm      DateTime? @map("impressa_em") @db.Timestamptz(3)
+  criadaPor       String?   @map("criada_por") @db.Uuid
+
+  ordemProducao OrdemProducao @relation(fields: [ordemProducaoId], references: [id], onDelete: Cascade)
+  pedido        Pedido        @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+
+  @@index([ordemProducaoId])
+  @@index([impressaEm])
+  @@map("etiquetas_fila")
 }
 
 model OpEtapaHistorico {

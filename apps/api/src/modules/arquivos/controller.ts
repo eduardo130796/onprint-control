@@ -6,8 +6,17 @@ import type { ArquivosService } from './service'
 
 export function criarArquivosController(app: FastifyInstance, service: ArquivosService) {
   /** Arquivos seguem a permissão do módulo da entidade; o logo da empresa é visível a todos os usuários. */
-  async function verificarAcesso(request: FastifyRequest, arquivo: { entidade: string; categoria: string }, escrita: boolean) {
+  async function verificarAcesso(
+    request: FastifyRequest,
+    arquivo: { entidade: string; entidadeId: string | null; categoria: string },
+    escrita: boolean,
+  ) {
     if (!escrita && arquivo.categoria === 'logo') return
+    await verificarModulo(request, arquivo, escrita)
+    await verificarEscopo(request, arquivo)
+  }
+
+  async function verificarModulo(request: FastifyRequest, arquivo: { entidade: string; categoria: string }, escrita: boolean) {
     // Arte e comprovante: quem acompanha o pedido ou a produção também precisa ver (miniatura no kanban)
     if (!escrita && ['arte', 'entrega'].includes(arquivo.entidade)) {
       const verificacoes = await Promise.all([
@@ -19,6 +28,15 @@ export function criarArquivosController(app: FastifyInstance, service: ArquivosS
     }
     const modulo = service.moduloDaEntidade(arquivo.entidade)
     if (!(await app.temPermissao(request, modulo, escrita ? 'editar' : 'visualizar'))) throw AppError.semPermissao()
+  }
+
+  /** Mesmo escopo dos pedidos: sem `ver_todos`, só arquivos dos pedidos (e entregas) em que é o vendedor. */
+  async function verificarEscopo(request: FastifyRequest, arquivo: { entidade: string; entidadeId: string | null }) {
+    if (arquivo.entidade !== 'pedido' && arquivo.entidade !== 'entrega') return
+    if (await app.temPermissao(request, 'pedidos', 'ver_todos')) return
+    if (!(await service.doVendedor(arquivo.entidade, arquivo.entidadeId, request.user.sub))) {
+      throw AppError.naoEncontrado('Registro do arquivo não encontrado.')
+    }
   }
 
   async function enviarConteudo(reply: FastifyReply, arquivo: Awaited<ReturnType<ArquivosService['obter']>>) {

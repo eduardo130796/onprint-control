@@ -195,3 +195,12 @@ Decisões do usuário: todas as empresas no mesmo sistema; bloqueio escalonado (
 - [x] Página pública "Criar conta" (teste grátis sem cartão, entra na hora, e-mail de boas-vindas; armadilha para robôs e limite por IP; `CADASTRO_PUBLICO`)
 - [x] Verificado: testes unitários (shared 110, api 60, web 16) e e2e `fase13` (38 verificações) + regressão das fases 1–12
 - [ ] Aceite validado pelo usuário
+
+### Etiquetas sem desperdício de folha ✅ (aguardando OK)
+Pedido do usuário: "toda hora sai um por folha… otimizar para economizar folha, selecionar mais de um para imprimir".
+- [x] Formatos: A4 com 4 (completa), A4 com 8 (compacta) e térmica 100 × 150 mm; o último escolhido fica lembrado no navegador
+- [x] Diálogo "Imprimir etiquetas" em todas as ações de etiqueta (pedido, painel do pedido, OP, cartão do kanban): escolha das etiquetas por pedido, miniatura da folha para começar na posição X (aproveita folha já usada; o sistema lembra onde a última folha parou), resumo de folhas e sobras, Imprimir / Baixar PDF / Adicionar à fila
+- [x] Seleção de várias OPs no kanban da produção e de várias entregas (pedidos diferentes numa impressão só), com barra flutuante
+- [x] Fila de etiquetas no servidor: OP concluída entra sozinha; adicionar à mão sem duplicar; imprimir pela fila marca como impressas (com Desfazer); aviso "faltam N para completar a folha"; botão com contador no kanban da produção e nas entregas
+- [x] Verificado: testes unitários (shared: distribuição na folha; web: volumes e preferências), e2e `fase16` (23 verificações: entrada automática, sem duplicar nem com cliques simultâneos, marcar/desfazer, saída ao voltar da conclusão, permissão) e regressão da `fase4`; corrigido de quebra o PDF A4 com 4, que saía com 2 por folha (altura "50%" arredondada passava da página)
+- [ ] Aceite validado pelo usuário (e definir o papel: A4 com 4, A4 com 8 ou térmica)

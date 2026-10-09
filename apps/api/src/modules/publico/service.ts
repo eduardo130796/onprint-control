@@ -27,7 +27,7 @@ export function criarPublicoService(app: FastifyInstance) {
     const aberto = (STATUS_ORCAMENTO_ABERTOS as readonly string[]).includes(o.status)
     const expirado = o.validade.toISOString().slice(0, 10) < hojeISO()
     if (aberto && expirado) {
-      await prisma.orcamento.update({ where: { id: o.id }, data: { status: 'expirado' } })
+      await prisma.orcamento.updateMany({ where: { id: o.id, status: o.status }, data: { status: 'expirado' } })
       o.status = 'expirado'
     }
     return o
@@ -84,12 +84,15 @@ export function criarPublicoService(app: FastifyInstance) {
         throw AppError.regraNegocio(o.status === 'expirado' ? 'Este orçamento expirou. Fale com seu atendente.' : 'Este orçamento já foi respondido.')
       }
       await prisma.$transaction(async (tx) => {
-        await tx.orcamento.update({
-          where: { id: o.id },
+        // Transição atômica: só grava se o status ainda for o lido acima (clique duplo ou
+        // aprovar e recusar ao mesmo tempo não aplicam as duas respostas)
+        const { count } = await tx.orcamento.updateMany({
+          where: { id: o.id, status: o.status },
           data: resposta.aprovar
             ? { status: 'aprovado', aprovadoEm: new Date(), aprovadoPorNome: resposta.nome, aprovadoIp: ip }
             : { status: 'recusado', recusadoEm: new Date(), motivoRecusa: resposta.motivo, aprovadoIp: ip },
         })
+        if (count !== 1) throw AppError.regraNegocio('Este orçamento já foi respondido.')
         if (o.vendedor) {
           await tx.notificacao.create({
             data: {

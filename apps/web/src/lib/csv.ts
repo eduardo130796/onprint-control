@@ -3,8 +3,22 @@ export interface ColunaCsv<T> {
   valor: (linha: T) => string | number | null | undefined
 }
 
+/** Número já formatado como texto (ex.: "-10,00", "+5", "-1.234,5"): não é fórmula. */
+const NUMERO_TEXTO = /^[-+]?\d[\d.]*(,\d+)?$/
+
+/**
+ * Injeção de fórmula: no Excel, texto que começa com = + - @ (ou TAB/CR) vira fórmula.
+ * Um apóstrofo na frente faz a planilha tratar a célula como texto. Números ficam como estão.
+ */
+export function neutralizarFormula(valor: string | number | null | undefined): string {
+  if (valor === null || valor === undefined) return ''
+  const texto = String(valor)
+  if (typeof valor === 'number' || NUMERO_TEXTO.test(texto)) return texto
+  return /^[=+\-@\t\r]/.test(texto) ? `'${texto}` : texto
+}
+
 function celula(valor: string | number | null | undefined): string {
-  const texto = valor === null || valor === undefined ? '' : String(valor)
+  const texto = neutralizarFormula(valor)
   return /[";\r\n]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto
 }
 

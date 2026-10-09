@@ -25,14 +25,28 @@ export const socketPlugin = fp(async (app) => {
     cors: { origin: app.config.APP_URL, credentials: true },
   })
 
-  io.use((socket, next) => {
+  /** Usuário ainda ativo e com o mesmo papel (consulta o banco da empresa, com o cache curto da autenticação). */
+  async function usuarioValido(empresaId: string, usuarioId: string, papelId: string) {
+    const empresa = await app.empresas.porId(empresaId)
+    if (!empresa) return false
+    const usuario = await contextoEmpresa.com(empresa, () => app.situacaoUsuario(empresa.id, usuarioId))
+    return Boolean(usuario?.ativo && usuario.papelId === papelId)
+  }
+
+  io.use(async (socket, next) => {
     try {
       const token = String(socket.handshake.auth?.token ?? '')
-      const payload = app.jwt.verify<AccessTokenPayload>(token)
+      const payload = app.jwt.verify<AccessTokenPayload & { exp?: number; plat?: boolean }>(token)
+      if (payload.plat) return next(new Error('NAO_AUTENTICADO'))
       if (payload.dts) return next(new Error('TROCA_SENHA_OBRIGATORIA'))
+      const empresa = await app.empresas.porId(payload.emp)
+      const usuario = empresa && (await contextoEmpresa.com(empresa, () => app.situacaoUsuario(empresa.id, payload.sub)))
+      if (!usuario?.ativo) return next(new Error('NAO_AUTENTICADO'))
       socket.data.usuarioId = payload.sub
-      socket.data.papelId = payload.papelId
+      // Salas pelo papel atual do banco (o do token pode estar desatualizado)
+      socket.data.papelId = usuario.papelId
       socket.data.empresaId = payload.emp
+      socket.data.expira = (payload.exp ?? 0) * 1000
       next()
     } catch {
       next(new Error('NAO_AUTENTICADO'))
@@ -49,6 +63,20 @@ export const socketPlugin = fp(async (app) => {
     if (permissoes.has('pedidos:visualizar')) await socket.join(sala('pedidos'))
   })
 
+  // A cada minuto: token vencido, usuário desativado ou com papel trocado → desconecta
+  // (o front reconecta com o token atual e as salas são refeitas pelo papel novo)
+  const revalidacao = setInterval(() => {
+    void (async () => {
+      for (const socket of io.sockets.sockets.values()) {
+        const { empresaId, usuarioId, papelId, expira } = socket.data as { empresaId?: string; usuarioId?: string; papelId?: string; expira?: number }
+        if (!empresaId || !usuarioId || !papelId) continue
+        const valido = (expira ?? 0) > Date.now() && (await usuarioValido(empresaId, usuarioId, papelId).catch(() => true))
+        if (!valido) socket.disconnect(true)
+      }
+    })()
+  }, 60_000)
+  revalidacao.unref()
+
   app.decorate('tempoReal', {
     emitir: (salas, evento, dados) => {
       const empresaId = contextoEmpresa.exigir().id
@@ -58,6 +86,7 @@ export const socketPlugin = fp(async (app) => {
 
   // Só desconecta os clientes: o servidor HTTP é fechado pelo próprio Fastify
   app.addHook('onClose', async () => {
+    clearInterval(revalidacao)
     io.disconnectSockets(true)
   })
 })

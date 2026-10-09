@@ -1,6 +1,6 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { cadastroPublicoSchema, codigoCupom, formatarDataSimples } from '@onprint/shared'
+import { CODIGOS_ERRO, cadastroPublicoSchema, codigoCupom, formatarDataSimples, hojeISO } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { emailBoasVindas } from '../../integrations/email/modelos'
 import { diaISO } from '../../plataforma/assinaturas'
@@ -18,16 +18,17 @@ export const cadastroRoutes: FastifyPluginAsyncZod = async (app) => {
     }
   })
 
-  // Confere o cupom digitado no cadastro (mostra o desconto antes de criar a conta)
+  // Confere o cupom digitado no cadastro (mostra o desconto antes de criar a conta).
+  // Poucas consultas por IP e mensagem única: não serve para descobrir quais códigos existem
   app.get(
     '/cupons/validar',
     {
-      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+      config: { rateLimit: { max: 10, timeWindow: '10 minutes' } },
       schema: { tags: ['plataforma'], summary: 'Confere um cupom (cadastro)', querystring: z.object({ codigo: codigoCupom, plano: z.string().max(40).optional() }) },
     },
     async (request) => {
       if (!request.query.codigo) throw AppError.regraNegocio('Informe o cupom.')
-      const c = await validarCupom(app.plataforma, request.query.codigo, request.query.plano ?? null).catch((erro: Error) => {
+      const c = await validarCupom(app.plataforma, request.query.codigo, request.query.plano ?? null, hojeISO(), { publico: true }).catch((erro: Error) => {
         throw AppError.regraNegocio(erro.message)
       })
       return { codigo: c.codigo, descricao: c.descricao || descricaoCupom(c), tipo: c.tipo, valor: c.valor.toFixed(2), duracaoMeses: c.duracaoMeses, planos: c.planos }
@@ -43,12 +44,18 @@ export const cadastroRoutes: FastifyPluginAsyncZod = async (app) => {
     },
     async (request, reply) => {
       if (!app.config.CADASTRO_PUBLICO) throw AppError.semPermissao('O cadastro pela internet está fechado. Fale com o suporte.')
+      // Teto geral por hora (além do limite por IP): cadastro em massa de vários IPs não esgota o servidor
+      const ultimaHora = await app.plataforma.eventoAssinatura.count({ where: { tipo: 'cadastro', createdAt: { gte: new Date(Date.now() - 3_600_000) } } })
+      if (ultimaHora >= app.config.CADASTROS_POR_HORA) {
+        request.log.warn({ ultimaHora }, 'Teto de cadastros por hora atingido')
+        throw new AppError(429, CODIGOS_ERRO.MUITAS_TENTATIVAS, 'Muitos cadastros neste momento. Tente de novo em alguns minutos ou fale com o suporte.')
+      }
       const d = request.body
       const codigoPlano = d.plano || app.config.PLANO_PADRAO
       const plano = await app.plataforma.plano.findUnique({ where: { codigo: codigoPlano } })
       if (!plano?.ativo || !plano.publico) throw AppError.regraNegocio('Plano indisponível.')
       if (d.cupom) {
-        await validarCupom(app.plataforma, d.cupom, codigoPlano).catch((erro: Error) => {
+        await validarCupom(app.plataforma, d.cupom, codigoPlano, hojeISO(), { publico: true }).catch((erro: Error) => {
           throw AppError.regraNegocio(erro.message, { campo: 'cupom' })
         })
       }

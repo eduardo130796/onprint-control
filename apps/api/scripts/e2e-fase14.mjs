@@ -32,7 +32,8 @@ r = await painel('POST', '/cupons', { codigo: 'FIXO50', tipo: 'valor', valor: '5
 const fixo = r.json
 conferir('cupom de valor fixo para sempre, 1 uso, só planos maiores', `${r.status} ${fixo.resumo} ${fixo.limiteUsos}`, '201 R$ 50,00 de desconto para sempre 1')
 conferir('cadastro confere o cupom', (await chamar('GET', '/plataforma/cupons/validar?codigo=bemvindo20&plano=essencial')).json.descricao, '20% de desconto por 2 meses')
-conferir('cupom que não existe', (await chamar('GET', '/plataforma/cupons/validar?codigo=NADA99&plano=essencial')).status, 422)
+r = await chamar('GET', '/plataforma/cupons/validar?codigo=NADA99&plano=essencial')
+conferir('cupom que não existe (mensagem genérica)', `${r.status} ${r.json.error?.message}`, '422 Cupom inválido ou indisponível.')
 conferir('cupom de outro plano', (await chamar('GET', '/plataforma/cupons/validar?codigo=FIXO50&plano=essencial')).json.error?.message, 'Este cupom não vale para este plano.')
 
 console.log('\n— Cupom no cadastro e ao assinar —')

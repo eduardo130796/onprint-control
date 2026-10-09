@@ -43,7 +43,7 @@ export function criarAuthController(service: AuthService, opcoes: { producao: bo
     },
 
     async trocarSenha(body: TrocarSenhaInput, request: FastifyRequest, reply: FastifyReply) {
-      return responder(reply, await service.trocarSenha(request.user.sub, body))
+      return responder(reply, await service.trocarSenha(request.user.sub, body, meta(request)))
     },
   }
 }

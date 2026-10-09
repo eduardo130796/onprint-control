@@ -10,6 +10,7 @@ import {
 } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
+import { conteudoConfere, lerInicio } from './conteudo'
 
 const MIMES: Record<string, string> = {
   pdf: 'application/pdf',
@@ -71,6 +72,19 @@ export function criarArquivosService(app: FastifyInstance) {
       return modulo
     },
 
+    /**
+     * Pedido (e entrega, pelo pedido dela) dos quais o usuário é o vendedor, para o escopo
+     * "somente os meus". Devolve false se o registro não existe ou é de outro vendedor.
+     */
+    async doVendedor(entidade: 'pedido' | 'entrega', entidadeId: string | null, usuarioId: string) {
+      if (!entidadeId) return false
+      const achou =
+        entidade === 'pedido'
+          ? await prisma.pedido.findFirst({ where: { id: entidadeId, vendedorId: usuarioId }, select: { id: true } })
+          : await prisma.entrega.findFirst({ where: { id: entidadeId, pedido: { vendedorId: usuarioId } }, select: { id: true } })
+      return Boolean(achou)
+    },
+
     /** Lê o arquivo do multipart, valida tipo/tamanho e grava no storage. */
     async receberUpload(request: FastifyRequest, opcoes: OpcoesUpload, usuarioId: string): Promise<Arquivo> {
       const parte = await request.file()
@@ -92,6 +106,13 @@ export function criarArquivosService(app: FastifyInstance) {
         await storage.remover(salvo.caminho)
         throw new AppError(413, 'VALIDACAO', `Arquivo maior que o limite de ${app.config.UPLOAD_MAX_MB} MB.`)
       }
+      // A extensão não basta: o começo do arquivo precisa ser do tipo declarado (ex.: HTML renomeado para .png)
+      const confere = conteudoConfere(extensao, await lerInicio(storage.abrir(salvo.caminho)))
+      if (confere === false) {
+        await storage.remover(salvo.caminho)
+        throw AppError.regraNegocio('O conteúdo do arquivo não corresponde à extensão.')
+      }
+      if (confere === null) app.log.warn({ extensao }, 'Upload sem verificação de conteúdo para esta extensão')
 
       return prisma.$transaction(async (tx) => {
         const arquivo = await tx.arquivo.create({

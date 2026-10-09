@@ -35,6 +35,12 @@ export function criarPermissoesService(app: FastifyInstance) {
       if (!papel) throw AppError.naoEncontrado('Papel não encontrado.')
       if (papel.codigo === 'admin') throw AppError.regraNegocio('As permissões do administrador não podem ser alteradas.')
 
+      // Contra escalada de privilégio: ninguém mexe no próprio papel, e quem não é administrador
+      // só concede permissões que ele mesmo tem (papel lido do banco, não do token)
+      const autor = await prisma.usuario.findUnique({ where: { id: usuarioId }, select: { papel: { select: { id: true, codigo: true } } } })
+      if (!autor) throw AppError.semPermissao()
+      if (autor.papel.id === papelId) throw AppError.semPermissao('Você não pode alterar as permissões do seu próprio papel.')
+
       const catalogo = await prisma.permissao.findMany()
       const porChave = new Map(catalogo.map((p) => [`${p.modulo}:${p.acao}`, p.id]))
       const desconhecidas = chaves.filter((c) => !porChave.has(c))
@@ -42,6 +48,11 @@ export function criarPermissoesService(app: FastifyInstance) {
 
       const unicas = [...new Set(chaves)]
       const antes = papel.permissoes.map((pp) => `${pp.permissao.modulo}:${pp.permissao.acao}`).sort()
+      if (autor.papel.codigo !== 'admin') {
+        const minhas = await app.permissoesDoPapel(autor.papel.id)
+        const novas = unicas.filter((c) => !antes.includes(c) && !minhas.has(c))
+        if (novas.length) throw AppError.semPermissao('Você só pode conceder permissões que você mesmo tem.')
+      }
       await prisma.$transaction(async (tx) => {
         await tx.papelPermissao.deleteMany({ where: { papelId } })
         await tx.papelPermissao.createMany({

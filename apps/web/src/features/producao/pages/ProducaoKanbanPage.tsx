@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Radio } from 'lucide-react'
+import { CheckSquare, Radio } from 'lucide-react'
 import { PRIORIDADES, PRIORIDADE_ROTULOS, type EtapaProducao, type OrdemProducao, type Prioridade } from '@onprint/shared'
 import { opsApi } from '@/api/producao'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -9,11 +9,15 @@ import { ABAS_PRODUCAO } from '@/app/abas'
 import { AbasNavegacao } from '@/components/shared/AbasNavegacao'
 import { EstadoErro } from '@/components/shared/EstadoErro'
 import { Kanban, type ColunaDef } from '@/components/shared/kanban/Kanban'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Checkbox, Select } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useImpressao } from '@/features/impressao/useImpressao'
+import { BotaoFilaEtiquetas } from '@/features/impressao/FilaEtiquetas'
+import { BarraSelecaoEtiquetas } from '@/features/impressao/SelecaoEtiquetas'
+import { useDialogoEtiquetas } from '@/features/impressao/useDialogoEtiquetas'
+import { useAcoesFilaEtiquetas } from '@/features/impressao/useFilaEtiquetas'
 import { useDebounce } from '@/hooks/useDebounce'
 import { destinoDaColuna, montarColunas, personalizadoValido } from '@/lib/colunasStatus'
 import { usePermission } from '@/hooks/usePermission'
@@ -84,15 +88,41 @@ export function ProducaoKanbanPage() {
   )
   const [editando, setEditando] = useState<OrdemProducao | null>(null)
   const [aberta, setAberta] = useState<OrdemProducao | null>(null)
-  const { etiquetas, ocupado } = useImpressao()
+  const etiquetas = useDialogoEtiquetas()
+  const abrirEtiquetas = etiquetas.abrir
+  const fila = useAcoesFilaEtiquetas()
+  // Modo seleção: marca OPs (de pedidos diferentes) para imprimir as etiquetas juntas ou mandar para a fila
+  const [selecionando, setSelecionando] = useState(false)
+  const [selecao, setSelecao] = useState<Map<string, OrdemProducao>>(() => new Map())
+  const alternarSelecao = useCallback((op: OrdemProducao) => {
+    setSelecao((atual) => {
+      const novo = new Map(atual)
+      if (novo.has(op.id)) novo.delete(op.id)
+      else novo.set(op.id, op)
+      return novo
+    })
+  }, [])
+  const sairDaSelecao = () => {
+    setSelecionando(false)
+    setSelecao(new Map())
+  }
+  const lotesDaSelecao = () => {
+    const ops = [...selecao.values()]
+    return [...new Set(ops.map((o) => o.pedidoId))].map((pedidoId) => ({ pedidoId, opIds: ops.filter((o) => o.pedidoId === pedidoId).map((o) => o.id) }))
+  }
   const renderCartao = useCallback(
     (op: OrdemProducao) => (
       <CartaoOp
         op={op}
-        acoes={{ onAbrir: setAberta, onEditar: podeMover ? setEditando : undefined, onEtiqueta: (o) => void etiquetas(o.pedidoId, [o.id]), imprimindoEtiqueta: ocupado === `etiquetas:${op.id}` }}
+        selecao={selecionando ? { marcado: selecao.has(op.id), onAlternar: alternarSelecao } : undefined}
+        acoes={{
+          onAbrir: setAberta,
+          onEditar: podeMover ? setEditando : undefined,
+          onEtiqueta: (o) => abrirEtiquetas([{ pedidoId: o.pedidoId, opIds: [o.id] }]),
+        }}
       />
     ),
-    [podeMover, etiquetas, ocupado],
+    [podeMover, abrirEtiquetas, selecionando, selecao, alternarSelecao],
   )
 
   return (
@@ -103,6 +133,14 @@ export function ProducaoKanbanPage() {
           <span className="inline-flex items-center gap-1.5">
             <Radio className="h-3.5 w-3.5 text-verde" /> Atualiza sozinho quando alguém move uma OP. Clique no cartão para ver detalhes e ações.
           </span>
+        }
+        acoes={
+          <>
+            <BotaoFilaEtiquetas />
+            <Button variant={selecionando ? 'default' : 'outline'} onClick={() => (selecionando ? sairDaSelecao() : setSelecionando(true))} aria-pressed={selecionando}>
+              <CheckSquare /> {selecionando ? 'Sair da seleção' : 'Selecionar'}
+            </Button>
+          </>
         }
       />
       <AbasNavegacao rotulo="Produção" abas={ABAS_PRODUCAO} />
@@ -148,11 +186,29 @@ export function ProducaoKanbanPage() {
           <EstadoErro erro={consulta.error} onTentarNovamente={() => void consulta.refetch()} />
         </Card>
       ) : (
-        <Kanban colunas={colunas} idDe={idDaOp} renderCartao={renderCartao} podeArrastar={() => podeMover} onMover={onMover} onAbrir={setAberta} />
+        <Kanban
+          colunas={colunas}
+          idDe={idDaOp}
+          renderCartao={renderCartao}
+          podeArrastar={() => podeMover && !selecionando}
+          onMover={onMover}
+          onAbrir={selecionando ? alternarSelecao : setAberta}
+        />
       )}
       <OverrideDialog op={override} onConfirmar={confirmarOverride} onCancelar={cancelarOverride} />
       {aberta && <PainelOp op={aberta} onFechar={() => setAberta(null)} onEditar={podeMover ? setEditando : undefined} />}
       {editando && <ReprogramarOpDialog op={editando} onFechar={() => setEditando(null)} />}
+      {selecionando && (
+        <BarraSelecaoEtiquetas
+          quantidade={selecao.size}
+          onImprimir={() => abrirEtiquetas(lotesDaSelecao())}
+          onFila={async () => {
+            if (await fila.adicionar({ opIds: [...selecao.keys()] })) sairDaSelecao()
+          }}
+          onLimpar={sairDaSelecao}
+        />
+      )}
+      {etiquetas.dialogo}
     </>
   )
 }

@@ -6,6 +6,7 @@ import { registrarAuditoria } from '../../core/auditoria'
 import { contextoEmpresa } from '../../core/contexto-empresa'
 import { emailConviteUsuario, emailRedefinirSenha, emailSenhaAlterada } from '../../integrations/email/modelos'
 import { VALIDADE_HORAS, criarTokensSenha, type FinalidadeToken } from '../../plataforma/tokens-senha'
+import { criarContadorTentativas } from './tentativas'
 
 const LINK_INVALIDO = 'Este link expirou ou já foi usado. Peça um novo em "Esqueci minha senha".'
 
@@ -19,6 +20,8 @@ interface Destinatario {
 export function criarRecuperacaoService(app: FastifyInstance) {
   const { prisma, config } = app
   const tokens = criarTokensSenha(app.plataforma, config.JWT_REFRESH_SECRET)
+  // Até 5 pedidos de link por e-mail por hora, venham de qualquer IP (não enche a caixa de ninguém)
+  const pedidosPorEmail = criarContadorTentativas({ max: 5, janelaMs: 60 * 60_000 })
 
   /** Nome que a pessoa reconhece: o fantasia/razão social configurado pela empresa. */
   async function nomeDaEmpresa() {
@@ -61,6 +64,9 @@ export function criarRecuperacaoService(app: FastifyInstance) {
      * A busca e o envio rodam depois da resposta.
      */
     solicitar(email: string, ip: string) {
+      // Passou do limite: ignora em silêncio (a resposta continua a mesma)
+      if (pedidosPorEmail.bloqueado(email)) return
+      pedidosPorEmail.registrar(email)
       setImmediate(() => void processarPedido(email, ip).catch((erro: unknown) => app.log.error({ err: erro }, 'Falha no pedido de nova senha')))
     },
 
@@ -84,6 +90,7 @@ export function criarRecuperacaoService(app: FastifyInstance) {
           await tx.sessao.updateMany({ where: { usuarioId: usuario.id, revogada: false }, data: { revogada: true } })
           await registrarAuditoria(tx, { tabela: 'usuarios', registroId: usuario.id, acao: 'redefinir_senha', depois: { pelo: link.finalidade }, usuarioId: usuario.id })
         })
+        app.esquecerUsuario(contextoEmpresa.exigir().id, usuario.id)
         const aviso = emailSenhaAlterada({ nome: usuario.nome, empresa: await nomeDaEmpresa(), quando: formatarDataHora(new Date().toISOString()) })
         void app.email.enviar(usuario.email, aviso)
       })

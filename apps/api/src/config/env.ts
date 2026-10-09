@@ -42,6 +42,8 @@ const envSchema = z.object({
   SUPORTE_CONTATO: z.string().default(''),
   /** Página pública "Criar conta" (teste grátis) aberta */
   CADASTRO_PUBLICO: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
+  /** Teto de cadastros pela internet por hora, somando todos os IPs */
+  CADASTROS_POR_HORA: z.coerce.number().int().min(0).default(30),
   /** Plano das empresas novas (cadastro e comando empresa:criar) */
   PLANO_PADRAO: z.string().default('profissional'),
   /** Asaas: sem chave, o pagamento online fica desligado (modo manual, o suporte registra as cobranças) */
@@ -69,16 +71,17 @@ const envSchema = z.object({
   ASAAS_NF_IR: z.coerce.number().min(0).default(0),
 })
 
-/** Em produção, segredos fracos ou de exemplo impedem a API de subir. */
+/** Segredos fracos ou de exemplo impedem a API de subir (fora dos testes automatizados). */
 const envProducao = envSchema.superRefine((env, ctx) => {
   // Com o Asaas ligado, o webhook precisa de um token forte (senão qualquer um "confirma" pagamentos)
   if (env.ASAAS_API_KEY && env.ASAAS_WEBHOOK_TOKEN.length < 32) {
     ctx.addIssue({ code: 'custom', path: ['ASAAS_WEBHOOK_TOKEN'], message: 'com ASAAS_API_KEY, defina um token de webhook com 32+ caracteres (openssl rand -hex 32)' })
   }
-  if (env.NODE_ENV !== 'production') return
+  // Segredos de JWT fracos permitem forjar tokens: valem em todo ambiente, menos nos testes automatizados
+  if (env.NODE_ENV === 'test') return
   for (const chave of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'] as const) {
-    if (env[chave].length < 32 || env[chave].includes('troque')) {
-      ctx.addIssue({ code: 'custom', path: [chave], message: 'em produção use um segredo aleatório com 32+ caracteres (openssl rand -hex 32)' })
+    if (env[chave].length < 32 || env[chave].toLowerCase().includes('troque')) {
+      ctx.addIssue({ code: 'custom', path: [chave], message: 'use um segredo aleatório com 32+ caracteres (openssl rand -hex 32)' })
     }
   }
   if (env.JWT_ACCESS_SECRET === env.JWT_REFRESH_SECRET) {

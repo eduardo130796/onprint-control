@@ -8,7 +8,7 @@ import { LogEmailProvider, PastaEmailProvider, SmtpEmailProvider, criarProvedorE
 import { emailConviteUsuario, emailRedefinirSenha, emailSenhaAlterada, escaparHtml } from '../src/integrations/email/modelos'
 import { hashTokenSenha } from '../src/plataforma/tokens-senha'
 
-const base = { DATABASE_URL: 'postgresql://u:s@db:5432/x', JWT_ACCESS_SECRET: 'segredo-1', JWT_REFRESH_SECRET: 'segredo-2' }
+const base = { NODE_ENV: 'test', DATABASE_URL: 'postgresql://u:s@db:5432/x', JWT_ACCESS_SECRET: 'segredo-1', JWT_REFRESH_SECRET: 'segredo-2' }
 const log = { info: vi.fn() } as unknown as FastifyBaseLogger
 
 describe('modelos de e-mail', () => {
@@ -54,6 +54,13 @@ describe('provedor de e-mail', () => {
 
   it('sem SMTP: só registra no log', () => {
     expect(criarProvedorEmail(carregarEnv(base), log)).toBeInstanceOf(LogEmailProvider)
+  })
+
+  it('em produção o log não leva o texto (links de senha)', async () => {
+    const info = vi.fn()
+    await new LogEmailProvider({ info } as unknown as FastifyBaseLogger, false).enviar({ para: 'a@b.com', assunto: 'Nova senha', texto: 'https://x/redefinir-senha?token=segredo' })
+    expect(JSON.stringify(info.mock.calls)).not.toContain('segredo')
+    expect(info.mock.calls[0]?.[0]).toEqual({ email: { para: 'a@b.com', assunto: 'Nova senha' } })
   })
 
   it('com SMTP_HOST: usa SMTP', () => {

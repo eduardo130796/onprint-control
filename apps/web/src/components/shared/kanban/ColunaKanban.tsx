@@ -31,6 +31,8 @@ function CartaoArrastavel({ id, desabilitado, onAbrir, children }: { id: string;
       {...attributes}
       // O cartão contém links: "group" em vez de "button" evita controle interativo aninhado (teclado continua via tabIndex)
       role="group"
+      // Sem arraste o cartão continua clicável (abrir, selecionar, atalhos): não anunciar tudo como desabilitado
+      aria-disabled={undefined}
       {...listeners}
     >
       {children}

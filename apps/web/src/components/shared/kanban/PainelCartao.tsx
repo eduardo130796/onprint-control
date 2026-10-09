@@ -10,11 +10,13 @@ interface PainelCartaoProps {
   subtitulo?: ReactNode
   /** Botões de ação rápida, logo abaixo do título */
   acoes?: ReactNode
+  /** Barra fixa no pé do painel (ex.: botão principal) */
+  rodape?: ReactNode
   children: ReactNode
 }
 
 /** Painel lateral (direita) aberto ao clicar num cartão do kanban: detalhes + ações rápidas. */
-export function PainelCartao({ aberto, onFechar, titulo, subtitulo, acoes, children }: PainelCartaoProps) {
+export function PainelCartao({ aberto, onFechar, titulo, subtitulo, acoes, rodape, children }: PainelCartaoProps) {
   return (
     <DialogPrimitive.Root open={aberto} onOpenChange={(v) => !v && onFechar()}>
       <DialogPrimitive.Portal>
@@ -34,6 +36,7 @@ export function PainelCartao({ aberto, onFechar, titulo, subtitulo, acoes, child
           </header>
           {acoes && <div className="grid grid-cols-2 gap-2 border-b border-border px-5 py-4 sm:grid-cols-3">{acoes}</div>}
           <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4 text-sm">{children}</div>
+          {rodape && <div className="border-t border-border px-5 py-4">{rodape}</div>}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

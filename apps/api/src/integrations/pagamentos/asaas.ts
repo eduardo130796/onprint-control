@@ -45,6 +45,18 @@ export function situacaoAsaas(status: string, removida = false): SituacaoCobranc
   return 'pendente'
 }
 
+/** Só links https do próprio Asaas (asaas.com e subdomínios, ex.: sandbox.asaas.com) vão para a tela; o resto vira null. */
+export function urlAsaas(url: string | null | undefined): string | null {
+  if (!url) return null
+  try {
+    const u = new URL(url)
+    const host = u.hostname.toLowerCase()
+    return u.protocol === 'https:' && (host === 'asaas.com' || host.endsWith('.asaas.com')) ? url : null
+  } catch {
+    return null
+  }
+}
+
 export function cobrancaDoAsaas(p: PagamentoAsaas): CobrancaGateway {
   const pago = p.clientPaymentDate ?? p.paymentDate ?? p.confirmedDate
   const situacao = situacaoAsaas(p.status, p.deleted)
@@ -57,7 +69,7 @@ export function cobrancaDoAsaas(p: PagamentoAsaas): CobrancaGateway {
     situacao,
     forma: p.billingType ?? null,
     pagoEm: situacao === 'paga' && pago ? new Date(`${pago.slice(0, 10)}T12:00:00-03:00`) : null,
-    linkPagamento: p.invoiceUrl ?? null,
+    linkPagamento: urlAsaas(p.invoiceUrl),
   }
 }
 
@@ -71,7 +83,7 @@ export function situacaoNotaAsaas(status: string): SituacaoNotaFiscal {
 export function notaDoAsaas(n: NotaAsaas): NotaFiscalGateway | null {
   if (!n.payment) return null
   const situacao = situacaoNotaAsaas(n.status)
-  return { cobrancaGatewayId: n.payment, situacao, numero: n.number ?? null, linkPdf: n.pdfUrl ?? null, erro: situacao === 'erro' ? (n.statusDescription ?? 'Erro na emissão') : null }
+  return { cobrancaGatewayId: n.payment, situacao, numero: n.number ?? null, linkPdf: urlAsaas(n.pdfUrl), erro: situacao === 'erro' ? (n.statusDescription ?? 'Erro na emissão') : null }
 }
 
 /** Autorização do PIX Automático (resposta da API e objeto `authorization` dos webhooks). */
@@ -177,6 +189,15 @@ export class AsaasGateway implements GatewayPagamentos {
 
   async cancelarAssinatura(id: string) {
     await this.chamar('DELETE', `/subscriptions/${id}`)
+  }
+
+  async obterCobranca(id: string) {
+    try {
+      return cobrancaDoAsaas(await this.chamar<PagamentoAsaas>('GET', `/payments/${encodeURIComponent(id)}`))
+    } catch (erro) {
+      if (erro instanceof ErroGateway && erro.status === 404) return null
+      throw erro
+    }
   }
 
   async cobrancasDaAssinatura(id: string) {

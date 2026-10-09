@@ -8,6 +8,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { ValorComSaldo } from '@/components/shared/ValorComSaldo'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ReceberValorDialog } from '@/features/financeiro/components/ReceberValorDialog'
+import { useDialogoEtiquetas } from '@/features/impressao/useDialogoEtiquetas'
 import { useImpressao } from '@/features/impressao/useImpressao'
 import { usePermissoes } from '@/hooks/usePermission'
 import { useStatusConfig } from '@/hooks/useStatusConfig'
@@ -22,6 +23,7 @@ export function PainelPedido({ pedido: resumo, onFechar }: { pedido: Pedido; onF
   const pode = usePermissoes()
   const { mapa } = useStatusConfig()
   const impressao = useImpressao()
+  const etiquetas = useDialogoEtiquetas()
   const consulta = usePedido(resumo.id)
   const [dialogo, setDialogo] = useState<'recibo' | 'receber' | null>(null)
   const p = consulta.data
@@ -56,7 +58,7 @@ export function PainelPedido({ pedido: resumo, onFechar }: { pedido: Pedido; onF
             <AcaoPainel icone={ExternalLink} rotulo="Abrir pedido" onClick={() => ir(`/pedidos/${resumo.id}`)} destaque />
             {!encerrado && pode('pedidos', 'editar') && <AcaoPainel icone={Pencil} rotulo="Editar" onClick={() => ir(`/pedidos/${resumo.id}?editar=1`)} />}
             <AcaoPainel icone={Printer} rotulo="Imprimir pedido" onClick={() => void impressao.pedido(resumo.id, 'imprimir')} carregando={impressao.ocupado === `pedido:${resumo.id}:imprimir`} />
-            {temOps && <AcaoPainel icone={Tags} rotulo="Etiquetas" onClick={() => void impressao.etiquetas(resumo.id)} carregando={impressao.ocupado === `etiquetas:${resumo.id}`} />}
+            {temOps && <AcaoPainel icone={Tags} rotulo="Etiquetas" onClick={() => etiquetas.abrir([{ pedidoId: resumo.id }])} />}
             {Number(resumo.valorPago) > 0 && <AcaoPainel icone={ReceiptText} rotulo="Recibo" onClick={() => setDialogo('recibo')} />}
             {aberto > 0.004 && pode('financeiro', 'editar') && <AcaoPainel icone={CircleDollarSign} rotulo="Receber valor" onClick={() => setDialogo('receber')} />}
             <AcaoPainel icone={Wallet} rotulo="Financeiro" onClick={() => ir(`/pedidos/${resumo.id}?aba=financeiro`)} />
@@ -138,6 +140,7 @@ export function PainelPedido({ pedido: resumo, onFechar }: { pedido: Pedido; onF
           </>
         )}
       </PainelCartao>
+      {etiquetas.dialogo}
       {dialogo === 'recibo' && <ReciboDialog pedidoId={resumo.id} numero={resumo.numero} onFechar={() => setDialogo(null)} />}
       {dialogo === 'receber' && p && <ReceberValorDialog pedidoId={p.id} numero={p.numero} contas={p.contasReceber} onFechar={() => setDialogo(null)} />}
     </>

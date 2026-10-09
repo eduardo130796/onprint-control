@@ -174,7 +174,7 @@ export function criarAssinaturaService(app: FastifyInstance) {
       const abertas = cobrancas.filter((c) => ABERTAS.includes(c.situacao)).sort((x, y) => vencimentoQueConta(x).localeCompare(vencimentoQueConta(y)))
       const aberta = abertas[0]
       const agendado = a.planoAgendadoId ? planos.find((p) => p.id === a.planoAgendadoId) ?? (await plataforma.plano.findUnique({ where: { id: a.planoAgendadoId } })) : null
-      return {
+      const completa: MinhaAssinatura = {
         situacao: a.situacao as SituacaoAssinatura,
         plano: {
           codigo: a.plano.codigo,
@@ -216,6 +216,9 @@ export function criarAssinaturaService(app: FastifyInstance) {
         planoAgendado: agendado && a.planoAgendadoEm ? { nome: agendado.nome, valorMensal: agendado.valorMensal.toFixed(2), em: diaISO(a.planoAgendadoEm) as string } : null,
         cobrancas: cobrancas.map((c) => resumoCobranca(c)),
       }
+      if (podeGerenciar) return completa
+      // Quem só consulta vê situação, plano e módulos; cobranças, links de pagamento, documento e cupom ficam com quem gerencia
+      return { ...completa, cupom: null, pixAutomatico: null, documentoSugerido: null, cobrancaAberta: null, cobrancasAbertas: [], cobrancas: [] }
     },
 
     /**
@@ -232,7 +235,7 @@ export function criarAssinaturaService(app: FastifyInstance) {
       })
       await limiteNoPlano(plano.limiteUsuarios, plano.nome)
       // Cupom digitado agora: confere antes de mexer no gateway (o guardado no cadastro já vale)
-      if (dados.cupom) await regra(() => validarCupom(plataforma, dados.cupom as string, plano.codigo))
+      if (dados.cupom) await regra(() => validarCupom(plataforma, dados.cupom as string, plano.codigo, hojeISO(), { publico: true }))
       const config = await app.prisma.empresaConfig.findFirst({ select: { razaoSocial: true, nomeFantasia: true, telefone: true } })
       const hoje = hojeISO()
       // No teste (ou na cortesia com prazo), a 1ª cobrança vence quando ele acaba: o cliente não perde dias
@@ -287,7 +290,7 @@ export function criarAssinaturaService(app: FastifyInstance) {
     async conferirCupom(codigo: string, codigoPlano: string) {
       if (!codigo) throw AppError.regraNegocio('Informe o cupom.')
       const plano = await planoTroca(codigoPlano)
-      const c = await regra(() => validarCupom(plataforma, codigo, plano.codigo))
+      const c = await regra(() => validarCupom(plataforma, codigo, plano.codigo, hojeISO(), { publico: true }))
       const v = valorDaMensalidade({ valorPlano: plano.valorMensal.toFixed(2), desconto: { tipo: c.tipo as 'percentual' | 'valor', valor: c.valor.toFixed(2), desde: null, ate: null } }, hojeISO())
       return { codigo: c.codigo, descricao: c.descricao || descricaoCupom(c), duracaoMeses: c.duracaoMeses, desconto: v.desconto, valor: v.valor, cheio: v.cheio }
     },

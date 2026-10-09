@@ -20,6 +20,8 @@ beforeAll(async () => {
   app = await buildApp(config)
   // Sem banco: só a empresa "e1" existe (as demais contam como inexistentes ou desativadas)
   app.empresas.porId = async (id) => (id === 'e1' ? { id: 'e1', nome: 'Gráfica Teste', slug: 'grafica-teste', schema: 'emp_teste' } : null)
+  // Sem banco: o usuário "inativo" foi desativado depois de receber o token; os demais estão ativos
+  app.situacaoUsuario = async (_empresaId, usuarioId) => (usuarioId === 'inativo' ? { ativo: false, papelId: 'p1', deveTrocarSenha: false } : { ativo: true, papelId: 'p1', deveTrocarSenha: false })
   // Rotas protegidas por `autenticar` registradas só para os testes; devolvem a empresa vista pelo handler
   const empresaDoContexto = async () => ({ ok: true, empresa: contextoEmpresa.atual()?.slug ?? null })
   app.get('/teste/protegida', { onRequest: [app.autenticar] }, empresaDoContexto)
@@ -30,8 +32,8 @@ beforeAll(async () => {
   await app.ready()
 })
 
-function bearer(dts: boolean, emp = 'e1') {
-  return { authorization: `Bearer ${app.jwt.sign({ sub: 'u1', papelId: 'p1', dts, emp })}` }
+function bearer(dts: boolean, emp = 'e1', sub = 'u1') {
+  return { authorization: `Bearer ${app.jwt.sign({ sub, papelId: 'p1', dts, emp })}` }
 }
 afterAll(() => app.close())
 
@@ -50,11 +52,11 @@ describe('API — contrato de erros', () => {
     expect(Array.isArray(corpo.error.details)).toBe(true)
   })
 
-  it('limite de login por IP + e-mail (a 6ª tentativa da mesma conta é barrada; outra conta segue)', async () => {
+  it('limite de login por IP (a 21ª tentativa no minuto é barrada, qualquer conta)', async () => {
     const tentar = (email: string) => app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email, senha: 'qualquer1' } })
-    for (let i = 0; i < 5; i++) expect((await tentar('alvo@onprint.local')).statusCode).not.toBe(429)
-    expect((await tentar('ALVO@onprint.local ')).statusCode).toBe(429)
-    expect((await tentar('outra@onprint.local')).statusCode).not.toBe(429)
+    // Já houve 1 tentativa (validação) neste minuto
+    for (let i = 0; i < 19; i++) expect((await tentar(`conta${i}@onprint.local`)).statusCode).not.toBe(429)
+    expect((await tentar('outra@onprint.local')).statusCode).toBe(429)
   })
 
   it('401 em /auth/me sem token', async () => {
@@ -77,6 +79,11 @@ describe('API — contrato de erros', () => {
     const res = await app.inject({ method: 'GET', url: '/teste/protegida', headers: bearer(true) })
     expect(res.statusCode).toBe(403)
     expect(res.json().error.code).toBe('TROCA_SENHA_OBRIGATORIA')
+  })
+
+  it('401 com token válido de usuário desativado depois do login', async () => {
+    const res = await app.inject({ method: 'GET', url: '/teste/protegida', headers: bearer(false, 'e1', 'inativo') })
+    expect(res.statusCode).toBe(401)
   })
 
   it('libera a rota protegida com token válido e senha já trocada', async () => {

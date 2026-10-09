@@ -33,6 +33,7 @@ const MODELOS_PLATAFORMA = new Set(['assinante', 'indiceLogin', 'tokenSenha', 'p
 /** Propriedades sondadas por bibliotecas (await, Fastify, inspeção) que não devem exigir empresa. */
 const SONDAGENS = new Set(['then', 'getter', 'setter', 'toJSON', 'constructor', 'asymmetricMatch', '$$typeof', 'inspect'])
 const RECURSO = Symbol('onprint.contextoEmpresa')
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 type AssinanteCompleto = Assinante & { assinatura: (Assinatura & { plano: Plano }) | null }
 const comAssinatura = { assinatura: { include: { plano: true } } } as const
@@ -75,18 +76,30 @@ export const prismaPlugin = fp(async (app) => {
     return cliente
   }
 
-  const cache = new Map<string, { empresa: EmpresaAtual | null; expira: number }>()
+  // Só empresas encontradas entram no cache (ids/slugs inventados não ocupam memória), com teto e limpeza periódica
+  const cache = new Map<string, { empresa: EmpresaAtual; expira: number }>()
+  const MAX_CACHE = 2000
   async function buscar(chave: string, where: { id: string } | { slug: string }) {
     const guardado = cache.get(chave)
     if (guardado && guardado.expira > Date.now()) return guardado.empresa
     const a = await plataforma.assinante.findUnique({ where, include: comAssinatura })
     const empresa = a?.ativo ? paraContexto(a) : null
-    cache.set(chave, { empresa, expira: Date.now() + CACHE_MS })
+    cache.delete(chave)
+    if (empresa && CACHE_MS > 0) {
+      cache.set(chave, { empresa, expira: Date.now() + CACHE_MS })
+      if (cache.size > MAX_CACHE) cache.delete(cache.keys().next().value as string)
+    }
     return empresa
   }
+  const limpeza = setInterval(() => {
+    const agora = Date.now()
+    for (const [chave, item] of cache) if (item.expira <= agora) cache.delete(chave)
+  }, 60_000)
+  limpeza.unref()
 
   const empresas: RegistroEmpresas = {
-    porId: (id) => (id ? buscar(`id:${id}`, { id }) : Promise.resolve(null)),
+    // id fora do formato UUID nem vai ao banco (o Postgres recusaria com erro 500)
+    porId: (id) => (id && UUID.test(id) ? buscar(`id:${id}`, { id }) : Promise.resolve(null)),
     porSlug: (slug) => buscar(`slug:${slug}`, { slug }),
     listar: async () => (await plataforma.assinante.findMany({ where: { ativo: true }, include: comAssinatura, orderBy: { createdAt: 'asc' } })).map(paraContexto),
     clienteDe,
@@ -123,6 +136,7 @@ export const prismaPlugin = fp(async (app) => {
   })
 
   app.addHook('onClose', async () => {
+    clearInterval(limpeza)
     await Promise.all([plataforma, ...clientes.values()].map((c) => c.$disconnect()))
   })
 })

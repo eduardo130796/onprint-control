@@ -67,6 +67,12 @@ export const servidor = createServer(async (req, res) => {
     asaas.cobrancas.set(p.id, p)
     return responder(200, p)
   }
+  // A API consulta a cobrança ao receber o aviso (o corpo do webhook é só o gatilho); removida volta com deleted: true
+  if (req.method === 'GET' && (m = caminho.match(/^\/payments\/([\w]+)$/))) {
+    const p = asaas.cobrancas.get(m[1])
+    if (!p) return responder(404, { errors: [{ description: 'Cobrança não encontrada' }] })
+    return responder(200, p)
+  }
   if (req.method === 'DELETE' && (m = caminho.match(/^\/payments\/([\w]+)$/))) {
     const p = asaas.cobrancas.get(m[1])
     if (!p) return responder(404, { errors: [{ description: 'Cobrança não encontrada' }] })
@@ -104,7 +110,22 @@ await new Promise((r) => servidor.listen(3399, '127.0.0.1', r))
 
 // ─── Ajudantes ───
 let evento = 0
-export const webhook = (event, dados, id = `evt_${++evento}`) => chamar('POST', '/plataforma/webhooks/asaas', { body: { id, event, dateCreated: `${hoje} 10:00:00`, ...dados }, headers: { 'asaas-access-token': TOKEN_WEBHOOK } })
+/**
+ * No Asaas de verdade o aviso chega depois de a mudança existir lá. Como a API consulta o Asaas ao receber
+ * o aviso, o teste que manda uma nota ou uma autorização no aviso também a deixa assim no Asaas falso.
+ * (Cobranças não: o teste altera o objeto guardado antes do aviso; cobrança desconhecida continua desconhecida.)
+ */
+function refletirNoAsaas(dados) {
+  if (dados.invoice?.id) {
+    const { object: _o, ...nota } = dados.invoice
+    const atual = asaas.notas.find((n) => n.id === nota.id)
+    if (atual) Object.assign(atual, nota)
+    else asaas.notas.push(nota)
+  }
+  const aut = dados.authorization && asaas.autorizacoes.get(dados.authorization.id)
+  if (aut) Object.assign(aut, dados.authorization)
+}
+export const webhook = (event, dados, id = `evt_${++evento}`) => (refletirNoAsaas(dados), chamar('POST', '/plataforma/webhooks/asaas', { body: { id, event, dateCreated: `${hoje} 10:00:00`, ...dados }, headers: { 'asaas-access-token': TOKEN_WEBHOOK } }))
 export const cli = (script, args) => spawnSync('npx', ['tsx', `prisma/${script}.ts`, ...args], { cwd: 'apps/api', encoding: 'utf8', env: { ...process.env, ...ENV_ASAAS } })
 /** Comando que chama o Asaas falso: precisa ser assíncrono (spawnSync travaria este processo, que serve o Asaas falso) */
 export const cliAssincrono = (script, args) =>

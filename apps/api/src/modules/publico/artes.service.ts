@@ -43,10 +43,13 @@ export function criarArtesPublicoService(app: FastifyInstance) {
     const pedidoId = arte.pedidoItem.pedido.id
     const titulo = `Arte v${arte.versao} do ${arte.pedidoItem.pedido.numero} ${aprovar ? 'aprovada' : 'com ajuste solicitado'}`
     const mudanca = await prisma.$transaction(async (tx) => {
-      await tx.arte.update({
-        where: { id: arte.id },
+      // Transição atômica: só responde se ainda estiver aguardando (clique duplo ou aprovar e
+      // pedir ajuste ao mesmo tempo não aplicam as duas respostas)
+      const { count } = await tx.arte.updateMany({
+        where: { id: arte.id, status: 'enviada_cliente' },
         data: aprovar ? { status: 'aprovada', aprovadaEm: new Date(), comentarioCliente: texto } : { status: 'ajuste_solicitado', comentarioCliente: texto },
       })
+      if (count !== 1) throw AppError.regraNegocio('Esta arte já foi respondida.')
       await tx.arteComentario.create({ data: { arteId: arte.id, autorNome: nome, origem: 'cliente', texto } })
       const avisar = [arte.designerId, arte.pedidoItem.pedido.vendedorId].filter((id, i, l): id is string => Boolean(id) && l.indexOf(id) === i)
       for (const usuarioId of avisar) {

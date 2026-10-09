@@ -51,6 +51,8 @@ export interface GatewayPagamentos {
   alterarCobranca(id: string, d: { valor: string; vencimento: string; tipo: string }): Promise<void>
   /** Remove uma cobrança em aberto (abono, mês grátis, cortesia) */
   cancelarCobranca(id: string): Promise<void>
+  /** A cobrança como está no gateway agora (null se não existe mais, ex.: removida) */
+  obterCobranca(id: string): Promise<CobrancaGateway | null>
   cobrancasDaAssinatura(id: string): Promise<CobrancaGateway[]>
   /** Todas as cobranças do cliente (inclui a 1ª do PIX Automático, que nasce antes da assinatura) */
   cobrancasDoCliente(clienteId: string): Promise<CobrancaGateway[]>

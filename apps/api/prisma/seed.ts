@@ -18,8 +18,9 @@ import { semearEmpresa } from './seed/empresa'
 import { conexoesDosScripts, executarScript } from './scripts-banco'
 
 const PRODUCAO = process.env.NODE_ENV === 'production'
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'admin@onprint.local').toLowerCase()
-const ADMIN_SENHA = process.env.ADMIN_SENHA_INICIAL || 'admin123'
+// Produção: sem padrão (admin123 seria a senha de qualquer instalação nova)
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || (PRODUCAO ? '' : 'admin@onprint.local')).toLowerCase()
+const ADMIN_SENHA = process.env.ADMIN_SENHA_INICIAL || (PRODUCAO ? '' : 'admin123')
 const EXEMPLOS = (process.env.SEED_EXEMPLOS ?? (PRODUCAO ? 'false' : 'true')) === 'true'
 const SLUG_PADRAO = process.env.EMPRESA_PADRAO_SLUG || 'principal'
 const UPLOAD_DIR = resolve(process.env.UPLOAD_DIR || './uploads')
@@ -29,6 +30,21 @@ const PLATAFORMA_EMAIL = (process.env.PLATAFORMA_ADMIN_EMAIL || (PRODUCAO ? '' :
 const PLATAFORMA_SENHA = process.env.PLATAFORMA_ADMIN_SENHA || (PRODUCAO ? '' : 'plataforma123')
 
 const banco = conexoesDosScripts()
+const SENHA_INICIAL_MIN = 12
+
+/**
+ * Produção: só ao CRIAR um admin. Credencial ausente, de exemplo ("troque…") ou senha curta para o seed
+ * com a explicação (instalações existentes não são afetadas).
+ */
+function exigirCredencialForte(vars: { email: string; senha: string }, email: string, senha: string) {
+  if (!PRODUCAO) return
+  const problemas: string[] = []
+  if (!email) problemas.push(`${vars.email} não definido`)
+  if (!senha) problemas.push(`${vars.senha} não definido`)
+  else if (senha.length < SENHA_INICIAL_MIN) problemas.push(`${vars.senha} precisa ter ${SENHA_INICIAL_MIN}+ caracteres`)
+  if (`${email} ${senha}`.toLowerCase().includes('troque')) problemas.push(`${vars.email}/${vars.senha} ainda estão com o valor de exemplo`)
+  if (problemas.length) throw new Error(`Seed interrompido: o administrador inicial não foi criado (${problemas.join('; ')}). Ajuste o .env.prod e suba de novo.`)
+}
 
 /** Arquivos gravados antes da multiempresa ficam na raiz de uploads: vão para a pasta da empresa padrão. */
 async function moverArquivosLegados(empresaId: string) {
@@ -76,6 +92,7 @@ async function adminPlataforma() {
     console.warn('Painel da plataforma sem administrador: defina PLATAFORMA_ADMIN_EMAIL e PLATAFORMA_ADMIN_SENHA (ou use o comando admin-plataforma).')
     return
   }
+  exigirCredencialForte({ email: 'PLATAFORMA_ADMIN_EMAIL', senha: 'PLATAFORMA_ADMIN_SENHA' }, PLATAFORMA_EMAIL, PLATAFORMA_SENHA)
   await banco.plataforma.adminPlataforma.create({ data: { nome: 'Administrador da plataforma', email: PLATAFORMA_EMAIL, senhaHash: await argon2.hash(PLATAFORMA_SENHA) } })
   console.log(`Admin da plataforma criado: ${PLATAFORMA_EMAIL}${PRODUCAO ? '' : ` / ${PLATAFORMA_SENHA}`} (painel em /plataforma)`)
 }
@@ -89,6 +106,8 @@ executarScript(async () => {
   for (const empresa of empresas) {
     const prisma = banco.clienteDe(empresa.schema)
     const padrao = empresa.schema === SCHEMA_LEGADO
+    // O admin da empresa padrão só é criado com ela ainda sem usuários: é aí que a credencial precisa ser forte
+    if (padrao && (await prisma.usuario.count()) === 0) exigirCredencialForte({ email: 'ADMIN_EMAIL', senha: 'ADMIN_SENHA_INICIAL' }, ADMIN_EMAIL, ADMIN_SENHA)
     const r = await semearEmpresa(prisma, {
       nomeEmpresa: empresa.nome,
       // O admin com a senha inicial do .env só existe na empresa padrão

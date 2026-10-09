@@ -1,7 +1,8 @@
-import Fastify from 'fastify'
+import Fastify, { type FastifyRequest } from 'fastify'
 import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from 'fastify-type-provider-zod'
 import type { Env } from './config/env'
 import { API_PREFIX } from './core/constantes'
+import { ocultarTokensDaUrl } from './core/tokens'
 import { arquivosRoutes } from './modules/arquivos/routes'
 import { authRoutes } from './modules/auth/routes'
 import { clientesRoutes } from './modules/clientes/routes'
@@ -19,6 +20,7 @@ import { webhooksRoutes } from './modules/plataforma/webhooks'
 import { pedidosRoutes } from './modules/pedidos/routes'
 import { permissoesRoutes } from './modules/permissoes/routes'
 import { producaoRoutes } from './modules/producao/routes'
+import { etiquetasRoutes } from './modules/etiquetas/routes'
 import { estoqueRoutes } from './modules/estoque/routes'
 import { financeiroRoutes } from './modules/financeiro/routes'
 import { caixaRoutes } from './modules/caixa/routes'
@@ -48,8 +50,15 @@ export { API_PREFIX }
 /** Monta a aplicação (sem abrir porta) — usado pelo server.ts e pelos testes. */
 export async function buildApp(config: Env) {
   const app = Fastify({
-    logger: { level: config.LOG_LEVEL },
-    trustProxy: true,
+    logger: {
+      level: config.LOG_LEVEL,
+      // O token do link de senha vai na URL: no log ele aparece como ***
+      serializers: {
+        req: (req: FastifyRequest) => ({ method: req.method, url: ocultarTokensDaUrl(req.url), host: req.host, remoteAddress: req.ip, remotePort: req.socket?.remotePort }),
+      },
+    },
+    // Só o proxy da rede interna (Caddy no Docker) informa o IP real; X-Forwarded-For vindo de fora é ignorado
+    trustProxy: 'loopback,linklocal,uniquelocal',
     // URL temporária de arquivo: {empresa}~{arquivo}.{validade}.{assinatura} passa do padrão (100)
     routerOptions: { maxParamLength: 300 },
   }).withTypeProvider<ZodTypeProvider>()
@@ -87,6 +96,7 @@ export async function buildApp(config: Env) {
       await v1.register(pedidosRoutes)
       await v1.register(artesRoutes)
       await v1.register(producaoRoutes)
+      await v1.register(etiquetasRoutes)
       await v1.register(estoqueRoutes)
       await v1.register(financeiroRoutes)
       await v1.register(caixaRoutes)

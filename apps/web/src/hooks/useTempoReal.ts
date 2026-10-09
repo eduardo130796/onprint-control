@@ -23,12 +23,16 @@ export function useTempoReal(ativo: boolean) {
       renovando = false
       if (ok) socket.connect()
     })
+    // A API desconecta quando o token vence ou o papel muda: reconecta com o token atual (renova se preciso)
+    socket.on('disconnect', (motivo) => {
+      if (motivo === 'io server disconnect') socket.connect()
+    })
 
     const invalidar = (...chaves: string[]) => {
       for (const chave of chaves) void queryClient.invalidateQueries({ queryKey: [chave] })
     }
-    // Concluir OP baixa insumos: o estoque também muda
-    socket.on('op:atualizada', () => invalidar('ops', 'pcp', 'pedidos', 'estoque'))
+    // Concluir OP baixa insumos (o estoque também muda) e põe a etiqueta na fila
+    socket.on('op:atualizada', () => invalidar('ops', 'pcp', 'pedidos', 'estoque', 'etiquetas'))
     socket.on('pedido:atualizado', () => invalidar('pedidos', 'entregas', 'ops', 'estoque', 'financeiro'))
     socket.on('notificacao:nova', (dados: { titulo?: string; estoque?: boolean }) => {
       if (dados.titulo) toast.info(dados.titulo)

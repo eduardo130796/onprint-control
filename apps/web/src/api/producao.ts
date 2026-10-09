@@ -2,6 +2,7 @@ import type {
   ArtePublica,
   ArteVersao,
   Entrega,
+  EtiquetaFilaItem,
   EntregasQuery,
   EventoHistorico,
   OpsQuery,
@@ -62,6 +63,16 @@ export const opsApi = {
   atualizar: (id: string, dados: unknown) => http<OrdemProducao>(`/producao/ops/${id}`, { method: 'PUT', body: dados }),
   criarApontamento: (id: string, dados: unknown) => http<unknown>(`/producao/ops/${id}/apontamentos`, { method: 'POST', body: dados }),
   removerApontamento: (id: string, apontamentoId: string) => http<void>(`/producao/ops/${id}/apontamentos/${apontamentoId}`, { method: 'DELETE' }),
+}
+
+/** Fila de etiquetas de entrega a imprimir (uma pendente por OP). */
+export const filaEtiquetasApi = {
+  listar: () => http<EtiquetaFilaItem[]>('/etiquetas/fila'),
+  adicionar: (dados: { opIds?: string[]; pedidoIds?: string[] }) =>
+    http<{ adicionadas: number; jaNaFila: number }>('/etiquetas/fila', { method: 'POST', body: dados }),
+  remover: (id: string) => http<void>(`/etiquetas/fila/${id}`, { method: 'DELETE' }),
+  marcarImpressas: (ids: string[]) => http<{ marcadas: number }>('/etiquetas/fila/marcar-impressas', { method: 'POST', body: { ids } }),
+  voltar: (ids: string[]) => http<{ voltaram: number }>('/etiquetas/fila/voltar', { method: 'POST', body: { ids } }),
 }
 
 export const pcpApi = {

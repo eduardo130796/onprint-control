@@ -32,7 +32,9 @@ export const errorsPlugin = fp(async (app) => {
 
     if (erro instanceof Prisma.PrismaClientKnownRequestError) {
       if (erro.code === 'P2002') {
-        return reply.status(409).send(corpo(CODIGOS_ERRO.CONFLITO, 'Já existe um registro com estes dados.', erro.meta))
+        // O meta do Prisma (tabela, índice, colunas) fica só no log: não expõe o banco ao cliente
+        request.log.warn({ meta: erro.meta }, 'Violação de unicidade sem mensagem específica')
+        return reply.status(409).send(corpo(CODIGOS_ERRO.CONFLITO, 'Já existe um registro com estes dados.'))
       }
       if (erro.code === 'P2025') {
         return reply.status(404).send(corpo(CODIGOS_ERRO.NAO_ENCONTRADO, 'Registro não encontrado.'))

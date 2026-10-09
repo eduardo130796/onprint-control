@@ -27,15 +27,8 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/login',
     {
-      // 5 tentativas/min por IP + e-mail: protege cada conta sem travar a loja inteira atrás do mesmo IP
-      config: {
-        rateLimit: {
-          max: 5,
-          timeWindow: '1 minute',
-          hook: 'preHandler',
-          keyGenerator: porIpEEmail,
-        },
-      },
+      // 20 tentativas/min por IP; além disso, o service trava o e-mail após 10 senhas erradas em 15 min (de qualquer IP)
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
       schema: {
         tags: ['auth'],
         summary: 'Login com e-mail e senha',
@@ -46,9 +39,11 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
     (request, reply) => controller.login(request.body, request, reply),
   )
 
+  const limiteSessao = { rateLimit: { max: 30, timeWindow: '1 minute' } }
   app.post(
     '/refresh',
     {
+      config: limiteSessao,
       schema: {
         tags: ['auth'],
         summary: 'Renova o access token usando o cookie de refresh',
@@ -60,7 +55,7 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
 
   app.post(
     '/logout',
-    { schema: { tags: ['auth'], summary: 'Encerra a sessão atual', response: { 204: z.null() } } },
+    { config: limiteSessao, schema: { tags: ['auth'], summary: 'Encerra a sessão atual', response: { 204: z.null() } } },
     controller.logout,
   )
 
@@ -96,6 +91,8 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
     '/trocar-senha',
     {
       onRequest: [app.autenticarPermitindoTrocaSenha],
+      // 5 tentativas/min por usuário: a senha atual não vira alvo de adivinhação com um token roubado
+      config: { rateLimit: { max: 5, timeWindow: '1 minute', hook: 'preHandler', keyGenerator: (req) => `trocar-senha:${(req as { user?: { sub?: string } }).user?.sub ?? req.ip}` } },
       schema: {
         tags: ['auth'],
         summary: 'Troca a própria senha',

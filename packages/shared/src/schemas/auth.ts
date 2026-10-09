@@ -2,17 +2,20 @@ import { z } from 'zod'
 import { NIVEIS_ACESSO } from '../assinatura'
 
 export const SENHA_MIN = 8
+/** Teto da senha: o hash (argon2) de textos enormes custaria CPU à toa */
+export const SENHA_MAX = 256
+const MSG_SENHA_MAX = `A senha pode ter no máximo ${SENHA_MAX} caracteres.`
 
 export const loginSchema = z.object({
   email: z.string().trim().toLowerCase().min(1, 'Informe o e-mail.').email('E-mail inválido.'),
-  senha: z.string().min(1, 'Informe a senha.'),
+  senha: z.string().min(1, 'Informe a senha.').max(SENHA_MAX, MSG_SENHA_MAX),
 })
 export type LoginInput = z.infer<typeof loginSchema>
 
 export const trocarSenhaSchema = z
   .object({
-    senhaAtual: z.string().min(1, 'Informe a senha atual.'),
-    novaSenha: z.string().min(SENHA_MIN, `A nova senha precisa ter pelo menos ${SENHA_MIN} caracteres.`),
+    senhaAtual: z.string().min(1, 'Informe a senha atual.').max(SENHA_MAX, MSG_SENHA_MAX),
+    novaSenha: z.string().min(SENHA_MIN, `A nova senha precisa ter pelo menos ${SENHA_MIN} caracteres.`).max(SENHA_MAX, MSG_SENHA_MAX),
   })
   .refine((v) => v.senhaAtual !== v.novaSenha, {
     message: 'A nova senha precisa ser diferente da atual.',
@@ -29,7 +32,7 @@ export type EsqueciSenhaInput = z.infer<typeof esqueciSenhaSchema>
 /** Nova senha pelo link do e-mail (esqueci a senha ou convite). */
 export const novaSenhaPorLinkSchema = z.object({
   token: z.string().min(20).max(200),
-  novaSenha: z.string().min(SENHA_MIN, `A nova senha precisa ter pelo menos ${SENHA_MIN} caracteres.`),
+  novaSenha: z.string().min(SENHA_MIN, `A nova senha precisa ter pelo menos ${SENHA_MIN} caracteres.`).max(SENHA_MAX, MSG_SENHA_MAX),
 })
 export type NovaSenhaPorLinkInput = z.infer<typeof novaSenhaPorLinkSchema>
 

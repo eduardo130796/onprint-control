@@ -2,11 +2,13 @@ import { createElement, type ReactElement } from 'react'
 import { pdf } from '@react-pdf/renderer'
 import QRCode from 'qrcode'
 import {
+  FORMATO_ETIQUETA,
   formatarDataHora,
   formatarDataSimples,
   formatarMoeda,
   formatarTelefone,
   type EmpresaConfig,
+  type FormatoEtiqueta,
   type OrcamentoDetalhe,
   type PedidoDetalhe,
   type RecebimentosPedido,
@@ -15,6 +17,7 @@ import { DocumentoOrcamento } from '@/features/orcamentos/components/pdf/Documen
 import { DocumentoEtiquetas } from './DocumentoEtiquetas'
 import { DocumentoPedido } from './DocumentoPedido'
 import { DocumentoRecibo } from './DocumentoRecibo'
+import { volumesDoPedido } from './etiquetas'
 import { carregarLogo, dadosEmpresa, imagemDataUrl, type Etiqueta } from './pdfComum'
 
 // Carregado sob demanda (import dinâmico): a biblioteca de PDF só é baixada quando alguém imprime ou baixa.
@@ -45,33 +48,40 @@ export async function pdfRecibo(p: PedidoDetalhe, recebimentos: RecebimentosPedi
 
 const metros = (v: string) => Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 3 })
 
-/** Uma etiqueta por OP ativa do pedido (ou só das OPs informadas), com a miniatura da arte mais recente. */
 const ENTREGA_CURTA = { retirada: 'Retirada', entrega: 'Entrega', instalacao: 'Instalação' } as const
 
-/**
- * Uma etiqueta por OP ativa do pedido (ou só das OPs informadas), com a miniatura da arte mais recente,
- * "etiqueta N de T" (contando todas as OPs do pedido) e um QR que abre o pedido no sistema.
- */
-export async function pdfEtiquetas(p: PedidoDetalhe, empresa: EmpresaConfig, opIds?: string[]): Promise<PdfGerado> {
+/** Pedido + volumes escolhidos (chaves de `volumesDoPedido`); sem chaves = todos. */
+export interface GrupoEtiquetas {
+  pedido: PedidoDetalhe
+  chaves?: string[]
+}
+
+export interface OpcoesEtiquetas {
+  formato: FormatoEtiqueta
+  /** Primeira casa da folha (1-based) para aproveitar folha já usada */
+  inicio: number
+}
+
+const qrDoPedido = (id: string) =>
+  QRCode.toDataURL(`${window.location.origin}/pedidos/${id}`, { margin: 0, width: 240, errorCorrectionLevel: 'M', color: { dark: '#2B3036FF', light: '#FFFFFFFF' } }).catch(() => null)
+
+/** Etiquetas de um pedido: miniatura da arte mais recente (não no formato compacto), "N de T" e QR que abre o pedido. */
+async function etiquetasDoPedido({ pedido: p, chaves }: GrupoEtiquetas, empresa: EmpresaConfig, comImagem: boolean): Promise<Etiqueta[]> {
   // Entrega mais recente ainda em aberto (agenda, endereço, entregador, observação)
   const entrega = p.entregas.find((e) => !['cancelada', 'realizada'].includes(e.status)) ?? null
   const retirada = (entrega?.tipo ?? p.tipoEntrega) === 'retirada'
   const destino = retirada ? '' : entrega?.endereco || p.enderecoEntrega || 'Endereço a combinar com o cliente'
   const emAberto = Number(p.total) - Number(p.valorPago)
   const observacao = (entrega?.observacao || p.observacoes || '').trim()
-  const todas = p.itens.flatMap((item) => {
-    const ops = item.ordensProducao.filter((o) => !o.cancelada)
-    return (ops.length > 0 ? ops : [null]).map((op) => ({ item, op }))
-  })
-  const linhas = todas.map((l, i) => ({ ...l, indice: i + 1 })).filter((l) => !opIds || (l.op && opIds.includes(l.op.id)))
-  if (linhas.length === 0) throw new Error('Nenhuma OP para etiquetar.')
-  const qr = await QRCode.toDataURL(`${window.location.origin}/pedidos/${p.id}`, { margin: 0, width: 240, errorCorrectionLevel: 'M', color: { dark: '#2B3036FF', light: '#FFFFFFFF' } }).catch(() => null)
-  const etiquetas: Etiqueta[] = await Promise.all(
-    linhas.map(async ({ item, op, indice }) => ({
+  const volumes = volumesDoPedido(p).filter((v) => !chaves || chaves.includes(v.chave))
+  if (volumes.length === 0) return []
+  const qr = await qrDoPedido(p.id)
+  return Promise.all(
+    volumes.map(async ({ item, op, indice, total }) => ({
       pedido: p.numero,
       op: op?.numero ?? null,
       indice,
-      totalEtiquetas: todas.length,
+      totalEtiquetas: total,
       entrega: ENTREGA_CURTA[entrega?.tipo ?? p.tipoEntrega],
       retirada,
       cliente: p.cliente.nome,
@@ -86,11 +96,23 @@ export async function pdfEtiquetas(p: PedidoDetalhe, empresa: EmpresaConfig, opI
       quantidade: Number(item.quantidade).toLocaleString('pt-BR'),
       medidas: item.largura ? `${metros(item.largura)}${item.altura ? ` × ${metros(item.altura)}` : ''} m` : null,
       outrosItens: p.itens.filter((i) => i.id !== item.id).map((i) => `${Number(i.quantidade).toLocaleString('pt-BR')} × ${i.descricao}`),
-      imagem: await imagemDataUrl(item.artes[0]?.miniaturaUrl),
+      imagem: comImagem ? await imagemDataUrl(item.artes[0]?.miniaturaUrl) : null,
       qr,
       telefoneEmpresa: formatarTelefone(empresa.whatsapp ?? empresa.telefone),
     })),
   )
+}
+
+/**
+ * Etiquetas de um ou vários pedidos numa impressão só, no formato escolhido (A4 com 4 ou 8, ou térmica),
+ * começando na casa `inicio` da primeira folha.
+ */
+export async function pdfEtiquetas(grupos: GrupoEtiquetas[], empresa: EmpresaConfig, opcoes: OpcoesEtiquetas): Promise<PdfGerado> {
+  const comImagem = !FORMATO_ETIQUETA[opcoes.formato].compacta
+  const etiquetas = (await Promise.all(grupos.map((g) => etiquetasDoPedido(g, empresa, comImagem)))).flat()
+  if (etiquetas.length === 0) throw new Error('Nenhuma etiqueta escolhida.')
   const nome = dadosEmpresa(empresa).nome
-  return { blob: await renderizar(createElement(DocumentoEtiquetas, { etiquetas, empresa: nome })), nome: `Etiquetas ${p.numero}.pdf` }
+  const doc = createElement(DocumentoEtiquetas, { etiquetas, empresa: nome, formato: opcoes.formato, inicio: opcoes.inicio })
+  const pedidos = [...new Set(grupos.filter((g) => !g.chaves || g.chaves.length > 0).map((g) => g.pedido.numero))]
+  return { blob: await renderizar(doc), nome: pedidos.length === 1 ? `Etiquetas ${pedidos[0]}.pdf` : `Etiquetas (${etiquetas.length}).pdf` }
 }

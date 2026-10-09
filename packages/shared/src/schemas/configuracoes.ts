@@ -1,6 +1,6 @@
 import { CODIGOS_TEMA, type CodigoTema } from '../temas'
 import { z } from 'zod'
-import { SENHA_MIN } from './auth'
+import { SENHA_MAX, SENHA_MIN } from './auth'
 import { CATEGORIAS_TEMPLATE, ENTIDADES_COM_STATUS_PROPRIO, ENTIDADES_STATUS } from '../enums'
 import { paginacaoQuerySchema } from './comum'
 import {
@@ -13,7 +13,7 @@ import {
   textoOpcional,
 } from './campos'
 
-const senhaProvisoria = z.string().min(SENHA_MIN, `A senha precisa ter pelo menos ${SENHA_MIN} caracteres.`)
+const senhaProvisoria = z.string().min(SENHA_MIN, `A senha precisa ter pelo menos ${SENHA_MIN} caracteres.`).max(SENHA_MAX)
 
 // ─── Usuários ───────────────────────────────────────────────────────────────
 

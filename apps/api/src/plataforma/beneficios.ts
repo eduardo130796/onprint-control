@@ -131,13 +131,21 @@ async function primeiraNaoIniciada(plataforma: PrismaClient, assinanteId: string
   return inicio ? adicionarMeses(inicio, 1) : null
 }
 
-/** Confere o cupom (existe, válido, com usos, vale para o plano). */
-export async function validarCupom(plataforma: PrismaClient, codigo: string, planoCodigo: string | null, hoje = hojeISO()) {
+export const CUPOM_INVALIDO_PUBLICO = 'Cupom inválido ou indisponível.'
+const CUPOM_OUTRO_PLANO = 'Este cupom não vale para este plano.'
+
+/**
+ * Confere o cupom (existe, válido, com usos, vale para o plano).
+ * publico: cadastro e empresas recebem uma mensagem só (não dá para sondar quais códigos existem);
+ * o painel da plataforma vê o motivo exato.
+ */
+export async function validarCupom(plataforma: PrismaClient, codigo: string, planoCodigo: string | null, hoje = hojeISO(), opcoes: { publico?: boolean } = {}) {
+  const recusar = (motivo: string) => new Error(opcoes.publico && motivo !== CUPOM_OUTRO_PLANO ? CUPOM_INVALIDO_PUBLICO : motivo)
   const cupom = await plataforma.cupom.findUnique({ where: { codigo: codigo.trim().toUpperCase() } })
-  if (!cupom) throw new Error('Cupom não encontrado.')
+  if (!cupom) throw recusar('Cupom não encontrado.')
   const usos = await plataforma.cupomUso.count({ where: { cupomId: cupom.id } })
   const motivo = cupomIndisponivel({ ativo: cupom.ativo, validoAte: diaISO(cupom.validoAte), limiteUsos: cupom.limiteUsos, usos, planos: cupom.planos }, planoCodigo, hoje)
-  if (motivo) throw new Error(motivo)
+  if (motivo) throw recusar(motivo)
   return cupom
 }
 

@@ -17,12 +17,18 @@ export interface EmailProvider {
   enviar(mensagem: EmailMensagem): Promise<void>
 }
 
-/** Sem SMTP configurado: registra o e-mail no log (o link de senha aparece em `make logs`). */
+/**
+ * Sem SMTP configurado: registra o e-mail no log (o link de senha aparece em `make logs`).
+ * Em produção só o destinatário e o assunto: o texto tem links de senha, que não podem ficar no log.
+ */
 export class LogEmailProvider implements EmailProvider {
-  constructor(private readonly log: FastifyBaseLogger) {}
+  constructor(
+    private readonly log: FastifyBaseLogger,
+    private readonly comTexto = true,
+  ) {}
 
   async enviar({ para, assunto, texto }: EmailMensagem): Promise<void> {
-    this.log.info({ email: { para, assunto, texto } }, 'E-mail não enviado (SMTP não configurado), registrado no log')
+    this.log.info({ email: this.comTexto ? { para, assunto, texto } : { para, assunto } }, 'E-mail não enviado (SMTP não configurado), registrado no log')
   }
 }
 
@@ -62,6 +68,6 @@ export class PastaEmailProvider implements EmailProvider {
 }
 
 export function criarProvedorEmail(config: Env, log: FastifyBaseLogger): EmailProvider {
-  const base: EmailProvider = config.SMTP_HOST ? new SmtpEmailProvider(config, config.EMAIL_REMETENTE) : new LogEmailProvider(log)
+  const base: EmailProvider = config.SMTP_HOST ? new SmtpEmailProvider(config, config.EMAIL_REMETENTE) : new LogEmailProvider(log, config.NODE_ENV !== 'production')
   return config.EMAIL_PASTA ? new PastaEmailProvider(config.EMAIL_PASTA, base) : base
 }

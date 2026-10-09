@@ -1,7 +1,7 @@
 import { Prisma, type PrismaClient } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
 import { adicionarMeses, formatarMoeda, hojeISO } from '@onprint/shared'
-import { cobrancaDoAsaas, notaDoAsaas, situacaoAutorizacaoAsaas, type AutorizacaoAsaas, type NotaAsaas, type PagamentoAsaas } from '../integrations/pagamentos/asaas'
+import { situacaoAutorizacaoAsaas, type AutorizacaoAsaas, type NotaAsaas, type PagamentoAsaas } from '../integrations/pagamentos/asaas'
 import type { CobrancaGateway, NotaFiscalGateway } from '../integrations/pagamentos'
 import { diaISO, paraDia } from './assinaturas'
 import { aplicarValores, descontoDaMensalidade } from './beneficios'
@@ -103,7 +103,6 @@ export async function registrarEvento(plataforma: PrismaClient, assinanteId: str
   await plataforma.eventoAssinatura.create({ data: { assinanteId, tipo, descricao, dados, autor } })
 }
 
-/** Aplica um aviso do Asaas (cobrança ou nota fiscal). Lança erro se não reconhecer a assinatura. */
 const MOTIVO_FIM_AUTORIZACAO: Record<string, string> = {
   PIX_AUTOMATIC_RECURRING_AUTHORIZATION_CANCELLED: 'cancelada',
   PIX_AUTOMATIC_RECURRING_AUTHORIZATION_REFUSED: 'recusada no banco',
@@ -115,7 +114,7 @@ async function aplicarAutorizacaoPix(plataforma: PrismaClient, tipo: string, aut
   const assinatura = await plataforma.assinatura.findUnique({ where: { gatewayAutorizacaoId: aut.id } })
   if (!assinatura) throw new Error(`Autorização do PIX Automático ${aut.id} que não está no sistema.`)
   const situacao = situacaoAutorizacaoAsaas(aut.status)
-  if (situacao === 'ativa' || tipo === 'PIX_AUTOMATIC_RECURRING_AUTHORIZATION_ACTIVATED') {
+  if (situacao === 'ativa') {
     await plataforma.assinatura.update({
       where: { id: assinatura.id },
       data: { gatewayAssinaturaId: aut.subscriptionId ?? assinatura.gatewayAssinaturaId, pixQrPayload: null, pixQrImagem: null, pixQrExpiraEm: null },
@@ -129,12 +128,40 @@ async function aplicarAutorizacaoPix(plataforma: PrismaClient, tipo: string, aut
   }
 }
 
-export async function aplicarEventoAsaas(app: FastifyInstance, tipo: string, corpo: { payment?: PagamentoAsaas; invoice?: NotaAsaas; authorization?: AutorizacaoAsaas }) {
-  const { plataforma } = app
-  if (corpo.authorization && tipo.startsWith('PIX_AUTOMATIC_RECURRING_AUTHORIZATION')) await aplicarAutorizacaoPix(plataforma, tipo, corpo.authorization)
+/** Id que veio no aviso: só usado para consultar o gateway. */
+function idDoAviso(id: unknown): string {
+  if (typeof id !== 'string' || !/^[\w-]{1,100}$/.test(id)) throw new Error('Aviso do Asaas com id inválido.')
+  return id
+}
+
+/**
+ * Aplica um aviso do Asaas (cobrança, nota fiscal ou autorização do PIX Automático). Lança erro se não reconhecer a assinatura.
+ * O aviso é só o gatilho: os dados (situação, valor, links) vêm sempre de uma consulta ao Asaas, nunca do corpo recebido.
+ */
+export async function aplicarEventoAsaas(app: FastifyInstance, tipo: string, corpo: { payment?: Pick<PagamentoAsaas, 'id'>; invoice?: Pick<NotaAsaas, 'payment'>; authorization?: Pick<AutorizacaoAsaas, 'id'> }) {
+  const { plataforma, pagamentos } = app
+  if (!pagamentos) throw new Error('Pagamento online não configurado: aviso do Asaas ignorado.')
+  if (corpo.authorization && tipo.startsWith('PIX_AUTOMATIC_RECURRING_AUTHORIZATION')) {
+    const id = idDoAviso(corpo.authorization.id)
+    const aut = await pagamentos.consultarAutorizacaoPix(id)
+    const status = aut.situacao === 'ativa' ? 'ACTIVE' : aut.situacao === 'aguardando' ? 'CREATED' : 'CANCELLED'
+    await aplicarAutorizacaoPix(plataforma, tipo, { id, status, subscriptionId: aut.assinaturaId })
+  }
   if (corpo.payment) {
-    const c = cobrancaDoAsaas(corpo.payment)
-    if (tipo === 'PAYMENT_DELETED') c.situacao = 'cancelada'
+    const id = idDoAviso(corpo.payment.id)
+    const consultada = await pagamentos.obterCobranca(id)
+    if (!consultada) {
+      // Removida no Asaas (a consulta não acha mais): vira cancelada, se estiver no sistema (abonada continua abonada)
+      if (tipo !== 'PAYMENT_DELETED') throw new Error(`Cobrança ${id} não encontrada no Asaas.`)
+      const salva = await plataforma.cobranca.findUnique({ where: { gatewayId: id } })
+      if (salva && salva.situacao !== 'abonada' && salva.situacao !== 'cancelada') {
+        await plataforma.cobranca.update({ where: { id: salva.id }, data: { situacao: 'cancelada' } })
+        await recalcularAssinatura(plataforma, salva.assinanteId)
+      }
+      app.empresas.esquecer()
+      return
+    }
+    const c = consultada
     // Pela assinatura ou pelo cliente: a 1ª mensalidade do PIX Automático chega antes de a assinatura existir
     const assinatura = await plataforma.assinatura.findFirst({
       where: { OR: [...(c.assinaturaGatewayId ? [{ gatewayAssinaturaId: c.assinaturaGatewayId }] : []), ...(c.clienteGatewayId ? [{ gatewayClienteId: c.clienteGatewayId }] : [])] },
@@ -154,10 +181,12 @@ export async function aplicarEventoAsaas(app: FastifyInstance, tipo: string, cor
     await recalcularAssinatura(plataforma, assinatura.assinanteId)
   }
   if (corpo.invoice) {
-    const nota = notaDoAsaas(corpo.invoice)
-    if (!nota) return
-    const cobranca = await plataforma.cobranca.findUnique({ where: { gatewayId: nota.cobrancaGatewayId } })
-    if (!cobranca) throw new Error(`Nota fiscal da cobrança ${nota.cobrancaGatewayId}, que não está no sistema.`)
+    if (!corpo.invoice.payment) return
+    const cobrancaId = idDoAviso(corpo.invoice.payment)
+    const cobranca = await plataforma.cobranca.findUnique({ where: { gatewayId: cobrancaId } })
+    if (!cobranca) throw new Error(`Nota fiscal da cobrança ${cobrancaId}, que não está no sistema.`)
+    const nota = await pagamentos.notaFiscalDaCobranca(cobrancaId)
+    if (!nota) throw new Error(`Nota fiscal da cobrança ${cobrancaId} não encontrada no Asaas.`)
     await salvarNotaFiscal(plataforma, nota)
     if (nota.situacao === 'erro') await registrarEvento(plataforma, cobranca.assinanteId, 'nota_fiscal_erro', `Falha na emissão da nota fiscal: ${nota.erro}`)
     if (nota.situacao === 'emitida') await registrarEvento(plataforma, cobranca.assinanteId, 'nota_fiscal', `Nota fiscal ${nota.numero ?? ''} emitida`.replace('  ', ' '))

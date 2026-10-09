@@ -1,4 +1,3 @@
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
 import { Logo } from './Logo'
@@ -27,38 +26,21 @@ export function Sidebar({ recolhida, onAlternar, mobileAberta, onMobileAbertaCha
     <>
       <aside
         className={cn(
-          'fixed bottom-0 left-0 top-16 z-30 hidden flex-col border-r border-border bg-card transition-[width] duration-200 lg:flex',
-          recolhida ? 'w-[72px]' : 'w-64',
+          'fixed bottom-0 left-0 top-16 z-30 hidden overflow-hidden transition-[width] duration-200 lg:block',
+          recolhida ? 'w-[76px]' : 'w-[300px]',
         )}
       >
-        <div className="flex-1 overflow-y-auto">
-          <SidebarNav recolhida={recolhida} />
-        </div>
-        <div className="flex items-center border-t border-border pr-4">
-          <button
-            type="button"
-            onClick={onAlternar}
-            className="flex flex-1 items-center gap-2 px-6 py-3 text-sm text-texto-secundario hover:text-tinta"
-            aria-label={recolhida ? 'Expandir menu' : 'Recolher menu'}
-          >
-            {recolhida ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
-            {!recolhida && 'Recolher menu'}
-          </button>
-          {!recolhida && <SimboloOnprint />}
-        </div>
+        <SidebarNav recolhida={recolhida} onAlternar={onAlternar} rodape={<SimboloOnprint />} />
       </aside>
 
       <Sheet open={mobileAberta} onOpenChange={onMobileAbertaChange}>
-        <SheetContent>
+        <SheetContent className="w-[300px]">
           <SheetTitle className="sr-only">Menu</SheetTitle>
           <div className="flex h-16 items-center bg-grafite px-4">
             <MarcaEmpresa />
           </div>
-          <div className="flex-1 overflow-y-auto">
-            <SidebarNav onNavegar={() => onMobileAbertaChange(false)} />
-          </div>
-          <div className="flex justify-end border-t border-border px-4 py-2.5">
-            <SimboloOnprint />
+          <div className="min-h-0 flex-1">
+            <SidebarNav onNavegar={() => onMobileAbertaChange(false)} rodape={<SimboloOnprint />} />
           </div>
         </SheetContent>
       </Sheet>

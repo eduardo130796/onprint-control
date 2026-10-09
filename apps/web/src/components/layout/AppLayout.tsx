@@ -112,7 +112,7 @@ export function AppLayout() {
       <main
         className={cn(
           'px-4 pb-24 pt-20 transition-[padding] duration-200 sm:px-6 lg:pt-24',
-          recolhida ? 'lg:pl-[104px]' : 'lg:pl-[288px]',
+          recolhida ? 'lg:pl-[108px]' : 'lg:pl-[332px]',
         )}
       >
         <div className={larga ? 'w-full' : 'mx-auto max-w-7xl'}>

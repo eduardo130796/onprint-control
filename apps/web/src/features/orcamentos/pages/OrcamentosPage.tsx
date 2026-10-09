@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -16,11 +16,15 @@ import { useStatusConfig } from '@/hooks/useStatusConfig'
 import { buscarTodasPaginas } from '@/lib/paginacao'
 import { cn } from '@/lib/utils'
 import { AbasComercial } from '../components/AbasComercial'
+import { abrirLinha } from '@/lib/abrirLinha'
+import { PainelOrcamento } from '../components/kanban/PainelOrcamento'
 
 const ABERTOS = ['rascunho', 'enviado', 'em_negociacao']
 
 export function OrcamentosPage() {
   const navigate = useNavigate()
+  // Painel lateral da linha clicada (resumo + ações sem sair da lista)
+  const [aberto, setAberto] = useState<Orcamento | null>(null)
   const { mapa } = useStatusConfig()
   const lista = useListagem<{ status?: string }>({})
   const params = { ...lista.params, status: lista.filtros.status as StatusOrcamento | undefined }
@@ -84,7 +88,7 @@ export function OrcamentosPage() {
         onPageSizeChange={lista.setPageSize}
         onSortChange={lista.setSort}
         idLinha={(o) => o.id}
-        onLinhaClick={(o) => navigate(`/orcamentos/${o.id}`)}
+        onLinhaClick={(o, e) => abrirLinha(e, `/orcamentos/${o.id}`, () => setAberto(o))}
         busca={{ valor: lista.busca, onChange: lista.setBusca, placeholder: 'Número ou cliente…' }}
         filtros={
           <div className="w-48">
@@ -113,6 +117,7 @@ export function OrcamentosPage() {
         }}
         vazio={{ titulo: 'Nenhum orçamento', descricao: 'Crie um orçamento a partir de uma solicitação ou pelo botão “Novo orçamento”.' }}
       />
+      {aberto && <PainelOrcamento orcamento={aberto} onFechar={() => setAberto(null)} />}
     </>
   )
 }

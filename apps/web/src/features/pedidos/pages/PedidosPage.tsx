@@ -1,5 +1,4 @@
-import { useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useMemo, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { STATUS_PEDIDO, formatarData, formatarDataSimples, saldoPedido, type Pedido, type StatusPedido } from '@onprint/shared'
@@ -16,6 +15,8 @@ import { useStatusConfig } from '@/hooks/useStatusConfig'
 import { buscarTodasPaginas } from '@/lib/paginacao'
 import { cn } from '@/lib/utils'
 import { ValorPedido } from '@/components/shared/ValorComSaldo'
+import { abrirLinha } from '@/lib/abrirLinha'
+import { PainelPedido } from '../components/kanban/PainelPedido'
 
 /** Progresso do pedido: artes aprovadas e OPs concluídas. */
 function Progresso({ pedido }: { pedido: Pedido }) {
@@ -29,7 +30,8 @@ function Progresso({ pedido }: { pedido: Pedido }) {
 }
 
 export function PedidosPage() {
-  const navigate = useNavigate()
+  // Painel lateral da linha clicada (resumo + ações sem sair da lista)
+  const [aberto, setAberto] = useState<Pedido | null>(null)
   const { mapa } = useStatusConfig()
   const lista = useListagem<{ status?: string; atrasados?: string; incluirFinalizados?: string }>({})
   const params = { ...lista.params, status: lista.filtros.status as StatusPedido | undefined } as Parameters<typeof pedidosApi.listar>[0]
@@ -85,7 +87,7 @@ export function PedidosPage() {
         onPageSizeChange={lista.setPageSize}
         onSortChange={lista.setSort}
         idLinha={(p) => p.id}
-        onLinhaClick={(p) => navigate(`/pedidos/${p.id}`)}
+        onLinhaClick={(p, e) => abrirLinha(e, `/pedidos/${p.id}`, () => setAberto(p))}
         destacarLinha={(p) => p.atrasado}
         busca={{ valor: lista.busca, onChange: lista.setBusca, placeholder: 'Número ou cliente…' }}
         filtros={
@@ -125,6 +127,7 @@ export function PedidosPage() {
         }}
         vazio={{ titulo: 'Nenhum pedido', descricao: 'Converta um orçamento aprovado para criar o primeiro pedido.' }}
       />
+      {aberto && <PainelPedido pedido={aberto} onFechar={() => setAberto(null)} />}
     </>
   )
 }

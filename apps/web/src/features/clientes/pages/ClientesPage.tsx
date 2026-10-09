@@ -26,11 +26,15 @@ import { useListagem } from '@/hooks/useListagem'
 import { usePermission } from '@/hooks/usePermission'
 import { PreCadastroDialog } from '../components/PreCadastroDialog'
 import { useClientes, useMutacaoClientes, useTotalPreCadastros } from '../hooks'
+import { abrirLinha } from '@/lib/abrirLinha'
+import { PainelCliente } from '../components/PainelCliente'
 
 type FiltroAtivo = 'true' | 'false' | 'todos'
 
 export function ClientesPage() {
   const navigate = useNavigate()
+  // Painel lateral da linha clicada (resumo + ações sem sair da lista)
+  const [aberto, setAberto] = useState<Cliente | null>(null)
   const lista = useListagem<{ situacao?: string; ativo?: string }>({ situacao: undefined, ativo: 'true' })
   const consulta = useClientes({ ...lista.params, situacao: lista.filtros.situacao as SituacaoCliente | undefined, ativo: lista.filtros.ativo as FiltroAtivo })
   const totalPre = useTotalPreCadastros()
@@ -120,7 +124,7 @@ export function ClientesPage() {
         onPageSizeChange={lista.setPageSize}
         onSortChange={lista.setSort}
         idLinha={(c) => c.id}
-        onLinhaClick={(c) => navigate(`/clientes/${c.id}`)}
+        onLinhaClick={(c, e) => abrirLinha(e, `/clientes/${c.id}`, () => setAberto(c))}
         destacarLinha={(c) => c.situacao === 'pre_cadastro'}
         busca={{ valor: lista.busca, onChange: lista.setBusca, placeholder: 'Nome, CPF/CNPJ, WhatsApp, e-mail…' }}
         filtros={
@@ -191,6 +195,7 @@ export function ClientesPage() {
           toast.success(confirmar!.ativo ? 'Cliente desativado.' : 'Cliente reativado.')
         }}
       />
+      {aberto && <PainelCliente cliente={aberto} onFechar={() => setAberto(null)} />}
     </>
   )
 }

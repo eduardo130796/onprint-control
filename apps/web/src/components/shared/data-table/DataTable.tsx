@@ -39,7 +39,8 @@ export interface DataTableProps<T> {
   /** Filtros extras exibidos ao lado da busca */
   filtros?: ReactNode
   exportar?: { nomeArquivo: string; colunas: ColunaCsv<T>[]; buscarTodos: () => Promise<T[]> }
-  onLinhaClick?: (linha: T) => void
+  /** Clique na linha; o evento permite Ctrl/Cmd+clique (abrir em nova aba) */
+  onLinhaClick?: (linha: T, evento: React.MouseEvent) => void
   destacarLinha?: (linha: T) => boolean
   vazio?: { titulo: string; descricao?: string; acao?: ReactNode }
   idLinha?: (linha: T) => string
@@ -130,7 +131,7 @@ export function DataTable<T>(props: DataTableProps<T>) {
                 {linhas.map((linha) => (
                   <tr
                     key={linha.id}
-                    onClick={onLinhaClick ? () => onLinhaClick(linha.original) : undefined}
+                    onClick={onLinhaClick ? (e) => onLinhaClick(linha.original, e) : undefined}
                     className={cn(
                       'transition-colors hover:bg-fundo/70',
                       onLinhaClick && 'cursor-pointer',
@@ -153,7 +154,7 @@ export function DataTable<T>(props: DataTableProps<T>) {
             {linhas.map((linha) => (
               <li
                 key={linha.id}
-                onClick={onLinhaClick ? () => onLinhaClick(linha.original) : undefined}
+                onClick={onLinhaClick ? (e) => onLinhaClick(linha.original, e) : undefined}
                 className={cn('space-y-1.5 p-4', destacarLinha?.(linha.original) && 'bg-ambar/5 shadow-[inset_3px_0_0_#F59E0B]')}
               >
                 {linha.getVisibleCells().filter((c) => !c.column.columnDef.meta?.ocultarNoCard).map((c) => {

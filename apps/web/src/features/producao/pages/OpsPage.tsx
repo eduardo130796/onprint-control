@@ -1,5 +1,4 @@
-import { useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useMemo, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { ETAPAS_PRODUCAO, formatarDataSimples, type EtapaProducao, type OrdemProducao } from '@onprint/shared'
@@ -14,10 +13,13 @@ import { Checkbox, Select } from '@/components/ui/form-controls'
 import { useListagem } from '@/hooks/useListagem'
 import { useStatusConfig } from '@/hooks/useStatusConfig'
 import { buscarTodasPaginas } from '@/lib/paginacao'
+import { abrirLinha } from '@/lib/abrirLinha'
+import { PainelOp } from '../components/PainelOp'
 
 /** Lista de ordens de produção (/producao/ordens), com filtro por etapa e CSV. */
 export function OpsPage() {
-  const navigate = useNavigate()
+  // Painel lateral da linha clicada (resumo + ações sem sair da lista)
+  const [aberto, setAberto] = useState<OrdemProducao | null>(null)
   const { mapa } = useStatusConfig()
   const lista = useListagem<{ etapa?: string; incluirConcluidas?: string; atrasadas?: string }>({})
   const params = { ...lista.params, etapa: lista.filtros.etapa as EtapaProducao | undefined } as Parameters<typeof opsApi.listar>[0]
@@ -74,7 +76,7 @@ export function OpsPage() {
         onPageSizeChange={lista.setPageSize}
         onSortChange={lista.setSort}
         idLinha={(op) => op.id}
-        onLinhaClick={(op) => navigate(`/producao/ordens/${op.id}`)}
+        onLinhaClick={(op, e) => abrirLinha(e, `/producao/ordens/${op.id}`, () => setAberto(op))}
         destacarLinha={(op) => op.atrasada}
         busca={{ valor: lista.busca, onChange: lista.setBusca, placeholder: 'OP, pedido, cliente ou item…' }}
         filtros={
@@ -115,6 +117,7 @@ export function OpsPage() {
         }}
         vazio={{ titulo: 'Nenhuma OP', descricao: 'As ordens de produção nascem quando um orçamento aprovado vira pedido.' }}
       />
+      {aberto && <PainelOp op={aberto} onFechar={() => setAberto(null)} />}
     </>
   )
 }

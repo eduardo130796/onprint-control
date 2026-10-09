@@ -1,27 +1,26 @@
-/**
- * Ponto de extensão para busca de endereço por CEP.
- * Hoje: ManualCepProvider (não consulta nada; o usuário preenche o endereço).
- * Futuro (Fase 9): ViaCepProvider implementando a mesma interface.
- */
-export interface EnderecoCep {
-  cep: string
-  logradouro: string
-  bairro: string
-  cidade: string
-  uf: string
-}
+import { somenteDigitos, type EnderecoCep } from '@onprint/shared'
+import { ErroApi } from '@/api/http'
+import { consultasApi } from '@/api/consultas'
 
+export type { EnderecoCep }
+
+/** Busca de endereço por CEP. null = CEP não existe; outros problemas viram exceção (ErroApi). */
 export interface CepProvider {
-  readonly automatico: boolean
-  buscar(cep: string): Promise<EnderecoCep | null>
+  buscar(cep: string, signal?: AbortSignal): Promise<EnderecoCep | null>
 }
 
-export class ManualCepProvider implements CepProvider {
-  readonly automatico = false
-
-  async buscar(): Promise<EnderecoCep | null> {
-    return null
+/** Pergunta à nossa API, que consulta BrasilAPI/ViaCEP com cache. */
+export class ApiCepProvider implements CepProvider {
+  async buscar(cep: string, signal?: AbortSignal): Promise<EnderecoCep | null> {
+    const d = somenteDigitos(cep)
+    if (d.length !== 8) return null
+    try {
+      return await consultasApi.cep(d, signal)
+    } catch (e) {
+      if (e instanceof ErroApi && (e.status === 404 || e.status === 400)) return null
+      throw e
+    }
   }
 }
 
-export const cepProvider: CepProvider = new ManualCepProvider()
+export const cepProvider: CepProvider = new ApiCepProvider()

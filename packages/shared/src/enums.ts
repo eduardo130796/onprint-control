@@ -59,6 +59,8 @@ export const CODIGOS_ERRO = {
   ASSINATURA_SOMENTE_LEITURA: 'ASSINATURA_SOMENTE_LEITURA',
   /** O módulo não faz parte do plano da empresa */
   MODULO_NAO_CONTRATADO: 'MODULO_NAO_CONTRATADO',
+  /** Serviço externo (consulta de CEP/CNPJ) fora do ar: o usuário preenche manualmente */
+  SERVICO_INDISPONIVEL: 'SERVICO_INDISPONIVEL',
   ERRO_INTERNO: 'ERRO_INTERNO',
 } as const
 export type CodigoErro = (typeof CODIGOS_ERRO)[keyof typeof CODIGOS_ERRO]

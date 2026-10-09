@@ -1,17 +1,20 @@
+import { useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, Save } from 'lucide-react'
+import { Loader2, MapPin, Save, X } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   ORIGENS_CLIENTE,
   ORIGEM_ROTULOS,
   SITUACOES_CLIENTE,
   clienteSchema,
+  formatarCep,
   type Cliente,
   type ClienteDados,
   type ClienteInput,
 } from '@onprint/shared'
 import { clientesApi } from '@/api/cadastros'
+import { BotaoBuscarCnpj } from '@/components/shared/BotaoBuscarCnpj'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { CpfCnpjInput, MoneyInput, PhoneInput } from '@/components/shared/inputs'
 import { useStatusConfig } from '@/hooks/useStatusConfig'
@@ -20,7 +23,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, Textarea } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
+import { useConsultaCnpj } from '@/hooks/useConsultaCnpj'
 import { usePermission } from '@/hooks/usePermission'
+import { enderecoPrincipalDaReceita, type EnderecoReceita } from '@/lib/consultas'
 import { decimalParaInput, mascaraCpfCnpj, mascaraTelefone } from '@/lib/mascaras'
 import { useMutacaoClientes, useVendedores } from '../hooks'
 
@@ -43,6 +48,26 @@ function valoresIniciais(c?: Cliente): ClienteInput {
   }
 }
 
+function PreviaEndereco({ endereco, onDescartar }: { endereco: EnderecoReceita; onDescartar: () => void }) {
+  const rua = [endereco.logradouro, endereco.numero, endereco.complemento].filter(Boolean).join(', ')
+  const cidade = [endereco.bairro, `${endereco.cidade}/${endereco.uf}`].filter(Boolean).join(' · ')
+  return (
+    <div className="flex flex-wrap items-start gap-3 rounded-2xl border border-dashed border-marca/60 bg-marca-suave/40 p-4 text-sm md:col-span-6">
+      <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-marca-escuro" aria-hidden />
+      {/* No celular o texto ocupa a linha toda e o "Descartar" desce */}
+      <div className="min-w-0 flex-1 basis-56">
+        <p className="font-medium text-tinta">Endereço encontrado na Receita (será salvo como principal)</p>
+        <p className="mt-1 break-words text-tinta">{rua}</p>
+        <p className="text-texto-secundario">{cidade}</p>
+        {endereco.cep && <p className="text-texto-secundario">CEP {formatarCep(endereco.cep)}</p>}
+      </div>
+      <Button type="button" variant="ghost" size="sm" className="ml-auto shrink-0" onClick={onDescartar}>
+        <X /> Descartar
+      </Button>
+    </div>
+  )
+}
+
 interface ClienteFormProps {
   cliente?: Cliente
   onSalvo: (cliente: Cliente) => void
@@ -62,9 +87,33 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
     cliente ? clientesApi.atualizar(cliente.id, dados) : clientesApi.criar(dados),
   )
 
+  // Cliente novo: o endereço da Receita fica guardado e vira o endereço principal depois de salvar
+  const [enderecoReceita, setEnderecoReceita] = useState<EnderecoReceita | null>(null)
+  const consultaCnpj = useConsultaCnpj({
+    form,
+    campoDocumento: 'cpfCnpj',
+    campos: { razaoSocial: 'nome', nomeFantasia: 'fantasia', email: 'email', telefone: 'telefone', ie: 'ie' },
+    aoEncontrar: () => {
+      if (form.getValues('tipoPessoa') !== 'PJ') form.setValue('tipoPessoa', 'PJ', { shouldDirty: true })
+    },
+    aoReceberEndereco: (e) => {
+      if (cliente) return false
+      const endereco = enderecoPrincipalDaReceita(e)
+      setEnderecoReceita(endereco)
+      return Boolean(endereco)
+    },
+  })
+
   const onSubmit = form.handleSubmit(async (dados) => {
     try {
       const salvo = await salvar.mutateAsync(dados)
+      if (!cliente && enderecoReceita) {
+        try {
+          await clientesApi.salvarEndereco(salvo.id, enderecoReceita)
+        } catch {
+          toast.warning('Cliente salvo, mas o endereço não.', { description: 'Adicione o endereço na aba Endereços.' })
+        }
+      }
       form.reset(valoresIniciais(salvo))
       toast.success(cliente ? 'Cliente atualizado.' : 'Cliente cadastrado.')
       onSalvo(salvo)
@@ -102,7 +151,12 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
               </CampoFormulario>
             </div>
             <div className="md:col-span-2">
-              <CampoFormulario id="cli-cpfCnpj" rotulo={tipo === 'PJ' ? 'CNPJ' : 'CPF'} erro={errors.cpfCnpj?.message}>
+              <CampoFormulario
+                id="cli-cpfCnpj"
+                rotulo={tipo === 'PJ' ? 'CNPJ' : 'CPF'}
+                erro={errors.cpfCnpj?.message}
+                acao={<BotaoBuscarCnpj consulta={consultaCnpj} />}
+              >
                 <CpfCnpjInput {...campo('cpfCnpj')} {...form.register('cpfCnpj')} />
               </CampoFormulario>
             </div>
@@ -111,6 +165,7 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
                 <Input {...campo('ie')} {...form.register('ie')} />
               </CampoFormulario>
             </div>
+            {enderecoReceita && <PreviaEndereco endereco={enderecoReceita} onDescartar={() => setEnderecoReceita(null)} />}
           </CardContent>
         </Card>
 

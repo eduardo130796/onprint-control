@@ -1,9 +1,14 @@
-import type { FieldErrors, UseFormRegister } from 'react-hook-form'
+import { useCallback } from 'react'
+import type { FieldErrors, UseFormRegister, UseFormSetValue } from 'react-hook-form'
 import { Select } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
+import { useBuscaCep } from '@/hooks/useBuscaCep'
+import type { EnderecoCep } from '@/integrations/cep'
+import { aplicarEnderecoDoCep } from '@/lib/consultas'
 import { UFS } from '@/lib/ufs'
 import { CampoFormulario } from './CampoFormulario'
 import { CepInput } from './inputs'
+import { StatusCep } from './StatusCep'
 
 interface CamposEnderecoProps {
   prefixo: string
@@ -12,18 +17,44 @@ interface CamposEnderecoProps {
   register: UseFormRegister<any>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   errors: FieldErrors<any>
+  /** Preenche logradouro, bairro, cidade e UF pela busca do CEP */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  setValue: UseFormSetValue<any>
 }
 
 const erro = (errors: FieldErrors, campo: string) => errors[campo]?.message as string | undefined
 
-/** Bloco de endereço (CEP manual — a busca automática é uma integração futura). */
-export function CamposEndereco({ prefixo, register, errors }: CamposEnderecoProps) {
+/** Bloco de endereço: o CEP completo busca logradouro, bairro, cidade e UF; o foco vai para o número. */
+export function CamposEndereco({ prefixo, register, errors, setValue }: CamposEnderecoProps) {
   const id = (c: string) => `${prefixo}-${c}`
+  const busca = useBuscaCep(
+    useCallback(
+      (e: EnderecoCep) => {
+        aplicarEnderecoDoCep(setValue, e)
+        document.getElementById(`${prefixo}-numero`)?.focus()
+      },
+      [setValue, prefixo],
+    ),
+  )
+  const cep = register('cep')
   return (
     <div className="grid gap-4 md:grid-cols-12">
       <div className="md:col-span-3">
         <CampoFormulario id={id('cep')} rotulo="CEP" erro={erro(errors, 'cep')}>
-          <CepInput id={id('cep')} {...register('cep')} />
+          <CepInput
+            id={id('cep')}
+            aria-describedby={id('cep-status')}
+            {...cep}
+            onChange={(e) => {
+              void cep.onChange(e)
+              busca.aoDigitar(e.target.value)
+            }}
+            onBlur={(e) => {
+              void cep.onBlur(e)
+              busca.aoSair(e.target.value)
+            }}
+          />
+          <StatusCep id={id('cep-status')} status={busca.status} />
         </CampoFormulario>
       </div>
       <div className="md:col-span-7">

@@ -204,3 +204,11 @@ Pedido do usuário: "toda hora sai um por folha… otimizar para economizar folh
 - [x] Fila de etiquetas no servidor: OP concluída entra sozinha; adicionar à mão sem duplicar; imprimir pela fila marca como impressas (com Desfazer); aviso "faltam N para completar a folha"; botão com contador no kanban da produção e nas entregas
 - [x] Verificado: testes unitários (shared: distribuição na folha; web: volumes e preferências), e2e `fase16` (23 verificações: entrada automática, sem duplicar nem com cliques simultâneos, marcar/desfazer, saída ao voltar da conclusão, permissão) e regressão da `fase4`; corrigido de quebra o PDF A4 com 4, que saía com 2 por folha (altura "50%" arredondada passava da página)
 - [ ] Aceite validado pelo usuário (e definir o papel: A4 com 4, A4 com 8 ou térmica)
+
+### Consulta de CEP e CNPJ ✅ (aguardando OK)
+Pedido do usuário: "puxar os dados do CNPJ e endereço onde tiver, puxar pelo CEP".
+- [x] API: `GET /consultas/cep/:cep` (BrasilAPI → ViaCEP) e `GET /consultas/cnpj/:cnpj` (BrasilAPI → CNPJ.ws), com login, 30/min por usuário, 5 s por serviço, cache com validade e 503 "Preencha manualmente" quando os serviços falham; `CONSULTAS_EXTERNAS=false` desliga (D204)
+- [x] CEP preenche o endereço (Dados da empresa, fornecedor, endereço do cliente) e monta o texto do endereço de entrega (pedido e entrega)
+- [x] CNPJ preenche os campos vazios (empresa, fornecedor, cliente), avisa situação diferente de ATIVA; cliente novo ganha o endereço principal da Receita ao salvar; cliente PJ sem endereço tem "Adicionar endereço da Receita"
+- [x] Verificado: testes unitários (api: normalização, ordem dos serviços, cache, rotas; web: preenchimento só dos vazios; shared: capitalização) e capturas no navegador (computador e celular, claro e escuro) com os serviços reais
+- [ ] Aceite validado pelo usuário

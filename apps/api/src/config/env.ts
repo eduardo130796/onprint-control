@@ -69,6 +69,8 @@ const envSchema = z.object({
   ASAAS_NF_CSLL: z.coerce.number().min(0).default(0),
   ASAAS_NF_INSS: z.coerce.number().min(0).default(0),
   ASAAS_NF_IR: z.coerce.number().min(0).default(0),
+  /** Consulta de CEP e CNPJ em serviços públicos (BrasilAPI, ViaCEP, CNPJ.ws); false = só preenchimento manual */
+  CONSULTAS_EXTERNAS: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
 })
 
 /** Segredos fracos ou de exemplo impedem a API de subir (fora dos testes automatizados). */

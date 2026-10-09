@@ -14,6 +14,7 @@ import {
   type PedidoDetalhe,
 } from '@onprint/shared'
 import { pedidosApi } from '@/api/producao'
+import { BuscaCepTexto } from '@/components/shared/BuscaCepTexto'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { FormDialog } from '@/components/shared/FormDialog'
 import { Checkbox, Select, Textarea } from '@/components/ui/form-controls'
@@ -75,6 +76,7 @@ export function EditarPedidoDialog({ pedido, onFechar }: { pedido: PedidoDetalhe
       </div>
       <CampoFormulario id="pe-end" rotulo="Endereço de entrega">
         <Textarea id="pe-end" rows={2} {...form.register('enderecoEntrega')} />
+        <BuscaCepTexto idCampo="pe-end" aoPreencher={(texto) => form.setValue('enderecoEntrega', texto, { shouldDirty: true })} />
       </CampoFormulario>
       <CampoFormulario id="pe-obs" rotulo="Observações (aparecem para o cliente)">
         <Textarea id="pe-obs" rows={2} {...form.register('observacoes')} />

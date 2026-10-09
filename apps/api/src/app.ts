@@ -7,6 +7,7 @@ import { arquivosRoutes } from './modules/arquivos/routes'
 import { authRoutes } from './modules/auth/routes'
 import { clientesRoutes } from './modules/clientes/routes'
 import { configuracoesRoutes } from './modules/configuracoes/routes'
+import { consultasRoutes } from './modules/consultas/routes'
 import { empresaRoutes } from './modules/empresa/routes'
 import { fornecedoresRoutes } from './modules/fornecedores/routes'
 import { orcamentosRoutes } from './modules/orcamentos/routes'
@@ -91,6 +92,7 @@ export async function buildApp(config: Env) {
       await v1.register(arquivosRoutes, { prefix: '/arquivos' })
       await v1.register(clientesRoutes, { prefix: '/clientes' })
       await v1.register(fornecedoresRoutes, { prefix: '/fornecedores' })
+      await v1.register(consultasRoutes, { prefix: '/consultas' })
       await v1.register(produtosRoutes)
       await v1.register(orcamentosRoutes)
       await v1.register(pedidosRoutes)

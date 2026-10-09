@@ -8,6 +8,7 @@ import type { z } from 'zod'
 import { empresaApi } from '@/api/configuracoes'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
+import { BotaoBuscarCnpj } from '@/components/shared/BotaoBuscarCnpj'
 import { CamposEndereco } from '@/components/shared/CamposEndereco'
 import { EstadoErro } from '@/components/shared/EstadoErro'
 import { FileUploader } from '@/components/shared/FileUploader'
@@ -18,6 +19,7 @@ import { Textarea } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/hooks/useAuth'
+import { useConsultaCnpj } from '@/hooks/useConsultaCnpj'
 import { usePermission } from '@/hooks/usePermission'
 import { decimalParaInput, mascaraCep, mascaraCpfCnpj, mascaraTelefone } from '@/lib/mascaras'
 import { CHAVE_EMPRESA, useEmpresa, useUrlArquivo } from '../hooks'
@@ -92,6 +94,12 @@ function EmpresaForm({ empresa, podeEditar }: { empresa: EmpresaConfig; podeEdit
   const { errors, isDirty } = form.formState
   const salvar = useMutation({ mutationFn: (d: Saida) => empresaApi.salvar(d) })
   const r = form.register
+  const consultaCnpj = useConsultaCnpj({
+    form,
+    campoDocumento: 'cnpj',
+    campos: { razaoSocial: 'razaoSocial', nomeFantasia: 'nomeFantasia', email: 'email', telefone: 'telefone', ie: 'ie' },
+    enderecoNoFormulario: true,
+  })
 
   const onSubmit = form.handleSubmit(async (dados) => {
     try {
@@ -119,7 +127,7 @@ function EmpresaForm({ empresa, podeEditar }: { empresa: EmpresaConfig; podeEdit
             <CampoFormulario id="emp-fantasia" rotulo="Nome fantasia">
               <Input id="emp-fantasia" {...r('nomeFantasia')} />
             </CampoFormulario>
-            <CampoFormulario id="emp-cnpj" rotulo="CNPJ" erro={errors.cnpj?.message}>
+            <CampoFormulario id="emp-cnpj" rotulo="CNPJ" erro={errors.cnpj?.message} acao={<BotaoBuscarCnpj consulta={consultaCnpj} />}>
               <CpfCnpjInput id="emp-cnpj" {...r('cnpj')} />
             </CampoFormulario>
             <CampoFormulario id="emp-ie" rotulo="Inscrição estadual">
@@ -144,7 +152,7 @@ function EmpresaForm({ empresa, podeEditar }: { empresa: EmpresaConfig; podeEdit
             <CardTitle className="text-base">Endereço</CardTitle>
           </CardHeader>
           <CardContent>
-            <CamposEndereco prefixo="emp" register={form.register} errors={errors} />
+            <CamposEndereco prefixo="emp" register={form.register} errors={errors} setValue={form.setValue} />
           </CardContent>
         </Card>
         <Card>

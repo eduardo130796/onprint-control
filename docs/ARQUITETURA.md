@@ -497,7 +497,7 @@ Estes itens são requisitos do sistema, mas **não** devem ser implementados ago
 | Integração futura | Ponto de extensão agora |
 |---|---|
 | WhatsApp (Cloud API ou Evolution API) | Interface `MessagingProvider` com implementação "copiar mensagem"; coluna `referencia_externa`; páginas placeholder |
-| Busca de endereço por CEP | Interface `CepProvider` com implementação manual |
+| Busca de endereço por CEP | Interface `CepProvider` → `GET /consultas/cep` da API (BrasilAPI/ViaCEP); CNPJ em `GET /consultas/cnpj` (D204) |
 | Envio de e-mail (recuperar senha, notificações) | Interface `EmailProvider` com implementação que apenas registra no log |
 | Armazenamento em nuvem (S3 etc.) | Interface `StorageService` com implementação em disco |
 | Pagamentos online, PIX automático, boletos | Campos de forma de pagamento já existentes |

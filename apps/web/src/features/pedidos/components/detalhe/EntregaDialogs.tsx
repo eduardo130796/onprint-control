@@ -14,6 +14,7 @@ import {
   type RealizarEntregaInput,
 } from '@onprint/shared'
 import { entregasApi } from '@/api/producao'
+import { BuscaCepTexto } from '@/components/shared/BuscaCepTexto'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { FormDialog } from '@/components/shared/FormDialog'
 import { Select, Textarea } from '@/components/ui/form-controls'
@@ -92,6 +93,7 @@ export function EntregaDialog({ pedido, entrega, onFechar }: { pedido: PedidoDet
       {tipo !== 'retirada' && (
         <CampoFormulario id="en-end" rotulo="Endereço">
           <Textarea id="en-end" rows={2} {...form.register('endereco')} />
+          <BuscaCepTexto idCampo="en-end" aoPreencher={(texto) => form.setValue('endereco', texto, { shouldDirty: true })} />
         </CampoFormulario>
       )}
       <CampoFormulario id="en-obs" rotulo="Observação">

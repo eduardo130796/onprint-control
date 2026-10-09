@@ -1,12 +1,16 @@
 import { useState } from 'react'
-import { MapPin, Pencil, Plus, Trash2 } from 'lucide-react'
-import { TIPO_ENDERECO_ROTULOS, formatarCep, type ClienteDetalhe, type Endereco } from '@onprint/shared'
+import { Loader2, MapPin, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { TIPO_ENDERECO_ROTULOS, cnpjValido, formatarCep, type ClienteDetalhe, type Endereco } from '@onprint/shared'
 import { clientesApi } from '@/api/cadastros'
+import { consultasApi } from '@/api/consultas'
+import { ErroApi } from '@/api/http'
 import { AcaoIcone } from '@/components/shared/AcaoIcone'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Button } from '@/components/ui/button'
 import { usePermission } from '@/hooks/usePermission'
+import { enderecoPrincipalDaReceita, type EnderecoReceita } from '@/lib/consultas'
 import { useMutacaoClientes } from '../hooks'
 import { EnderecoDialog } from './EnderecoDialog'
 
@@ -18,14 +22,36 @@ function linhaEndereco(e: Endereco) {
 
 export function EnderecosTab({ cliente }: { cliente: ClienteDetalhe }) {
   const podeEditar = usePermission('clientes', 'editar')
-  const [editando, setEditando] = useState<Endereco | 'novo' | null>(null)
+  const [editando, setEditando] = useState<Endereco | 'novo' | { receita: EnderecoReceita } | null>(null)
+  const [buscandoReceita, setBuscandoReceita] = useState(false)
+  // Cliente PJ sem endereço: oferece o endereço da Receita (abre o formulário para conferir antes de salvar)
+  const ofereceReceita = podeEditar && cliente.enderecos.length === 0 && Boolean(cliente.cpfCnpj && cnpjValido(cliente.cpfCnpj))
+
+  async function buscarNaReceita() {
+    setBuscandoReceita(true)
+    try {
+      const dados = await consultasApi.cnpj(cliente.cpfCnpj!)
+      const endereco = enderecoPrincipalDaReceita(dados.endereco)
+      if (endereco) setEditando({ receita: endereco })
+      else toast.info('A Receita não tem um endereço completo para este CNPJ.', { description: 'Cadastre o endereço manualmente.' })
+    } catch (e) {
+      toast.error(e instanceof ErroApi && e.status === 404 ? 'CNPJ não encontrado na Receita Federal.' : (e as Error).message)
+    } finally {
+      setBuscandoReceita(false)
+    }
+  }
   const [removendo, setRemovendo] = useState<Endereco | null>(null)
   const remover = useMutacaoClientes((id: string) => clientesApi.removerEndereco(cliente.id, id))
 
   return (
     <div className="space-y-4">
       {podeEditar && (
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
+          {ofereceReceita && (
+            <Button variant="outline" disabled={buscandoReceita} onClick={() => void buscarNaReceita()}>
+              {buscandoReceita ? <Loader2 className="animate-spin" /> : <Search />} Adicionar endereço da Receita
+            </Button>
+          )}
           <Button onClick={() => setEditando('novo')}>
             <Plus /> Adicionar endereço
           </Button>
@@ -64,7 +90,8 @@ export function EnderecosTab({ cliente }: { cliente: ClienteDetalhe }) {
       {editando && (
         <EnderecoDialog
           clienteId={cliente.id}
-          endereco={editando === 'novo' ? undefined : editando}
+          endereco={editando === 'novo' || 'receita' in editando ? undefined : editando}
+          inicial={editando !== 'novo' && 'receita' in editando ? editando.receita : undefined}
           onFechar={() => setEditando(null)}
         />
       )}

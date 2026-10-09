@@ -6,12 +6,14 @@ import { fornecedorSchema, type Fornecedor, type FornecedorInput } from '@onprin
 import type { z } from 'zod'
 import { fornecedoresApi } from '@/api/cadastros'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
+import { BotaoBuscarCnpj } from '@/components/shared/BotaoBuscarCnpj'
 import { CamposEndereco } from '@/components/shared/CamposEndereco'
 import { CpfCnpjInput, NumberInput, PhoneInput } from '@/components/shared/inputs'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, Textarea } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
+import { useConsultaCnpj } from '@/hooks/useConsultaCnpj'
 import { usePermission } from '@/hooks/usePermission'
 import { mascaraCep, mascaraCpfCnpj, mascaraTelefone } from '@/lib/mascaras'
 import { useMutacaoFornecedores } from '../hooks'
@@ -50,6 +52,16 @@ export function FornecedorForm({ fornecedor, onSalvo }: { fornecedor?: Fornecedo
   const salvar = useMutacaoFornecedores((dados: Saida) =>
     fornecedor ? fornecedoresApi.atualizar(fornecedor.id, dados) : fornecedoresApi.criar(dados),
   )
+
+  const consultaCnpj = useConsultaCnpj({
+    form,
+    campoDocumento: 'cpfCnpj',
+    campos: { razaoSocial: 'nome', nomeFantasia: 'fantasia', email: 'email', telefone: 'telefone', ie: 'ie' },
+    enderecoNoFormulario: true,
+    aoEncontrar: () => {
+      if (form.getValues('tipoPessoa') !== 'PJ') form.setValue('tipoPessoa', 'PJ', { shouldDirty: true })
+    },
+  })
 
   const onSubmit = form.handleSubmit(async (dados) => {
     try {
@@ -90,7 +102,7 @@ export function FornecedorForm({ fornecedor, onSalvo }: { fornecedor?: Fornecedo
               </CampoFormulario>
             </div>
             <div className="md:col-span-2">
-              <CampoFormulario id="for-doc" rotulo="CPF/CNPJ" erro={errors.cpfCnpj?.message}>
+              <CampoFormulario id="for-doc" rotulo="CPF/CNPJ" erro={errors.cpfCnpj?.message} acao={<BotaoBuscarCnpj consulta={consultaCnpj} />}>
                 <CpfCnpjInput id="for-doc" aria-invalid={Boolean(errors.cpfCnpj)} {...r('cpfCnpj')} />
               </CampoFormulario>
             </div>
@@ -141,7 +153,7 @@ export function FornecedorForm({ fornecedor, onSalvo }: { fornecedor?: Fornecedo
             <CardTitle className="text-base">Endereço</CardTitle>
           </CardHeader>
           <CardContent>
-            <CamposEndereco prefixo="for" register={form.register} errors={errors} />
+            <CamposEndereco prefixo="for" register={form.register} errors={errors} setValue={form.setValue} />
           </CardContent>
         </Card>
         <Card>

@@ -188,4 +188,4 @@ Celular ou computador:
 
 ---
 
-*ONPrint Control · versão de testes (fases 0 a 8 + ajustes do lote 1). Integrações com WhatsApp, CEP e e-mail ainda não estão ativas: as mensagens são copiadas e enviadas manualmente.*
+*ONPrint Control · versão de testes (fases 0 a 8 + ajustes do lote 1). CEP e CNPJ preenchem endereço e dados da empresa sozinhos; as mensagens de WhatsApp ainda são copiadas e enviadas manualmente.*

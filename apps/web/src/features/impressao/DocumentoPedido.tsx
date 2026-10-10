@@ -1,5 +1,5 @@
 import { Document, Page, Text, View } from '@react-pdf/renderer'
-import { TIPO_ENTREGA_ROTULOS, formatarDataHora, formatarDataSimples, formatarMoeda, formatarTelefone, type EmpresaConfig, type PedidoDetalhe } from '@onprint/shared'
+import { TIPO_ENTREGA_ROTULOS, formatarDataHora, formatarDataSimples, formatarMoeda, formatarTelefone, type EmpresaConfig, type PedidoDetalhe, type RecebimentosPedido } from '@onprint/shared'
 import { AssinaturaPdf, BlocoInfo, CabecalhoPdf, FaixaMarca, RodapePdf, TabelaPdf, TextoPdf, TotaisPdf } from './PecasPdf'
 import { dadosEmpresa } from './pdfComum'
 import { COR, base } from './tema'
@@ -8,9 +8,14 @@ const SITUACAO = { aberto: 'Em aberto', parcial: 'Pago em parte', vencido: 'Venc
 const COR_SITUACAO = { aberto: COR.suave, parcial: '#92400E', vencido: COR.coral, pago: '#166534', cancelado: COR.claro } as const
 const metros = (v: string | null) => (v ? Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 3 }) : '')
 
-/** Pedido de venda em A4: cliente, entrega, itens, totais, pagamento e assinatura de recebimento. */
-export function DocumentoPedido({ p, empresa, logo }: { p: PedidoDetalhe; empresa: EmpresaConfig; logo: string | null }) {
+/**
+ * Pedido de venda em A4: cliente, entrega, itens, totais, pagamento e assinatura de recebimento.
+ * No pagamento, cada parcela mostra quanto já foi pago e quanto falta, e a lista dos pagamentos recebidos (data e forma).
+ */
+export function DocumentoPedido({ p, empresa, logo, recebimentos }: { p: PedidoDetalhe; empresa: EmpresaConfig; logo: string | null; recebimentos?: RecebimentosPedido | null }) {
   const parcelas = p.contasReceber.filter((c) => c.status !== 'cancelado')
+  const pagamentos = recebimentos?.pagamentos ?? []
+  const totalRecebido = pagamentos.reduce((s, x) => s + Number(x.valor), 0)
   const emAberto = Number(p.total) - Number(p.valorPago)
   const totais = [
     { rotulo: 'Subtotal', valor: formatarMoeda(p.subtotal) },
@@ -101,18 +106,57 @@ export function DocumentoPedido({ p, empresa, logo }: { p: PedidoDetalhe; empres
             <TabelaPdf
               colunas={[
                 { titulo: 'Parcela', largura: 4 },
-                { titulo: 'Vencimento', largura: 80, numero: true },
-                { titulo: 'Situação', largura: 80, numero: true },
+                { titulo: 'Vencimento', largura: 62, numero: true },
+                { titulo: 'Valor', largura: 64, numero: true },
+                { titulo: 'Pago', largura: 64, numero: true },
+                { titulo: 'Falta pagar', largura: 66, numero: true },
+                { titulo: 'Situação', largura: 70, numero: true },
+              ]}
+              linhas={parcelas.map((c) => {
+                const pago = Number(c.valorPago ?? (c.status === 'pago' ? c.valor : 0))
+                const falta = Math.max(0, Number(c.valor) - pago)
+                return [
+                  c.descricao,
+                  formatarDataSimples(c.vencimento),
+                  formatarMoeda(c.valor),
+                  <Text key="p" style={{ textAlign: 'right', color: pago > 0 ? '#166534' : COR.claro }}>
+                    {pago > 0 ? formatarMoeda(pago) : '—'}
+                  </Text>,
+                  <Text key="f" style={{ textAlign: 'right', fontWeight: falta > 0 ? 700 : 400, color: falta > 0 ? (c.status === 'vencido' ? COR.coral : COR.tinta) : COR.claro }}>
+                    {falta > 0 ? formatarMoeda(falta) : '—'}
+                  </Text>,
+                  <Text key="s" style={{ textAlign: 'right', fontWeight: 600, color: COR_SITUACAO[c.status] }}>
+                    {SITUACAO[c.status]}
+                  </Text>,
+                ]
+              })}
+            />
+          </View>
+        )}
+
+        {pagamentos.length > 0 && (
+          <View wrap={false}>
+            <Text style={base.secao}>Pagamentos recebidos</Text>
+            <TabelaPdf
+              colunas={[
+                { titulo: 'Data', largura: 62 },
+                { titulo: 'Forma', largura: 96 },
+                { titulo: 'Referente a', largura: 4 },
                 { titulo: 'Valor', largura: 76, numero: true },
               ]}
-              linhas={parcelas.map((c) => [
-                c.descricao,
-                formatarDataSimples(c.vencimento),
-                <Text key="s" style={{ textAlign: 'right', fontWeight: 600, color: COR_SITUACAO[c.status] }}>
-                  {SITUACAO[c.status]}
-                </Text>,
-                formatarMoeda(c.valor),
-              ])}
+              linhas={[
+                ...pagamentos.map((x) => [formatarDataSimples(x.data.slice(0, 10)), x.forma ?? '—', x.descricao, formatarMoeda(x.valor)]),
+                [
+                  '',
+                  '',
+                  <Text key="tl" style={{ textAlign: 'right', fontWeight: 700 }}>
+                    Total recebido
+                  </Text>,
+                  <Text key="tv" style={{ textAlign: 'right', fontWeight: 700, color: '#166534' }}>
+                    {formatarMoeda(totalRecebido)}
+                  </Text>,
+                ],
+              ]}
             />
           </View>
         )}

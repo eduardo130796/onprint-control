@@ -44,7 +44,12 @@ export function useImpressao() {
     ocupado,
     orcamento: (o: OrcamentoDetalhe | string, modo: ModoImpressao) =>
       rodar(`orcamento:${typeof o === 'string' ? o : o.id}:${modo}`, modo, async (g, e) => g.pdfOrcamento(typeof o === 'string' ? await orcamentosApi.obter(o) : o, e)),
-    pedido: (id: string, modo: ModoImpressao) => rodar(`pedido:${id}:${modo}`, modo, async (g, e) => g.pdfPedido(await pedidosApi.obter(id), e)),
+    pedido: (id: string, modo: ModoImpressao) =>
+      rodar(`pedido:${id}:${modo}`, modo, async (g, e) => {
+        // Os pagamentos recebidos (data e forma) vão junto; sem eles, o PDF sai só com as parcelas
+        const [p, recebimentos] = await Promise.all([pedidosApi.obter(id), pedidosApi.recebimentos(id).catch(() => null)])
+        return g.pdfPedido(p, e, recebimentos)
+      }),
     /** Recibo dos pagamentos escolhidos do pedido */
     recibo: (pedidoId: string, recebimentos: RecebimentosPedido, modo: ModoImpressao) =>
       rodar(`recibo:${pedidoId}:${modo}`, modo, async (g, e) => g.pdfRecibo(await pedidosApi.obter(pedidoId), recebimentos, e)),

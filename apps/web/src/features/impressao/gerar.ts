@@ -34,9 +34,9 @@ export async function pdfOrcamento(o: OrcamentoDetalhe, empresa: EmpresaConfig):
   return { blob: await renderizar(createElement(DocumentoOrcamento, { o, empresa, logo })), nome: `${o.numero} - ${o.cliente.nome}.pdf` }
 }
 
-export async function pdfPedido(p: PedidoDetalhe, empresa: EmpresaConfig): Promise<PdfGerado> {
+export async function pdfPedido(p: PedidoDetalhe, empresa: EmpresaConfig, recebimentos?: RecebimentosPedido | null): Promise<PdfGerado> {
   const logo = await carregarLogo(empresa)
-  return { blob: await renderizar(createElement(DocumentoPedido, { p, empresa, logo })), nome: `${p.numero} - ${p.cliente.nome}.pdf` }
+  return { blob: await renderizar(createElement(DocumentoPedido, { p, empresa, logo, recebimentos })), nome: `${p.numero} - ${p.cliente.nome}.pdf` }
 }
 
 /** Recibo dos pagamentos escolhidos (duas vias na mesma folha). */

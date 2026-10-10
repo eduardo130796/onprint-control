@@ -9,6 +9,7 @@ import { useUrlArquivo } from '@/features/configuracoes/hooks'
 import { AvisoInatividade } from '@/features/auth/AvisoInatividade'
 import { registrarSaidaPorInatividade, useInatividade } from '@/features/auth/useInatividade'
 import { useAuth } from '@/hooks/useAuth'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useTempoReal } from '@/hooks/useTempoReal'
 import { cn } from '@/lib/utils'
 import { BannerAssinatura } from './BannerAssinatura'
@@ -32,6 +33,9 @@ function lerRecolhida() {
 export function AppLayout() {
   const [recolhida, setRecolhida] = useState(lerRecolhida)
   const [mobileAberta, setMobileAberta] = useState(false)
+  // De 1024 a 1279 px o menu fica só com o trilho de áreas (o conteúdo não fica espremido)
+  const telaLarga = useMediaQuery('(min-width: 1280px)')
+  const menuRecolhido = recolhida || !telaLarga
   const { usuario, sair } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -107,19 +111,33 @@ export function AppLayout() {
     })
   }
 
+  // Ctrl+B (Cmd+B no Mac) recolhe/expande o menu, como em outros sistemas
+  useEffect(() => {
+    if (!telaLarga) return
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'b') {
+        e.preventDefault()
+        alternar()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [telaLarga])
+
   return (
     <div className="min-h-screen bg-fundo">
-      <Topbar onAbrirMenuMobile={() => setMobileAberta(true)} />
+      <Topbar onAbrirMenuMobile={() => setMobileAberta(true)} menuRecolhido={menuRecolhido} />
       <Sidebar
-        recolhida={recolhida}
+        recolhida={menuRecolhido}
+        podeAlternar={telaLarga}
         onAlternar={alternar}
         mobileAberta={mobileAberta}
         onMobileAbertaChange={setMobileAberta}
       />
       <main
         className={cn(
-          'px-4 pb-24 pt-20 transition-[padding] duration-200 sm:px-6 lg:pt-24',
-          recolhida ? 'lg:pl-[108px]' : 'lg:pl-[332px]',
+          'min-w-0 px-4 pb-24 pt-20 transition-[padding] duration-200 sm:px-6 lg:pr-8 lg:pt-24',
+          menuRecolhido ? 'lg:pl-[108px]' : 'lg:pl-[332px]',
         )}
       >
         <div className={larga ? 'w-full' : 'mx-auto max-w-7xl'}>

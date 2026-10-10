@@ -50,8 +50,8 @@ export function PedidosPage() {
           </div>
         ),
       },
-      { id: 'vendedor', header: 'Vendedor', meta: { ocultarNoCard: true }, cell: ({ row }) => row.original.vendedor?.nome ?? '—' },
-      { id: 'criado', header: 'Criado em', meta: { ordenavel: 'createdAt', ocultarNoCard: true }, cell: ({ row }) => formatarData(row.original.createdAt) },
+      { id: 'vendedor', header: 'Vendedor', meta: { ocultarNoCard: true, apartirDe: '2xl' }, cell: ({ row }) => row.original.vendedor?.nome ?? '—' },
+      { id: 'criado', header: 'Criado em', meta: { ordenavel: 'createdAt', ocultarNoCard: true, apartirDe: 'xl' }, cell: ({ row }) => formatarData(row.original.createdAt) },
       {
         id: 'entrega',
         header: 'Entrega',

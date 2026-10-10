@@ -64,7 +64,7 @@ export function ClientesPage() {
         header: 'WhatsApp / Telefone',
         cell: ({ row: { original: c } }) => formatarTelefone(c.whatsapp ?? c.telefone) || c.email || '—',
       },
-      { id: 'origem', header: 'Origem', cell: ({ row }) => (row.original.origem ? ORIGEM_ROTULOS[row.original.origem] : '—') },
+      { id: 'origem', header: 'Origem', meta: { apartirDe: 'xl' }, cell: ({ row }) => (row.original.origem ? ORIGEM_ROTULOS[row.original.origem] : '—') },
       {
         id: 'situacao',
         header: 'Situação',
@@ -76,7 +76,7 @@ export function ClientesPage() {
           </div>
         ),
       },
-      { id: 'vendedor', header: 'Vendedor', cell: ({ row }) => row.original.vendedor?.nome ?? '—' },
+      { id: 'vendedor', header: 'Vendedor', meta: { apartirDe: '2xl' }, cell: ({ row }) => row.original.vendedor?.nome ?? '—' },
       {
         id: 'acoes',
         header: '',

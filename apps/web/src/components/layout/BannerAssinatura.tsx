@@ -124,11 +124,11 @@ export function BannerAssinatura() {
         <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', v.icone)}>
           <v.Icone className="h-5 w-5" aria-hidden="true" />
         </span>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[12rem] flex-1">
           <p className="font-titulo font-extrabold text-tinta">{v.titulo}</p>
           <p className="text-sm text-texto-secundario">{v.texto ?? a.mensagem}</p>
         </div>
-        <Button asChild size="sm" variant={v.dispensavel ? 'outline' : 'default'}>
+        <Button asChild size="sm" variant={v.dispensavel ? 'outline' : 'default'} className="w-full sm:w-auto">
           <Link to="/assinatura">{v.acao}</Link>
         </Button>
         {v.dispensavel && (

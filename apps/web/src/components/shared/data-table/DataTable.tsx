@@ -19,6 +19,8 @@ declare module '@tanstack/react-table' {
     ordenavel?: string
     /** Esconde a coluna no modo card (celular) */
     ocultarNoCard?: boolean
+    /** Coluna secundária: só aparece na tabela a partir desta largura (no cartão do celular continua) */
+    apartirDe?: 'lg' | 'xl' | '2xl'
     className?: string
   }
 }
@@ -45,6 +47,9 @@ export interface DataTableProps<T> {
   vazio?: { titulo: string; descricao?: string; acao?: ReactNode }
   idLinha?: (linha: T) => string
 }
+
+// Classes completas (o Tailwind só gera o que aparece escrito no código)
+const VISIVEL: Record<string, string> = { lg: 'hidden lg:table-cell', xl: 'hidden xl:table-cell', '2xl': 'hidden 2xl:table-cell' }
 
 /** Tabela genérica: paginação e ordenação no servidor, busca, filtros, CSV e cards no celular. */
 export function DataTable<T>(props: DataTableProps<T>) {
@@ -103,8 +108,8 @@ export function DataTable<T>(props: DataTableProps<T>) {
         <EmptyState icone={Inbox} titulo={props.vazio?.titulo ?? 'Nenhum registro encontrado'} descricao={props.vazio?.descricao} acao={props.vazio?.acao} />
       ) : (
         <div className={cn(carregando && 'opacity-60 transition-opacity')}>
-          {/* Desktop/tablet: tabela */}
-          <div className="hidden overflow-x-auto md:block">
+          {/* Desktop: tabela (a partir de 1024 px) */}
+          <div className="hidden overflow-x-auto lg:block">
             <table className="w-full text-sm">
               <thead className="bg-fundo/60 text-left text-xs uppercase tracking-wide text-texto-secundario">
                 <tr>
@@ -113,7 +118,7 @@ export function DataTable<T>(props: DataTableProps<T>) {
                     const [atual, dir] = (props.sort ?? '').split(':')
                     const Icone = atual === campo ? (dir === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown
                     return (
-                      <th key={h.id} className={cn('px-4 py-3 font-medium', h.column.columnDef.meta?.className)}>
+                      <th key={h.id} className={cn('whitespace-nowrap px-4 py-3 font-medium', VISIVEL[h.column.columnDef.meta?.apartirDe ?? ''], h.column.columnDef.meta?.className)}>
                         {campo && props.onSortChange ? (
                           <button type="button" onClick={() => alternarOrdem(campo)} className="inline-flex items-center gap-1 uppercase hover:text-tinta">
                             {flexRender(h.column.columnDef.header, h.getContext())}
@@ -139,7 +144,7 @@ export function DataTable<T>(props: DataTableProps<T>) {
                     )}
                   >
                     {linha.getVisibleCells().map((c) => (
-                      <td key={c.id} className={cn('px-4 py-3 align-middle', c.column.columnDef.meta?.className?.includes('text-right') && 'tabular-nums', c.column.columnDef.meta?.className)}>
+                      <td key={c.id} className={cn('px-4 py-3 align-middle', c.column.columnDef.meta?.className?.includes('text-right') && 'whitespace-nowrap tabular-nums', VISIVEL[c.column.columnDef.meta?.apartirDe ?? ''], c.column.columnDef.meta?.className)}>
                         {flexRender(c.column.columnDef.cell, c.getContext())}
                       </td>
                     ))}
@@ -149,13 +154,13 @@ export function DataTable<T>(props: DataTableProps<T>) {
             </table>
           </div>
 
-          {/* Celular: cards */}
-          <ul className="divide-y divide-border md:hidden">
+          {/* Celular: cartões; tablet: cartões em duas colunas */}
+          <ul className="divide-y divide-border md:grid md:grid-cols-2 md:divide-y-0 lg:hidden">
             {linhas.map((linha) => (
               <li
                 key={linha.id}
                 onClick={onLinhaClick ? (e) => onLinhaClick(linha.original, e) : undefined}
-                className={cn('space-y-1.5 p-4', destacarLinha?.(linha.original) && 'bg-ambar/5 shadow-[inset_3px_0_0_#F59E0B]')}
+                className={cn('space-y-1.5 p-4 md:border-b md:border-border md:odd:border-r', onLinhaClick && 'cursor-pointer', destacarLinha?.(linha.original) && 'bg-ambar/5 shadow-[inset_3px_0_0_#F59E0B]')}
               >
                 {linha.getVisibleCells().filter((c) => !c.column.columnDef.meta?.ocultarNoCard).map((c) => {
                   const titulo = c.column.columnDef.header

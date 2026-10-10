@@ -93,6 +93,13 @@
    de valores (DataTable): na Inter eles também alargam o hífen, o que separa demais os códigos e nomes. */
 .font-mono {
   font-variant-numeric: slashed-zero;
+  white-space: nowrap;
+}
+
+/* Item de grade não força a largura da grade: conteúdo largo (gráfico, tabela) rola dentro do próprio cartão
+   em vez de empurrar a página para o lado no celular */
+.grid > * {
+  min-width: 0;
 }
 
 /* Texto do corpo no peso escolhido; na impressão, sempre o padrão (documento igual para todos) */

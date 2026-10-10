@@ -35,8 +35,8 @@ function Previa({ nome, logo }: { nome: string; logo: string | null | undefined 
           <span className="flex-1 bg-laranja" />
         </span>
       </div>
-      <div className="grid grid-cols-[9rem_1fr] gap-4 p-4">
-        <div className="space-y-1.5">
+      <div className="grid gap-4 p-4 sm:grid-cols-[9rem_1fr]">
+        <div className="hidden space-y-1.5 sm:block">
           <span className="flex items-center gap-2 rounded-lg bg-marca px-2.5 py-1.5 text-xs font-semibold text-marca-contraste">
             <Palette className="h-3.5 w-3.5" /> Pedidos
           </span>

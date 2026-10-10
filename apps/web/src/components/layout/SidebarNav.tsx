@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { areaDaRota, linhaAtiva, montarAreas, type AreaMenu, type AreaVisivel, type LinhaMenu } from '@/app/navigation'
 import {
   DropdownMenu,
@@ -10,7 +10,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useContagemAlertas } from '@/features/estoque/hooks'
 import { useContagemReajuste } from '@/features/produtos/hooks'
 import { usePermissoes } from '@/hooks/usePermission'
@@ -19,7 +18,6 @@ import { cn } from '@/lib/utils'
 interface SidebarNavProps {
   /** Só o trilho de áreas (o painel abre num menu flutuante ao clicar) */
   recolhida?: boolean
-  onAlternar?: () => void
   onNavegar?: () => void
   /** Rodapé do painel (assinatura discreta do sistema) */
   rodape?: ReactNode
@@ -34,7 +32,7 @@ const linhasDe = (a: AreaVisivel) => a.blocos.flatMap((b) => b.linhas)
  * Menu focado por área: trilho escuro com as áreas (Comercial, Produção, Financeiro…) e um painel
  * que mostra só as telas e os atalhos da área escolhida. Ao navegar, o painel volta para a área da tela atual.
  */
-export function SidebarNav({ recolhida = false, onAlternar, onNavegar, rodape }: SidebarNavProps) {
+export function SidebarNav({ recolhida = false, onNavegar, rodape }: SidebarNavProps) {
   const { pathname } = useLocation()
   const pode = usePermissoes()
   const areas = useMemo(() => montarAreas((m, a) => pode(m, a)), [pode])
@@ -65,21 +63,6 @@ export function SidebarNav({ recolhida = false, onAlternar, onNavegar, rodape }:
         {principais.map(botaoArea)}
         <div className="mt-auto flex w-full flex-col items-center gap-1 pt-3">
           {ajustes && botaoArea(ajustes)}
-          {onAlternar && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={onAlternar}
-                  className="mt-1 flex h-9 w-9 items-center justify-center rounded-lg text-white/45 transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-                  aria-label={recolhida ? 'Expandir menu' : 'Recolher menu'}
-                >
-                  {recolhida ? <PanelLeftOpen className="h-[18px] w-[18px]" /> : <PanelLeftClose className="h-[18px] w-[18px]" />}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">{recolhida ? 'Expandir menu' : 'Recolher menu'}</TooltipContent>
-            </Tooltip>
-          )}
         </div>
       </nav>
 

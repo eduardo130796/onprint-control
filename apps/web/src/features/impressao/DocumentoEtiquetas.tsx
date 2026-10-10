@@ -52,7 +52,7 @@ function CartaoEtiqueta({ e, empresa }: { e: Etiqueta; empresa: string }) {
     <View style={s.cartao}>
       <View style={s.faixa}>
         <Text style={s.empresa}>{empresa}</Text>
-        <Text style={s.chip}>{e.entrega}</Text>
+        <Text style={[s.chip, { backgroundColor: COR.destaque, color: COR.destaqueContraste }]}>{e.entrega}</Text>
       </View>
       <View style={s.corpo}>
         <View style={s.linhaPedido}>
@@ -66,7 +66,7 @@ function CartaoEtiqueta({ e, empresa }: { e: Etiqueta; empresa: string }) {
           {e.qr ? <Image src={e.qr} style={s.qr} /> : null}
         </View>
 
-        <View style={s.destinatario}>
+        <View style={[s.destinatario, { backgroundColor: COR.fundoDestaque, borderLeftColor: COR.destaque }]}>
           <Text style={s.rotulo}>{e.retirada ? 'Cliente (retirada no balcão)' : 'Entregar para'}</Text>
           <Text style={s.cliente}>{e.cliente}</Text>
           {e.telefone ? <Text style={{ fontWeight: 600 }}>Tel./WhatsApp {e.telefone}</Text> : null}
@@ -140,7 +140,7 @@ function CartaoCompacto({ e, empresa }: { e: Etiqueta; empresa: string }) {
     <View style={s.cartao}>
       <View style={[s.faixa, { paddingVertical: 3.5, paddingHorizontal: 8 }]}>
         <Text style={[s.empresa, { fontSize: 7.5, maxWidth: 190, maxLines: 1, textOverflow: 'ellipsis' }]}>{empresa}</Text>
-        <Text style={[s.chip, { fontSize: 6.2, paddingVertical: 1.5 }]}>{e.entrega}</Text>
+        <Text style={[s.chip, { backgroundColor: COR.destaque, color: COR.destaqueContraste, fontSize: 6.2, paddingVertical: 1.5 }]}>{e.entrega}</Text>
       </View>
       <View style={{ flex: 1, paddingHorizontal: 8, paddingTop: 5, paddingBottom: 6 }}>
         <View style={{ flexDirection: 'row', gap: 6 }}>

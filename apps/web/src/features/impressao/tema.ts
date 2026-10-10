@@ -6,6 +6,7 @@ import inter700 from '@fontsource/inter/files/inter-latin-700-normal.woff?url'
 import manrope600 from '@fontsource/manrope/files/manrope-latin-600-normal.woff?url'
 import manrope700 from '@fontsource/manrope/files/manrope-latin-700-normal.woff?url'
 import manrope800 from '@fontsource/manrope/files/manrope-latin-800-normal.woff?url'
+import { DESTAQUE } from './corDocumentos'
 
 // Identidade dos documentos impressos (orçamento, pedido, recibo, etiquetas, relatórios).
 // As fontes vão junto com o sistema (funciona sem internet): Manrope nos títulos, Inter no texto e nos números.
@@ -30,26 +31,39 @@ Font.register({
 // Sem hifenização automática (palavras inteiras quebram melhor em português)
 Font.registerHyphenationCallback((palavra) => [palavra])
 
-/** Paleta dos documentos: cinza escuro (principal) + azul GrafyGo (destaque). Trocar aqui recolore todos. */
+/**
+ * Paleta dos documentos: cinza escuro (principal) + a cor do tema da empresa (destaque, lida na hora de gerar:
+ * use em estilo inline, não dentro do StyleSheet.create, que guarda o valor de quando o módulo carregou).
+ */
 export const COR = {
   /** Títulos, faixa do topo, faixa do total */
   principal: '#2B3036',
   principalEscuro: '#1E2226',
-  /** Azul GrafyGo: faixa, selos, bordas de destaque (decorativo) */
-  destaque: '#0265DC',
-  /** Azul para texto sobre fundo claro (rótulos de tipo, links) */
-  destaqueTexto: '#024DCC',
+  /** Cor do tema: faixa, selos, bordas de destaque (decorativo) */
+  get destaque() {
+    return DESTAQUE.cor
+  },
+  /** Cor do tema para texto sobre fundo claro (rótulos de tipo, links) */
+  get destaqueTexto() {
+    return DESTAQUE.escuro
+  },
+  /** Texto sobre a cor de destaque (branco nas cores escuras, escuro nas claras) */
+  get destaqueContraste() {
+    return DESTAQUE.contraste
+  },
   tinta: '#1F2328',
   suave: '#4A5259',
   claro: '#7A838A',
   linha: '#E1E5E8',
   fundo: '#F3F5F6',
-  fundoDestaque: '#E6F2FE',
+  get fundoDestaque() {
+    return DESTAQUE.suave
+  },
   /** Laranja: pequenos detalhes da identidade (lasca na faixa do topo) */
   laranja: '#F97316',
   coral: '#C8322F',
   branco: '#FFFFFF',
-} as const
+}
 
 /**
  * Margem lateral padrão das páginas A4 (pt).

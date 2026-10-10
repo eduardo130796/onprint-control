@@ -18,6 +18,9 @@ import { cn } from '@/lib/utils'
 interface SidebarNavProps {
   /** Só o trilho de áreas (o painel abre num menu flutuante ao clicar) */
   recolhida?: boolean
+  /** Recolher/expandir pelo próprio ícone da área (desktop): recolhido, o clique abre o menu na área; aberto, clicar
+   *  de novo no ícone da área que está aberta recolhe. Sem ele (gaveta do celular), o clique só troca a área. */
+  onAlternar?: () => void
   onNavegar?: () => void
   /** Rodapé do painel (assinatura discreta do sistema) */
   rodape?: ReactNode
@@ -32,7 +35,7 @@ const linhasDe = (a: AreaVisivel) => a.blocos.flatMap((b) => b.linhas)
  * Menu focado por área: trilho escuro com as áreas (Comercial, Produção, Financeiro…) e um painel
  * que mostra só as telas e os atalhos da área escolhida. Ao navegar, o painel volta para a área da tela atual.
  */
-export function SidebarNav({ recolhida = false, onNavegar, rodape }: SidebarNavProps) {
+export function SidebarNav({ recolhida = false, onAlternar, onNavegar, rodape }: SidebarNavProps) {
   const { pathname } = useLocation()
   const pode = usePermissoes()
   const areas = useMemo(() => montarAreas((m, a) => pode(m, a)), [pode])
@@ -49,11 +52,26 @@ export function SidebarNav({ recolhida = false, onNavegar, rodape }: SidebarNavP
   const principais = areas.filter((a) => a.area !== 'configuracoes')
   const ajustes = areas.find((a) => a.area === 'configuracoes')
 
+  const escolher = (a: AreaVisivel) => {
+    if (recolhida) {
+      setEscolhida(a.area)
+      onAlternar?.()
+    } else if (onAlternar && a.area === atual.area) onAlternar()
+    else setEscolhida(a.area)
+  }
   const botaoArea = (a: AreaVisivel) =>
-    recolhida ? (
+    recolhida && !onAlternar ? (
       <AreaFlutuante key={a.area} area={a} ativa={a.area === daRota} pathname={pathname} badges={badges} />
     ) : (
-      <BotaoArea key={a.area} area={a} ativa={a.area === atual.area} daRota={a.area === daRota} badge={contagem(linhasDe(a), badges)} onEscolher={() => setEscolhida(a.area)} />
+      <BotaoArea
+        key={a.area}
+        area={a}
+        ativa={recolhida ? a.area === daRota : a.area === atual.area}
+        daRota={a.area === daRota}
+        badge={contagem(linhasDe(a), badges)}
+        dica={recolhida ? `Abrir ${a.titulo}` : onAlternar && a.area === atual.area ? 'Recolher menu' : a.titulo}
+        onEscolher={() => escolher(a)}
+      />
     )
 
   return (
@@ -73,7 +91,7 @@ export function SidebarNav({ recolhida = false, onNavegar, rodape }: SidebarNavP
 }
 
 /** Área no trilho: ícone com o nome curto embaixo; a ativa ganha fundo claro e o traço laranja da marca */
-function BotaoArea({ area, ativa, daRota, badge, onEscolher }: { area: AreaVisivel; ativa: boolean; daRota: boolean; badge: number; onEscolher: () => void }) {
+function BotaoArea({ area, ativa, daRota, badge, dica, onEscolher }: { area: AreaVisivel; ativa: boolean; daRota: boolean; badge: number; dica: string; onEscolher: () => void }) {
   const navigate = useNavigate()
   const linhas = linhasDe(area)
   // Área com uma tela só (Início): o clique já abre a tela
@@ -87,7 +105,7 @@ function BotaoArea({ area, ativa, daRota, badge, onEscolher }: { area: AreaVisiv
       onClick={escolher}
       aria-pressed={ativa}
       aria-label={area.titulo}
-      title={area.titulo}
+      title={dica}
       className={cn(
         'group relative flex w-[4rem] flex-col items-center gap-1 rounded-xl py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40',
         ativa ? 'text-white' : 'text-white/55 hover:text-white',

@@ -5,6 +5,7 @@ import { paginaAtual } from '@/app/navigation'
 import { TEMAS, temaOuPadrao } from '@onprint/shared'
 import { TITULO_PADRAO, aplicarModo, aplicarTema, definirFavicon, gerarFavicon } from '@/features/aparencia/tema'
 import { aplicarEscala, aplicarTipografia } from '@/features/aparencia/tipografia'
+import { aplicarCorDocumentos } from '@/features/impressao/corDocumentos'
 import { useUrlArquivo } from '@/features/configuracoes/hooks'
 import { AvisoInatividade } from '@/features/auth/AvisoInatividade'
 import { registrarSaidaPorInatividade, useInatividade } from '@/features/auth/useInatividade'
@@ -87,6 +88,7 @@ export function AppLayout() {
   // Cor do tema da empresa; ao sair (login, páginas públicas) volta ao azul GrafyGo
   useEffect(() => {
     aplicarTema(empresa?.corTema)
+    aplicarCorDocumentos(TEMAS[temaOuPadrao(empresa?.corTema)])
     return () => aplicarTema(null)
   }, [empresa?.corTema])
 

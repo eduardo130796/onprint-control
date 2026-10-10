@@ -23,16 +23,16 @@ export function criarRecuperacaoService(app: FastifyInstance) {
   // Até 5 pedidos de link por e-mail por hora, venham de qualquer IP (não enche a caixa de ninguém)
   const pedidosPorEmail = criarContadorTentativas({ max: 5, janelaMs: 60 * 60_000 })
 
-  /** Nome que a pessoa reconhece: o fantasia/razão social configurado pela empresa. */
-  async function nomeDaEmpresa() {
-    const c = await prisma.empresaConfig.findFirst({ select: { nomeFantasia: true, razaoSocial: true } })
-    return c?.nomeFantasia || c?.razaoSocial || contextoEmpresa.exigir().nome
+  /** Como a pessoa reconhece a empresa nos e-mails: o fantasia/razão social e a cor do tema escolhida. */
+  async function marcaDaEmpresa() {
+    const c = await prisma.empresaConfig.findFirst({ select: { nomeFantasia: true, razaoSocial: true, corTema: true } })
+    return { empresa: c?.nomeFantasia || c?.razaoSocial || contextoEmpresa.exigir().nome, tema: c?.corTema ?? null }
   }
 
   /** Emite o link e manda o e-mail (precisa estar no contexto da empresa do usuário). */
   async function enviarLink(usuario: Destinatario, finalidade: FinalidadeToken, ip?: string) {
     const token = await tokens.emitir({ assinanteId: contextoEmpresa.exigir().id, usuarioId: usuario.id, finalidade, ip })
-    const dados = { nome: usuario.nome, email: usuario.email, empresa: await nomeDaEmpresa(), link: `${config.APP_URL}/redefinir-senha?token=${token}`, validadeHoras: VALIDADE_HORAS[finalidade] }
+    const dados = { nome: usuario.nome, email: usuario.email, ...(await marcaDaEmpresa()), link: `${config.APP_URL}/redefinir-senha?token=${token}`, validadeHoras: VALIDADE_HORAS[finalidade] }
     return app.email.enviar(usuario.email, finalidade === 'convite' ? emailConviteUsuario(dados) : emailRedefinirSenha(dados))
   }
 
@@ -77,7 +77,7 @@ export function criarRecuperacaoService(app: FastifyInstance) {
     enviarRedefinicao: (usuario: Destinatario) => enviarLink(usuario, 'redefinir'),
 
     consultar(token: string): Promise<LinkSenhaInfo> {
-      return abrirLink(token, async (link, u) => ({ nome: u.nome, email: u.email, empresa: await nomeDaEmpresa(), finalidade: link.finalidade }))
+      return abrirLink(token, async (link, u) => ({ nome: u.nome, email: u.email, empresa: (await marcaDaEmpresa()).empresa, finalidade: link.finalidade }))
     },
 
     redefinir(token: string, novaSenha: string) {
@@ -91,7 +91,7 @@ export function criarRecuperacaoService(app: FastifyInstance) {
           await registrarAuditoria(tx, { tabela: 'usuarios', registroId: usuario.id, acao: 'redefinir_senha', depois: { pelo: link.finalidade }, usuarioId: usuario.id })
         })
         app.esquecerUsuario(contextoEmpresa.exigir().id, usuario.id)
-        const aviso = emailSenhaAlterada({ nome: usuario.nome, empresa: await nomeDaEmpresa(), quando: formatarDataHora(new Date().toISOString()) })
+        const aviso = emailSenhaAlterada({ nome: usuario.nome, ...(await marcaDaEmpresa()), quando: formatarDataHora(new Date().toISOString()) })
         void app.email.enviar(usuario.email, aviso)
       })
     },

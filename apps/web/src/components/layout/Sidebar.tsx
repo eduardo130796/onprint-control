@@ -24,7 +24,7 @@ export function Sidebar({ recolhida, podeAlternar, onAlternar, mobileAberta, onM
           recolhida ? 'w-[4.75rem]' : 'w-[18.75rem]',
         )}
       >
-        <SidebarNav recolhida={recolhida} rodape={<AssinaturaSistema />} />
+        <SidebarNav recolhida={recolhida} onAlternar={podeAlternar ? onAlternar : undefined} rodape={<AssinaturaSistema />} />
       </aside>
 
       {/* Recolher/expandir: aba presa à borda do menu, da mesma cor e borda da superfície (painel claro ou trilho

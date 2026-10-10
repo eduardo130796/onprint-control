@@ -25,7 +25,7 @@ export function DocumentoRelatorio({ r, empresa }: { r: Relatorio; empresa: stri
         <FaixaMarca />
         <View style={s.topo}>
           <View>
-            <Text style={s.tipo}>Relatório · {empresa}</Text>
+            <Text style={[s.tipo, { color: COR.destaqueTexto }]}>Relatório · {empresa}</Text>
             <Text style={s.titulo}>{r.titulo}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
@@ -37,7 +37,7 @@ export function DocumentoRelatorio({ r, empresa }: { r: Relatorio; empresa: stri
         {r.resumo.length > 0 && (
           <View style={s.resumo} wrap={false}>
             {r.resumo.map((x) => (
-              <View key={x.rotulo} style={s.cartao}>
+              <View key={x.rotulo} style={[s.cartao, { borderLeftColor: COR.destaque }]}>
                 <Text style={base.rotulo}>{x.rotulo}</Text>
                 <Text style={s.valor}>{formatarValor(x.valor, x.formato)}</Text>
               </View>

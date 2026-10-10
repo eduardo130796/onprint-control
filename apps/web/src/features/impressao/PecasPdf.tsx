@@ -51,7 +51,7 @@ export function CabecalhoPdf({ empresa, logo, tipo, numero, meta = [] }: { empre
         {e.contato ? <Text style={s.linhaEmpresa}>{e.contato}</Text> : null}
       </View>
       <View>
-        <Text style={s.tipo}>{tipo}</Text>
+        <Text style={[s.tipo, { color: COR.destaqueTexto }]}>{tipo}</Text>
         <Text style={s.numero}>{numero}</Text>
         <View style={s.meta}>
           {meta.map((m) => (
@@ -153,7 +153,7 @@ export function TextoPdf({ titulo, children }: { titulo: string; children: React
 /** Nota em destaque (borda verde): ex. link de aprovação online. */
 export function NotaPdf({ children }: { children: ReactNode }) {
   return (
-    <View style={s.nota} wrap={false}>
+    <View style={[s.nota, { borderLeftColor: COR.destaque, backgroundColor: COR.fundoDestaque }]} wrap={false}>
       {children}
     </View>
   )
@@ -182,7 +182,7 @@ export function RodapePdf({ empresa, documento }: { empresa: EmpresaConfig | str
   return (
     <View style={s.rodape} fixed>
       <Text>{[e.nome, e.contato].filter(Boolean).join('  ·  ')}</Text>
-      <Text render={({ pageNumber, totalPages }) => `${documento}  ·  página ${pageNumber} de ${totalPages}`} />
+      <Text render={({ pageNumber, totalPages }) => `${documento}  ·  página ${pageNumber} de ${totalPages}  ·  Gerado com GrafyGo`} />
     </View>
   )
 }

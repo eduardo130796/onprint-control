@@ -52,7 +52,7 @@ function Via({ p, recebimentos: r, empresa, logo, rotulo }: Props & { rotulo: st
           {e.contato ? <Text style={s.linhaEmpresa}>{e.contato}</Text> : null}
         </View>
         <View>
-          <Text style={s.tipo}>Recibo · pedido {p.numero}</Text>
+          <Text style={[s.tipo, { color: COR.destaqueTexto }]}>Recibo · pedido {p.numero}</Text>
           <View style={s.valor}>
             <Text style={{ color: COR.branco, fontFamily: 'Manrope', fontWeight: 800, fontSize: 18, textAlign: 'right' }}>{formatarMoeda(total)}</Text>
           </View>
@@ -62,7 +62,7 @@ function Via({ p, recebimentos: r, empresa, logo, rotulo }: Props & { rotulo: st
       <Text style={s.texto}>
         Recebemos de <Text style={base.forte}>{p.cliente.nome}</Text>
         {r.clienteDocumento ? `, ${formatarCpfCnpj(r.clienteDocumento)},` : ''} a importância de <Text style={base.forte}>{formatarMoeda(total)}</Text>{' '}
-        <Text style={s.extenso}>({valorPorExtenso(total)})</Text>, referente {r.pagamentos.length > 1 ? 'aos pagamentos' : 'ao pagamento'} do pedido{' '}
+        <Text style={[s.extenso, { color: COR.destaqueTexto }]}>({valorPorExtenso(total)})</Text>, referente {r.pagamentos.length > 1 ? 'aos pagamentos' : 'ao pagamento'} do pedido{' '}
         <Text style={base.forte}>{p.numero}</Text>: {referente}.
       </Text>
 

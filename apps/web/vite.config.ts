@@ -46,7 +46,8 @@ export default defineConfig({
   server: {
     port: 5173,
     // Vitrine online em desenvolvimento: http://{slug}.localhost:5173 (o navegador resolve *.localhost)
-    allowedHosts: ['.localhost'],
+    // Domínio próprio em teste local: VITE_HOSTS_EXTRAS=www.suagrafica.test (separados por vírgula)
+    allowedHosts: ['.localhost', ...(process.env.VITE_HOSTS_EXTRAS ?? '').split(',').map((h) => h.trim()).filter(Boolean)],
     proxy: {
       '/api': { target: apiAlvo, changeOrigin: true },
       // Tempo real (Socket.IO) passa pelo mesmo endereço do front

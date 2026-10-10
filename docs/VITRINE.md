@@ -29,6 +29,22 @@ assinatura (`modulosExtras`).
 - **API:** `APP_URL` continua o sistema; `urlPublica` da vitrine = `https://{slug}.{DOMINIO_VITRINE}` (dev:
   `http://{slug}.localhost:5173` quando `DOMINIO_VITRINE` não estiver definido e não for produção).
 
+### 1.1 Domínio próprio (opcional)
+
+- A gráfica cadastra em **Vitrine → Configurar → Domínio próprio** (ex.: `www.suagrafica.com.br`) e cria no DNS dela
+  um `CNAME www → {slug}.{DOMINIO_VITRINE}` (sem "www": registro `A @ →` IP do servidor, mostrado na tela).
+- Banco da plataforma: `assinantes.dominio_vitrine` (único) e `dominio_vitrine_verificado_em`. `www.x` e `x` são a
+  mesma vitrine (`variantesDominio`). Não pode ser a base das vitrines, um subdomínio dela nem o endereço do sistema.
+- **Caddy:** bloco `https://` com `tls { on_demand }` para qualquer outro nome; o `ask` (`vitrine-permitida`) aceita o
+  domínio cadastrado de vitrine no ar e, como o HTTPS só chega se o DNS aponta para o servidor, marca como verificado.
+  `http://` redireciona para https.
+- **Web:** host que não é localhost, IP, a base nem subdomínio dela (`pareceDominioProprio`) pergunta
+  `GET /publico/vitrine-dominio?host=` → `{ slug }` (404 = abre o sistema).
+- Verificar na tela: a API abre `https://{dominio}/api/v1/publico/vitrine-dominio` e confere o slug. Verificado, a
+  `urlPublica` (compartilhar, catálogo, QR code, e-mail ao cliente) passa a ser `https://{dominio}`.
+- E-mail **não** usa o domínio da gráfica: sai de `EMAIL_REMETENTE` (domínio da GrafyGo, com SPF/DKIM) com o **nome
+  da gráfica** como remetente e `Reply-To` = e-mail de Dados da empresa (a resposta do cliente vai para ela).
+
 ## 2. Banco (schema de cada empresa)
 
 - `vitrine_config` (uma linha): campos de `vitrineConfigSchema` + `banners` (ids de arquivo, em ordem, até 3).

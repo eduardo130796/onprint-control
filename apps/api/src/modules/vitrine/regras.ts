@@ -83,6 +83,20 @@ export function montarDescricaoSolicitacao(itens: ItemDescricao[], mensagem: str
   return texto.join('\n')
 }
 
+/** Medidas do item no e-mail ao cliente: "2 × 1 m" (ou só uma, no metro linear) */
+export function textoMedidas(largura: string | null, altura: string | null): string | null {
+  const m = [largura, altura].filter((v): v is string => Boolean(v && Number(v))).map(medida)
+  return m.length ? `${m.join(' × ')} m` : null
+}
+
+/** wa.me da gráfica com a mensagem pronta (número brasileiro sem o 55 ganha o código do país) */
+export function linkWhatsappLoja(numero: string, texto: string): string | null {
+  let digitos = numero.replace(/\D/g, '')
+  if (digitos.length === 10 || digitos.length === 11) digitos = `55${digitos}`
+  if (digitos.length < 12) return null
+  return `https://wa.me/${digitos}?text=${encodeURIComponent(texto)}`
+}
+
 interface ConfigEndereco {
   DOMINIO_VITRINE: string
   NODE_ENV: string
@@ -100,6 +114,34 @@ export function dominioVitrine(config: ConfigEndereco): string {
 export function urlPublicaVitrine(slug: string, config: ConfigEndereco): string {
   if (!config.DOMINIO_VITRINE && config.NODE_ENV !== 'production') return `http://${slug}.localhost:5173`
   return `https://${slug}.${dominioVitrine(config)}`
+}
+
+/** {slug}.{DOMINIO_VITRINE} sem o protocolo (destino do CNAME do domínio próprio) */
+export function hostDoSubdominio(slug: string, config: ConfigEndereco): string {
+  return new URL(urlPublicaVitrine(slug, config)).host
+}
+
+/** Endereço da vitrine nos links gerados: o domínio próprio (já verificado) ou o subdomínio da GrafyGo */
+export function urlDaVitrine(empresa: { slug: string; dominioVitrine?: string | null }, config: ConfigEndereco): string {
+  return empresa.dominioVitrine ? `https://${empresa.dominioVitrine}` : urlPublicaVitrine(empresa.slug, config)
+}
+
+/** Host normalizado (minúsculo, sem porta nem ponto final) */
+const hostLimpo = (host: string) => host.trim().toLowerCase().replace(/:\d+$/, '').replace(/\.$/, '')
+
+/** As duas formas do mesmo domínio: com e sem "www." */
+export function variantesDominio(host: string): string[] {
+  const h = hostLimpo(host)
+  if (!h) return []
+  return h.startsWith('www.') ? [h, h.slice(4)] : [h, `www.${h}`]
+}
+
+/** Não pode ser domínio próprio: a base das vitrines e os subdomínios dela, o endereço do sistema e localhost */
+export function dominioReservado(dominio: string, config: ConfigEndereco): boolean {
+  const d = hostLimpo(dominio)
+  const base = dominioVitrine(config)
+  const sistema = hostLimpo(new URL(config.APP_URL).hostname)
+  return d === base || d.endsWith(`.${base}`) || d === sistema || d === 'localhost' || d.endsWith('.localhost')
 }
 
 /** "grafica-x.grafygo.com.br" → "grafica-x"; null se não for subdomínio direto da base ou for reservado. */

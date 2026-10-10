@@ -22,7 +22,8 @@ import { comConflitoAmigavel } from '../../core/prisma-erros'
 import type { ArquivosService } from '../arquivos/service'
 import { sincronizarCapa } from './galeria'
 import { EXTENSOES_FOTO, urlMiniaturaLogada } from './imagens'
-import { normalizarSlug, slugLivre, urlPublicaVitrine } from './regras'
+import { criarDominioVitrine } from './dominio'
+import { normalizarSlug, slugLivre, urlDaVitrine, urlPublicaVitrine } from './regras'
 
 type DadosConfig = z.output<typeof vitrineConfigSchema>
 type DadosProduto = z.output<typeof produtoVitrineSchema>
@@ -100,9 +101,14 @@ export function criarVitrineService(app: FastifyInstance, arquivos: ArquivosServ
     }
   }
 
+  const dominios = criarDominioVitrine(app)
+
   async function montarConfig(): Promise<VitrineConfig> {
     const { banners, ...c } = await lerConfigVitrine(prisma)
-    const produtosPublicados = await prisma.produto.count({ where: { vitrinePublicado: true, ativo: true, tipo: { in: [...TIPOS_VITRINE] } } })
+    const [produtosPublicados, dominio] = await Promise.all([
+      prisma.produto.count({ where: { vitrinePublicado: true, ativo: true, tipo: { in: [...TIPOS_VITRINE] } } }),
+      dominios.info(),
+    ])
     return {
       ativa: c.ativa,
       titulo: c.titulo,
@@ -120,7 +126,9 @@ export function criarVitrineService(app: FastifyInstance, arquivos: ArquivosServ
       mensagemPedidoEnviado: c.mensagemPedidoEnviado,
       seoDescricao: c.seoDescricao,
       banners: banners.map((arquivoId) => ({ arquivoId, url: urlMiniaturaLogada(storage, arquivoId) })),
-      urlPublica: urlPublicaVitrine(contextoEmpresa.exigir().slug, app.config),
+      // Lido agora (e não do contexto em cache): logo depois de verificar, os links já usam o domínio próprio
+      urlPublica: dominio.endereco && dominio.verificadoEm ? `https://${dominio.endereco}` : urlPublicaVitrine(contextoEmpresa.exigir().slug, app.config),
+      dominio,
       liberadaNoPlano: vitrineNoPlano(),
       produtosPublicados,
     }
@@ -193,7 +201,7 @@ export function criarVitrineService(app: FastifyInstance, arquivos: ArquivosServ
         select: { id: true },
       })
       for (const a of antigos) await arquivos.remover(a.id, usuarioId).catch(() => undefined)
-      return { id: arquivo.id, url: `${urlPublicaVitrine(contextoEmpresa.exigir().slug, app.config)}/catalogo/${arquivo.id}` }
+      return { id: arquivo.id, url: `${urlDaVitrine(contextoEmpresa.exigir(), app.config)}/catalogo/${arquivo.id}` }
     },
 
     async removerBanner(arquivoId: string, usuarioId: string) {

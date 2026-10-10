@@ -1,14 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { pedidoVitrineSchema, subdominioReservado } from '@onprint/shared'
+import { dominioVitrineSchema, normalizarDominio, pedidoVitrineSchema, subdominioReservado } from '@onprint/shared'
 import { gerarSlug } from '../src/plataforma/provisionar'
 import {
+  dominioReservado,
   dominioVitrine,
+  hostDoSubdominio,
+  linkWhatsappLoja,
   montarDescricaoSolicitacao,
   normalizarSlug,
   precoExibido,
   slugDoDominio,
   slugLivre,
+  textoMedidas,
+  urlDaVitrine,
   urlPublicaVitrine,
+  variantesDominio,
 } from '../src/modules/vitrine/regras'
 
 describe('vitrine: slug do produto', () => {
@@ -121,5 +127,60 @@ describe('vitrine: lista de orçamento (contrato)', () => {
   it('exige WhatsApp e ao menos um item', () => {
     expect(pedidoVitrineSchema.safeParse({ nome: 'Ana', whatsapp: '', itens: [item] }).success).toBe(false)
     expect(pedidoVitrineSchema.safeParse({ nome: 'Ana', whatsapp: '11988887777', itens: [] }).success).toBe(false)
+  })
+})
+
+describe('vitrine: domínio próprio', () => {
+  const prod = { DOMINIO_VITRINE: 'grafygo.com.br', NODE_ENV: 'production', APP_URL: 'https://app.grafygo.com.br' }
+
+  it('normaliza o que a pessoa cola (protocolo, caminho, maiúsculas, acento em punycode)', () => {
+    expect(normalizarDominio('  HTTPS://WWW.Grafica.com.br/produtos?x=1 ')).toBe('www.grafica.com.br')
+    expect(normalizarDominio('grafica.com.br.')).toBe('grafica.com.br')
+    expect(normalizarDominio('gráfica.com.br')).toBe('xn--grfica-qta.com.br')
+    expect(normalizarDominio('   ')).toBe('')
+  })
+
+  it('aceita domínio válido; vazio tira; recusa o que não é domínio', () => {
+    expect(dominioVitrineSchema.parse({ dominio: 'https://www.grafica.com.br/' }).dominio).toBe('www.grafica.com.br')
+    expect(dominioVitrineSchema.parse({ dominio: '' }).dominio).toBeNull()
+    expect(dominioVitrineSchema.parse({ dominio: null }).dominio).toBeNull()
+    for (const ruim of ['grafica', 'grafica.', 'gra fica.com.br', '-grafica.com.br', '192.168.0.1', 'grafica.c']) {
+      expect(dominioVitrineSchema.safeParse({ dominio: ruim }).success, ruim).toBe(false)
+    }
+  })
+
+  it('www e sem www são a mesma vitrine', () => {
+    expect(variantesDominio('WWW.Grafica.com.br:443')).toEqual(['www.grafica.com.br', 'grafica.com.br'])
+    expect(variantesDominio('grafica.com.br')).toEqual(['grafica.com.br', 'www.grafica.com.br'])
+    expect(variantesDominio('')).toEqual([])
+  })
+
+  it('não deixa usar o domínio da GrafyGo, os subdomínios dela nem o sistema', () => {
+    expect(dominioReservado('grafygo.com.br', prod)).toBe(true)
+    expect(dominioReservado('outra-grafica.grafygo.com.br', prod)).toBe(true)
+    expect(dominioReservado('app.grafygo.com.br', prod)).toBe(true)
+    expect(dominioReservado('www.grafica.com.br', prod)).toBe(false)
+    expect(dominioReservado('teste.localhost', { ...prod, DOMINIO_VITRINE: '', NODE_ENV: 'development', APP_URL: 'http://localhost:5173' })).toBe(true)
+  })
+
+  it('links usam o domínio próprio só depois de verificado', () => {
+    expect(urlDaVitrine({ slug: 'grafica-x', dominioVitrine: 'www.grafica.com.br' }, prod)).toBe('https://www.grafica.com.br')
+    expect(urlDaVitrine({ slug: 'grafica-x', dominioVitrine: null }, prod)).toBe('https://grafica-x.grafygo.com.br')
+    expect(urlDaVitrine({ slug: 'grafica-x' }, prod)).toBe('https://grafica-x.grafygo.com.br')
+    expect(hostDoSubdominio('grafica-x', prod)).toBe('grafica-x.grafygo.com.br')
+  })
+})
+
+describe('vitrine: e-mail de confirmação do pedido', () => {
+  it('medidas em metros com vírgula; sem medida, nada', () => {
+    expect(textoMedidas('2.000', '1.500')).toBe('2 × 1,5 m')
+    expect(textoMedidas('3', null)).toBe('3 m')
+    expect(textoMedidas(null, null)).toBeNull()
+  })
+
+  it('WhatsApp da gráfica com o código do país e a mensagem pronta', () => {
+    expect(linkWhatsappLoja('(11) 98888-7777', 'Olá! Pedido SOL-1')).toBe('https://wa.me/5511988887777?text=Ol%C3%A1!%20Pedido%20SOL-1')
+    expect(linkWhatsappLoja('5511988887777', 'x')).toBe('https://wa.me/5511988887777?text=x')
+    expect(linkWhatsappLoja('123', 'x')).toBeNull()
   })
 })

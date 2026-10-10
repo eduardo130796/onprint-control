@@ -1866,6 +1866,14 @@ model Assinante {
   email     String?
   cnpj      String?
   ativo     Boolean  @default(true)
+  /**
+   * Domínio próprio da vitrine (ex.: www.suagrafica.com.br), apontado por CNAME para {slug}.{DOMINIO_VITRINE}
+   */
+  dominioVitrine             String?   @unique @map("dominio_vitrine")
+  /**
+   * Quando o domínio passou a responder pela vitrine: só então os links gerados usam ele
+   */
+  dominioVitrineVerificadoEm DateTime? @map("dominio_vitrine_verificado_em") @db.Timestamptz(3)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 

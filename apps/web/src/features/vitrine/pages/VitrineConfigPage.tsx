@@ -22,6 +22,7 @@ import { usePermissoes } from '@/hooks/usePermission'
 import { cn } from '@/lib/utils'
 import { BannersVitrine } from '../components/BannersVitrine'
 import { CompartilharDialog } from '../components/CompartilharDialog'
+import { DominioProprio } from '../components/DominioProprio'
 import { EnderecoPublico } from '../components/EnderecoPublico'
 import { Interruptor } from '../components/Interruptor'
 import { useVitrineConfig } from '../hooks'
@@ -357,6 +358,7 @@ export function VitrineConfigPage() {
                 <CartaoIndicador rotulo="Publicados" valor={c.produtosPublicados} icone={Eye} tom={c.produtosPublicados ? 'marca' : 'alerta'} link="/vitrine/produtos" compacto />
                 <CartaoIndicador rotulo="Banners" valor={`${c.banners.length}/${MAX_BANNERS_VITRINE}`} icone={Images} tom={c.banners.length ? 'marca' : 'neutro'} compacto />
               </div>
+              <DominioProprio config={c} podeEditar={podeEditar} />
               <BannersVitrine config={c} podeEditar={podeEditar} />
             </div>
           </div>

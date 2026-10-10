@@ -4,6 +4,7 @@ import type {
   ProdutoVitrineInput,
   ProdutoVitrineResumo,
   ProdutosVitrineQuery,
+  VerificacaoDominio,
   VitrineConfig,
   VitrineConfigInput,
 } from '@onprint/shared'
@@ -13,6 +14,9 @@ import { http, qs, upload } from './http'
 export const vitrineApi = {
   config: () => http<VitrineConfig>('/vitrine/config'),
   salvarConfig: (dados: VitrineConfigInput) => http<VitrineConfig>('/vitrine/config', { method: 'PUT', body: dados }),
+  /** Domínio próprio (null tira); devolve a configuração com o que apontar no DNS */
+  salvarDominio: (dominio: string | null) => http<VitrineConfig>('/vitrine/dominio', { method: 'PUT', body: { dominio } }),
+  verificarDominio: () => http<VerificacaoDominio>('/vitrine/dominio/verificar', { method: 'POST' }),
 
   // Banners (até MAX_BANNERS_VITRINE), identificados pelo arquivo
   enviarBanner: (arquivo: File, aoProgredir?: (pct: number) => void) => upload<unknown>('/vitrine/banners', arquivo, aoProgredir),

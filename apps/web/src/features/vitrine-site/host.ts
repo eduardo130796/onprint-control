@@ -34,6 +34,18 @@ export function dominioBaseVitrine(valor: string | undefined): string {
 }
 
 /**
+ * Pode ser o domínio próprio de uma gráfica (www.suagrafica.com.br): não é localhost, IP, a base das vitrines nem
+ * subdomínio dela. Só então o site pergunta à API de qual vitrine é (o sistema no endereço dele não paga essa consulta).
+ */
+export function pareceDominioProprio(host: string, base: string): boolean {
+  const h = host.trim().toLowerCase().replace(/:\d+$/, '').replace(/\.$/, '')
+  const b = dominioBaseVitrine(base)
+  if (!h.includes('.') || h === 'localhost' || h.endsWith('.localhost')) return false
+  if (/^\d+(?:\.\d+){3}$/.test(h) || h.startsWith('[')) return false
+  return h !== b && !h.endsWith(`.${b}`)
+}
+
+/**
  * Slug da gráfica quando o host é `{slug}.{base}` (um nível só, sem porta), ou null para o sistema.
  * Ex.: ("vitrine-cupom.localhost", "localhost") → "vitrine-cupom"; ("app.grafygo.com.br", …) → null.
  */

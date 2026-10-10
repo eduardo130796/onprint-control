@@ -53,10 +53,21 @@ ${empresa ? ASSINATURA : ''}
 
 const horas = (n: number) => (n === 1 ? '1 hora' : `${n} horas`)
 
-export function emailRedefinirSenha(d: { nome: string; empresa: string; tema?: string | null; link: string; validadeHoras: number }): Modelo {
+/** Identidade da gráfica no e-mail: nome, cor do tema e o e-mail de atendimento (para onde vai a resposta) */
+export interface MarcaEmail {
+  empresa: string
+  tema?: string | null
+  responderPara?: string | null
+}
+
+/** Sai com o nome da gráfica e a resposta vai para o e-mail de atendimento dela */
+const remetenteDa = (d: MarcaEmail): Modelo['remetente'] => ({ nome: d.empresa, responderPara: d.responderPara ?? null })
+
+export function emailRedefinirSenha(d: MarcaEmail & { nome: string; link: string; validadeHoras: number }): Modelo {
   const nome = escaparHtml(d.nome.split(' ')[0] ?? d.nome)
   const empresa = escaparHtml(d.empresa)
   return {
+    remetente: remetenteDa(d),
     assunto: `Redefinição de senha — ${d.empresa}`,
     texto: [
       `Olá, ${d.nome.split(' ')[0]}!`,
@@ -75,10 +86,11 @@ export function emailRedefinirSenha(d: { nome: string; empresa: string; tema?: s
   }
 }
 
-export function emailConviteUsuario(d: { nome: string; empresa: string; tema?: string | null; email: string; link: string; validadeHoras: number }): Modelo {
+export function emailConviteUsuario(d: MarcaEmail & { nome: string; email: string; link: string; validadeHoras: number }): Modelo {
   const nome = escaparHtml(d.nome.split(' ')[0] ?? d.nome)
   const empresa = escaparHtml(d.empresa)
   return {
+    remetente: remetenteDa(d),
     assunto: `Seu acesso a ${d.empresa}`,
     texto: [
       `Olá, ${d.nome.split(' ')[0]}!`,
@@ -97,8 +109,9 @@ export function emailConviteUsuario(d: { nome: string; empresa: string; tema?: s
   }
 }
 
-export function emailSenhaAlterada(d: { nome: string; empresa: string; tema?: string | null; quando: string }): Modelo {
+export function emailSenhaAlterada(d: MarcaEmail & { nome: string; quando: string }): Modelo {
   return {
+    remetente: remetenteDa(d),
     assunto: `Sua senha foi alterada — ${d.empresa}`,
     texto: [
       `Olá, ${d.nome.split(' ')[0]}!`,
@@ -141,6 +154,52 @@ export function emailBoasVindas(d: { nome: string; empresa: string; email: strin
       ],
       botao: { texto: 'Entrar no sistema', link: d.link },
       rodape: 'Você recebeu este e-mail porque criou uma conta na GrafyGo.',
+    }),
+  }
+}
+
+/** Item da lista de orçamento como o cliente montou no site */
+export interface ItemPedidoEmail {
+  descricao: string
+  quantidade: number
+  /** Ex.: "2 × 1 m" */
+  medidas?: string | null
+  acabamentos?: string[]
+}
+
+/** Confirmação para o cliente que enviou a lista de orçamento pelo site (em nome da gráfica) */
+export function emailPedidoRecebido(d: MarcaEmail & { nome: string; numero: string; itens: ItemPedidoEmail[]; mensagem: string; whatsapp?: string | null; site?: string | null }): Modelo {
+  const primeiro = d.nome.trim().split(' ')[0] || d.nome
+  const linha = (i: ItemPedidoEmail) =>
+    [`${i.quantidade}× ${i.descricao}`, i.medidas, i.acabamentos?.length ? i.acabamentos.join(', ') : null].filter(Boolean).join(' · ')
+  const contato = d.whatsapp ? 'Se quiser adiantar, é só responder este e-mail ou chamar no WhatsApp.' : 'Se quiser adiantar, é só responder este e-mail.'
+  return {
+    remetente: remetenteDa(d),
+    assunto: `Recebemos seu pedido de orçamento ${d.numero} — ${d.empresa}`,
+    texto: [
+      `Olá, ${primeiro}!`,
+      d.mensagem,
+      `Pedido ${d.numero}:`,
+      d.itens.map((i) => `- ${linha(i)}`).join('\n'),
+      contato,
+      d.whatsapp ?? '',
+      d.site ? `Veja mais produtos: ${d.site}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n\n'),
+    html: layout({
+      titulo: 'Recebemos seu pedido de orçamento',
+      paragrafos: [
+        `Olá, ${escaparHtml(primeiro)}!`,
+        escaparHtml(d.mensagem),
+        `<strong>Pedido ${escaparHtml(d.numero)}</strong><br>${d.itens.map((i) => `• ${escaparHtml(linha(i))}`).join('<br>')}`,
+        escaparHtml(contato),
+      ],
+      botao: d.whatsapp ? { texto: 'Chamar no WhatsApp', link: d.whatsapp } : undefined,
+      rodape: d.site
+        ? `Veja mais produtos em <a href="${escaparHtml(d.site)}" style="color:inherit">${escaparHtml(d.site.replace(/^https?:\/\//, ''))}</a>. Você recebeu este e-mail porque enviou uma lista de orçamento pelo site de ${escaparHtml(d.empresa)}.`
+        : `Você recebeu este e-mail porque enviou uma lista de orçamento pelo site de ${escaparHtml(d.empresa)}.`,
+      empresa: { nome: escaparHtml(d.empresa), tema: d.tema },
     }),
   }
 }

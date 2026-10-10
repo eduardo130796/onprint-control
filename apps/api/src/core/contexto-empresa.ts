@@ -9,6 +9,8 @@ export interface EmpresaAtual {
   schema: string
   /** Plano, módulos liberados e nível de acesso (ausente só em empresas ainda sem assinatura) */
   assinatura?: AssinaturaContexto
+  /** Domínio próprio da vitrine, só depois de verificado (os links passam a usar ele) */
+  dominioVitrine?: string | null
 }
 
 interface Armazenamento {

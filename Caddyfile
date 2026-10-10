@@ -2,9 +2,11 @@
 # Sem DOMINIO, atende em https://localhost com certificado local (teste do compose de produção).
 # Vitrine online: DOMINIO_VITRINE (ex.: grafygo.com.br) + DNS curinga *.grafygo.com.br → IP da VPS. Cada gráfica
 # fica em https://{slug}.{DOMINIO_VITRINE}, com certificado emitido na primeira visita (HTTPS sob demanda).
+# Domínio próprio (www.suagrafica.com.br): a gráfica cadastra em Vitrine → Configurar e aponta um CNAME para
+# {slug}.{DOMINIO_VITRINE}; o bloco "https://" do fim atende e o certificado sai na primeira visita.
 {
-	# Antes de emitir o certificado de um subdomínio, o Caddy pergunta à API se é uma vitrine no ar
-	# (200 = emite; 404 = recusa). Impede que qualquer nome apontado para a VPS gere certificados.
+	# Antes de emitir o certificado de um subdomínio (ou domínio próprio), o Caddy pergunta à API se é uma
+	# vitrine no ar (200 = emite; 404 = recusa). Impede que qualquer nome apontado para a VPS gere certificados.
 	on_demand_tls {
 		ask http://api:3333/api/v1/publico/vitrine-permitida
 	}
@@ -54,6 +56,20 @@
 	}
 }
 
+# Vitrine: prévia do link para os leitores de link + o site (subdomínio e domínio próprio)
+(vitrine) {
+	# Prévia do link (WhatsApp, Facebook, Telegram…): os leitores de link não rodam o JavaScript do site, então
+	# recebem da API um HTML mínimo com as tags Open Graph da página. Buscadores (Googlebot) veem o site normal.
+	# O rewrite escapa os valores da query ({host} e {uri} chegam inteiros na API).
+	@previa {
+		header_regexp User-Agent (?i)(WhatsApp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|Slackbot|LinkedInBot|Discordbot|Pinterest|SkypeUriPreview)
+		not path /api/* /assets/* /socket.io/*
+	}
+	rewrite @previa /api/v1/publico/vitrine-og?host={host}&caminho={uri}
+
+	import site
+}
+
 # Sistema (endereço exato: tem prioridade sobre o curinga das vitrines)
 {$DOMINIO:localhost} {
 	import site
@@ -65,14 +81,20 @@
 		on_demand
 	}
 
-	# Prévia do link (WhatsApp, Facebook, Telegram…): os leitores de link não rodam o JavaScript do site, então
-	# recebem da API um HTML mínimo com as tags Open Graph da página. Buscadores (Googlebot) veem o site normal.
-	# O rewrite escapa os valores da query ({host} e {uri} chegam inteiros na API).
-	@previa {
-		header_regexp User-Agent (?i)(WhatsApp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|Slackbot|LinkedInBot|Discordbot|Pinterest|SkypeUriPreview)
-		not path /api/* /assets/* /socket.io/*
-	}
-	rewrite @previa /api/v1/publico/vitrine-og?host={host}&caminho={uri}
+	import vitrine
+}
 
-	import site
+# Domínio próprio da gráfica: qualquer outro nome que chegue ao servidor. O certificado só é emitido se a API
+# reconhecer o domínio (ask acima); o front descobre a gráfica em /publico/vitrine-dominio.
+https:// {
+	tls {
+		on_demand
+	}
+
+	import vitrine
+}
+
+# http://www.suagrafica.com.br → https (os nomes exatos acima já ganham esse redirecionamento sozinhos)
+http:// {
+	redir https://{host}{uri} permanent
 }

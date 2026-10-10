@@ -23,10 +23,10 @@ export function criarRecuperacaoService(app: FastifyInstance) {
   // Até 5 pedidos de link por e-mail por hora, venham de qualquer IP (não enche a caixa de ninguém)
   const pedidosPorEmail = criarContadorTentativas({ max: 5, janelaMs: 60 * 60_000 })
 
-  /** Como a pessoa reconhece a empresa nos e-mails: o fantasia/razão social e a cor do tema escolhida. */
+  /** Como a pessoa reconhece a empresa nos e-mails: o fantasia/razão social, a cor do tema e o e-mail de atendimento (resposta). */
   async function marcaDaEmpresa() {
-    const c = await prisma.empresaConfig.findFirst({ select: { nomeFantasia: true, razaoSocial: true, corTema: true } })
-    return { empresa: c?.nomeFantasia || c?.razaoSocial || contextoEmpresa.exigir().nome, tema: c?.corTema ?? null }
+    const c = await prisma.empresaConfig.findFirst({ select: { nomeFantasia: true, razaoSocial: true, corTema: true, email: true } })
+    return { empresa: c?.nomeFantasia || c?.razaoSocial || contextoEmpresa.exigir().nome, tema: c?.corTema ?? null, responderPara: c?.email ?? null }
   }
 
   /** Emite o link e manda o e-mail (precisa estar no contexto da empresa do usuário). */

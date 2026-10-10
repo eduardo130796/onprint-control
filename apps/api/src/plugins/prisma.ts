@@ -4,12 +4,15 @@ import { PrismaClient, type Assinante, type Assinatura, type Plano } from '@pris
 import { SCHEMA_PLATAFORMA, urlDoSchema } from '../core/banco'
 import { contextoEmpresa, type EmpresaAtual } from '../core/contexto-empresa'
 import { resumirAssinatura } from '../plataforma/assinaturas'
+import { variantesDominio } from '../modules/vitrine/regras'
 
 export interface RegistroEmpresas {
   /** Empresa ativa pelo id (com cache curto); null se não existe ou foi desativada. */
   porId(id: string | undefined): Promise<EmpresaAtual | null>
   /** Empresa ativa pelo slug dos links públicos. */
   porSlug(slug: string): Promise<EmpresaAtual | null>
+  /** Domínio próprio da vitrine (com ou sem "www."), verificado ou não */
+  porDominio(host: string): Promise<EmpresaAtual | null>
   /** Todas as empresas ativas (tarefas agendadas). */
   listar(): Promise<EmpresaAtual[]>
   /** Cliente Prisma do schema da empresa (pool próprio, reaproveitado). */
@@ -44,6 +47,7 @@ const paraContexto = (a: AssinanteCompleto): EmpresaAtual => ({
   slug: a.slug,
   schema: a.schema,
   assinatura: a.assinatura ? resumirAssinatura(a.assinatura) : undefined,
+  dominioVitrine: a.dominioVitrineVerificadoEm ? a.dominioVitrine : null,
 })
 
 /**
@@ -79,7 +83,7 @@ export const prismaPlugin = fp(async (app) => {
   // Só empresas encontradas entram no cache (ids/slugs inventados não ocupam memória), com teto e limpeza periódica
   const cache = new Map<string, { empresa: EmpresaAtual; expira: number }>()
   const MAX_CACHE = 2000
-  async function buscar(chave: string, where: { id: string } | { slug: string }) {
+  async function buscar(chave: string, where: { id: string } | { slug: string } | { dominioVitrine: string }) {
     const guardado = cache.get(chave)
     if (guardado && guardado.expira > Date.now()) return guardado.empresa
     const a = await plataforma.assinante.findUnique({ where, include: comAssinatura })
@@ -101,6 +105,14 @@ export const prismaPlugin = fp(async (app) => {
     // id fora do formato UUID nem vai ao banco (o Postgres recusaria com erro 500)
     porId: (id) => (id && UUID.test(id) ? buscar(`id:${id}`, { id }) : Promise.resolve(null)),
     porSlug: (slug) => buscar(`slug:${slug}`, { slug }),
+    // www.x.com.br e x.com.br são a mesma vitrine (a gráfica cadastra um, o visitante pode digitar o outro)
+    porDominio: async (host) => {
+      for (const dominio of variantesDominio(host)) {
+        const empresa = await buscar(`dominio:${dominio}`, { dominioVitrine: dominio })
+        if (empresa) return empresa
+      }
+      return null
+    },
     listar: async () => (await plataforma.assinante.findMany({ where: { ativo: true }, include: comAssinatura, orderBy: { createdAt: 'asc' } })).map(paraContexto),
     clienteDe,
     esquecer: () => cache.clear(),

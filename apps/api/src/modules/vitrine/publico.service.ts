@@ -17,10 +17,11 @@ import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
 import { contextoEmpresa } from '../../core/contexto-empresa'
 import { proximoNumero } from '../../core/numeracao'
+import { emailPedidoRecebido } from '../../integrations/email/modelos'
 import { paginado } from '../../core/paginacao'
 import { obterImagem, urlImagemPublica } from './imagens'
 import { caminhoDaPagina, resumir, textoPrazoOg, textoPrecoOg, type DadosOg, type PaginaOg } from './og'
-import { MODOS_COM_MEDIDAS, montarDescricaoSolicitacao, precoExibido } from './regras'
+import { MODOS_COM_MEDIDAS, linkWhatsappLoja, montarDescricaoSolicitacao, precoExibido, textoMedidas, urlDaVitrine } from './regras'
 import { TIPOS_VITRINE, lerConfigVitrine } from './vitrine.service'
 
 type QueryProdutos = z.output<typeof produtosPublicosQuerySchema>
@@ -294,6 +295,35 @@ export function criarVitrinePublicaService(app: FastifyInstance) {
           solicitacao.usuarios.map((u) => `usuario:${u}`),
           'notificacao:nova',
           { titulo: `Pedido pelo site: ${solicitacao.numero}` },
+        )
+      }
+      // Confirmação para o cliente (se deixou o e-mail), em nome da gráfica: a resposta vai para o atendimento dela
+      if (email) {
+        const empresa = await prisma.empresaConfig.findFirst({
+          orderBy: { createdAt: 'asc' },
+          select: { nomeFantasia: true, razaoSocial: true, corTema: true, email: true, whatsapp: true },
+        })
+        const nome = config.titulo || empresa?.nomeFantasia || empresa?.razaoSocial || contextoEmpresa.exigir().nome
+        const whatsappLoja =
+          config.mostrarWhatsapp && empresa?.whatsapp ? linkWhatsappLoja(empresa.whatsapp, `Olá! Enviei pelo site o pedido de orçamento ${solicitacao.numero}.`) : null
+        void app.email.enviar(
+          email,
+          emailPedidoRecebido({
+            empresa: nome,
+            tema: empresa?.corTema ?? null,
+            responderPara: empresa?.email ?? null,
+            nome: dados.nome,
+            numero: solicitacao.numero,
+            mensagem,
+            itens: itens.map((i) => ({
+              descricao: i.descricao,
+              quantidade: i.quantidade,
+              medidas: textoMedidas(i.largura, i.altura),
+              acabamentos: i.acabamentos.map((a) => a.nome),
+            })),
+            whatsapp: whatsappLoja,
+            site: urlDaVitrine(contextoEmpresa.exigir(), app.config),
+          }),
         )
       }
       return { numero: solicitacao.numero, mensagem }

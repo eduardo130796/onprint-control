@@ -45,7 +45,7 @@ const envSchema = z.object({
   SMTP_SEGURO: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   SMTP_USUARIO: z.string().default(''),
   SMTP_SENHA: z.string().default(''),
-  EMAIL_REMETENTE: z.string().default('ONPrint Control <nao-responda@onprint.local>'),
+  EMAIL_REMETENTE: z.string().default('GrafyGo <nao-responda@grafygo.local>'),
   /** Desenvolvimento/testes: também grava cada e-mail como JSON nesta pasta */
   EMAIL_PASTA: z.string().default(''),
   /** Contato do suporte mostrado em "Minha assinatura" (WhatsApp, e-mail…) */

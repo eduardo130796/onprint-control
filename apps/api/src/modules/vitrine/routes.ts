@@ -1,10 +1,11 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import type { FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { idParamSchema, ordemImagensSchema, produtoVitrineSchema, produtosVitrineQuerySchema, vitrineConfigSchema } from '@onprint/shared'
+import { dominioVitrineSchema, idParamSchema, ordemImagensSchema, produtoVitrineSchema, produtosVitrineQuerySchema, vitrineConfigSchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { contextoEmpresa } from '../../core/contexto-empresa'
 import { criarArquivosService } from '../arquivos/service'
+import { criarDominioVitrine } from './dominio'
 import { LARGURAS_IMAGEM, enviarImagem } from './imagens'
 import { criarVitrineService } from './vitrine.service'
 
@@ -15,6 +16,7 @@ const ordemBannersSchema = z.object({ ids: z.array(z.string().uuid()).max(3) })
 /** Vitrine online — área logada (docs/VITRINE.md, seção 3) */
 export const vitrineRoutes: FastifyPluginAsyncZod = async (app) => {
   const service = criarVitrineService(app, criarArquivosService(app))
+  const dominios = criarDominioVitrine(app)
   const pode = (acao: 'visualizar' | 'editar') => ({ onRequest: [app.exigirPermissao('vitrine', acao)] })
 
   /** Galeria do produto: quem edita produtos ou a vitrine */
@@ -33,6 +35,16 @@ export const vitrineRoutes: FastifyPluginAsyncZod = async (app) => {
   app.put('/vitrine/config', { ...pode('editar'), schema: { tags, summary: 'Salva a configuração da vitrine', body: vitrineConfigSchema } }, (req) =>
     service.atualizarConfig(req.body, req.user.sub),
   )
+
+  // Domínio próprio (www.suagrafica.com.br): cadastrar/tirar e conferir se já aponta para cá
+  app.put('/vitrine/dominio', { ...pode('editar'), schema: { tags, summary: 'Cadastra o domínio próprio da vitrine (null tira)', body: dominioVitrineSchema } }, async (req) => {
+    await dominios.salvar(req.body.dominio, req.user.sub)
+    return service.obterConfig()
+  })
+  app.post('/vitrine/dominio/verificar', { ...pode('editar'), schema: { tags, summary: 'Confere se o domínio próprio já abre a vitrine' } }, async () => ({
+    ...(await dominios.verificar()),
+    config: await service.obterConfig(),
+  }))
 
   app.post(
     '/vitrine/banners',

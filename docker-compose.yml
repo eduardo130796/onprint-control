@@ -60,6 +60,8 @@ services:
     environment:
       API_PROXY_TARGET: http://api:3333
       CHOKIDAR_USEPOLLING: "true"
+      # Domínio próprio da vitrine em teste local (ex.: www.suagrafica.test), separados por vírgula
+      VITE_HOSTS_EXTRAS: ${VITE_HOSTS_EXTRAS:-}
     command: npm run dev -w @onprint/web -- --host 0.0.0.0
     ports:
       - "127.0.0.1:5173:5173"

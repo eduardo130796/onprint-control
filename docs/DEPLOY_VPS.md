@@ -41,6 +41,8 @@ A propagação costuma levar alguns minutos. Para conferir no seu computador: `n
 
 Conferir: `nslookup qualquer-coisa.suaempresa.com.br` deve responder com o IP da VPS. O certificado de cada subdomínio é emitido na primeira visita (HTTPS sob demanda), e só para vitrines que estão no ar: antes de emitir, o Caddy pergunta à API (`/api/v1/publico/vitrine-permitida`). Subdomínios como `www`, `app`, `api`, `admin`, `mail`… são reservados e nunca viram vitrine.
 
+**Domínio próprio da gráfica** (opcional, ex.: `www.graficadocliente.com.br`): nada a fazer no servidor. A gráfica cadastra o domínio em Vitrine → Configurar e cria no DNS dela um `CNAME www → {slug}.suaempresa.com.br` (a tela mostra os valores para copiar). O bloco `https://` do `Caddyfile` atende qualquer outro nome e emite o certificado na primeira visita, só para domínios cadastrados de vitrines no ar.
+
 **Prévia do link no WhatsApp** (foto, nome e preço ao colar o link de um produto): já vem pronta no `Caddyfile`. Nas vitrines, os leitores de link (WhatsApp, Facebook, Telegram, LinkedIn…, reconhecidos pelo User-Agent) recebem da API um HTML com as tags Open Graph (`/api/v1/publico/vitrine-og`); visitantes e buscadores veem o site normal. Nunca vale para o endereço do sistema.
 
 ## 3. Primeiro acesso e preparo do servidor
@@ -152,7 +154,7 @@ Troque **todos** os valores marcados com `TROQUE`:
 | `CADASTRO_PUBLICO` | `true` deixa as gráficas criarem conta sozinhas em `/criar-conta` (teste grátis); `false` fecha |
 | `CADASTROS_POR_HORA` | teto de cadastros pela internet por hora, somando todos os IPs (padrão 30). Passou disso, o cadastro responde "tente de novo em alguns minutos" |
 | `ASAAS_*` | chave de **produção** do Asaas (`ASAAS_AMBIENTE=producao`), token do webhook e dados da NFS-e. Passo a passo no README (seção Pagamento online). O webhook aponta para `https://SEU_DOMINIO/api/v1/plataforma/webhooks/asaas` |
-| `SMTP_*` e `EMAIL_REMETENTE` | dados SMTP do seu provedor de e-mail (tabela de exemplos no README). Sem eles, convites e "esqueci a senha" não chegam a ninguém |
+| `SMTP_*` e `EMAIL_REMETENTE` | dados SMTP do seu provedor de e-mail (tabela de exemplos no README). Sem eles, convites, "esqueci a senha" e a confirmação do pedido da vitrine não chegam a ninguém. Use `EMAIL_REMETENTE="GrafyGo <nao-responda@suaempresa.com.br>"` no seu domínio (com SPF/DKIM configurados no provedor): os e-mails das gráficas saem desse endereço com o **nome da gráfica** e "Responder para" o e-mail dela (Dados da empresa) |
 
 Salve (Ctrl+O, Enter, Ctrl+X) e proteja o arquivo:
 

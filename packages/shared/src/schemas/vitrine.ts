@@ -42,12 +42,68 @@ export const vitrineConfigSchema = z.object({
 })
 export type VitrineConfigInput = z.input<typeof vitrineConfigSchema>
 
+// ─── Domínio próprio (Vitrine → Configurar vitrine → Endereço) ──────────────
+
+/**
+ * "https://WWW.MinhaGráfica.com.br/produtos" → "www.xn--minhagrfica-…" (só o nome, minúsculo, acentos em punycode).
+ * Vazio continua vazio.
+ */
+export function normalizarDominio(valor: string): string {
+  const limpo = valor
+    .trim()
+    .toLowerCase()
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//, '')
+    .replace(/[/?#].*$/, '')
+    .replace(/:\d+$/, '')
+    .replace(/\.+$/, '')
+  if (!limpo) return ''
+  try {
+    return new URL(`http://${limpo}`).hostname
+  } catch {
+    return limpo
+  }
+}
+
+const DOMINIO = /^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{2,59})$/
+
+export const dominioVitrineSchema = z.object({
+  /** Ex.: www.suagrafica.com.br; null (ou vazio) tira o domínio próprio */
+  dominio: z.preprocess(
+    (v) => (typeof v === 'string' ? normalizarDominio(v) || null : v),
+    z.string().regex(DOMINIO, 'Digite só o domínio, ex.: www.suagrafica.com.br').nullable(),
+  ),
+})
+export type DominioVitrineInput = z.input<typeof dominioVitrineSchema>
+
+export interface DominioVitrine {
+  /** Domínio próprio cadastrado (null = só o endereço da GrafyGo) */
+  endereco: string | null
+  /** Quando o domínio passou a responder pela vitrine (null = aguardando o apontamento no DNS) */
+  verificadoEm: string | null
+  /** {slug}.{DOMINIO_VITRINE}: o destino do CNAME */
+  subdominio: string
+  /** IP do servidor, para o domínio sem "www" (registro A); null em desenvolvimento ou sem DNS */
+  ip: string | null
+}
+
+/** POST /vitrine/dominio/verificar */
+export interface VerificacaoDominio {
+  verificado: boolean
+  mensagem: string
+  config: VitrineConfig
+}
+
 /** Resposta do GET /vitrine/config (área logada) */
 export interface VitrineConfig extends z.output<typeof vitrineConfigSchema> {
   /** Imagens do banner (até 3), na ordem */
   banners: { arquivoId: string; url: string }[]
-  /** Endereço público: https://{slug}.{DOMINIO_VITRINE} (em desenvolvimento, http://{slug}.localhost:5173) */
+  /**
+   * Endereço público usado nos links: o domínio próprio, quando já verificado; senão https://{slug}.{DOMINIO_VITRINE}
+   * (em desenvolvimento, http://{slug}.localhost:5173)
+   */
   urlPublica: string
+  /** Domínio próprio e o que apontar no DNS */
+  dominio: DominioVitrine
   /** O plano da empresa inclui o módulo (sem ele o site não abre, mesmo com `ativa`) */
   liberadaNoPlano: boolean
   /** Quantos produtos estão publicados */

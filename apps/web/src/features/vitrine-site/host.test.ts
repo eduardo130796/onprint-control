@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { SUBDOMINIOS_RESERVADOS as DO_CONTRATO } from '@onprint/shared'
-import { SUBDOMINIOS_RESERVADOS, dominioBaseVitrine, slugDaVitrine } from './host'
+import { SUBDOMINIOS_RESERVADOS, dominioBaseVitrine, pareceDominioProprio, slugDaVitrine } from './host'
 
 describe('slugDaVitrine', () => {
   it('reconhece {slug}.localhost em desenvolvimento (com ou sem porta)', () => {
@@ -47,5 +47,21 @@ describe('dominioBaseVitrine', () => {
 describe('subdomínios reservados', () => {
   it('a cópia leve do site é igual à do contrato (API recusa os mesmos)', () => {
     expect([...SUBDOMINIOS_RESERVADOS].sort()).toEqual([...DO_CONTRATO].sort())
+  })
+})
+
+describe('pareceDominioProprio', () => {
+  it('outro domínio qualquer pode ser vitrine (a API confirma)', () => {
+    expect(pareceDominioProprio('www.graficaboa.com.br', 'grafygo.com.br')).toBe(true)
+    expect(pareceDominioProprio('graficaboa.com.br:443', 'grafygo.com.br')).toBe(true)
+  })
+  it('o sistema, as vitrines da GrafyGo, localhost e IP não consultam a API', () => {
+    expect(pareceDominioProprio('app.grafygo.com.br', 'grafygo.com.br')).toBe(false)
+    expect(pareceDominioProprio('grafica-x.grafygo.com.br', 'grafygo.com.br')).toBe(false)
+    expect(pareceDominioProprio('grafygo.com.br', 'grafygo.com.br')).toBe(false)
+    expect(pareceDominioProprio('localhost:5173', 'localhost')).toBe(false)
+    expect(pareceDominioProprio('grafica.localhost:5173', 'localhost')).toBe(false)
+    expect(pareceDominioProprio('192.168.0.10:5173', 'localhost')).toBe(false)
+    expect(pareceDominioProprio('[::1]:5173', 'localhost')).toBe(false)
   })
 })

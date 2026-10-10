@@ -7,6 +7,7 @@ import { contextoEmpresa, type EmpresaAtual } from '../../core/contexto-empresa'
 import { FORMATOS_IMAGEM, LARGURAS_IMAGEM, enviarImagem } from './imagens'
 import { htmlOgGenerico, montarHtmlOg, origemDoHost, paginaDoCaminho } from './og'
 import { criarVitrinePublicaService } from './publico.service'
+import { marcarVerificado } from './dominio'
 import { dominioVitrine, slugDoDominio } from './regras'
 import { lerConfigVitrine } from './vitrine.service'
 
@@ -78,10 +79,10 @@ export const vitrinePublicaRoutes: FastifyPluginAsyncZod = async (app) => {
   )
 }
 
-/** Empresa do subdomínio com a vitrine no ar (mesmas regras do site), ou null */
+/** Empresa do subdomínio (ou do domínio próprio) com a vitrine no ar (mesmas regras do site), ou null */
 async function empresaDoDominio(app: FastifyInstance, dominio: string) {
   const slug = slugDoDominio(dominio, dominioVitrine(app.config))
-  const empresa = slug ? await app.empresas.porSlug(slug) : null
+  const empresa = slug ? await app.empresas.porSlug(slug) : await app.empresas.porDominio(dominio)
   const noAr = await vitrineNoAr(empresa, () => contextoEmpresa.com(empresa as EmpresaAtual, () => lerConfigVitrine(app.prisma)))
   return noAr ? empresa : null
 }
@@ -94,8 +95,22 @@ export const vitrinePermitidaRoutes: FastifyPluginAsyncZod = async (app) => {
     '/vitrine-permitida',
     { config: limiteLeitura, schema: { tags, summary: 'Subdomínio é uma vitrine no ar? (200/404, para o HTTPS sob demanda)', querystring: z.object({ domain: z.string().max(253) }) } },
     async (req, reply) => {
-      if (!(await empresaDoDominio(app, req.query.domain))) throw AppError.naoEncontrado(NAO_ENCONTRADA)
+      const empresa = await empresaDoDominio(app, req.query.domain)
+      if (!empresa) throw AppError.naoEncontrado(NAO_ENCONTRADA)
+      // Domínio próprio chegando aqui pelo HTTPS: o DNS já aponta para o servidor (vale como verificação)
+      if (!slugDoDominio(req.query.domain, dominioVitrine(app.config)) && !empresa.dominioVitrine) await marcarVerificado(app, empresa.id)
       return reply.send({ ok: true })
+    },
+  )
+
+  /** GET /publico/vitrine-dominio?host=x — o site aberto num domínio próprio descobre de qual gráfica é */
+  app.get(
+    '/vitrine-dominio',
+    { config: limiteLeitura, schema: { tags, summary: 'Gráfica da vitrine aberta neste endereço (domínio próprio)', querystring: z.object({ host: z.string().max(260) }) } },
+    async (req) => {
+      const empresa = await empresaDoDominio(app, req.query.host)
+      if (!empresa) throw AppError.naoEncontrado(NAO_ENCONTRADA)
+      return { slug: empresa.slug }
     },
   )
 

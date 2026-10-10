@@ -11,6 +11,27 @@ export interface EmailMensagem {
   /** Versão em texto puro (clientes de e-mail sem HTML e filtros de spam) */
   texto: string
   html?: string
+  /**
+   * E-mail em nome de uma gráfica: o endereço continua o da plataforma (EMAIL_REMETENTE, que tem SPF/DKIM),
+   * mas o nome exibido é o da gráfica e a resposta do cliente vai para o e-mail de atendimento dela.
+   */
+  remetente?: { nome: string; responderPara?: string | null }
+}
+
+/** Só o endereço de "Nome <endereco@x>" (ou o texto inteiro, se já for só o endereço) */
+export function enderecoDoRemetente(remetente: string): string {
+  return /<([^>]+)>/.exec(remetente)?.[1]?.trim() ?? remetente.trim()
+}
+
+/** Campos From/Reply-To do envio: o nome da gráfica no lugar do da plataforma, sem quebras de linha (cabeçalho) */
+export function cabecalhosRemetente(padrao: string, remetente?: EmailMensagem['remetente']) {
+  if (!remetente) return { from: padrao }
+  const nome = remetente.nome.replace(/[\r\n"<>]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80)
+  const responder = remetente.responderPara?.trim()
+  return {
+    from: nome ? { name: nome, address: enderecoDoRemetente(padrao) } : padrao,
+    ...(responder && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(responder) ? { replyTo: responder } : {}),
+  }
 }
 
 export interface EmailProvider {
@@ -48,8 +69,8 @@ export class SmtpEmailProvider implements EmailProvider {
     })
   }
 
-  async enviar({ para, assunto, texto, html }: EmailMensagem): Promise<void> {
-    await this.transporte.sendMail({ from: this.remetente, to: para, subject: assunto, text: texto, html })
+  async enviar({ para, assunto, texto, html, remetente }: EmailMensagem): Promise<void> {
+    await this.transporte.sendMail({ ...cabecalhosRemetente(this.remetente, remetente), to: para, subject: assunto, text: texto, html })
   }
 }
 

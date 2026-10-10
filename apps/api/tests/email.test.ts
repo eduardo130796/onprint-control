@@ -4,8 +4,8 @@ import { join } from 'node:path'
 import type { FastifyBaseLogger } from 'fastify'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 import { carregarEnv } from '../src/config/env'
-import { LogEmailProvider, PastaEmailProvider, SmtpEmailProvider, criarProvedorEmail } from '../src/integrations/email'
-import { emailConviteUsuario, emailRedefinirSenha, emailSenhaAlterada, escaparHtml } from '../src/integrations/email/modelos'
+import { LogEmailProvider, PastaEmailProvider, SmtpEmailProvider, cabecalhosRemetente, criarProvedorEmail, enderecoDoRemetente } from '../src/integrations/email'
+import { emailConviteUsuario, emailPedidoRecebido, emailRedefinirSenha, emailSenhaAlterada, escaparHtml } from '../src/integrations/email/modelos'
 import { hashTokenSenha } from '../src/plataforma/tokens-senha'
 
 const base = { NODE_ENV: 'test', DATABASE_URL: 'postgresql://u:s@db:5432/x', JWT_ACCESS_SECRET: 'segredo-1', JWT_REFRESH_SECRET: 'segredo-2' }
@@ -76,5 +76,56 @@ describe('provedor de e-mail', () => {
     const [arquivo] = await readdir(pasta)
     expect(JSON.parse(await readFile(join(pasta, arquivo as string), 'utf8'))).toMatchObject({ para: 'a@b.com', assunto: 'Oi' })
     expect(log.info).toHaveBeenCalled()
+  })
+})
+
+describe('e-mail em nome da gráfica', () => {
+  const padrao = 'GrafyGo <envio@grafygo.com.br>'
+
+  it('sai do endereço da plataforma com o nome da gráfica e responde para o atendimento dela', () => {
+    expect(enderecoDoRemetente(padrao)).toBe('envio@grafygo.com.br')
+    expect(enderecoDoRemetente('envio@grafygo.com.br')).toBe('envio@grafygo.com.br')
+    expect(cabecalhosRemetente(padrao)).toEqual({ from: padrao })
+    expect(cabecalhosRemetente(padrao, { nome: 'Gráfica Boa', responderPara: 'contato@graficaboa.com.br' })).toEqual({
+      from: { name: 'Gráfica Boa', address: 'envio@grafygo.com.br' },
+      replyTo: 'contato@graficaboa.com.br',
+    })
+  })
+
+  it('sem e-mail de atendimento (ou inválido), não põe "Responder para"; nome sem quebra de linha', () => {
+    expect(cabecalhosRemetente(padrao, { nome: 'Gráfica Boa', responderPara: null })).toEqual({ from: { name: 'Gráfica Boa', address: 'envio@grafygo.com.br' } })
+    expect(cabecalhosRemetente(padrao, { nome: 'X', responderPara: 'não é e-mail' })).not.toHaveProperty('replyTo')
+    expect(cabecalhosRemetente(padrao, { nome: 'Gráfica\r\nBcc: a@b.com <x>' }).from).toEqual({ name: 'Gráfica Bcc: a@b.com x', address: 'envio@grafygo.com.br' })
+    expect(cabecalhosRemetente(padrao, { nome: '   ' }).from).toBe(padrao)
+  })
+
+  it('convite e senha levam o remetente da empresa', () => {
+    const m = emailConviteUsuario({ nome: 'João', empresa: 'Gráfica Boa', responderPara: 'adm@boa.com', email: 'joao@x.com', link: 'https://x', validadeHoras: 72 })
+    expect(m.remetente).toEqual({ nome: 'Gráfica Boa', responderPara: 'adm@boa.com' })
+  })
+
+  it('confirmação do pedido do site: itens, número, WhatsApp e site; tudo escapado', () => {
+    const m = emailPedidoRecebido({
+      empresa: 'Gráfica <Boa>',
+      responderPara: 'contato@boa.com',
+      nome: 'Ana Lima',
+      numero: 'SOL-2026-0007',
+      mensagem: 'Recebemos sua lista!',
+      itens: [
+        { descricao: 'Banner em lona', quantidade: 2, medidas: '2 × 1 m', acabamentos: ['Ilhós'] },
+        { descricao: 'Cartão', quantidade: 1000 },
+      ],
+      whatsapp: 'https://wa.me/5511988887777?text=Ol%C3%A1',
+      site: 'https://www.boa.com.br',
+    })
+    expect(m.assunto).toBe('Recebemos seu pedido de orçamento SOL-2026-0007 — Gráfica <Boa>')
+    expect(m.remetente).toEqual({ nome: 'Gráfica <Boa>', responderPara: 'contato@boa.com' })
+    expect(m.texto).toContain('Olá, Ana!')
+    expect(m.texto).toContain('- 2× Banner em lona · 2 × 1 m · Ilhós')
+    expect(m.texto).toContain('- 1000× Cartão')
+    expect(m.html).toContain('href="https://wa.me/5511988887777?text=Ol%C3%A1"')
+    expect(m.html).toContain('www.boa.com.br')
+    expect(m.html).toContain('Gráfica &lt;Boa&gt;')
+    expect(m.html).not.toContain('<Boa>')
   })
 })

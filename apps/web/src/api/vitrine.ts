@@ -1,4 +1,5 @@
 import type {
+  CatalogoPublicado,
   ImagemProdutoVitrine,
   ProdutoVitrineInput,
   ProdutoVitrineResumo,
@@ -15,6 +16,8 @@ export const vitrineApi = {
 
   // Banners (até MAX_BANNERS_VITRINE), identificados pelo arquivo
   enviarBanner: (arquivo: File, aoProgredir?: (pct: number) => void) => upload<unknown>('/vitrine/banners', arquivo, aoProgredir),
+  /** Guarda o PDF do catálogo e devolve o link curto da vitrine ({site}/catalogo/{id}) */
+  publicarCatalogo: (arquivo: File) => upload<CatalogoPublicado>('/vitrine/catalogos', arquivo),
   removerBanner: (arquivoId: string) => http<void>(`/vitrine/banners/${arquivoId}`, { method: 'DELETE' }),
   ordenarBanners: (ids: string[]) => http<unknown>('/vitrine/banners/ordem', { method: 'PUT', body: { ids } }),
 

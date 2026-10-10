@@ -4,6 +4,7 @@ import {
   ajustarTexto,
   linkWhatsappEnvio,
   mensagemCatalogo,
+  mensagemCatalogoPdf,
   mensagemProduto,
   mensagemVitrine,
   nomeArquivo,
@@ -137,5 +138,16 @@ describe('layout', () => {
       ['Placas', ['1', '4']],
       ['Outros produtos', ['2']],
     ])
+  })
+})
+
+describe('mensagem do catálogo em PDF', () => {
+  it('leva o link do PDF e, se houver, o site', () => {
+    const m = mensagemCatalogoPdf({ nome: 'ana maria', loja: 'Gráfica X', linkPdf: 'https://x.grafygo.com.br/catalogo/1', site: 'https://x.grafygo.com.br' })
+    expect(m).toMatch(/^Olá, Ana! Segue o catálogo da \*Gráfica X\* com nossos produtos: https:\/\/x\.grafygo\.com\.br\/catalogo\/1/)
+    expect(m).toContain('pelo site e peça o orçamento por lá: https://x.grafygo.com.br')
+  })
+  it('sem site, só o link do PDF', () => {
+    expect(mensagemCatalogoPdf({ loja: 'Gráfica X', linkPdf: 'https://x/c/1' })).not.toContain('site')
   })
 })

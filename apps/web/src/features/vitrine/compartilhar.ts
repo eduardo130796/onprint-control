@@ -1,14 +1,20 @@
 // Baixar ou compartilhar um arquivo gerado no navegador (imagens de divulgação, catálogo em PDF).
 
-/** Compartilha o arquivo pelo menu do celular (WhatsApp, Instagram…) quando dá; senão baixa */
-export async function compartilharArquivo(blob: Blob, nome: string, titulo: string): Promise<'compartilhado' | 'baixado' | 'cancelado'> {
+/**
+ * Compartilha o arquivo pelo menu do sistema (WhatsApp, Instagram…) quando dá; senão baixa.
+ * Chame com o arquivo JÁ pronto, direto no clique: o navegador só abre o menu logo após o toque do usuário
+ * (gerar antes e compartilhar depois de um await faz ele recusar — 'bloqueado').
+ */
+export async function compartilharArquivo(blob: Blob, nome: string, titulo: string): Promise<'compartilhado' | 'baixado' | 'cancelado' | 'bloqueado'> {
   const arquivo = new File([blob], nome, { type: blob.type })
   if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [arquivo] })) {
     try {
       await navigator.share({ files: [arquivo], title: titulo })
       return 'compartilhado'
     } catch (e) {
-      if ((e as Error).name === 'AbortError') return 'cancelado'
+      const nomeErro = (e as Error).name
+      if (nomeErro === 'AbortError') return 'cancelado'
+      if (nomeErro === 'NotAllowedError') return 'bloqueado'
     }
   }
   baixarBlob(blob, nome)

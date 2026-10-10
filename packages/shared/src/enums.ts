@@ -163,7 +163,7 @@ export type VariavelTemplate = (typeof VARIAVEIS_TEMPLATE)[number]
 
 // ─── Arquivos ───────────────────────────────────────────────────────────────
 
-export const CATEGORIAS_ARQUIVO = ['arte', 'anexo', 'comprovante', 'logo', 'imagem_produto', 'banner_vitrine'] as const
+export const CATEGORIAS_ARQUIVO = ['arte', 'anexo', 'comprovante', 'logo', 'imagem_produto', 'banner_vitrine', 'catalogo_vitrine'] as const
 export type CategoriaArquivo = (typeof CATEGORIAS_ARQUIVO)[number]
 
 /** Entidades que podem ter arquivos vinculados, e o módulo de permissão de cada uma. */

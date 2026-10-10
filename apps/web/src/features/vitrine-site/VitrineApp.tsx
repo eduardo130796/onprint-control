@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
-import { Outlet, RouterProvider, ScrollRestoration, createBrowserRouter } from 'react-router-dom'
+import { Outlet, RouterProvider, ScrollRestoration, createBrowserRouter, useParams } from 'react-router-dom'
 import { RefreshCw, Store } from 'lucide-react'
 import { TEMAS, temaOuPadrao } from '@onprint/shared'
 import { aplicarTema, definirFavicon, gerarFavicon } from '@/features/aparencia/tema'
@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { criarVitrineApi, naoEncontrado } from './api'
 import { Container, Esqueleto, GradeEsqueleto } from './componentes/comum'
 import { FeitoComGrafyGo, Rodape, Topo, WhatsappFlutuante } from './componentes/Estrutura'
-import { VitrineContexto, criarLinkWhatsapp, definirMeta, useListaOrcamento, type ContextoVitrine } from './contexto'
+import { VitrineContexto, criarLinkWhatsapp, definirMeta, useListaOrcamento, useVitrine, type ContextoVitrine } from './contexto'
 import { botao } from './estilos'
 import { descricaoLoja } from './seo'
 import { InicioPagina } from './paginas/InicioPagina'
@@ -124,6 +124,16 @@ function Estrutura({ slug }: { slug: string }) {
 document.documentElement.dataset.app = 'vitrine'
 
 /** App da vitrine online (site público da gráfica), carregado pelo main.tsx no endereço {slug}.{domínio} */
+/** {site}/catalogo/{id}: link curto do catálogo em PDF mandado no WhatsApp — abre o arquivo guardado */
+function AbrirCatalogo() {
+  const { id } = useParams()
+  const { slug } = useVitrine()
+  useEffect(() => {
+    if (id) window.location.replace(`/api/v1/publico/${encodeURIComponent(slug)}/vitrine/catalogos/${encodeURIComponent(id)}`)
+  }, [id, slug])
+  return <p className="p-10 text-center text-sm text-slate-500">Abrindo o catálogo…</p>
+}
+
 export function VitrineApp({ slug }: { slug: string }) {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 60_000, refetchOnWindowFocus: false, retry: 1 } } }))
   const [router] = useState(() =>
@@ -136,6 +146,7 @@ export function VitrineApp({ slug }: { slug: string }) {
           { path: 'categoria/:id', element: <ProdutosPagina /> },
           { path: 'produto/:produtoSlug', element: <ProdutoPagina /> },
           { path: 'lista', element: <ListaPagina /> },
+          { path: 'catalogo/:id', element: <AbrirCatalogo /> },
           { path: '*', element: <NaoEncontradoPagina /> },
         ],
       },

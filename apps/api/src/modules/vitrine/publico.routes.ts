@@ -61,6 +61,21 @@ export const vitrinePublicaRoutes: FastifyPluginAsyncZod = async (app) => {
       return enviarImagem(app.storage, reply, arquivo, req.query.w, 'public', req.query.f)
     },
   )
+
+  // Catálogo em PDF mandado por link ({site}/catalogo/{id} redireciona para cá)
+  app.get(
+    '/catalogos/:arquivoId',
+    { config: limiteLeitura, schema: { tags, summary: 'Catálogo em PDF guardado pela gráfica', params: z.object({ arquivoId: z.string().uuid() }) } },
+    async (req, reply) => {
+      const arquivo = await app.prisma.arquivo.findFirst({ where: { id: req.params.arquivoId, categoria: 'catalogo_vitrine' } })
+      if (!arquivo) throw AppError.naoEncontrado('Catálogo não encontrado (pode ter sido substituído por um mais novo).')
+      return reply
+        .type('application/pdf')
+        .header('Content-Disposition', `inline; filename="catalogo.pdf"`)
+        .header('Cache-Control', 'public, max-age=3600')
+        .send(app.storage.abrir(arquivo.caminho))
+    },
+  )
 }
 
 /** Empresa do subdomínio com a vitrine no ar (mesmas regras do site), ou null */

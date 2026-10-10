@@ -44,6 +44,12 @@ export const vitrineRoutes: FastifyPluginAsyncZod = async (app) => {
     { ...pode('editar'), schema: { tags, summary: 'Remove uma imagem do banner', params: z.object({ arquivoId: z.string().uuid() }) } },
     (req) => service.removerBanner(req.params.arquivoId, req.user.sub),
   )
+  // Quem vê a vitrine pode mandar o catálogo (vendedor no WhatsApp)
+  app.post(
+    '/vitrine/catalogos',
+    { ...pode('visualizar'), schema: { tags, summary: 'Guarda o PDF do catálogo para mandar por link (multipart, PDF)', consumes: ['multipart/form-data'] } },
+    async (req, reply) => reply.status(201).send(await service.publicarCatalogo(req, req.user.sub)),
+  )
   app.put('/vitrine/banners/ordem', { ...pode('editar'), schema: { tags, summary: 'Reordena o banner', body: ordemBannersSchema } }, (req) => service.ordenarBanners(req.body.ids))
 
   app.get('/vitrine/produtos', { ...pode('visualizar'), schema: { tags, summary: 'Produtos e serviços ativos com os dados da vitrine', querystring: produtosVitrineQuerySchema } }, (req) =>

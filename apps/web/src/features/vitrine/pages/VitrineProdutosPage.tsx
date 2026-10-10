@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
-import { ChevronDown, Download, ExternalLink, Eye, FileText, ImageOff, Loader2, Package, Settings2, Share2, Star } from 'lucide-react'
+import { ExternalLink, Eye, FileText, ImageOff, Package, Settings2, Share2, Star } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Paginado, ProdutoVitrineInput, ProdutoVitrineResumo, ProdutosVitrineQuery } from '@onprint/shared'
 import { CHAVE_VITRINE_CONFIG, CHAVE_VITRINE_PRODUTOS, vitrineApi } from '@/api/vitrine'
@@ -12,17 +12,15 @@ import { CartaoIndicador } from '@/components/shared/CartaoIndicador'
 import { DataTable } from '@/components/shared/data-table/DataTable'
 import { AcaoPainel, PainelCartao } from '@/components/shared/kanban/PainelCartao'
 import { Button } from '@/components/ui/button'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Select } from '@/components/ui/form-controls'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePermissoes } from '@/hooks/usePermission'
 import { useCategorias } from '@/features/produtos/hooks'
-import { podeCompartilharArquivo } from '../compartilhar'
 import { CompartilharDialog, type AlvoCompartilhar } from '../components/CompartilharDialog'
 import { BotaoSalvarVitrine, EditorProdutoVitrine } from '../components/EditorProdutoVitrine'
 import { Interruptor } from '../components/Interruptor'
 import { useProdutosVitrine, useVitrineConfig } from '../hooks'
-import { useCatalogoPdf } from '../useCatalogoPdf'
+import { CatalogoDialog } from '../components/CatalogoDialog'
 import { useEditorVitrine } from '../useEditorVitrine'
 import { urlProduto } from '../divulgar'
 import { dadosVitrine, precoExibido } from '../utils'
@@ -39,35 +37,22 @@ function Capa({ produto, tamanho = 'h-11 w-11' }: { produto: ProdutoVitrineResum
   )
 }
 
-/** "Catálogo em PDF": baixa; no celular (Web Share com arquivo), também compartilha */
+/** "Catálogo em PDF": escolher o que entra, gerar e enviar (baixar, compartilhar ou link no WhatsApp) */
 function BotaoCatalogo({ publicados }: { publicados: number }) {
-  const catalogo = useCatalogoPdf()
-  const [compartilha] = useState(podeCompartilharArquivo)
-  const icone = catalogo.gerando ? <Loader2 className="animate-spin" /> : <FileText />
-  const titulo = publicados === 0 ? 'Publique ao menos um produto para gerar o catálogo' : undefined
-  if (!compartilha) {
-    return (
-      <Button type="button" variant="outline" disabled={publicados === 0 || Boolean(catalogo.gerando)} title={titulo} onClick={() => void catalogo.gerar('baixar')}>
-        {icone} Catálogo em PDF
-      </Button>
-    )
-  }
+  const [aberto, setAberto] = useState(false)
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button type="button" variant="outline" disabled={publicados === 0 || Boolean(catalogo.gerando)} title={titulo}>
-          {icone} Catálogo em PDF <ChevronDown />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={() => void catalogo.gerar('compartilhar')}>
-          <Share2 /> Compartilhar
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => void catalogo.gerar('baixar')}>
-          <Download /> Baixar PDF
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={publicados === 0}
+        title={publicados === 0 ? 'Publique ao menos um produto para gerar o catálogo' : undefined}
+        onClick={() => setAberto(true)}
+      >
+        <FileText /> Catálogo em PDF
+      </Button>
+      <CatalogoDialog aberto={aberto} onFechar={() => setAberto(false)} />
+    </>
   )
 }
 

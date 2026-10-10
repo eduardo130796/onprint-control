@@ -11,6 +11,8 @@ import {
   type produtoVitrineSchema,
   type produtosVitrineQuerySchema,
   type vitrineConfigSchema,
+  MAX_CATALOGOS_VITRINE,
+  type CatalogoPublicado,
 } from '@onprint/shared'
 import type { z } from 'zod'
 import { AppError } from '../../core/AppError'
@@ -176,6 +178,22 @@ export function criarVitrineService(app: FastifyInstance, arquivos: ArquivosServ
         await salvarConfig(tx, { banners: [...banners, arquivo.id].slice(-MAX_BANNERS_VITRINE) })
       })
       return montarConfig()
+    },
+
+    /**
+     * Guarda o PDF do catálogo gerado no navegador para mandar por link (o WhatsApp não anexa arquivo por link).
+     * Mantém só os MAX_CATALOGOS_VITRINE mais recentes.
+     */
+    async publicarCatalogo(request: FastifyRequest, usuarioId: string): Promise<CatalogoPublicado> {
+      const arquivo = await arquivos.receberUpload(request, { entidade: 'empresa', entidadeId: null, categoria: 'catalogo_vitrine', extensoes: ['pdf'] }, usuarioId)
+      const antigos = await prisma.arquivo.findMany({
+        where: { categoria: 'catalogo_vitrine' },
+        orderBy: { createdAt: 'desc' },
+        skip: MAX_CATALOGOS_VITRINE,
+        select: { id: true },
+      })
+      for (const a of antigos) await arquivos.remover(a.id, usuarioId).catch(() => undefined)
+      return { id: arquivo.id, url: `${urlPublicaVitrine(contextoEmpresa.exigir().slug, app.config)}/catalogo/${arquivo.id}` }
     },
 
     async removerBanner(arquivoId: string, usuarioId: string) {

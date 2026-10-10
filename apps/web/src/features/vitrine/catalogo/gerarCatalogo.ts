@@ -54,9 +54,24 @@ async function emLotes<T, R>(itens: T[], tamanho: number, fn: (item: T) => Promi
   return saida
 }
 
-export async function pdfCatalogo(produtos: ProdutoVitrineResumo[], config: VitrineConfig, empresa: EmpresaConfig): Promise<{ blob: Blob; nome: string }> {
-  const publicados = produtos.filter((p) => p.publicado)
-  if (publicados.length === 0) throw new Error('Nenhum produto publicado na vitrine.')
+export interface OpcoesCatalogo {
+  /** Só estes produtos (publicados); vazio/ausente = todos os publicados */
+  produtoIds?: string[]
+  mostrarPreco: boolean
+  qrPorProduto: boolean
+  /** Rótulo da capa */
+  rotulo: string
+}
+
+export async function pdfCatalogo(
+  produtos: ProdutoVitrineResumo[],
+  config: VitrineConfig,
+  empresa: EmpresaConfig,
+  opcoes: OpcoesCatalogo = { mostrarPreco: true, qrPorProduto: true, rotulo: 'Catálogo de produtos' },
+): Promise<{ blob: Blob; nome: string; total: number }> {
+  const escolhidos = opcoes.produtoIds?.length ? new Set(opcoes.produtoIds) : null
+  const publicados = produtos.filter((p) => p.publicado && (!escolhidos || escolhidos.has(p.id)))
+  if (publicados.length === 0) throw new Error('Escolha ao menos um produto publicado.')
   const cores = TEMAS[temaOuPadrao(empresa.corTema)]
   const loja = (config.titulo || empresa.nomeFantasia || empresa.razaoSocial).trim()
   const endereco = [
@@ -81,8 +96,8 @@ export async function pdfCatalogo(produtos: ProdutoVitrineResumo[], config: Vitr
     Promise.all(capas.map((p) => fotoJpeg(urlImagemGrande(p.imagens[0]!.url), 640, 640))),
     emLotes(publicados, 6, async (p) => {
       const link = urlProduto(config.urlPublica, p.slug)
-      const [foto, qrProduto] = await Promise.all([fotoJpeg(p.imagens[0] ? urlImagemGrande(p.imagens[0].url) : null, 640, 480), qr(link, '#1E2226', 200)])
-      return { id: p.id, categoria: p.categoria, nome: nomeNoSite(p), preco: partesPrecoProduto(p), texto: textoCurto(p.descricaoPublica, 120), foto, link, qr: qrProduto }
+      const [foto, qrProduto] = await Promise.all([fotoJpeg(p.imagens[0] ? urlImagemGrande(p.imagens[0].url) : null, 640, 480), opcoes.qrPorProduto ? qr(link, '#1E2226', 200) : null])
+      return { id: p.id, categoria: p.categoria, nome: nomeNoSite(p), preco: opcoes.mostrarPreco ? partesPrecoProduto(p) : null, texto: textoCurto(p.descricaoPublica, 120), foto, link, qr: qrProduto }
     }),
   ])
 
@@ -99,7 +114,8 @@ export async function pdfCatalogo(produtos: ProdutoVitrineResumo[], config: Vitr
     grupos: agruparPorCategoria(itens),
     total: itens.length,
     data: new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
+    rotulo: opcoes.rotulo.trim() || 'Catálogo de produtos',
   }
   const blob = await pdf(createElement(DocumentoCatalogo, { dados }) as Parameters<typeof pdf>[0]).toBlob()
-  return { blob, nome: `Catálogo ${nomeArquivo(loja)}.pdf` }
+  return { blob, nome: `Catálogo ${nomeArquivo(loja)}.pdf`, total: itens.length }
 }

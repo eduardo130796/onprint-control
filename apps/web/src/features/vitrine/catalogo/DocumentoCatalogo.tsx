@@ -10,7 +10,8 @@ export interface ItemCatalogo {
   id: string
   categoria: { id: string; nome: string } | null
   nome: string
-  preco: PartesPreco
+  /** null = catálogo sem preços */
+  preco: PartesPreco | null
   texto: string
   /** JPEG 4:3 (data URL) */
   foto: string | null
@@ -32,6 +33,8 @@ export interface DadosCatalogo {
   total: number
   /** "outubro de 2026" */
   data: string
+  /** Rótulo da capa (padrão "Catálogo de produtos") */
+  rotulo: string
 }
 
 const A4 = { w: 595.28, h: 841.89 }
@@ -103,7 +106,7 @@ function Capa({ d }: { d: DadosCatalogo }) {
       </View>
 
       <View style={{ paddingHorizontal: 48, marginTop: 70 }}>
-        <Text style={[s.rotulo, { color: '#FFFFFF', opacity: 0.75 }]}>{`Catálogo de produtos · ${d.data}`}</Text>
+        <Text style={[s.rotulo, { color: '#FFFFFF', opacity: 0.75 }]}>{`${d.rotulo} · ${d.data}`}</Text>
         <Text style={[s.titulo, { fontSize: 40, color: '#FFFFFF', marginTop: 10, lineHeight: 1.1 }]}>{d.loja}</Text>
         {d.slogan ? <Text style={{ fontSize: 13, color: '#FFFFFF', opacity: 0.82, marginTop: 14, maxWidth: 420, lineHeight: 1.4 }}>{d.slogan}</Text> : null}
         <Text style={{ fontSize: 9.5, color: '#FFFFFF', opacity: 0.7, marginTop: 14 }}>
@@ -163,7 +166,7 @@ function Cartao({ p, cores }: { p: ItemCatalogo; cores: CoresTema }) {
       <View style={s.corpo}>
         <Text style={[s.titulo, { fontSize: 10.5, color: COR.principal, lineHeight: 1.25 }]}>{p.nome}</Text>
         <View style={{ marginTop: 5 }}>
-          <Preco preco={p.preco} cor={cores.escuro} tamanho={12} />
+          {p.preco ? <Preco preco={p.preco} cor={cores.escuro} tamanho={12} /> : null}
         </View>
         {p.texto ? <Text style={{ fontSize: 7.4, color: COR.suave, marginTop: 5, lineHeight: 1.45 }}>{p.texto}</Text> : null}
         <View style={{ flexGrow: 1 }} />

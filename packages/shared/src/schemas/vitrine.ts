@@ -262,3 +262,14 @@ export const SUBDOMINIOS_RESERVADOS = [
 export function subdominioReservado(slug: string): boolean {
   return (SUBDOMINIOS_RESERVADOS as readonly string[]).includes(slug.trim().toLowerCase())
 }
+
+// ─── Catálogo em PDF enviado por link ───────────────────────────────────────
+
+/** Quantos catálogos em PDF cada empresa guarda (os mais antigos saem) */
+export const MAX_CATALOGOS_VITRINE = 30
+
+/** PDF do catálogo guardado para mandar por link no WhatsApp: abre em {urlPublica}/catalogo/{id} */
+export interface CatalogoPublicado {
+  id: string
+  url: string
+}

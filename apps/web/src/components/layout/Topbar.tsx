@@ -28,12 +28,13 @@ export function Topbar({ onAbrirMenuMobile, menuRecolhido }: TopbarProps) {
       </button>
 
       {/* Marca: no desktop ocupa a largura do menu (300 px − margem) */}
-      <div className={cn('flex min-w-0 shrink items-center', !menuRecolhido && 'lg:w-[17.75rem] lg:shrink-0')}>
-        <MarcaEmpresa className="hidden sm:flex" />
-        <MarcaEmpresa compacta className="sm:hidden" />
+      {/* Marca: tem prioridade (o nome não é cortado); no desktop com menu aberto, ocupa ao menos a largura do menu */}
+      <div className={cn('flex min-w-0 shrink-0 items-center', !menuRecolhido && 'lg:min-w-[17.75rem]')}>
+        <MarcaEmpresa />
       </div>
 
-      <div className={cn('flex min-w-0 flex-1 items-center px-2 sm:px-4', !menuRecolhido && 'lg:pl-8 lg:pr-6')}>
+      {/* Busca: usa o espaço que sobrar (no celular, só a lupa) */}
+      <div className={cn('flex min-w-0 flex-1 items-center justify-end px-1 sm:px-3 md:justify-start', !menuRecolhido && 'lg:pl-8 lg:pr-6')}>
         <BuscaGlobal />
       </div>
 

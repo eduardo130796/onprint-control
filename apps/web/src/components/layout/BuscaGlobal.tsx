@@ -160,11 +160,13 @@ export function BuscaGlobal() {
       <button
         type="button"
         onClick={() => setAberta(true)}
-        className="flex h-10 w-full max-w-md items-center gap-2 rounded-xl border border-white/25 bg-white/[0.12] px-3 text-sm font-medium text-white transition-colors hover:border-marca hover:bg-white/20"
+        aria-label="Localizar (Ctrl+K)"
+        title="Localizar (Ctrl+K)"
+        className="flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/[0.12] text-sm font-medium text-white transition-colors hover:border-marca hover:bg-white/20 md:w-full md:min-w-[9rem] md:max-w-md md:justify-start md:px-3"
       >
-        <Search className="h-4 w-4 text-marca" />
-        <span className="flex-1 text-left">Localizar…</span>
-        <kbd className="hidden rounded bg-white/20 px-1.5 py-0.5 text-[0.625rem] font-semibold text-white sm:inline">Ctrl K</kbd>
+        <Search className="h-4 w-4 shrink-0 text-marca" />
+        <span className="hidden min-w-0 flex-1 truncate text-left md:inline">Localizar…</span>
+        <kbd className="hidden shrink-0 rounded bg-white/20 px-1.5 py-0.5 text-[0.625rem] font-semibold text-white xl:inline">Ctrl K</kbd>
       </button>
 
       <Dialog

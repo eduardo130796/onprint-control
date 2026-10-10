@@ -28,11 +28,11 @@ export function SobreSistema({ aberto, onFechar }: { aberto: boolean; onFechar: 
   return (
     <Dialog open={aberto} onOpenChange={(v) => !v && onFechar()}>
       <DialogContent className="max-w-sm gap-0 overflow-hidden p-0">
-        <div className="bg-grafite px-6 pb-6 pt-7">
-          <Logo claro className="h-11" />
-          <DialogDescription className="mt-3 text-sm text-white/70">
+        <div className="border-b border-[#DCE6F3] bg-[linear-gradient(160deg,#FFFFFF_0%,#E6F2FE_100%)] px-6 pb-6 pt-7">
+          <Logo className="h-11" />
+          <DialogDescription className="mt-3 text-sm font-medium text-[#021A40]">
             {MARCA.slogan}
-            <span className="mt-0.5 block text-xs text-white/50">{MARCA.descricao}.</span>
+            <span className="mt-0.5 block text-xs font-normal text-[#4A5B73]">{MARCA.descricao}.</span>
           </DialogDescription>
         </div>
         <div className="space-y-4 px-6 py-5 text-sm">

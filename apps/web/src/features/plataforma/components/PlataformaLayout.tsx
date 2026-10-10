@@ -47,9 +47,9 @@ export function PlataformaLayout() {
         </div>
         <div className="relative mx-auto flex max-w-[87.5rem] items-center gap-3 px-4 pt-3 sm:px-6">
           <div className="flex items-center gap-3">
-            <Logo claro className="h-8" />
+            <Logo placa className="h-9" />
             <span className="h-6 w-px bg-white/15" aria-hidden="true" />
-            <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-marca">Plataforma</p>
+            <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-[#4DB8FA]">Plataforma</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <span className="hidden text-right text-xs leading-tight sm:block">

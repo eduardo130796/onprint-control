@@ -205,9 +205,9 @@ export function CobrancasFicha({ empresa: e, onPedir }: { empresa: EmpresaPlataf
     <Secao titulo="Mensalidades e cobranças" subtitulo={e.cobrancas.length ? `${e.cobrancas.length} cobrança(s), mais recentes primeiro.` : 'Nenhuma cobrança gerada ainda.'} icone={Receipt}>
       {e.cobrancas.length > 0 && (
         <div className="relative -mx-5 overflow-x-auto sm:-mx-7">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-[45rem] text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-[11px] font-semibold uppercase tracking-wide text-texto-secundario">
+              <tr className="border-b border-border text-left text-[0.6875rem] font-semibold uppercase tracking-wide text-texto-secundario">
                 <th className="py-2 pl-5 pr-3 sm:pl-7">Vencimento</th>
                 <th className="px-3">Valor</th>
                 <th className="px-3">Situação</th>
@@ -225,12 +225,12 @@ export function CobrancasFicha({ empresa: e, onPedir }: { empresa: EmpresaPlataf
                   <tr key={c.id} className={cn('align-top', c.situacao === 'vencida' && 'bg-coral/[0.04]')}>
                     <td className="py-3 pl-5 pr-3 sm:pl-7">
                       <span className="font-medium tabular-nums text-tinta">{formatarDataSimples(c.vencimento)}</span>
-                      <span className="block text-[11px] text-texto-secundario">{c.tipo === 'proporcional' ? 'Diferença proporcional' : 'Mensalidade'}</span>
+                      <span className="block text-[0.6875rem] text-texto-secundario">{c.tipo === 'proporcional' ? 'Diferença proporcional' : 'Mensalidade'}</span>
                     </td>
                     <td className="px-3 py-3">
                       <span className={cn('font-semibold tabular-nums', c.situacao === 'abonada' || c.situacao === 'cancelada' ? 'text-texto-secundario line-through' : 'text-tinta')}>{formatarMoeda(c.valor)}</span>
                       {c.desconto && Number(c.desconto) > 0 && (
-                        <span className="mt-0.5 flex w-max items-center gap-1 rounded-full bg-laranja-suave px-1.5 py-0.5 text-[11px] font-semibold text-laranja-escuro">
+                        <span className="mt-0.5 flex w-max items-center gap-1 rounded-full bg-laranja-suave px-1.5 py-0.5 text-[0.6875rem] font-semibold text-laranja-escuro">
                           <TicketPercent className="h-3 w-3" aria-hidden="true" /> −{formatarMoeda(c.desconto)} cupom
                         </span>
                       )}
@@ -240,7 +240,7 @@ export function CobrancasFicha({ empresa: e, onPedir }: { empresa: EmpresaPlataf
                         <span className={cn('h-2 w-2 rounded-full', s.ponto)} aria-hidden="true" />
                         {s.rotulo}
                       </span>
-                      {c.situacao === 'abonada' && c.motivoAbono && <span className="block max-w-[240px] text-xs text-texto-secundario">“{c.motivoAbono}”</span>}
+                      {c.situacao === 'abonada' && c.motivoAbono && <span className="block max-w-[15rem] text-xs text-texto-secundario">“{c.motivoAbono}”</span>}
                     </td>
                     <td className="px-3 py-3 text-texto-secundario">
                       {c.situacao === 'paga' ? (
@@ -366,7 +366,7 @@ export function LinhaDoTempo({ empresa: e }: { empresa: EmpresaPlataformaDetalhe
             const { Icone, tom } = estiloEvento(it.tipo)
             return (
               <li key={it.id} className="relative flex gap-3 pb-5 last:pb-0">
-                {i < visiveis.length - 1 && <span className="absolute bottom-0 left-[15px] top-8 w-px bg-border" aria-hidden="true" />}
+                {i < visiveis.length - 1 && <span className="absolute bottom-0 left-[0.9375rem] top-8 w-px bg-border" aria-hidden="true" />}
                 <span className={cn('relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-1', TOM_EVENTO[tom])}>
                   <Icone className="h-4 w-4" aria-hidden="true" />
                 </span>

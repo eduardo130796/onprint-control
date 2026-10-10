@@ -54,7 +54,7 @@ export function BarrasVerticais({ dados, rotulo, series, formato, formatarRotulo
                 )
               })}
             </div>
-            <span className="mt-1 truncate text-center text-[11px] text-texto-secundario">{formatarRotulo(String(d[rotulo] ?? ''))}</span>
+            <span className="mt-1 truncate text-center text-[0.6875rem] text-texto-secundario">{formatarRotulo(String(d[rotulo] ?? ''))}</span>
           </div>
         ))}
       </div>
@@ -71,7 +71,7 @@ export function BarrasHorizontais({ dados, rotulo, series, formato, limite = 10,
   return (
     <div className="space-y-2">
       {linhas.map((d, i) => (
-        <div key={i} className="grid grid-cols-[minmax(90px,35%)_1fr_auto] items-center gap-2 text-sm">
+        <div key={i} className="grid grid-cols-[minmax(5.625rem,35%)_1fr_auto] items-center gap-2 text-sm">
           <span className="truncate" title={String(d[rotulo])}>
             {String(d[rotulo] ?? '—')}
           </span>

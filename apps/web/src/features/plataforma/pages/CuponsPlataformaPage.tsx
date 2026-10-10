@@ -17,7 +17,7 @@ import { CabecalhoPlataforma, Secao } from '../components/Secao'
 function Numero({ rotulo, children, cor }: { rotulo: string; children: React.ReactNode; cor?: string }) {
   return (
     <div className="min-w-0">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-texto-secundario">{rotulo}</p>
+      <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-texto-secundario">{rotulo}</p>
       <p className={cn('truncate font-titulo text-lg font-extrabold tabular-nums text-tinta', cor)}>{children}</p>
     </div>
   )

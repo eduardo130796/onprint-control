@@ -18,7 +18,7 @@ export function Timeline({ eventos }: { eventos: EventoHistorico[] }) {
         const { icone: Icone, cor } = ICONES[e.tipo]
         return (
           <li key={e.id} className="relative">
-            <span className={cn('absolute -left-[37px] flex h-6 w-6 items-center justify-center rounded-full ring-4 ring-card', cor)}>
+            <span className={cn('absolute -left-[2.3125rem] flex h-6 w-6 items-center justify-center rounded-full ring-4 ring-card', cor)}>
               <Icone className="h-3.5 w-3.5" />
             </span>
             <p className="text-sm font-medium">{e.titulo}</p>

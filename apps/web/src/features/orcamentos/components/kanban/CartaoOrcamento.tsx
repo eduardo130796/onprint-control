@@ -27,7 +27,7 @@ export function CartaoOrcamento({ o, acoes }: { o: Orcamento; acoes: AcoesCartao
         </Link>
         <span className="font-semibold tabular-nums">{formatarMoeda(o.total)}</span>
       </div>
-      <p className="mt-0.5 truncate text-[15px] font-semibold" title={o.cliente.nome}>
+      <p className="mt-0.5 truncate text-[0.9375rem] font-semibold" title={o.cliente.nome}>
         {o.cliente.nome}
       </p>
       {telefone && (

@@ -44,7 +44,7 @@ export function CartaoOp({ op, acoes, selecao }: { op: OrdemProducao; acoes?: Ac
             checked={selecao.marcado}
             onChange={() => selecao.onAlternar(op)}
             onPointerDown={(e) => e.stopPropagation()}
-            className="h-[18px] w-[18px]"
+            className="h-[1.125rem] w-[1.125rem]"
             aria-label={`Selecionar ${op.numero}`}
           />
         </span>
@@ -63,11 +63,11 @@ export function CartaoOp({ op, acoes, selecao }: { op: OrdemProducao; acoes?: Ac
           >
             {op.numero}
           </Link>
-          <Link to={`/pedidos/${op.pedidoId}`} className="font-mono text-[11px] text-texto-secundario hover:underline" onPointerDown={(e) => e.stopPropagation()}>
+          <Link to={`/pedidos/${op.pedidoId}`} className="font-mono text-[0.6875rem] text-texto-secundario hover:underline" onPointerDown={(e) => e.stopPropagation()}>
             {op.pedido.numero}
           </Link>
         </div>
-        <p className="mt-0.5 truncate text-[15px] font-semibold" title={op.pedido.cliente.nome}>
+        <p className="mt-0.5 truncate text-[0.9375rem] font-semibold" title={op.pedido.cliente.nome}>
           {op.pedido.cliente.nome}
         </p>
         <p className="text-xs text-texto-secundario" title={op.item.descricao}>
@@ -81,7 +81,7 @@ export function CartaoOp({ op, acoes, selecao }: { op: OrdemProducao; acoes?: Ac
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {op.atrasada && <SeloAtraso />}
           <SeloPrioridade prioridade={op.prioridade} />
-          <StatusBadge entidade="arte" codigo={op.arte?.status ?? 'aguardando_arquivo'} className="text-[11px]" />
+          <StatusBadge entidade="arte" codigo={op.arte?.status ?? 'aguardando_arquivo'} className="text-[0.6875rem]" />
         </div>
         <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-texto-secundario">
           <span className={cn('inline-flex items-center gap-1', op.atrasada && 'font-medium text-coral-escuro')}>

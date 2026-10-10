@@ -164,7 +164,7 @@ export function BuscaGlobal() {
       >
         <Search className="h-4 w-4 text-marca" />
         <span className="flex-1 text-left">Localizar…</span>
-        <kbd className="hidden rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-semibold text-white sm:inline">Ctrl K</kbd>
+        <kbd className="hidden rounded bg-white/20 px-1.5 py-0.5 text-[0.625rem] font-semibold text-white sm:inline">Ctrl K</kbd>
       </button>
 
       <Dialog
@@ -188,14 +188,14 @@ export function BuscaGlobal() {
               }}
               onKeyDown={onKeyDownLista}
               placeholder="Buscar cliente, pedido, orçamento, tela ou ação…"
-              className="h-14 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
+              className="h-14 flex-1 bg-transparent text-[0.9375rem] outline-none placeholder:text-muted-foreground"
               aria-label="Localizar"
               role="combobox"
               aria-expanded
               aria-controls="busca-global-resultados"
             />
             {buscando && <Loader2 className="h-4 w-4 animate-spin text-marca-escuro" />}
-            <kbd className="rounded-md border border-border px-1.5 py-0.5 text-[10px] font-semibold text-texto-secundario">Esc</kbd>
+            <kbd className="rounded-md border border-border px-1.5 py-0.5 text-[0.625rem] font-semibold text-texto-secundario">Esc</kbd>
           </div>
           <ul ref={lista} id="busca-global-resultados" className="max-h-[min(60vh,420px)] overflow-y-auto p-2" role="listbox">
             {resultados.length === 0 && (
@@ -207,7 +207,7 @@ export function BuscaGlobal() {
               const ativo = i === selecionado
               return (
                 <li key={r.chave} role="option" aria-selected={ativo}>
-                  {novoGrupo && <p className="px-3 pb-1.5 pt-3 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-texto-secundario/80">{r.grupo}</p>}
+                  {novoGrupo && <p className="px-3 pb-1.5 pt-3 text-[0.65625rem] font-semibold uppercase tracking-[0.12em] text-texto-secundario/80">{r.grupo}</p>}
                   <button
                     type="button"
                     tabIndex={-1}
@@ -227,14 +227,14 @@ export function BuscaGlobal() {
                       <span className={cn('block truncate font-medium', r.status && 'font-mono')}>{r.titulo}</span>
                       {r.detalhe && <span className="block truncate text-xs text-texto-secundario">{r.detalhe}</span>}
                     </span>
-                    {r.status && <StatusBadge entidade={r.status.entidade} codigo={r.status.codigo} className="text-[10px]" />}
+                    {r.status && <StatusBadge entidade={r.status.entidade} codigo={r.status.codigo} className="text-[0.625rem]" />}
                     <CornerDownLeft className={cn('h-3.5 w-3.5 shrink-0 text-texto-secundario transition-opacity', ativo ? 'opacity-100' : 'opacity-0')} />
                   </button>
                 </li>
               )
             })}
           </ul>
-          <div className="flex items-center gap-4 border-t border-border bg-fundo/60 px-4 py-2.5 text-[11px] text-texto-secundario">
+          <div className="flex items-center gap-4 border-t border-border bg-fundo/60 px-4 py-2.5 text-[0.6875rem] text-texto-secundario">
             <span className="flex items-center gap-1.5">
               <kbd className="rounded border border-border bg-card px-1 font-sans">↑</kbd>
               <kbd className="rounded border border-border bg-card px-1 font-sans">↓</kbd> navegar

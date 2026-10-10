@@ -174,7 +174,7 @@ function Formulario({ insumo }: { insumo?: InsumoDetalhe }) {
 
   return (
     <form onSubmit={onSubmit} noValidate>
-      <fieldset disabled={!podeSalvar || isSubmitting} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+      <fieldset disabled={!podeSalvar || isSubmitting} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_21.25rem] lg:items-start">
         <div className="min-w-0 space-y-6">
           <Secao icone={Tag} titulo="Identificação" descricao="O nome que aparece na composição dos produtos e no estoque.">
             <div className="grid gap-4 md:grid-cols-6">

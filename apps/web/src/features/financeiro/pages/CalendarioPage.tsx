@@ -81,7 +81,7 @@ export function CalendarioPage() {
                     type="button"
                     onClick={() => setDia(d)}
                     className={cn(
-                      'flex min-h-20 flex-col rounded-lg border p-1.5 text-left text-[11px] transition-colors hover:border-marca',
+                      'flex min-h-20 flex-col rounded-lg border p-1.5 text-left text-[0.6875rem] transition-colors hover:border-marca',
                       d === dia ? 'border-marca bg-marca/5' : 'border-border',
                       d === hoje && 'ring-1 ring-marca',
                     )}
@@ -114,7 +114,7 @@ export function CalendarioPage() {
                         </span>
                         <span className="text-right">
                           <span className="block font-medium">{formatarMoeda(t.saldo)}</span>
-                          <StatusBadge entidade="conta" codigo={t.status} className="text-[10px]" />
+                          <StatusBadge entidade="conta" codigo={t.status} className="text-[0.625rem]" />
                         </span>
                       </button>
                     </li>

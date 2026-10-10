@@ -93,8 +93,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario((u) => (u ? { ...u, empresa: { ...u.empresa, ...marca } } : u))
   }, [])
 
-  const definirPreferencias = useCallback(async (prefs: Partial<Pick<UsuarioLogado, 'modoTela' | 'fonte' | 'pesoTexto'>>) => {
-    let anterior: Partial<Pick<UsuarioLogado, 'modoTela' | 'fonte' | 'pesoTexto'>> | undefined
+  const definirPreferencias = useCallback(async (prefs: Partial<Pick<UsuarioLogado, 'modoTela' | 'fonte' | 'pesoTexto' | 'escala'>>) => {
+    let anterior: Partial<Pick<UsuarioLogado, 'modoTela' | 'fonte' | 'pesoTexto' | 'escala'>> | undefined
     setUsuario((u) => {
       if (u) anterior = Object.fromEntries(Object.keys(prefs).map((k) => [k, u[k as keyof typeof prefs]]))
       return u ? { ...u, ...prefs } : u

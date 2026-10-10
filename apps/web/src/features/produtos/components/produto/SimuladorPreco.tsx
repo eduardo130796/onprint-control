@@ -73,7 +73,7 @@ export function SimuladorPreco({ produto, alteracoesPendentes }: { produto: Prod
   const sufixo = MODO_CALCULO_SUFIXO[produto.modoCalculo]
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+    <div className="grid gap-6 lg:grid-cols-[1fr_23.75rem]">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Dados da simulação</CardTitle>

@@ -38,7 +38,7 @@ export function CartaoOpcao({ marcado, onClick, icone: Icone, titulo, descricao,
     >
       {Icone && (
         <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', marcado ? 'bg-marca text-marca-contraste' : 'bg-fundo text-tinta')}>
-          <Icone className="h-[18px] w-[18px]" aria-hidden="true" />
+          <Icone className="h-[1.125rem] w-[1.125rem]" aria-hidden="true" />
         </span>
       )}
       <span className="min-w-0">

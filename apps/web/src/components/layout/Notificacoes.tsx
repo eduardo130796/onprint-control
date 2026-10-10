@@ -31,9 +31,9 @@ export function Notificacoes() {
           className="relative flex h-9 w-9 items-center justify-center rounded-xl text-white/75 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 data-[state=open]:bg-white/10 data-[state=open]:text-white"
           aria-label={`Notificações${naoLidas ? ` (${naoLidas} não lidas)` : ''}`}
         >
-          <Bell className="h-[18px] w-[18px]" />
+          <Bell className="h-[1.125rem] w-[1.125rem]" />
           {naoLidas > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-laranja-escuro px-1 text-center text-[10px] font-bold leading-[18px] text-white ring-2 ring-grafite tabular-nums">{naoLidas > 99 ? '99+' : naoLidas}</span>
+            <span className="absolute -right-0.5 -top-0.5 min-w-[1.125rem] rounded-full bg-laranja-escuro px-1 text-center text-[0.625rem] font-bold leading-[1.125rem] text-white ring-2 ring-grafite tabular-nums">{naoLidas > 99 ? '99+' : naoLidas}</span>
           )}
         </button>
       </DropdownMenuTrigger>
@@ -54,7 +54,7 @@ export function Notificacoes() {
                 <span className="min-w-0 flex-1">
                   <span className={cn('block', !n.lida && 'font-semibold')}>{n.titulo}</span>
                   <span className="block whitespace-pre-line text-xs text-texto-secundario">{n.mensagem}</span>
-                  <span className="block text-[11px] text-texto-secundario">{formatarDataHora(n.createdAt)}</span>
+                  <span className="block text-[0.6875rem] text-texto-secundario">{formatarDataHora(n.createdAt)}</span>
                 </span>
               </button>
             </li>

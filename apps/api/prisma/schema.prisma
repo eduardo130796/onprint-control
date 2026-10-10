@@ -29,6 +29,8 @@ model Usuario {
   fonte              String    @default("inter")
   /// Peso do texto: leve | normal | forte
   pesoTexto          String    @default("normal") @map("peso_texto")
+  /// Tamanho da interface: compacto | padrao | grande
+  escala             String    @default("padrao")
   /// Usuário de painel (TV da produção): não sai por inatividade
   semInatividade     Boolean   @default(false) @map("sem_inatividade")
   ultimoLogin        DateTime? @map("ultimo_login") @db.Timestamptz(3)

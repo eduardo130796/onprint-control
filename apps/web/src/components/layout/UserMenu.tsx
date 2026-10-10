@@ -45,8 +45,8 @@ export function UserMenu() {
       >
         {avatar('h-8 w-8 ring-2 ring-white/15')}
         <span className="hidden max-w-[10rem] flex-col leading-tight xl:flex">
-          <span className="truncate text-[13px] font-semibold">{nome.split(' ')[0]}</span>
-          <span className="truncate text-[11px] text-white/55">{usuario?.papel.nome}</span>
+          <span className="truncate text-[0.8125rem] font-semibold">{nome.split(' ')[0]}</span>
+          <span className="truncate text-[0.6875rem] text-white/55">{usuario?.papel.nome}</span>
         </span>
         <ChevronDown className="hidden h-3.5 w-3.5 text-white/50 transition-transform group-data-[state=open]:rotate-180 sm:block" />
       </DropdownMenuTrigger>
@@ -57,7 +57,7 @@ export function UserMenu() {
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-tinta">{nome}</p>
             <p className="truncate text-xs text-texto-secundario">{usuario?.email}</p>
-            <span className="mt-1 inline-flex rounded-full bg-fundo px-2 py-0.5 text-[10.5px] font-semibold text-texto-secundario">{usuario?.papel.nome}</span>
+            <span className="mt-1 inline-flex rounded-full bg-fundo px-2 py-0.5 text-[0.65625rem] font-semibold text-texto-secundario">{usuario?.papel.nome}</span>
           </div>
         </div>
 
@@ -66,8 +66,8 @@ export function UserMenu() {
           <DropdownMenuItem onSelect={() => navigate('/assinatura')} className="mx-0.5 mb-1 rounded-xl border border-border px-2.5 py-2">
             <CreditCard className="text-texto-secundario" />
             <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-medium text-tinta">Plano {a.plano}</span>
-              <span className="flex items-center gap-1.5 text-[11px] text-texto-secundario">
+              <span className="block text-[0.8125rem] font-medium text-tinta">Plano {a.plano}</span>
+              <span className="flex items-center gap-1.5 text-[0.6875rem] text-texto-secundario">
                 <span className={cn('h-1.5 w-1.5 rounded-full', TOM_ASSINATURA[status.tom].pontoClaro)} />
                 {status.rotulo}
               </span>
@@ -78,7 +78,7 @@ export function UserMenu() {
         <DropdownMenuSeparator />
         {/* Modo da tela em uma linha (controle segmentado) */}
         <div className="px-2.5 py-2">
-          <p className="mb-1.5 text-[11px] font-medium text-texto-secundario">Modo da tela</p>
+          <p className="mb-1.5 text-[0.6875rem] font-medium text-texto-secundario">Modo da tela</p>
           <div role="radiogroup" aria-label="Modo da tela" className="grid grid-cols-3 gap-1 rounded-xl bg-fundo p-1">
             {MODOS.map(({ modo, rotulo, Icone }) => {
               const marcado = usuario?.modoTela === modo
@@ -108,7 +108,7 @@ export function UserMenu() {
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}>
           <Search /> Localizar
-          <kbd className="ml-auto rounded border border-border px-1 text-[10px] font-semibold text-texto-secundario">Ctrl K</kbd>
+          <kbd className="ml-auto rounded border border-border px-1 text-[0.625rem] font-semibold text-texto-secundario">Ctrl K</kbd>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => void onSair()} className="text-coral-escuro focus:text-coral-escuro">

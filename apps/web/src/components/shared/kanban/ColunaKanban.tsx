@@ -45,7 +45,7 @@ export function ColunaKanban<T>({ coluna, ids, porId, renderCartao, podeArrastar
   return (
     <section
       aria-label={coluna.titulo}
-      className={cn('flex min-w-[300px] max-w-[460px] flex-1 flex-col rounded-2xl bg-slate-200/60 transition-opacity', bloqueada && 'opacity-40')}
+      className={cn('flex min-w-[18.75rem] max-w-[28.75rem] flex-1 flex-col rounded-2xl bg-slate-200/60 transition-opacity', bloqueada && 'opacity-40')}
     >
       <header className="flex items-center gap-2 px-3 pb-2 pt-3">
         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: coluna.cor }} />

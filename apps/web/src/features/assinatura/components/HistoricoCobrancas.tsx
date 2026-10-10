@@ -27,7 +27,7 @@ export function HistoricoCobrancas({ cobrancas }: { cobrancas: CobrancaResumo[] 
       <h3 className="font-titulo text-lg font-extrabold text-tinta">Mensalidades</h3>
       <p className="text-sm text-texto-secundario">Pagamentos e notas fiscais da sua assinatura.</p>
 
-      <div className="mt-5 hidden grid-cols-[110px_120px_130px_1fr_auto] gap-4 border-b border-border pb-2 text-xs font-semibold uppercase tracking-wide text-texto-secundario md:grid">
+      <div className="mt-5 hidden grid-cols-[6.875rem_7.5rem_8.125rem_1fr_auto] gap-4 border-b border-border pb-2 text-xs font-semibold uppercase tracking-wide text-texto-secundario md:grid">
         <span>Vencimento</span>
         <span>Valor</span>
         <span>Situação</span>
@@ -39,14 +39,14 @@ export function HistoricoCobrancas({ cobrancas }: { cobrancas: CobrancaResumo[] 
           const s = SITUACAO[c.situacao]
           const f = c.forma ? FORMA[c.forma] : undefined
           return (
-            <li key={c.id} className="grid grid-cols-2 items-center gap-x-4 gap-y-1 py-3.5 text-sm md:grid-cols-[110px_120px_130px_1fr_auto]">
+            <li key={c.id} className="grid grid-cols-2 items-center gap-x-4 gap-y-1 py-3.5 text-sm md:grid-cols-[6.875rem_7.5rem_8.125rem_1fr_auto]">
               <span className="font-medium tabular-nums text-tinta">
                 {formatarDataSimples(c.vencimento)}
-                {c.tipo === 'proporcional' && <span className="block text-[11px] font-normal text-texto-secundario">Diferença proporcional</span>}
+                {c.tipo === 'proporcional' && <span className="block text-[0.6875rem] font-normal text-texto-secundario">Diferença proporcional</span>}
               </span>
               <span className="text-right tabular-nums md:text-left">
                 <span className={cn('font-semibold', c.situacao === 'abonada' ? 'text-texto-secundario line-through' : 'text-tinta')}>{formatarMoeda(c.valor)}</span>
-                {c.desconto && <span className="block text-[11px] text-marca-escuro">cupom −{formatarMoeda(c.desconto)}</span>}
+                {c.desconto && <span className="block text-[0.6875rem] text-marca-escuro">cupom −{formatarMoeda(c.desconto)}</span>}
               </span>
               <span className={cn('inline-flex items-center gap-2 font-medium', s.texto)}>
                 <span className={cn('h-2 w-2 rounded-full', s.ponto)} aria-hidden="true" />

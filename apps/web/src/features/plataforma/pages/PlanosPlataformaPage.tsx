@@ -180,7 +180,7 @@ export function PlanosPlataformaPage() {
                       ['Bloqueio', `${p.diasAteBloqueio} d`],
                     ].map(([r, v]) => (
                       <div key={r} className="rounded-xl bg-fundo p-2">
-                        <dt className="text-[11px] text-texto-secundario">{r}</dt>
+                        <dt className="text-[0.6875rem] text-texto-secundario">{r}</dt>
                         <dd className="font-titulo text-lg font-extrabold text-tinta">{v}</dd>
                       </div>
                     ))}

@@ -66,7 +66,7 @@ export function AvisosGatewayPage() {
                   </div>
                   <div className="text-right text-xs text-texto-secundario">
                     <p>{formatarDataHora(e.recebidoEm)}</p>
-                    <p className="break-all font-mono text-[11px]">{e.eventoId}</p>
+                    <p className="break-all font-mono text-[0.6875rem]">{e.eventoId}</p>
                   </div>
                   {e.erro && !e.processadoEm && (
                     <Button size="sm" variant="outline" disabled={reprocessar.isPending} onClick={() => reprocessar.mutate(e.id)}>

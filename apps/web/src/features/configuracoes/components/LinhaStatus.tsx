@@ -46,7 +46,7 @@ export function LinhaStatus({ status, rotuloBase, podeEditar, podeExcluir, comQu
     <tr className={cn('hover:bg-fundo/50', !ativo && 'opacity-60')}>
       <td className="px-4 py-2">
         <Input value={rotulo} onChange={(e) => setRotulo(e.target.value)} disabled={!podeEditar} aria-label={`Nome de ${status.rotulo}`} className="h-9" />
-        <p className="mt-1 text-[11px] text-texto-secundario">
+        <p className="mt-1 text-[0.6875rem] text-texto-secundario">
           {status.sistema ? (
             <>
               Do sistema · <span className="font-mono">{status.codigo}</span>

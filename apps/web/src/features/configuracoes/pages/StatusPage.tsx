@@ -62,7 +62,7 @@ export function StatusPage() {
                   )}
                 </div>
                 <Card className="overflow-x-auto">
-                  <table className="w-full min-w-[820px] text-sm">
+                  <table className="w-full min-w-[51.25rem] text-sm">
                     <thead className="bg-fundo/60 text-left text-xs uppercase tracking-wide text-texto-secundario">
                       <tr>
                         <th className="px-4 py-3 font-medium">Status</th>

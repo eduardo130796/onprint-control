@@ -73,7 +73,7 @@ function Cabecalho({ nome }: { nome: string }) {
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <p className="text-sm font-medium text-texto-secundario first-letter:uppercase">{formatarDataExtenso(new Date())}</p>
-        <h1 className="mt-1 font-titulo text-[28px] font-extrabold leading-tight tracking-tight text-tinta">
+        <h1 className="mt-1 font-titulo text-[1.75rem] font-extrabold leading-tight tracking-tight text-tinta">
           {saudacao()}, {nome}
         </h1>
       </div>
@@ -102,7 +102,7 @@ function Atencao({ itens, reajuste }: { itens: KpiDashboard[]; reajuste: number 
     <section className="flex h-full flex-col rounded-2xl border border-border/70 bg-card p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:p-5" aria-label="Precisa da sua atenção">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-tinta">Precisa da sua atenção</h2>
-        {pendentes.length > 0 && <span className="rounded-full bg-laranja-escuro px-2 text-[11px] font-bold leading-5 text-white tabular-nums">{pendentes.length}</span>}
+        {pendentes.length > 0 && <span className="rounded-full bg-laranja-escuro px-2 text-[0.6875rem] font-bold leading-5 text-white tabular-nums">{pendentes.length}</span>}
       </div>
       {pendentes.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 py-8 text-center">
@@ -156,7 +156,7 @@ function ListaPedidos({ pedidos, vazio, atraso, compacta }: { pedidos: PedidoRes
           <Link to={`/pedidos/${p.id}`} className="flex items-center gap-2 py-2 hover:bg-fundo/60">
             <span className="font-mono text-xs">{p.numero}</span>
             <span className="min-w-0 flex-1 truncate">{p.cliente}</span>
-            {!compacta && <StatusBadge entidade="pedido" codigo={p.status} className="text-[11px]" />}
+            {!compacta && <StatusBadge entidade="pedido" codigo={p.status} className="text-[0.6875rem]" />}
             <span className={cn('w-20 text-right text-xs', atraso ? 'font-medium text-coral-escuro' : 'text-texto-secundario')}>{formatarDataSimples(p.data)}</span>
           </Link>
         </li>
@@ -188,7 +188,7 @@ export function DashboardPage() {
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="grid gap-4 sm:grid-cols-2 lg:col-span-2 xl:grid-cols-3">
             {Array.from({ length: 6 }, (_, i) => (
-              <Skeleton key={i} className="h-[132px] rounded-2xl" />
+              <Skeleton key={i} className="h-[8.25rem] rounded-2xl" />
             ))}
           </div>
           <Skeleton className="h-72 rounded-2xl lg:h-auto" />

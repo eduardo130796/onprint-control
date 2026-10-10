@@ -48,6 +48,10 @@ conferir('fonte salva', texto.fonte, 'lexend')
 conferir('peso salvo', texto.pesoTexto, 'leve')
 conferir('o modo da tela continua o mesmo', texto.modoTela, 'escuro')
 conferir('não muda a fonte dos colegas', (await chamar('GET', '/auth/me', { token: admin })).json.fonte, 'inter')
+conferir('padrão: escala padrão', texto.escala, 'padrao')
+conferir('escala inválida recusada', (await chamar('PUT', '/auth/preferencias', { token: vend, body: { escala: 'gigante' } })).status, 400)
+conferir('escolhe a interface compacta', (await chamar('PUT', '/auth/preferencias', { token: vend, body: { escala: 'compacto' } })).status, 200)
+conferir('escala salva', (await chamar('GET', '/auth/me', { token: vend })).json.escala, 'compacto')
 
 console.log('\n— Saída por inatividade —')
 let empresaAtual = (await chamar('GET', '/empresa', { token: admin })).json

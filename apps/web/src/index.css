@@ -116,3 +116,44 @@ body {
     --peso-extra: 800 !important;
   }
 }
+
+/* Escala da interface: tudo (texto, espaços, menu) é em rem e acompanha o tamanho da fonte da raiz.
+   Celular maior (toque); notebook e monitor mais compactos; o usuário escolhe compacto/padrão/grande. */
+html {
+  font-size: 16px;
+}
+@media (min-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+  html[data-escala='compacto'] {
+    font-size: 13px;
+  }
+  html[data-escala='grande'] {
+    font-size: 15.5px;
+  }
+}
+@media (min-width: 1920px) {
+  html {
+    font-size: 15px;
+  }
+  html[data-escala='compacto'] {
+    font-size: 14px;
+  }
+  html[data-escala='grande'] {
+    font-size: 16.5px;
+  }
+}
+@media (max-width: 767px) {
+  html[data-escala='compacto'] {
+    font-size: 15px;
+  }
+  html[data-escala='grande'] {
+    font-size: 17px;
+  }
+}
+@media print {
+  html {
+    font-size: 16px !important;
+  }
+}

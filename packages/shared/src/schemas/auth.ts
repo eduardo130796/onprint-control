@@ -55,9 +55,12 @@ export type FonteTexto = (typeof FONTES_TEXTO)[number]
 /** Peso do texto: leve (mais fino, descansa a vista), normal ou forte (mais carregado) */
 export const PESOS_TEXTO = ['leve', 'normal', 'forte'] as const
 export type PesoTexto = (typeof PESOS_TEXTO)[number]
+/** Tamanho da interface (escala de tudo: texto, espaços, menu): compacto ≈ 80%, padrão, grande */
+export const ESCALAS_INTERFACE = ['compacto', 'padrao', 'grande'] as const
+export type EscalaInterface = (typeof ESCALAS_INTERFACE)[number]
 /** Preferências do próprio usuário (modo da tela e texto); envia só o que mudou */
 export const preferenciasSchema = z
-  .object({ modoTela: z.enum(MODOS_TELA), fonte: z.enum(FONTES_TEXTO), pesoTexto: z.enum(PESOS_TEXTO) })
+  .object({ modoTela: z.enum(MODOS_TELA), fonte: z.enum(FONTES_TEXTO), pesoTexto: z.enum(PESOS_TEXTO), escala: z.enum(ESCALAS_INTERFACE) })
   .partial()
   .refine((p) => Object.keys(p).length > 0, 'Informe ao menos uma preferência')
 export type PreferenciasInput = z.infer<typeof preferenciasSchema>
@@ -73,6 +76,7 @@ export const usuarioLogadoSchema = z.object({
   /** Fonte e peso do texto escolhidos pelo usuário */
   fonte: z.enum(FONTES_TEXTO),
   pesoTexto: z.enum(PESOS_TEXTO),
+  escala: z.enum(ESCALAS_INTERFACE),
   papel: z.object({ id: z.string().uuid(), codigo: z.string(), nome: z.string() }),
   /** Lista de permissões no formato "modulo:acao" */
   permissoes: z.array(z.string()),

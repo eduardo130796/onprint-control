@@ -90,7 +90,7 @@ function Formulario({ config }: { config: Precificacao }) {
 
   return (
     <form onSubmit={onSubmit} noValidate>
-      <fieldset disabled={!podeEditar || isSubmitting} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+      <fieldset disabled={!podeEditar || isSubmitting} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_21.25rem] lg:items-start">
         <div className="min-w-0 space-y-6">
           <Secao icone={Receipt} titulo="O que sai de cada venda" descricao="Percentuais descontados do preço de venda.">
             <div className="grid gap-4 sm:grid-cols-2">

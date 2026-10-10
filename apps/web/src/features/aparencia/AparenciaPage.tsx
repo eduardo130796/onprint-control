@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Loader2, Monitor, Moon, Palette, RotateCcw, Save, Sparkles, Sun, Type, Wand2 } from 'lucide-react'
+import { Check, Loader2, Maximize2, Monitor, Moon, Palette, RotateCcw, Save, Sparkles, Sun, Type, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { CODIGOS_TEMA, FONTES_TEXTO, PESOS_TEXTO, TEMAS, temaMaisProximo, temaOuPadrao, type CodigoTema } from '@onprint/shared'
+import { CODIGOS_TEMA, ESCALAS_INTERFACE, FONTES_TEXTO, PESOS_TEXTO, TEMAS, temaMaisProximo, temaOuPadrao, type CodigoTema } from '@onprint/shared'
 import { empresaApi } from '@/api/configuracoes'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { EstadoErro } from '@/components/shared/EstadoErro'
@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 import { CHAVE_EMPRESA, useEmpresa, useUrlArquivo } from '../configuracoes/hooks'
 import { LogoCard } from '../configuracoes/pages/EmpresaPage'
 import { aplicarTema, corMediaDaImagem } from './tema'
-import { FONTES, PESOS } from './tipografia'
+import { ESCALAS, FONTES, PESOS } from './tipografia'
 
 /** Prévia com a cor escolhida: o topo, o menu, um botão e um selo, como vão ficar no sistema. */
 function Previa({ nome, logo }: { nome: string; logo: string | null | undefined }) {
@@ -30,7 +30,7 @@ function Previa({ nome, logo }: { nome: string; logo: string | null | undefined 
           <span className="flex h-8 w-8 items-center justify-center rounded-md bg-marca font-titulo font-extrabold text-marca-contraste">{nome.charAt(0).toUpperCase()}</span>
         )}
         <span className="truncate font-titulo text-sm font-extrabold text-white">{nome}</span>
-        <span className="absolute inset-x-0 bottom-0 flex h-[3px]">
+        <span className="absolute inset-x-0 bottom-0 flex h-[0.1875rem]">
           <span className="flex-[9] bg-marca" />
           <span className="flex-1 bg-laranja" />
         </span>
@@ -46,7 +46,7 @@ function Previa({ nome, logo }: { nome: string; logo: string | null | undefined 
         <div className="space-y-3 rounded-xl bg-card p-4 shadow-suave">
           <div className="flex items-center justify-between gap-2">
             <p className="font-titulo text-sm font-extrabold text-tinta">Pedido #1042</p>
-            <span className="rounded-full bg-marca-suave px-2 py-0.5 text-[11px] font-semibold text-marca-escuro">Em produção</span>
+            <span className="rounded-full bg-marca-suave px-2 py-0.5 text-[0.6875rem] font-semibold text-marca-escuro">Em produção</span>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-fundo">
             <div className="h-full w-2/3 rounded-full bg-marca" />
@@ -114,7 +114,7 @@ function TextoDoSistema() {
         </span>
         <div>
           <h2 className="font-titulo text-xl font-extrabold text-tinta">Texto</h2>
-          <p className="text-sm text-texto-secundario">Só para você: escolha a letra e a intensidade mais confortáveis. Documentos e PDFs não mudam.</p>
+          <p className="text-sm text-texto-secundario">Só para você: o tamanho da interface, a letra e a intensidade mais confortáveis. Documentos e PDFs não mudam.</p>
         </div>
       </div>
 
@@ -201,6 +201,59 @@ function TextoDoSistema() {
   )
 }
 
+/** Tamanho da interface: muda a escala de tudo (texto, espaços, menu), como o zoom do navegador, mas salvo na conta */
+function TamanhoInterface() {
+  const { usuario, definirPreferencias } = useAuth()
+  const escala = usuario?.escala ?? 'padrao'
+  return (
+    <section className="rounded-3xl bg-card p-6 shadow-suave sm:p-8" aria-label="Tamanho da interface">
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-marca-suave text-marca-escuro">
+          <Maximize2 className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div>
+          <h2 className="font-titulo text-xl font-extrabold text-tinta">Tamanho da interface</h2>
+          <p className="text-sm text-texto-secundario">Só para você: deixa tudo menor ou maior (texto, espaços e menu). Vale em qualquer computador em que você entrar.</p>
+        </div>
+      </div>
+      <div role="radiogroup" aria-label="Tamanho da interface" className="mt-6 grid gap-3 sm:grid-cols-3">
+        {ESCALAS_INTERFACE.map((codigo) => {
+          const e = ESCALAS[codigo]
+          const marcado = escala === codigo
+          return (
+            <button
+              key={codigo}
+              type="button"
+              role="radio"
+              aria-checked={marcado}
+              onClick={() => void definirPreferencias({ escala: codigo }).catch((erro: Error) => toast.error(erro.message))}
+              className={cn(
+                'flex items-center gap-4 rounded-2xl p-4 text-left ring-1 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tinta',
+                marcado ? 'bg-fundo ring-2 ring-marca' : 'bg-card ring-border hover:bg-fundo',
+              )}
+            >
+              {/* Mini-tela na proporção da escala */}
+              <span className="flex h-12 w-14 shrink-0 items-end justify-center overflow-hidden rounded-lg bg-fundo pb-1.5 ring-1 ring-border" aria-hidden="true">
+                <span className="font-semibold leading-none text-tinta" style={{ fontSize: `${1.25 * e.fator}rem` }}>
+                  Aa
+                </span>
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-tinta">
+                  {e.nome}
+                  {codigo === 'padrao' && <span className="font-normal text-texto-secundario"> · recomendado</span>}
+                </span>
+                <span className="block text-xs text-texto-secundario">{e.descricao}</span>
+              </span>
+              {marcado && <Check className="ml-auto h-4 w-4 shrink-0 text-marca-escuro" aria-label="selecionado" />}
+            </button>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 /**
  * Configurações → Aparência: cor do tema da empresa (paleta fechada, com contraste testado) e a logo.
  * Escolher uma cor já muda o sistema todo na hora (prévia ao vivo); sair sem salvar volta à cor salva.
@@ -259,7 +312,7 @@ export function AparenciaPage() {
           <EstadoErro erro={consulta.error} onTentarNovamente={() => void consulta.refetch()} />
         </Card>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
           <section className="space-y-6 rounded-3xl bg-card p-6 shadow-suave sm:p-8" aria-label="Cor do tema">
             <div>
               <h2 className="font-titulo text-xl font-extrabold text-tinta">Cor do sistema</h2>
@@ -291,9 +344,9 @@ export function AparenciaPage() {
                     </span>
                     <span className="min-w-0">
                       <span className="block text-sm font-semibold text-tinta">{t.nome}</span>
-                      {codigo === 'verde' && <span className="block text-[11px] text-texto-secundario">Padrão</span>}
+                      {codigo === 'verde' && <span className="block text-[0.6875rem] text-texto-secundario">Padrão</span>}
                       {sugestao.data === codigo && (
-                        <span className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-texto-secundario">
+                        <span className="mt-0.5 inline-flex items-center gap-1 text-[0.6875rem] font-semibold text-texto-secundario">
                           <Wand2 className="h-3 w-3" /> Combina com a logo
                         </span>
                       )}
@@ -332,7 +385,8 @@ export function AparenciaPage() {
               A logo aparece no topo do sistema, como ícone da aba do navegador e nos documentos. Use PNG ou SVG com fundo transparente para o melhor resultado.
             </p>
           </div>
-          <div className="lg:col-span-2">
+          <div className="space-y-6 lg:col-span-2">
+            <TamanhoInterface />
             <TextoDoSistema />
           </div>
         </div>

@@ -111,7 +111,7 @@ export function ImprimirEtiquetasDialog({ lotes, onFechar, onImpresso, daFila }:
           <DialogDescription className="mt-1">Escolha as etiquetas, o papel e onde começar na folha — dá para aproveitar uma folha já usada.</DialogDescription>
         </header>
 
-        <div className="grid min-h-0 flex-1 overflow-y-auto md:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid min-h-0 flex-1 overflow-y-auto md:grid-cols-[minmax(0,1fr)_20rem]">
           {/* Etiquetas por pedido */}
           <section className="min-w-0 space-y-3 p-5 sm:px-6 md:overflow-y-auto">
             {erro ? (
@@ -272,11 +272,11 @@ function IconeFormato({ formato, ativo }: { formato: FormatoEtiqueta; ativo: boo
   return (
     <span
       aria-hidden="true"
-      className={cn('grid shrink-0 gap-[2px] rounded-[4px] border bg-white p-[3px]', d.rolo ? 'h-9 w-6' : 'h-10 w-7', ativo ? 'border-marca' : 'border-[#CBD5E1]')}
+      className={cn('grid shrink-0 gap-[0.125rem] rounded-[0.25rem] border bg-white p-[0.1875rem]', d.rolo ? 'h-9 w-6' : 'h-10 w-7', ativo ? 'border-marca' : 'border-[#CBD5E1]')}
       style={{ gridTemplateColumns: `repeat(${d.colunas}, 1fr)`, gridTemplateRows: `repeat(${d.linhas}, 1fr)` }}
     >
       {Array.from({ length: d.porFolha }, (_, i) => (
-        <span key={i} className={cn('rounded-[1px]', ativo ? 'bg-marca/60' : 'bg-[#CBD5E1]')} />
+        <span key={i} className={cn('rounded-[0.0625rem]', ativo ? 'bg-marca/60' : 'bg-[#CBD5E1]')} />
       ))}
     </span>
   )
@@ -304,7 +304,7 @@ function MiniaturaFolha({ formato, pagina, posicao, onEscolher }: { formato: For
   }
   return (
     <div
-      className="mx-auto grid aspect-[210/297] w-full max-w-[180px] gap-1 rounded-md border border-[#CBD5E1] bg-white p-1.5 shadow-sm"
+      className="mx-auto grid aspect-[210/297] w-full max-w-[11.25rem] gap-1 rounded-md border border-[#CBD5E1] bg-white p-1.5 shadow-sm"
       style={{ gridTemplateColumns: `repeat(${d.colunas}, 1fr)`, gridTemplateRows: `repeat(${d.linhas}, 1fr)` }}
       role="radiogroup"
       aria-label="Posição inicial na folha"
@@ -322,7 +322,7 @@ function MiniaturaFolha({ formato, pagina, posicao, onEscolher }: { formato: For
             aria-label={`Começar na posição ${n}`}
             onClick={() => onEscolher(n)}
             className={cn(
-              'relative flex items-center justify-center rounded-[3px] text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca',
+              'relative flex items-center justify-center rounded-[0.1875rem] text-[0.6875rem] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca',
               pulada
                 ? 'bg-[repeating-linear-gradient(135deg,#E5E7EB_0_4px,#F3F4F6_4px_8px)] text-[#94A3B8]'
                 : indice !== null

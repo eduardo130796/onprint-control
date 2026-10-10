@@ -94,7 +94,7 @@ export function PainelPedido({ pedido: resumo, onFechar }: { pedido: Pedido; onF
                           {Number(i.quantidade).toLocaleString('pt-BR')} un{i.largura ? ` · ${metros(i.largura)} × ${metros(i.altura ?? '0')} m` : ''} · {formatarMoeda(i.total)}
                         </p>
                         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                          <StatusBadge entidade="arte" codigo={arte?.status ?? 'aguardando_arquivo'} className="text-[11px]" />
+                          <StatusBadge entidade="arte" codigo={arte?.status ?? 'aguardando_arquivo'} className="text-[0.6875rem]" />
                           {i.ordensProducao
                             .filter((o) => !o.cancelada)
                             .map((o) => (
@@ -102,7 +102,7 @@ export function PainelPedido({ pedido: resumo, onFechar }: { pedido: Pedido; onF
                                 key={o.id}
                                 type="button"
                                 onClick={() => ir(`/producao/ordens/${o.id}`)}
-                                className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-tinta hover:bg-fundo"
+                                className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[0.6875rem] font-medium text-tinta hover:bg-fundo"
                                 title="Abrir a OP"
                               >
                                 <Factory className="h-3 w-3" /> {o.numero} · {mapa.get(`producao:${o.etapaAtual}`)?.rotulo ?? o.etapaAtual}
@@ -125,7 +125,7 @@ export function PainelPedido({ pedido: resumo, onFechar }: { pedido: Pedido; onF
                       <span className="min-w-0 flex-1 truncate">{c.descricao}</span>
                       <span className="text-xs text-texto-secundario">{formatarDataSimples(c.vencimento)}</span>
                       <ValorComSaldo total={c.valor} pago={c.valorPago} cancelado={c.status === 'cancelado'} className="font-medium" />
-                      <StatusBadge entidade="conta" codigo={c.status} className="text-[11px]" />
+                      <StatusBadge entidade="conta" codigo={c.status} className="text-[0.6875rem]" />
                     </li>
                   ))}
                 </ul>

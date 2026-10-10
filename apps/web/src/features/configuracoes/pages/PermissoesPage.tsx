@@ -107,7 +107,7 @@ export function PermissoesPage() {
       )}
 
       <Card className="overflow-x-auto">
-        <table className="w-full min-w-[720px] text-sm">
+        <table className="w-full min-w-[45rem] text-sm">
           <thead className="bg-fundo/60 text-xs uppercase tracking-wide text-texto-secundario">
             <tr>
               <th className="sticky left-0 bg-fundo px-4 py-3 text-left font-medium">Módulo</th>

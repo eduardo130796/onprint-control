@@ -41,9 +41,9 @@ export function CartoesPlanos({ planos, selecionado, onEscolher, acao }: Props) 
             <div className="flex items-center justify-between gap-2">
               <h3 className="font-titulo text-xl font-extrabold text-tinta">{p.nome}</h3>
               {p.atual ? (
-                <span className="rounded-full bg-grafite px-2.5 py-0.5 text-[11px] font-bold text-white">Seu plano</span>
+                <span className="rounded-full bg-grafite px-2.5 py-0.5 text-[0.6875rem] font-bold text-white">Seu plano</span>
               ) : p.codigo === destaque ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-laranja-suave px-2.5 py-0.5 text-[11px] font-bold text-laranja-escuro">
+                <span className="inline-flex items-center gap-1 rounded-full bg-laranja-suave px-2.5 py-0.5 text-[0.6875rem] font-bold text-laranja-escuro">
                   <Crown className="h-3 w-3" aria-hidden="true" /> Mais escolhido
                 </span>
               ) : null}

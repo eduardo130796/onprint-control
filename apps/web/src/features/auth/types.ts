@@ -14,5 +14,5 @@ export interface AuthContextValue {
   /** Modo claro/escuro do próprio usuário: muda na hora e fica salvo na conta */
   definirModoTela: (modo: UsuarioLogado['modoTela']) => Promise<void>
   /** Salva preferências visuais do usuário (modo, fonte, peso); aplica na hora e desfaz se falhar */
-  definirPreferencias: (p: Partial<Pick<UsuarioLogado, 'modoTela' | 'fonte' | 'pesoTexto'>>) => Promise<void>
+  definirPreferencias: (p: Partial<Pick<UsuarioLogado, 'modoTela' | 'fonte' | 'pesoTexto' | 'escala'>>) => Promise<void>
 }

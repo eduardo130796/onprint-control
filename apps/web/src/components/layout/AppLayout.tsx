@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react'
 import { paginaAtual } from '@/app/navigation'
 import { TEMAS, temaOuPadrao } from '@onprint/shared'
 import { TITULO_PADRAO, aplicarModo, aplicarTema, definirFavicon, gerarFavicon } from '@/features/aparencia/tema'
-import { aplicarTipografia } from '@/features/aparencia/tipografia'
+import { aplicarEscala, aplicarTipografia } from '@/features/aparencia/tipografia'
 import { useUrlArquivo } from '@/features/configuracoes/hooks'
 import { AvisoInatividade } from '@/features/auth/AvisoInatividade'
 import { registrarSaidaPorInatividade, useInatividade } from '@/features/auth/useInatividade'
@@ -68,6 +68,10 @@ export function AppLayout() {
     aplicarTipografia(usuario?.fonte ?? null, usuario?.pesoTexto ?? null)
   }, [usuario?.fonte, usuario?.pesoTexto])
   useLayoutEffect(() => () => aplicarTipografia(null, null), [])
+  useLayoutEffect(() => {
+    aplicarEscala(usuario?.escala ?? null)
+    return () => aplicarEscala(null)
+  }, [usuario?.escala])
 
   // Cor do tema da empresa; ao sair (login, páginas públicas) volta ao verde ONPrint
   useEffect(() => {
@@ -137,7 +141,7 @@ export function AppLayout() {
       <main
         className={cn(
           'min-w-0 px-4 pb-24 pt-20 transition-[padding] duration-200 sm:px-6 lg:pr-8 lg:pt-24',
-          menuRecolhido ? 'lg:pl-[108px]' : 'lg:pl-[332px]',
+          menuRecolhido ? 'lg:pl-[6.75rem]' : 'lg:pl-[20.75rem]',
         )}
       >
         <div className={larga ? 'w-full' : 'mx-auto max-w-7xl'}>

@@ -70,7 +70,7 @@ export function PainelOp({ op, onFechar, onEditar }: PainelOpProps) {
         <div>
           <p className="text-base font-semibold">{op.item.descricao}</p>
           <div className="mt-1 flex flex-wrap gap-1.5">
-            <StatusBadge entidade="arte" codigo={op.arte?.status ?? 'aguardando_arquivo'} className="text-[11px]" />
+            <StatusBadge entidade="arte" codigo={op.arte?.status ?? 'aguardando_arquivo'} className="text-[0.6875rem]" />
             {op.arte && <span className="text-xs text-texto-secundario">versão {op.arte.versao}</span>}
           </div>
         </div>

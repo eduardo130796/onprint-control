@@ -82,7 +82,7 @@ export function EntregasPage() {
             <p className="truncate font-medium">{e.pedido?.cliente.nome}</p>
             <p className="flex items-center gap-2 text-xs text-texto-secundario">
               <span className="font-mono">{e.pedido?.numero}</span>
-              {e.pedido && <StatusBadge entidade="pedido" codigo={e.pedido.status} className="text-[11px]" />}
+              {e.pedido && <StatusBadge entidade="pedido" codigo={e.pedido.status} className="text-[0.6875rem]" />}
             </p>
           </div>
         ),

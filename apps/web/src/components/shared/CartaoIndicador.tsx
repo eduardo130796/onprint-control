@@ -103,11 +103,11 @@ export function CartaoIndicador({ rotulo, valor, icone: Icone, tom = 'neutro', d
             <Icone className="h-4 w-4" aria-hidden="true" />
           </span>
         )}
-        <p className="min-w-0 flex-1 text-[13px] font-medium leading-snug text-texto-secundario">{rotulo}</p>
+        <p className="min-w-0 flex-1 text-[0.8125rem] font-medium leading-snug text-texto-secundario">{rotulo}</p>
       </div>
       {link && <ArrowUpRight className="absolute right-3 top-3 h-4 w-4 text-texto-secundario opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />}
       <div className="mt-3 flex items-end justify-between gap-3">
-        <p className={cn('min-w-0 truncate font-semibold leading-tight tracking-tight', compacto ? 'text-xl' : destaque ? 'text-[26px] sm:text-[32px]' : 'text-xl sm:text-[26px]', t.valor)}>{valor}</p>
+        <p className={cn('min-w-0 truncate font-semibold leading-tight tracking-tight', compacto ? 'text-xl' : destaque ? 'text-[1.625rem] sm:text-[2rem]' : 'text-xl sm:text-[1.625rem]', t.valor)}>{valor}</p>
         {serie && <MiniTendencia pontos={serie} className={cn('mb-1 h-8 w-20 shrink-0 sm:h-9 sm:w-28', destaque && 'sm:h-12 sm:w-44')} />}
       </div>
       {(variacao || detalhe) && <div className="mt-2 min-h-5 text-xs text-texto-secundario">{variacao ? <SeloVariacao variacao={variacao} /> : detalhe}</div>}

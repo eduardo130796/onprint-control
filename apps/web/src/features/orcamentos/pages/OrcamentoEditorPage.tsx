@@ -105,7 +105,7 @@ function Editor({ orcamento, solicitacaoId, clienteInicial }: { orcamento?: Orca
         </p>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+      <div className="grid gap-6 xl:grid-cols-[1fr_22.5rem]">
         <div className="min-w-0 space-y-4">
           <Card>
             <CardContent className="pt-6">

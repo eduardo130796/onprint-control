@@ -80,7 +80,7 @@ export function HeroAssinatura({ a, onAssinar }: { a: MinhaAssinatura; onAssinar
         <span className="flex-1 bg-marca" />
       </div>
 
-      <div className="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[1fr_320px]">
+      <div className="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[1fr_20rem]">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/50">Seu plano</p>
           <div className="mt-2 flex flex-wrap items-end gap-x-4 gap-y-2">

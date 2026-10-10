@@ -222,7 +222,7 @@ export function NovaEntradaPage() {
             const nomeEmb = emb ? TIPO_EMBALAGEM_ROTULOS[emb.tipo].toLowerCase() : ''
             return (
               <div key={l.chave} className="space-y-3 rounded-xl border border-border p-3">
-                <div className="grid items-start gap-2 md:grid-cols-[1fr_140px_160px_120px_40px]">
+                <div className="grid items-start gap-2 md:grid-cols-[1fr_8.75rem_10rem_7.5rem_2.5rem]">
                   <CampoFormulario id={`it-${l.chave}-produto`} rotulo="Produto" erro={erros[`itens.${i}.produtoId`] ? 'Escolha o produto.' : undefined}>
                     <SearchSelect id={`it-${l.chave}-produto`} chave="estoque-produtos-busca" buscar={buscarProdutosEstoque} valor={l.produto} onChange={(p) => void escolherProduto(l.chave, p)} placeholder="Insumo ou produto…" invalido={Boolean(erros[`itens.${i}.produtoId`])} />
                   </CampoFormulario>

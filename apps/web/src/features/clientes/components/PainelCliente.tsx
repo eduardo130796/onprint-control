@@ -17,7 +17,7 @@ const so = (v: string | null | undefined) => (v ?? '').replace(/\D/g, '')
 function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <section>
-      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-texto-secundario">{titulo}</h3>
+      <h3 className="mb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-texto-secundario">{titulo}</h3>
       {children}
     </section>
   )
@@ -57,7 +57,7 @@ export function PainelCliente({ cliente: resumo, onFechar }: { cliente: Cliente;
         <span className="flex flex-wrap items-center gap-2">
           {c.fantasia && <span>{c.fantasia}</span>}
           {c.cpfCnpj && <span className="font-mono text-xs">{formatarCpfCnpj(c.cpfCnpj)}</span>}
-          <StatusBadge entidade="cliente" codigo={c.situacao} className="text-[11px]" />
+          <StatusBadge entidade="cliente" codigo={c.situacao} className="text-[0.6875rem]" />
         </span>
       }
       acoes={
@@ -115,7 +115,7 @@ export function PainelCliente({ cliente: resumo, onFechar }: { cliente: Cliente;
                     ] as const
                   ).map(([rotulo, valor, cor]) => (
                     <div key={rotulo} className="rounded-xl bg-fundo px-3 py-2.5">
-                      <p className="text-[11px] text-texto-secundario">{rotulo}</p>
+                      <p className="text-[0.6875rem] text-texto-secundario">{rotulo}</p>
                       <p className={`truncate text-sm font-semibold ${cor}`}>{formatarMoeda(valor)}</p>
                     </div>
                   ))}
@@ -137,7 +137,7 @@ export function PainelCliente({ cliente: resumo, onFechar }: { cliente: Cliente;
                       <button type="button" onClick={() => ir(`/pedidos/${p.id}`)} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-fundo">
                         <span className="font-mono text-xs text-tinta">{p.numero}</span>
                         <span className="flex-1 text-xs text-texto-secundario">{formatarDataSimples(p.createdAt.slice(0, 10))}</span>
-                        <StatusBadge entidade="pedido" codigo={p.status} className="text-[10px]" />
+                        <StatusBadge entidade="pedido" codigo={p.status} className="text-[0.625rem]" />
                         <span className="w-24 text-right text-sm font-medium tabular-nums">{formatarMoeda(p.total)}</span>
                       </button>
                     </li>

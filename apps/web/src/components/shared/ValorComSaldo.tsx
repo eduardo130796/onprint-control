@@ -13,7 +13,7 @@ export function ValorComSaldo({ total, pago, cancelado, className }: { total: st
   return (
     <span className={cn('inline-flex flex-col items-end leading-tight tabular-nums', className)} title={`Pago ${formatarMoeda(s.pago)} de ${formatarMoeda(total)}`}>
       {quitado ? <span className="font-semibold">{formatarMoeda(total)}</span> : <span className="font-semibold text-amber-800">Falta {formatarMoeda(s.falta)}</span>}
-      <span className={cn('text-[11px] font-normal', quitado ? 'text-green-800' : 'text-texto-secundario')}>{quitado ? 'pago' : `de ${formatarMoeda(total)}`}</span>
+      <span className={cn('text-[0.6875rem] font-normal', quitado ? 'text-green-800' : 'text-texto-secundario')}>{quitado ? 'pago' : `de ${formatarMoeda(total)}`}</span>
     </span>
   )
 }

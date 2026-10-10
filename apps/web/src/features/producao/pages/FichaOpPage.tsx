@@ -16,7 +16,7 @@ const num = (v: string | null) => (v ? Number(v).toLocaleString('pt-BR', { maxim
 function Dado({ rotulo, children, largo }: { rotulo: string; children: React.ReactNode; largo?: boolean }) {
   return (
     <div className={largo ? 'col-span-2' : undefined}>
-      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#4A5259]">{rotulo}</dt>
+      <dt className="text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-[#4A5259]">{rotulo}</dt>
       <dd className="mt-0.5 font-semibold text-[#1F2328]">{children}</dd>
     </div>
   )
@@ -55,7 +55,7 @@ export function FichaOpPage() {
   const urgente = op.prioridade === 'urgente' || op.prioridade === 'alta'
 
   return (
-    <div className="min-h-screen bg-[#ECEFF1] py-8 font-sans text-[13px] text-[#1F2328] [print-color-adjust:exact] print:bg-white print:py-0 [-webkit-print-color-adjust:exact]">
+    <div className="min-h-screen bg-[#ECEFF1] py-8 font-sans text-[0.8125rem] text-[#1F2328] [print-color-adjust:exact] print:bg-white print:py-0 [-webkit-print-color-adjust:exact]">
       <style>{'@page { size: A4; margin: 12mm; }'}</style>
       <div className="mx-auto mb-4 flex max-w-[210mm] justify-end print:hidden">
         <Button onClick={() => window.print()}>
@@ -73,7 +73,7 @@ export function FichaOpPage() {
         <div className="space-y-6 p-8 print:p-0 print:pt-5">
           <header className="flex items-start justify-between gap-6 border-b border-[#E1E5E8] pb-5">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#128C7E]">Ordem de produção · {nomeEmpresa}</p>
+              <p className="text-[0.625rem] font-bold uppercase tracking-[0.25em] text-[#128C7E]">Ordem de produção · {nomeEmpresa}</p>
               <h1 className="mt-1 font-titulo text-4xl font-extrabold leading-tight text-[#2B3036]">{op.numero}</h1>
               <p className="mt-1 text-[#4A5259]">
                 Pedido <strong className="text-[#1F2328]">{op.pedido.numero}</strong> · {op.pedido.cliente.nome}
@@ -81,20 +81,20 @@ export function FichaOpPage() {
             </div>
             <div className="flex items-start gap-5">
               <div className="text-right">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#4A5259]">Entregar até</p>
+                <p className="text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-[#4A5259]">Entregar até</p>
                 <p className={`font-titulo text-3xl font-extrabold leading-tight ${op.atrasada ? 'text-[#C8322F]' : 'text-[#2B3036]'}`}>{prazo}</p>
-                <span className={`mt-1 inline-block rounded-full px-3 py-0.5 text-[11px] font-bold uppercase tracking-wider ${urgente ? 'bg-[#C8322F] text-white' : 'bg-[#E9F9EF] text-[#128C7E]'}`}>
+                <span className={`mt-1 inline-block rounded-full px-3 py-0.5 text-[0.6875rem] font-bold uppercase tracking-wider ${urgente ? 'bg-[#C8322F] text-white' : 'bg-[#E9F9EF] text-[#128C7E]'}`}>
                   Prioridade {PRIORIDADE_ROTULOS[op.prioridade]}
                 </span>
               </div>
-              {qr ? <img src={qr} alt="QR da OP" className="h-[84px] w-[84px]" /> : null}
+              {qr ? <img src={qr} alt="QR da OP" className="h-[5.25rem] w-[5.25rem]" /> : null}
             </div>
           </header>
 
-          <section className="grid grid-cols-[1fr_260px] gap-6">
+          <section className="grid grid-cols-[1fr_16.25rem] gap-6">
             <div className="space-y-5">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#4A5259]">Item</p>
+                <p className="text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-[#4A5259]">Item</p>
                 <h2 className="font-titulo text-2xl font-extrabold leading-snug text-[#2B3036]">{op.item.descricao}</h2>
               </div>
               <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-lg bg-[#F3F5F6] p-4">
@@ -110,12 +110,12 @@ export function FichaOpPage() {
               </dl>
               {op.observacoes && (
                 <div className="rounded-lg border-l-4 border-[#25D366] bg-[#E9F9EF] px-4 py-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#128C7E]">Observações</p>
+                  <p className="text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-[#128C7E]">Observações</p>
                   <p className="mt-0.5 whitespace-pre-line">{op.observacoes}</p>
                 </div>
               )}
             </div>
-            <div className="flex h-[260px] items-center justify-center overflow-hidden rounded-lg border border-[#E1E5E8] bg-[#F3F5F6]">
+            <div className="flex h-[16.25rem] items-center justify-center overflow-hidden rounded-lg border border-[#E1E5E8] bg-[#F3F5F6]">
               {op.arte?.miniaturaUrl ? <img src={op.arte.miniaturaUrl} alt="Arte" className="h-full w-full object-contain" /> : <ImageOff className="h-10 w-10 text-[#7A838A]" />}
             </div>
           </section>
@@ -124,7 +124,7 @@ export function FichaOpPage() {
             <h3 className="mb-2 font-titulo text-base font-bold text-[#2B3036]">Etapas</h3>
             <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="border-b-2 border-[#2B3036] text-[10px] uppercase tracking-[0.12em] text-[#2B3036]">
+                <tr className="border-b-2 border-[#2B3036] text-[0.625rem] uppercase tracking-[0.12em] text-[#2B3036]">
                   <th className="py-2 pl-2 font-semibold">Etapa</th>
                   <th className="py-2 font-semibold">Data / hora</th>
                   <th className="py-2 font-semibold">Responsável</th>
@@ -152,7 +152,7 @@ export function FichaOpPage() {
             </table>
           </section>
 
-          <footer className="flex justify-between border-t border-[#E1E5E8] pt-3 text-[10px] text-[#7A838A]">
+          <footer className="flex justify-between border-t border-[#E1E5E8] pt-3 text-[0.625rem] text-[#7A838A]">
             <span>
               {nomeEmpresa}
               {e?.cnpj ? ` · CNPJ ${formatarCpfCnpj(e.cnpj)}` : ''}

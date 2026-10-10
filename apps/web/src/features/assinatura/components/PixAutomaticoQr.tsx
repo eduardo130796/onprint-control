@@ -36,7 +36,7 @@ export function PixAutomaticoQr({ a }: { a: MinhaAssinatura }) {
 
   return (
     <section className="overflow-hidden rounded-3xl bg-card shadow-suave" aria-label="Autorizar PIX Automático">
-      <div className="grid gap-0 md:grid-cols-[300px_1fr]">
+      <div className="grid gap-0 md:grid-cols-[18.75rem_1fr]">
         <div className="flex flex-col items-center justify-center gap-3 bg-marca-suave p-6">
           {pix.imagem && !expirado ? (
             <img src={`data:image/png;base64,${pix.imagem}`} alt="QR Code do PIX Automático" className="h-56 w-56 rounded-2xl bg-white p-3 shadow-lg" />

@@ -44,14 +44,14 @@ export function PlataformaLayout() {
         <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
           <div className="absolute -right-24 -top-40 h-72 w-72 rounded-full bg-marca/20 blur-3xl" />
         </div>
-        <div className="relative mx-auto flex max-w-[1400px] items-center gap-3 px-4 pt-3 sm:px-6">
+        <div className="relative mx-auto flex max-w-[87.5rem] items-center gap-3 px-4 pt-3 sm:px-6">
           <div className="flex items-center gap-2.5">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-marca text-grafite-escuro">
               <ShieldCheck className="h-5 w-5" aria-hidden="true" />
             </span>
             <div className="leading-tight">
               <p className="font-titulo text-base font-extrabold">ONPrint Control</p>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-marca">Plataforma</p>
+              <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-marca">Plataforma</p>
             </div>
           </div>
           <div className="ml-auto flex items-center gap-2">
@@ -68,7 +68,7 @@ export function PlataformaLayout() {
           </div>
         </div>
         {/* Navegação: rola de lado no celular (sem quebrar a página) */}
-        <nav aria-label="Painel da plataforma" className="relative mx-auto max-w-[1400px] px-4 sm:px-6">
+        <nav aria-label="Painel da plataforma" className="relative mx-auto max-w-[87.5rem] px-4 sm:px-6">
           <ul className="-mb-px flex gap-1 overflow-x-auto pt-3 [scrollbar-width:none]">
             {LINKS.map((l) => (
               <li key={l.para} className="shrink-0">
@@ -94,7 +94,7 @@ export function PlataformaLayout() {
           <span className="flex-1 bg-marca" />
         </div>
       </header>
-      <main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto max-w-[87.5rem] px-4 py-6 sm:px-6 sm:py-8">
         <Suspense
           fallback={
             <div className="flex justify-center py-24" role="status" aria-label="Carregando">

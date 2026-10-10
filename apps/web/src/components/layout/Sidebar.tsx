@@ -31,7 +31,7 @@ export function Sidebar({ recolhida, podeAlternar, onAlternar, mobileAberta, onM
       <aside
         className={cn(
           'fixed bottom-0 left-0 top-16 z-30 hidden overflow-hidden transition-[width] duration-200 lg:block',
-          recolhida ? 'w-[76px]' : 'w-[300px]',
+          recolhida ? 'w-[4.75rem]' : 'w-[18.75rem]',
         )}
       >
         <SidebarNav recolhida={recolhida} rodape={<SimboloOnprint />} />
@@ -47,21 +47,21 @@ export function Sidebar({ recolhida, podeAlternar, onAlternar, mobileAberta, onM
               aria-label={recolhida ? 'Expandir menu' : 'Recolher menu'}
               aria-expanded={!recolhida}
               className={cn(
-                'fixed top-[84px] z-40 hidden h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full border border-border bg-card text-texto-secundario shadow-[0_2px_8px_rgba(16,24,40,0.12)] transition-[left,color,transform] duration-200 hover:scale-110 hover:text-tinta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:flex',
-                recolhida ? 'left-[76px]' : 'left-[300px]',
+                'fixed top-[5.25rem] z-40 hidden h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full border border-border bg-card text-texto-secundario shadow-[0_2px_8px_rgba(16,24,40,0.12)] transition-[left,color,transform] duration-200 hover:scale-110 hover:text-tinta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:flex',
+                recolhida ? 'left-[4.75rem]' : 'left-[18.75rem]',
               )}
             >
               <ChevronLeft className={cn('h-4 w-4 transition-transform duration-200', recolhida && 'rotate-180')} />
             </button>
           </TooltipTrigger>
           <TooltipContent side="right">
-            {recolhida ? 'Expandir menu' : 'Recolher menu'} <kbd className="ml-1 rounded border border-white/20 px-1 text-[10px]">Ctrl B</kbd>
+            {recolhida ? 'Expandir menu' : 'Recolher menu'} <kbd className="ml-1 rounded border border-white/20 px-1 text-[0.625rem]">Ctrl B</kbd>
           </TooltipContent>
         </Tooltip>
       )}
 
       <Sheet open={mobileAberta} onOpenChange={onMobileAbertaChange}>
-        <SheetContent className="w-[300px]">
+        <SheetContent className="w-[18.75rem]">
           <SheetTitle className="sr-only">Menu</SheetTitle>
           <div className="flex h-16 items-center bg-grafite px-4">
             <MarcaEmpresa />

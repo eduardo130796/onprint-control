@@ -19,7 +19,7 @@ export function ChipBeneficio({ beneficio }: { beneficio: EmpresaPlataformaResum
   if (!beneficio) return <span className="text-texto-secundario">—</span>
   const Icone = ICONE_BENEFICIO[beneficio.tipo]
   return (
-    <span className={cn('inline-flex max-w-[160px] items-center gap-1 truncate rounded-full px-2 py-0.5 text-xs font-semibold ring-1', COR_BENEFICIO[beneficio.tipo])} title={beneficio.rotulo}>
+    <span className={cn('inline-flex max-w-[10rem] items-center gap-1 truncate rounded-full px-2 py-0.5 text-xs font-semibold ring-1', COR_BENEFICIO[beneficio.tipo])} title={beneficio.rotulo}>
       <Icone className="h-3 w-3 shrink-0" aria-hidden="true" />
       <span className="truncate">{beneficio.rotulo}</span>
     </span>

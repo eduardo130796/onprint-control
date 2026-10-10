@@ -29,7 +29,7 @@ export function Topbar({ onAbrirMenuMobile, menuRecolhido }: TopbarProps) {
       </button>
 
       {/* Marca: no desktop ocupa a largura do menu (300 px − margem) */}
-      <div className={cn('flex min-w-0 shrink items-center', !menuRecolhido && 'lg:w-[284px] lg:shrink-0')}>
+      <div className={cn('flex min-w-0 shrink items-center', !menuRecolhido && 'lg:w-[17.75rem] lg:shrink-0')}>
         <MarcaEmpresa className="hidden sm:flex" />
         <MarcaEmpresa compacta className="sm:hidden" />
       </div>
@@ -46,7 +46,7 @@ export function Topbar({ onAbrirMenuMobile, menuRecolhido }: TopbarProps) {
       </div>
 
       {/* Faixa da marca (a mesma dos documentos), fina: cor do tema com a lasca laranja */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex h-[2px]" aria-hidden="true">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex h-[0.125rem]" aria-hidden="true">
         <div className="flex-[9] bg-marca transition-colors" />
         <div className="flex-1 bg-laranja" />
       </div>

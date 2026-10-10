@@ -29,7 +29,7 @@ export function MenuAcoesEmpresa({ empresa: e, onPedir }: { empresa: EmpresaPlat
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled={semAssinatura || cancelada} onSelect={() => void executar(e.id, { acao: 'liberar_ate', data: daqui7 })}>
-          <CalendarPlus /> Liberar 7 dias <span className="ml-auto text-[11px] text-texto-secundario">até {formatarDataSimples(daqui7).slice(0, 5)}</span>
+          <CalendarPlus /> Liberar 7 dias <span className="ml-auto text-[0.6875rem] text-texto-secundario">até {formatarDataSimples(daqui7).slice(0, 5)}</span>
         </DropdownMenuItem>
         <DropdownMenuItem disabled={semAssinatura || cancelada || e.situacao === 'cortesia'} onSelect={() => pedir('meses_gratis')}>
           <Gift /> Dar mês grátis

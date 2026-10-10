@@ -23,7 +23,7 @@ export function PainelCartao({ aberto, onFechar, titulo, subtitulo, acoes, rodap
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-slate-900/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
-          className="fixed inset-y-0 right-0 z-50 flex h-full w-[480px] max-w-[100vw] flex-col bg-card shadow-suave data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right"
+          className="fixed inset-y-0 right-0 z-50 flex h-full w-[30rem] max-w-[100vw] flex-col bg-card shadow-suave data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right"
         >
           <header className="flex items-start gap-3 border-b border-border px-5 pb-4 pt-5">
             <div className="min-w-0 flex-1">

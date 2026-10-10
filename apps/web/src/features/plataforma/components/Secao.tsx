@@ -11,7 +11,7 @@ export function Secao({ titulo, subtitulo, icone: Icone, acoes, children, classN
           <div className="flex min-w-0 items-start gap-3">
             {Icone && (
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-grafite text-marca">
-                <Icone className="h-[18px] w-[18px]" aria-hidden="true" />
+                <Icone className="h-[1.125rem] w-[1.125rem]" aria-hidden="true" />
               </span>
             )}
             <div className="min-w-0">

@@ -44,7 +44,7 @@ export function GanttSimples({ ops, inicio, onSelecionar }: GanttProps) {
 
   return (
     <div className="overflow-x-auto">
-      <div className="min-w-[720px] text-xs">
+      <div className="min-w-[45rem] text-xs">
         <div className="grid border-b border-border pb-1" style={grade}>
           <span />
           {dias.map((d) => (
@@ -74,7 +74,7 @@ export function GanttSimples({ ops, inicio, onSelecionar }: GanttProps) {
                       type="button"
                       onClick={() => onSelecionar(op)}
                       title={`${op.numero} · ${op.item.descricao} · prazo ${formatarDataSimples(p.prazo)}${p.atrasada ? ' (atrasada)' : ''}`}
-                      className="h-5 overflow-hidden whitespace-nowrap rounded-md text-left text-[10px] font-medium text-white hover:opacity-90"
+                      className="h-5 overflow-hidden whitespace-nowrap rounded-md text-left text-[0.625rem] font-medium text-white hover:opacity-90"
                       style={{ gridColumn: `${col + 2} / ${fimCol + 3}`, backgroundColor: cor }}
                     >
                       <span className="px-1">

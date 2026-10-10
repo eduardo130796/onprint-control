@@ -35,7 +35,7 @@ function Situacao({ e }: { e: EmpresaPlataformaResumo }) {
   return (
     <div className="min-w-0">
       <SeloCategoria categoria={e.categoria} />
-      {detalhe && <p className={cn('mt-1 max-w-[180px] truncate text-xs', e.diasAtraso > 0 ? 'font-semibold text-coral-escuro' : 'text-texto-secundario')}>{detalhe}</p>}
+      {detalhe && <p className={cn('mt-1 max-w-[11.25rem] truncate text-xs', e.diasAtraso > 0 ? 'font-semibold text-coral-escuro' : 'text-texto-secundario')}>{detalhe}</p>}
     </div>
   )
 }
@@ -133,7 +133,7 @@ export function EmpresasPlataformaPage() {
         </div>
       </div>
 
-      <div className="mb-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_200px_200px_auto]">
+      <div className="mb-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_12.5rem_12.5rem_auto]">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-texto-secundario" aria-hidden="true" />
           <Input className="pl-9" placeholder="Buscar por nome ou identificador…" aria-label="Buscar" value={params.get('busca') ?? ''} onChange={(e) => definir('busca', e.target.value)} />
@@ -189,9 +189,9 @@ export function EmpresasPlataformaPage() {
           <>
             {/* Tabela (telas largas): rola de lado dentro do cartão se faltar espaço */}
             <div className="relative hidden overflow-x-auto lg:block">
-              <table className="w-full min-w-[1120px] text-sm [&_td]:px-2.5 [&_th]:px-2.5 [&_td:first-child]:pl-5 [&_th:first-child]:pl-5">
+              <table className="w-full min-w-[70rem] text-sm [&_td]:px-2.5 [&_th]:px-2.5 [&_td:first-child]:pl-5 [&_th:first-child]:pl-5">
                 <thead>
-                  <tr className="border-b border-border bg-fundo/60 text-left text-[11px] font-semibold uppercase tracking-wide text-texto-secundario">
+                  <tr className="border-b border-border bg-fundo/60 text-left text-[0.6875rem] font-semibold uppercase tracking-wide text-texto-secundario">
                     <th className="py-2.5 pl-5 pr-3">Empresa</th>
                     <th className="px-3">Situação</th>
                     <th className="px-3">Plano</th>
@@ -209,17 +209,17 @@ export function EmpresasPlataformaPage() {
                 <tbody className="divide-y divide-border">
                   {lista.map((e) => (
                     <tr key={e.id} className="cursor-pointer align-middle transition-colors hover:bg-fundo/70" onClick={() => navigate(`/plataforma/empresas/${e.id}`)}>
-                      <td className="relative max-w-[260px] py-3 pl-5 pr-3">
+                      <td className="relative max-w-[16.25rem] py-3 pl-5 pr-3">
                         {e.categoria && <span className={cn('absolute inset-y-2 left-0 w-1 rounded-r-full', PONTO_CATEGORIA[e.categoria])} aria-hidden="true" />}
-                        <Link to={`/plataforma/empresas/${e.id}`} className="block max-w-[200px] truncate font-semibold text-tinta hover:underline" onClick={(ev) => ev.stopPropagation()}>
+                        <Link to={`/plataforma/empresas/${e.id}`} className="block max-w-[12.5rem] truncate font-semibold text-tinta hover:underline" onClick={(ev) => ev.stopPropagation()}>
                           {e.nome}
                         </Link>
-                        <span className="block max-w-[200px] truncate text-xs text-texto-secundario">
+                        <span className="block max-w-[12.5rem] truncate text-xs text-texto-secundario">
                           /{e.slug}
                           {!e.ativa && ' · desativada'}
                         </span>
                       </td>
-                      <td className="max-w-[220px] px-3 py-3">
+                      <td className="max-w-[13.75rem] px-3 py-3">
                         <Situacao e={e} />
                       </td>
                       <td className="px-3 py-3 text-tinta">{e.plano ?? '—'}</td>
@@ -233,7 +233,7 @@ export function EmpresasPlataformaPage() {
                         <UltimoPagamento e={e} />
                       </td>
                       <td className="whitespace-nowrap px-3 py-3 tabular-nums text-tinta">{e.proximoVencimento ? formatarDataSimples(e.proximoVencimento) : '—'}</td>
-                      <td className="max-w-[180px] px-3 py-3">
+                      <td className="max-w-[11.25rem] px-3 py-3">
                         <ChipBeneficio beneficio={e.beneficio} />
                       </td>
                       <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{Number(e.emAtraso) > 0 ? <strong className="text-coral-escuro">{formatarMoeda(e.emAtraso)}</strong> : <span className="text-texto-secundario">—</span>}</td>

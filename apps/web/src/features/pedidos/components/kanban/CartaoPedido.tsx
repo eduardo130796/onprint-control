@@ -21,7 +21,7 @@ function Progresso({ rotulo, feito, total, cor = 'bg-marca' }: { rotulo: string;
   const pct = total > 0 ? Math.min(100, Math.round((feito / total) * 100)) : 0
   return (
     <div>
-      <div className="flex justify-between text-[11px] text-texto-secundario">
+      <div className="flex justify-between text-[0.6875rem] text-texto-secundario">
         <span>{rotulo}</span>
         <span className="tabular-nums">
           {feito}/{total}
@@ -48,7 +48,7 @@ export function CartaoPedido({ pedido: p, acoes }: { pedido: Pedido; acoes: Acoe
         </Link>
         <ValorPedido pedido={p} />
       </div>
-      <p className="mt-0.5 truncate text-[15px] font-semibold" title={p.cliente.nome}>
+      <p className="mt-0.5 truncate text-[0.9375rem] font-semibold" title={p.cliente.nome}>
         {p.cliente.nome}
       </p>
       {r && r.principais.length > 0 && (
@@ -68,11 +68,11 @@ export function CartaoPedido({ pedido: p, acoes }: { pedido: Pedido; acoes: Acoe
         </div>
       )}
       <div className="mt-2.5 flex items-center gap-2">
-        <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', corFin)}>{rotuloFin}</span>
+        <span className={cn('rounded-full px-2 py-0.5 text-[0.6875rem] font-medium', corFin)}>{rotuloFin}</span>
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-fundo" title={`Pago ${formatarMoeda(saldo.pago)} de ${formatarMoeda(p.total)}`}>
           <div className="h-full rounded-full bg-green-500" style={{ width: `${saldo.percentual}%` }} />
         </div>
-        {p.statusFinanceiro === 'parcial' && <span className="text-[11px] tabular-nums text-texto-secundario">pago {formatarMoeda(saldo.pago)}</span>}
+        {p.statusFinanceiro === 'parcial' && <span className="text-[0.6875rem] tabular-nums text-texto-secundario">pago {formatarMoeda(saldo.pago)}</span>}
       </div>
       <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-texto-secundario">
         <span className={cn('inline-flex items-center gap-1', p.atrasado && 'font-medium text-coral-escuro')}>

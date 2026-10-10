@@ -77,7 +77,7 @@ export function InsumosPage() {
             <span className="inline-flex items-center gap-2">
               {formatarQuantidade(i.saldo, i.unidadeMedida?.sigla)}
               {i.abaixoMinimo && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[0.6875rem] font-semibold text-amber-800">
                   <AlertTriangle className="h-3 w-3" /> Abaixo do mínimo
                 </span>
               )}

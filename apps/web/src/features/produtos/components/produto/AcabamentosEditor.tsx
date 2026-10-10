@@ -46,7 +46,7 @@ export function AcabamentosEditor({ produto, podeEditar }: { produto: ProdutoDet
 
   return (
     <Card className="overflow-x-auto">
-      <table className="w-full min-w-[640px] text-sm">
+      <table className="w-full min-w-[40rem] text-sm">
         <thead className="bg-fundo/60 text-left text-xs uppercase tracking-wide text-texto-secundario">
           <tr>
             <th className="px-4 py-3 font-medium">Acabamento</th>

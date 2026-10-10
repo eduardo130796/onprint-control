@@ -65,7 +65,7 @@ export function CupomPlataformaPage() {
                   </Button>
                 </div>
               </div>
-              <dl className="grid grid-cols-2 gap-3 text-sm lg:w-[360px]">
+              <dl className="grid grid-cols-2 gap-3 text-sm lg:w-[22.5rem]">
                 {[
                   ['Usos', `${c.usos}${c.limiteUsos != null ? ` / ${c.limiteUsos}` : ''}`],
                   ['Em uso agora', String(c.emUso)],
@@ -86,9 +86,9 @@ export function CupomPlataformaPage() {
               <EmptyState icone={Building2} titulo="Ninguém usou ainda" descricao="Aplique pela ficha da empresa ou divulgue o código para o cadastro." className="py-8" />
             ) : (
               <div className="relative -mx-5 overflow-x-auto sm:-mx-7">
-                <table className="w-full min-w-[720px] text-sm">
+                <table className="w-full min-w-[45rem] text-sm">
                   <thead>
-                    <tr className="border-b border-border text-left text-[11px] font-semibold uppercase tracking-wide text-texto-secundario">
+                    <tr className="border-b border-border text-left text-[0.6875rem] font-semibold uppercase tracking-wide text-texto-secundario">
                       <th className="py-2 pl-5 pr-3 sm:pl-7">Empresa</th>
                       <th className="px-3">Situação</th>
                       <th className="px-3">Aplicado em</th>
@@ -116,7 +116,7 @@ export function CupomPlataformaPage() {
                           {mesAno(u.desde) ?? 'próxima'} → {mesAno(u.ate) ?? 'para sempre'}
                         </td>
                         <td className="px-3 py-3 text-right font-semibold tabular-nums text-laranja-escuro">{formatarMoeda(u.descontoConcedido)}</td>
-                        <td className="max-w-[200px] truncate py-3 pl-3 pr-5 text-xs text-texto-secundario sm:pr-7">{u.autor}</td>
+                        <td className="max-w-[12.5rem] truncate py-3 pl-3 pr-5 text-xs text-texto-secundario sm:pr-7">{u.autor}</td>
                       </tr>
                     ))}
                   </tbody>

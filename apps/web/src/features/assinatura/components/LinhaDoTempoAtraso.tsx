@@ -80,7 +80,7 @@ export function LinhaDoTempoAtraso({ a, informativo = false }: { a: MinhaAssinat
                 {feita ? <Check className="h-5 w-5" aria-hidden="true" /> : <e.Icone className="h-5 w-5" aria-hidden="true" />}
               </span>
               <span className={cn('mt-2 text-xs font-semibold sm:text-sm', agora ? 'text-tinta' : 'text-texto-secundario')}>{e.rotulo}</span>
-              <span className="text-[11px] text-texto-secundario sm:text-xs">{e.data ? formatarDataSimples(e.data) : '—'}</span>
+              <span className="text-[0.6875rem] text-texto-secundario sm:text-xs">{e.data ? formatarDataSimples(e.data) : '—'}</span>
             </li>
           )
         })}

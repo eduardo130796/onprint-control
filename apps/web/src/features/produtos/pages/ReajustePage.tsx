@@ -71,7 +71,7 @@ function Lista({ itens, situacao, config }: { itens: ProdutoReajuste[]; situacao
   return (
     <div className="space-y-4">
       <div className="overflow-hidden rounded-3xl bg-card shadow-suave">
-        <div className="hidden grid-cols-[32px_minmax(0,2fr)_repeat(3,minmax(0,1fr))_minmax(0,1.3fr)_minmax(0,1fr)] items-center gap-3 border-b border-border bg-fundo/60 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-texto-secundario lg:grid">
+        <div className="hidden grid-cols-[2rem_minmax(0,2fr)_repeat(3,minmax(0,1fr))_minmax(0,1.3fr)_minmax(0,1fr)] items-center gap-3 border-b border-border bg-fundo/60 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-texto-secundario lg:grid">
           <Checkbox checked={todos} onChange={(e) => setMarcados(new Set(e.target.checked ? itens.map((p) => p.id) : []))} aria-label="Marcar todos" />
           <span>Produto</span>
           <span className="text-right">Custo</span>
@@ -86,7 +86,7 @@ function Lista({ itens, situacao, config }: { itens: ProdutoReajuste[]; situacao
             const novo = parametros ? analisarPreco(paraApi(precos[p.id]) || '0', p.custo, parametros.percentuais, config?.lucroMinimoPadrao ?? 0) : null
             const marcado = marcados.has(p.id)
             return (
-              <li key={p.id} className={cn('grid grid-cols-[32px_minmax(0,1fr)] items-center gap-x-3 gap-y-2 px-4 py-3 lg:grid-cols-[32px_minmax(0,2fr)_repeat(3,minmax(0,1fr))_minmax(0,1.3fr)_minmax(0,1fr)]', marcado && 'bg-marca-suave/40')}>
+              <li key={p.id} className={cn('grid grid-cols-[2rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 px-4 py-3 lg:grid-cols-[2rem_minmax(0,2fr)_repeat(3,minmax(0,1fr))_minmax(0,1.3fr)_minmax(0,1fr)]', marcado && 'bg-marca-suave/40')}>
                 <Checkbox checked={marcado} onChange={(e) => marcar(p.id, e.target.checked)} aria-label={`Marcar ${p.nome}`} />
                 <div className="min-w-0">
                   <Link to={`/produtos/${p.id}?aba=custo`} className="block truncate font-semibold text-tinta hover:underline">
@@ -117,7 +117,7 @@ function Lista({ itens, situacao, config }: { itens: ProdutoReajuste[]; situacao
                       marcar(p.id, true)
                     }}
                   />
-                  {sugeridoValido(p) && <p className="mt-1 text-[11px] text-texto-secundario">Sugerido para {Number(p.lucroDesejado).toLocaleString('pt-BR')}% de lucro</p>}
+                  {sugeridoValido(p) && <p className="mt-1 text-[0.6875rem] text-texto-secundario">Sugerido para {Number(p.lucroDesejado).toLocaleString('pt-BR')}% de lucro</p>}
                 </div>
                 <div className="col-start-2 flex items-center justify-between lg:col-start-auto lg:block">
                   <span className="text-sm text-texto-secundario lg:hidden">Novo lucro</span>

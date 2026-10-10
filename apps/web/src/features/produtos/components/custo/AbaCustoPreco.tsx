@@ -80,7 +80,7 @@ function Editor({ inicial, processos, maquinas, editavel, geralPendente }: Edito
   const temMateriais = estado.materiais.length > 0 || estado.producao.length > 0
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22.5rem] lg:items-start">
       <div className="min-w-0 space-y-6">
         {geralPendente && (
           <p className="flex items-start gap-2 rounded-2xl bg-amber-50 p-3 text-sm text-amber-800">

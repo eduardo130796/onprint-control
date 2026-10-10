@@ -57,7 +57,7 @@ export function AbaGeral({ form, produto, podeEditar }: AbaGeralProps) {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+      <div className="grid gap-6 lg:grid-cols-[1fr_18.75rem]">
         <Card>
           <CardContent className="grid gap-4 pt-6 md:grid-cols-6">
             <div className="md:col-span-4">

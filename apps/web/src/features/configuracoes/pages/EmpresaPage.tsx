@@ -226,7 +226,7 @@ export function EmpresaPage() {
           <EstadoErro erro={consulta.error} onTentarNovamente={() => void consulta.refetch()} />
         </Card>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
           <EmpresaForm key={consulta.data.updatedAt} empresa={consulta.data} podeEditar={podeEditar} />
           <div className="order-first lg:order-none">
             <LogoCard empresa={consulta.data} podeEditar={podeEditar} />

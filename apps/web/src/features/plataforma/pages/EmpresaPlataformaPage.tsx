@@ -53,7 +53,7 @@ function HeroFicha({ e }: { e: EmpresaPlataformaDetalhe }) {
         <span className={cn('flex-1', cat ? PONTO_CATEGORIA[cat] : 'bg-marca')} />
       </div>
 
-      <div className="relative grid gap-6 p-5 sm:p-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="relative grid gap-6 p-5 sm:p-8 lg:grid-cols-[minmax(0,1fr)_18.75rem]">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/50">Assinatura</p>
           <h1 className="mt-1 break-words font-titulo text-3xl font-extrabold tracking-tight sm:text-4xl">{e.nome}</h1>
@@ -117,7 +117,7 @@ function HeroFicha({ e }: { e: EmpresaPlataformaDetalhe }) {
             </div>
           </div>
           {a && (a.gatewayClienteId || a.gatewayAssinaturaId || a.documentoCobranca) && (
-            <dl className="space-y-1 border-t border-white/10 pt-4 font-mono text-[11px] text-white/50">
+            <dl className="space-y-1 border-t border-white/10 pt-4 font-mono text-[0.6875rem] text-white/50">
               {a.gatewayClienteId && (
                 <div className="flex justify-between gap-2">
                   <dt>cliente</dt>
@@ -183,7 +183,7 @@ export function EmpresaPlataformaPage() {
             </div>
           )}
 
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_23.75rem]">
             <div className="min-w-0 space-y-5">
               {/* No celular os benefícios vêm logo depois do cartão principal */}
               <div className="xl:hidden">

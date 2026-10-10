@@ -112,7 +112,7 @@ export function AprovarOrcamentoPage() {
   return (
     <div className="min-h-screen bg-fundo">
       <header className="flex h-16 items-center bg-grafite px-4">
-        {o?.empresa.logoUrl ? <img src={o.empresa.logoUrl} alt={o.empresa.nome} className="h-10 max-w-[180px] rounded bg-white/90 object-contain p-1" /> : <Logo claro />}
+        {o?.empresa.logoUrl ? <img src={o.empresa.logoUrl} alt={o.empresa.nome} className="h-10 max-w-[11.25rem] rounded bg-white/90 object-contain p-1" /> : <Logo claro />}
         {o && <span className="ml-3 font-semibold text-white">{o.empresa.nome}</span>}
       </header>
       <main className="mx-auto max-w-3xl space-y-4 p-4 pt-8">

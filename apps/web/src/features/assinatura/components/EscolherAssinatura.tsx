@@ -108,7 +108,7 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
                   <span className="flex flex-wrap items-center gap-2 font-semibold text-tinta">
                     {FORMA_ASSINATURA_ROTULOS[f]}
                     {FORMAS_AUTOMATICAS.includes(f) && (
-                      <span className="inline-flex items-center gap-0.5 rounded-full bg-grafite px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-grafite px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-white">
                         <Zap className="h-3 w-3" aria-hidden="true" /> Automático
                       </span>
                     )}
@@ -121,7 +121,7 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
         </div>
       </div>
 
-      <form onSubmit={enviar} noValidate className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <form onSubmit={enviar} noValidate className="grid gap-6 lg:grid-cols-[1fr_22.5rem]">
         <div>
           <Titulo passo={3} detalhe="Vai na cobrança e na nota fiscal da mensalidade.">
             Dados da cobrança

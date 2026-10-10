@@ -109,7 +109,7 @@ export function ArteDoItem({ pedido, item }: { pedido: PedidoDetalhe; item: Pedi
           </span>
         )}
       </CardHeader>
-      <CardContent className="grid gap-5 md:grid-cols-[220px_1fr]">
+      <CardContent className="grid gap-5 md:grid-cols-[13.75rem_1fr]">
         <div className="space-y-2">
           <div className="flex aspect-square items-center justify-center overflow-hidden rounded-xl bg-fundo">
             {atual?.miniaturaUrl ? (

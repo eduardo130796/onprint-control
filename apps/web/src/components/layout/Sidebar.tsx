@@ -1,3 +1,4 @@
+import { ChevronLeft } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
 import { MarcaEmpresa } from './MarcaEmpresa'
@@ -23,8 +24,28 @@ export function Sidebar({ recolhida, podeAlternar, onAlternar, mobileAberta, onM
           recolhida ? 'w-[4.75rem]' : 'w-[18.75rem]',
         )}
       >
-        <SidebarNav recolhida={recolhida} onAlternar={podeAlternar ? onAlternar : undefined} rodape={<AssinaturaSistema />} />
+        <SidebarNav recolhida={recolhida} rodape={<AssinaturaSistema />} />
       </aside>
+
+      {/* Recolher/expandir: aba presa à borda do menu, da mesma cor e borda da superfície (painel claro ou trilho
+          escuro), como uma extensão dele; discreta até passar o mouse. Atalho Ctrl+B */}
+      {podeAlternar && (
+        <button
+          type="button"
+          onClick={onAlternar}
+          aria-label={recolhida ? 'Expandir menu' : 'Recolher menu'}
+          aria-expanded={!recolhida}
+          title={`${recolhida ? 'Expandir' : 'Recolher'} menu (Ctrl+B)`}
+          className={cn(
+            'group fixed top-[5.25rem] z-30 hidden h-11 w-[1.125rem] items-center justify-center rounded-r-lg transition-[left,background-color,color] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:flex',
+            recolhida
+              ? 'left-[4.75rem] bg-grafite text-white/45 hover:text-white'
+              : 'left-[calc(18.75rem-1px)] border border-l-0 border-border bg-card text-texto-secundario/60 hover:bg-fundo hover:text-tinta',
+          )}
+        >
+          <ChevronLeft className={cn('h-3.5 w-3.5 transition-transform duration-200 group-hover:-translate-x-px', recolhida && 'rotate-180 group-hover:translate-x-px')} strokeWidth={2.4} />
+        </button>
+      )}
 
 
       <Sheet open={mobileAberta} onOpenChange={onMobileAbertaChange}>

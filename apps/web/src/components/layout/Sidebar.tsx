@@ -1,10 +1,8 @@
-import { ChevronLeft } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { Logo } from './Logo'
 import { MarcaEmpresa } from './MarcaEmpresa'
 import { SidebarNav } from './SidebarNav'
+import { AssinaturaSistema } from './SobreSistema'
 
 interface SidebarProps {
   recolhida: boolean
@@ -13,15 +11,6 @@ interface SidebarProps {
   onAlternar: () => void
   mobileAberta: boolean
   onMobileAbertaChange: (aberta: boolean) => void
-}
-
-/** Assinatura discreta do sistema: só o símbolo (a marca em destaque é a da gráfica); o nome aparece no hover. */
-function SimboloOnprint({ className }: { className?: string }) {
-  return (
-    <span title="Feito com ONPrint Control" aria-label="Feito com ONPrint Control" className={cn('opacity-60 transition-opacity hover:opacity-100', className)}>
-      <Logo compacto className="[&_svg]:h-5 [&_svg]:w-5" />
-    </span>
-  )
 }
 
 /** Sidebar fixa no desktop (recolhível) e drawer no celular. */
@@ -34,31 +23,9 @@ export function Sidebar({ recolhida, podeAlternar, onAlternar, mobileAberta, onM
           recolhida ? 'w-[4.75rem]' : 'w-[18.75rem]',
         )}
       >
-        <SidebarNav recolhida={recolhida} rodape={<SimboloOnprint />} />
+        <SidebarNav recolhida={recolhida} onAlternar={podeAlternar ? onAlternar : undefined} rodape={<AssinaturaSistema />} />
       </aside>
 
-      {/* Recolher/expandir: botão redondo na borda do menu, como nos sistemas mais usados */}
-      {podeAlternar && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={onAlternar}
-              aria-label={recolhida ? 'Expandir menu' : 'Recolher menu'}
-              aria-expanded={!recolhida}
-              className={cn(
-                'fixed top-[5.25rem] z-40 hidden h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full border border-border bg-card text-texto-secundario shadow-[0_2px_8px_rgba(16,24,40,0.12)] transition-[left,color,transform] duration-200 hover:scale-110 hover:text-tinta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:flex',
-                recolhida ? 'left-[4.75rem]' : 'left-[18.75rem]',
-              )}
-            >
-              <ChevronLeft className={cn('h-4 w-4 transition-transform duration-200', recolhida && 'rotate-180')} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            {recolhida ? 'Expandir menu' : 'Recolher menu'} <kbd className="ml-1 rounded border border-white/20 px-1 text-[0.625rem]">Ctrl B</kbd>
-          </TooltipContent>
-        </Tooltip>
-      )}
 
       <Sheet open={mobileAberta} onOpenChange={onMobileAbertaChange}>
         <SheetContent className="w-[18.75rem]">
@@ -67,7 +34,7 @@ export function Sidebar({ recolhida, podeAlternar, onAlternar, mobileAberta, onM
             <MarcaEmpresa />
           </div>
           <div className="min-h-0 flex-1">
-            <SidebarNav onNavegar={() => onMobileAbertaChange(false)} rodape={<SimboloOnprint />} />
+            <SidebarNav onNavegar={() => onMobileAbertaChange(false)} rodape={<AssinaturaSistema />} />
           </div>
         </SheetContent>
       </Sheet>

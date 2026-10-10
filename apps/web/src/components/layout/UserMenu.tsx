@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, CreditCard, KeyRound, LogOut, Monitor, Moon, Search, Sun, Type } from 'lucide-react'
+import { ChevronDown, CreditCard, Info, KeyRound, LogOut, Monitor, Moon, Search, Sun, Type } from 'lucide-react'
 import { toast } from 'sonner'
 import { iniciais } from '@onprint/shared'
+import { abrirSobreSistema } from '@/app/marca'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { TOM_ASSINATURA, statusDaAssinatura } from '@/features/assinatura/status'
@@ -109,6 +110,9 @@ export function UserMenu() {
         <DropdownMenuItem onSelect={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}>
           <Search /> Localizar
           <kbd className="ml-auto rounded border border-border px-1 text-[0.625rem] font-semibold text-texto-secundario">Ctrl K</kbd>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={abrirSobreSistema}>
+          <Info /> Sobre o sistema
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => void onSair()} className="text-coral-escuro focus:text-coral-escuro">

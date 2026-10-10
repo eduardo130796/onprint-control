@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react'
 import { areaDaRota, linhaAtiva, montarAreas, type AreaMenu, type AreaVisivel, type LinhaMenu } from '@/app/navigation'
 import {
   DropdownMenu,
@@ -18,6 +18,8 @@ import { cn } from '@/lib/utils'
 interface SidebarNavProps {
   /** Só o trilho de áreas (o painel abre num menu flutuante ao clicar) */
   recolhida?: boolean
+  /** Recolher/expandir (só no desktop; na gaveta do celular não há) */
+  onAlternar?: () => void
   onNavegar?: () => void
   /** Rodapé do painel (assinatura discreta do sistema) */
   rodape?: ReactNode
@@ -32,7 +34,7 @@ const linhasDe = (a: AreaVisivel) => a.blocos.flatMap((b) => b.linhas)
  * Menu focado por área: trilho escuro com as áreas (Comercial, Produção, Financeiro…) e um painel
  * que mostra só as telas e os atalhos da área escolhida. Ao navegar, o painel volta para a área da tela atual.
  */
-export function SidebarNav({ recolhida = false, onNavegar, rodape }: SidebarNavProps) {
+export function SidebarNav({ recolhida = false, onAlternar, onNavegar, rodape }: SidebarNavProps) {
   const { pathname } = useLocation()
   const pode = usePermissoes()
   const areas = useMemo(() => montarAreas((m, a) => pode(m, a)), [pode])
@@ -62,12 +64,18 @@ export function SidebarNav({ recolhida = false, onNavegar, rodape }: SidebarNavP
       <nav className="flex w-[4.75rem] shrink-0 flex-col items-center bg-grafite" aria-label="Áreas do sistema">
         {/* Áreas: rolam se a tela for baixa (notebook com zoom), sem empurrar Ajustes para fora */}
         <div className="flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {recolhida && onAlternar && (
+            <>
+              <BotaoPainel recolhida onClick={onAlternar} />
+              <span className="my-1 h-px w-8 bg-white/10" aria-hidden="true" />
+            </>
+          )}
           {principais.map(botaoArea)}
         </div>
         {ajustes && <div className="flex w-full shrink-0 flex-col items-center border-t border-white/[0.06] py-2">{botaoArea(ajustes)}</div>}
       </nav>
 
-      {!recolhida && <PainelArea area={atual} pathname={pathname} badges={badges} onNavegar={onNavegar} rodape={rodape} />}
+      {!recolhida && <PainelArea area={atual} pathname={pathname} badges={badges} onNavegar={onNavegar} rodape={rodape} onRecolher={onAlternar} />}
     </div>
   )
 }
@@ -109,14 +117,38 @@ function BotaoArea({ area, ativa, daRota, badge, onEscolher }: { area: AreaVisiv
 }
 
 /** Painel da área: título, telas (em blocos quando há mais de um grupo) e atalhos "Novo…" */
-function PainelArea({ area, pathname, badges, onNavegar, rodape }: { area: AreaVisivel; pathname: string; badges: Badges; onNavegar?: () => void; rodape?: ReactNode }) {
+/** Recolher (no painel, ícone discreto) ou expandir (no topo do trilho escuro) o menu; atalho Ctrl+B */
+function BotaoPainel({ recolhida, onClick }: { recolhida?: boolean; onClick: () => void }) {
+  const rotulo = recolhida ? 'Expandir menu' : 'Recolher menu'
+  const Icone = recolhida ? PanelLeftOpen : PanelLeftClose
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={rotulo}
+      aria-expanded={!recolhida}
+      title={`${rotulo} (Ctrl+B)`}
+      className={cn(
+        'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2',
+        recolhida ? 'text-white/55 hover:bg-white/[0.08] hover:text-white focus-visible:ring-white/40' : 'text-texto-secundario hover:bg-fundo hover:text-tinta focus-visible:ring-ring',
+      )}
+    >
+      <Icone className="h-[1.125rem] w-[1.125rem]" strokeWidth={1.8} />
+    </button>
+  )
+}
+
+function PainelArea({ area, pathname, badges, onNavegar, rodape, onRecolher }: { area: AreaVisivel; pathname: string; badges: Badges; onNavegar?: () => void; rodape?: ReactNode; onRecolher?: () => void }) {
   const ativa = linhaAtiva(linhasDe(area), pathname)
   return (
     <div className="flex min-w-0 flex-1 flex-col border-r border-border bg-card">
       <div key={area.area} className="flex-1 overflow-y-auto px-3 pb-4 animate-in fade-in-0 slide-in-from-left-1 duration-200">
-        <div className="px-2.5 pb-3 pt-5">
-          <h2 className="text-[0.9375rem] font-semibold tracking-tight text-tinta">{area.titulo}</h2>
-          <p className="mt-0.5 text-xs text-texto-secundario">{area.descricao}</p>
+        <div className="flex items-start gap-2 pb-3 pl-2.5 pt-4">
+          <div className="min-w-0 flex-1 pt-1">
+            <h2 className="text-[0.9375rem] font-semibold tracking-tight text-tinta">{area.titulo}</h2>
+            <p className="mt-0.5 text-xs text-texto-secundario">{area.descricao}</p>
+          </div>
+          {onRecolher && <BotaoPainel onClick={onRecolher} />}
         </div>
 
         <nav aria-label={area.titulo} className="flex flex-col gap-3">
@@ -175,7 +207,7 @@ function PainelArea({ area, pathname, badges, onNavegar, rodape }: { area: AreaV
           </div>
         )}
       </div>
-      {rodape && <div className="flex justify-end px-4 py-2.5">{rodape}</div>}
+      {rodape && <div className="border-t border-border px-1.5 py-1.5">{rodape}</div>}
     </div>
   )
 }

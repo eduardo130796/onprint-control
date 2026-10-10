@@ -12,9 +12,11 @@ import { useAuth } from '@/hooks/useAuth'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useTempoReal } from '@/hooks/useTempoReal'
 import { cn } from '@/lib/utils'
+import { EVENTO_SOBRE } from '@/app/marca'
 import { BannerAssinatura } from './BannerAssinatura'
 import { FloatingActionButton } from './FloatingActionButton'
 import { Sidebar } from './Sidebar'
+import { SobreSistema } from './SobreSistema'
 import { Topbar } from './Topbar'
 
 const CHAVE_RECOLHIDA = 'onprint:sidebar-recolhida'
@@ -36,6 +38,12 @@ function lerRecolhida() {
 export function AppLayout() {
   const [recolhida, setRecolhida] = useState(lerRecolhida)
   const [mobileAberta, setMobileAberta] = useState(false)
+  const [sobre, setSobre] = useState(false)
+  useEffect(() => {
+    const abrir = () => setSobre(true)
+    window.addEventListener(EVENTO_SOBRE, abrir)
+    return () => window.removeEventListener(EVENTO_SOBRE, abrir)
+  }, [])
   // Recolher/expandir vale a partir de 1024 px (abaixo, o menu é a gaveta do botão ☰)
   const comMenuLateral = useMediaQuery('(min-width: 1024px)')
   const menuRecolhido = recolhida
@@ -162,6 +170,7 @@ export function AppLayout() {
         </div>
       </main>
       <FloatingActionButton />
+      <SobreSistema aberto={sobre} onFechar={() => setSobre(false)} />
       <AvisoInatividade restanteMs={inatividade.restanteMs} onContinuar={inatividade.continuar} onSair={sairPorInatividade} />
     </div>
   )

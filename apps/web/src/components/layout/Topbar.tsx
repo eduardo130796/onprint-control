@@ -1,7 +1,6 @@
 import { Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BuscaGlobal } from './BuscaGlobal'
-import { ChipAssinatura } from './ChipAssinatura'
 import { MarcaEmpresa } from './MarcaEmpresa'
 import { Notificacoes } from './Notificacoes'
 import { UserMenu } from './UserMenu'
@@ -14,7 +13,7 @@ interface TopbarProps {
 
 /**
  * Barra do topo: marca da empresa (na largura do menu, para a busca alinhar com o conteúdo), busca e,
- * à direita, só o essencial: aviso da assinatura (quando há algo a resolver), notificações e a conta.
+ * à direita, só notificações e a conta (o plano fica no menu da conta).
  */
 export function Topbar({ onAbrirMenuMobile, menuRecolhido }: TopbarProps) {
   return (
@@ -39,7 +38,6 @@ export function Topbar({ onAbrirMenuMobile, menuRecolhido }: TopbarProps) {
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-        <ChipAssinatura />
         <Notificacoes />
         <span className="mx-1 hidden h-6 w-px bg-white/10 sm:block" aria-hidden="true" />
         <UserMenu />

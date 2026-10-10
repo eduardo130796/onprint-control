@@ -8,7 +8,7 @@ import { SidebarNav } from './SidebarNav'
 
 interface SidebarProps {
   recolhida: boolean
-  /** Só em telas largas dá para expandir (abaixo de 1280 px fica sempre o trilho) */
+  /** Com menu lateral (a partir de 1024 px) dá para recolher/expandir; no celular é a gaveta */
   podeAlternar: boolean
   onAlternar: () => void
   mobileAberta: boolean

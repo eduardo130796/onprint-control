@@ -22,20 +22,23 @@ const CHAVE_RECOLHIDA = 'onprint:sidebar-recolhida'
 /** Telas que usam a largura toda (quadros kanban); as demais ficam centralizadas em até 1280 px. */
 const TELAS_LARGAS = ['/producao', '/pedidos/kanban', '/orcamentos/kanban']
 
+/** Preferência salva; sem preferência, começa recolhido em telas menores que 1280 px (notebook) */
 function lerRecolhida() {
+  let salvo: string | null = null
   try {
-    return localStorage.getItem(CHAVE_RECOLHIDA) === '1'
+    salvo = localStorage.getItem(CHAVE_RECOLHIDA)
   } catch {
-    return false
+    // sem armazenamento: decide pela largura
   }
+  return salvo === null ? window.innerWidth < 1280 : salvo === '1'
 }
 
 export function AppLayout() {
   const [recolhida, setRecolhida] = useState(lerRecolhida)
   const [mobileAberta, setMobileAberta] = useState(false)
-  // De 1024 a 1279 px o menu fica só com o trilho de áreas (o conteúdo não fica espremido)
-  const telaLarga = useMediaQuery('(min-width: 1280px)')
-  const menuRecolhido = recolhida || !telaLarga
+  // Recolher/expandir vale a partir de 1024 px (abaixo, o menu é a gaveta do botão ☰)
+  const comMenuLateral = useMediaQuery('(min-width: 1024px)')
+  const menuRecolhido = recolhida
   const { usuario, sair } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -117,7 +120,7 @@ export function AppLayout() {
 
   // Ctrl+B (Cmd+B no Mac) recolhe/expande o menu, como em outros sistemas
   useEffect(() => {
-    if (!telaLarga) return
+    if (!comMenuLateral) return
     function onKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'b') {
         e.preventDefault()
@@ -126,14 +129,14 @@ export function AppLayout() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [telaLarga])
+  }, [comMenuLateral])
 
   return (
     <div className="min-h-screen bg-fundo">
       <Topbar onAbrirMenuMobile={() => setMobileAberta(true)} menuRecolhido={menuRecolhido} />
       <Sidebar
         recolhida={menuRecolhido}
-        podeAlternar={telaLarga}
+        podeAlternar={comMenuLateral}
         onAlternar={alternar}
         mobileAberta={mobileAberta}
         onMobileAbertaChange={setMobileAberta}

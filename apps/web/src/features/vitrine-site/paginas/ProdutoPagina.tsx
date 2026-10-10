@@ -118,8 +118,10 @@ function FormularioLista({ produto }: { produto: ProdutoVitrine }) {
   const { lista, whatsapp } = useVitrine()
   const usaMedidas = produto.modoCalculo === 'm2' || produto.modoCalculo === 'metro_linear'
   const medidas = produto.medidas
+  // Por milheiro a quantidade é em unidades (1.000 = 1 milheiro), como no orçamento do sistema
+  const porMilheiro = produto.modoCalculo === 'milheiro'
   const inicial = () => ({
-    quantidade: '1',
+    quantidade: porMilheiro ? '1000' : '1',
     largura: medidaParaCampo(medidas?.larguraPadrao),
     altura: medidaParaCampo(medidas?.alturaPadrao),
     acabamentos: new Set(produto.acabamentos.filter((a) => a.obrigatorio || a.padrao).map((a) => a.id)),
@@ -199,7 +201,14 @@ function FormularioLista({ produto }: { produto: ProdutoVitrine }) {
         <p className="mt-1 text-sm text-slate-500">Escolha as opções e adicione à lista. Você envia tudo junto no final.</p>
       </div>
 
-      <CampoQuantidade id="qtd" valor={form.quantidade} aoMudar={(v) => mudar('quantidade', v)} erro={erros.quantidade} />
+      <CampoQuantidade
+        id="qtd"
+        valor={form.quantidade}
+        aoMudar={(v) => mudar('quantidade', v)}
+        erro={erros.quantidade}
+        passo={porMilheiro ? 500 : 1}
+        ajuda={porMilheiro ? 'Em unidades: 1.000 = 1 milheiro.' : undefined}
+      />
 
       {usaMedidas && (
         <fieldset>

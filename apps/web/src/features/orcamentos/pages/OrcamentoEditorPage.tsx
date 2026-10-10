@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowLeft, CheckCircle2, Plus, XCircle } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle2, Globe, Plus, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatarDataHora, formatarDataSimples, orcamentoSchema } from '@onprint/shared'
 import { clientesApi } from '@/api/cadastros'
-import { orcamentosApi, type OrcamentoComAnalise } from '@/api/comercial'
+import { orcamentosApi, solicitacoesApi, type OrcamentoComAnalise } from '@/api/comercial'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { EstadoErro } from '@/components/shared/EstadoErro'
@@ -23,18 +23,35 @@ import { AcoesOrcamento } from '../components/editor/AcoesOrcamento'
 import { ItemOrcamento } from '../components/editor/ItemOrcamento'
 import { PedidoGerado } from '../components/editor/PedidoGerado'
 import { TotaisOrcamento } from '../components/editor/TotaisOrcamento'
-import { formDoOrcamento, itemVazio, novaChave, payloadDoForm, type FormOrcamento } from '../components/editor/formOrcamento'
+import { formDoOrcamento, itemVazio, itensDaSolicitacao, novaChave, payloadDoForm, type FormOrcamento, type ItemForm } from '../components/editor/formOrcamento'
 import { useAnaliseOrcamento } from '../components/editor/useAnaliseOrcamento'
 import { useCalculoOrcamento } from '../components/editor/useCalculoOrcamento'
 
 const ABERTOS = ['rascunho', 'enviado', 'em_negociacao']
 
-function Editor({ orcamento, solicitacaoId, clienteInicial }: { orcamento?: OrcamentoComAnalise; solicitacaoId?: string | null; clienteInicial?: { id: string; rotulo: string } | null }) {
+interface DoSite {
+  numero: string
+  itens: ItemForm[]
+  ignorados: number
+}
+
+function Editor({
+  orcamento,
+  solicitacaoId,
+  clienteInicial,
+  doSite,
+}: {
+  orcamento?: OrcamentoComAnalise
+  solicitacaoId?: string | null
+  clienteInicial?: { id: string; rotulo: string } | null
+  /** Pedido do site: itens já montados com o que o cliente escolheu */
+  doSite?: DoSite | null
+}) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const empresa = useEmpresa()
   const podeSalvar = usePermission('orcamentos', orcamento ? 'editar' : 'criar')
-  const [inicial] = useState(() => formDoOrcamento(orcamento, clienteInicial))
+  const [inicial] = useState(() => formDoOrcamento(orcamento, clienteInicial, doSite?.itens, doSite ? `Pedido do site ${doSite.numero}.` : undefined))
   const [form, setForm] = useState<FormOrcamento>(inicial)
   const alterado = useMemo(() => JSON.stringify(form) !== JSON.stringify(inicial), [form, inicial])
   const editavel = podeSalvar && (!orcamento || ABERTOS.includes(orcamento.status))
@@ -88,6 +105,16 @@ function Editor({ orcamento, solicitacaoId, clienteInicial }: { orcamento?: Orca
         <AcoesOrcamento orcamento={orcamento} editavel={editavel} alterado={alterado} salvando={salvar.isPending} onSalvar={() => void onSalvar()} />
       </div>
 
+      {doSite && doSite.itens.length > 0 && (
+        <p className="mb-4 flex items-start gap-2 rounded-xl bg-marca-suave p-3 text-sm text-marca-escuro">
+          <Globe className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            Itens preenchidos com o pedido do site <strong>{doSite.numero}</strong>: produto, quantidade, medidas e acabamentos que o cliente escolheu.
+            Confira os preços e salve.
+            {doSite.ignorados > 0 && ` ${doSite.ignorados} item(ns) ficaram de fora porque o produto não existe mais; veja na solicitação.`}
+          </span>
+        </p>
+      )}
       {orcamento?.status === 'aprovado' && (
         <p className="mb-4 flex items-center gap-2 rounded-xl bg-verde/10 p-3 text-sm text-green-800">
           <CheckCircle2 className="h-4 w-4" /> Aprovado por {orcamento.aprovadoPorNome} em {formatarDataHora(orcamento.aprovadoEm)}
@@ -189,6 +216,21 @@ export function OrcamentoEditorPage() {
   const consulta = useQuery({ queryKey: ['orcamentos', 'detalhe', id], queryFn: () => orcamentosApi.obter(id!), enabled: !novo })
   const clienteId = busca.get('cliente')
   const cliente = useQuery({ queryKey: ['clientes', 'detalhe', clienteId], queryFn: () => clientesApi.obter(clienteId!), enabled: novo && Boolean(clienteId) })
+  // Vindo de uma solicitação com itens (pedido do site): busca os produtos para abrir o orçamento já montado
+  const solicitacaoId = busca.get('solicitacao')
+  const solicitacao = useQuery({ queryKey: ['solicitacoes', 'detalhe', solicitacaoId], queryFn: () => solicitacoesApi.obter(solicitacaoId!), enabled: novo && Boolean(solicitacaoId) })
+  const idsProdutos = [...new Set((solicitacao.data?.itens ?? []).map((i) => i.produtoId).filter((id): id is string => Boolean(id)))]
+  const produtosSite = useQuery({
+    queryKey: ['orcamentos', 'catalogo', 'site', idsProdutos],
+    // Produto inativo ou removido: segue sem ele (fica nos "ignorados")
+    queryFn: async () => (await Promise.all(idsProdutos.map((id) => orcamentosApi.produto(id).catch(() => null)))).filter((p) => p !== null),
+    enabled: idsProdutos.length > 0,
+  })
+  const doSite: DoSite | null =
+    solicitacao.data && solicitacao.data.itens.length > 0 && produtosSite.data
+      ? { numero: solicitacao.data.numero, ...itensDaSolicitacao(solicitacao.data.itens, produtosSite.data) }
+      : null
+  const carregandoSite = Boolean(solicitacaoId) && (solicitacao.isPending || (idsProdutos.length > 0 && produtosSite.isPending))
 
   const voltar = (
     <Button asChild variant="outline" size="sm" className="mb-4">
@@ -199,11 +241,11 @@ export function OrcamentoEditorPage() {
   )
 
   if (novo) {
-    if (clienteId && cliente.isPending) return <Skeleton className="h-96 w-full" />
+    if ((clienteId && cliente.isPending) || carregandoSite) return <Skeleton className="h-96 w-full" />
     return (
       <>
         {voltar}
-        <Editor solicitacaoId={busca.get('solicitacao')} clienteInicial={cliente.data ? { id: cliente.data.id, rotulo: cliente.data.nome } : null} />
+        <Editor solicitacaoId={solicitacaoId} clienteInicial={cliente.data ? { id: cliente.data.id, rotulo: cliente.data.nome } : null} doSite={doSite} />
       </>
     )
   }

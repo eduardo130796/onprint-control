@@ -1,4 +1,4 @@
-import type { OrcamentoDetalhe, OrcamentoInput, ProdutoCatalogo } from '@onprint/shared'
+import type { OrcamentoDetalhe, OrcamentoInput, ProdutoCatalogo, SolicitacaoItem } from '@onprint/shared'
 import type { OpcaoBusca } from '@/components/shared/SearchSelect'
 import { decimalParaInput } from '@/lib/mascaras'
 
@@ -53,9 +53,46 @@ export function itemComProduto(item: ItemForm, produto: ProdutoCatalogo, opcao: 
   }
 }
 
-export function formDoOrcamento(o?: OrcamentoDetalhe, cliente?: OpcaoBusca | null): FormOrcamento {
+/**
+ * Itens do pedido do site já no orçamento: produto, quantidade, medidas, acabamentos (os obrigatórios do produto
+ * sempre entram; os escolhidos só se ainda forem do produto) e observação. Preço = o do produto (a API recalcula).
+ * Itens cujo produto não existe mais ficam de fora (`ignorados`), para a pessoa conferir na solicitação.
+ */
+export function itensDaSolicitacao(itens: SolicitacaoItem[], produtos: ProdutoCatalogo[]): { itens: ItemForm[]; ignorados: number } {
+  const porId = new Map(produtos.map((p) => [p.id, p]))
+  const resultado: ItemForm[] = []
+  for (const i of itens) {
+    const produto = i.produtoId ? porId.get(i.produtoId) : undefined
+    if (!produto) continue
+    const base = itemComProduto(itemVazio(), produto, { id: produto.id, rotulo: produto.nome, detalhe: produto.codigo })
+    const doProduto = new Set(produto.acabamentos.map((a) => a.acabamentoId))
+    const obrigatorios = produto.acabamentos.filter((a) => a.obrigatorio).map((a) => a.acabamentoId)
+    const escolhidos = i.acabamentos.map((a) => a.id).filter((id) => doProduto.has(id))
+    resultado.push({
+      ...base,
+      quantidade: String(i.quantidade),
+      largura: medida(i.largura) || base.largura,
+      altura: medida(i.altura) || base.altura,
+      acabamentoIds: [...new Set([...obrigatorios, ...escolhidos])],
+      observacao: i.observacao ?? '',
+    })
+  }
+  return { itens: resultado, ignorados: itens.length - resultado.length }
+}
+
+export function formDoOrcamento(o?: OrcamentoDetalhe, cliente?: OpcaoBusca | null, itensIniciais?: ItemForm[], observacoesInternas?: string): FormOrcamento {
   if (!o) {
-    return { cliente: cliente ?? null, validade: '', desconto: '0,00', acrescimo: '0,00', frete: '0,00', condicoes: '', observacoes: '', observacoesInternas: '', itens: [itemVazio()] }
+    return {
+      cliente: cliente ?? null,
+      validade: '',
+      desconto: '0,00',
+      acrescimo: '0,00',
+      frete: '0,00',
+      condicoes: '',
+      observacoes: '',
+      observacoesInternas: observacoesInternas ?? '',
+      itens: itensIniciais?.length ? itensIniciais : [itemVazio()],
+    }
   }
   return {
     cliente: { id: o.cliente.id, rotulo: o.cliente.nome },

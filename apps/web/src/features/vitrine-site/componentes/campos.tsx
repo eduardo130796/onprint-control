@@ -49,7 +49,25 @@ export function CampoTexto({
 }
 
 /** Quantidade com botões − e + */
-export function CampoQuantidade({ id, valor, aoMudar, erro, compacto }: { id: string; valor: string; aoMudar: (v: string) => void; erro?: string; compacto?: boolean }) {
+export function CampoQuantidade({
+  id,
+  valor,
+  aoMudar,
+  erro,
+  compacto,
+  passo = 1,
+  ajuda,
+}: {
+  id: string
+  valor: string
+  aoMudar: (v: string) => void
+  erro?: string
+  compacto?: boolean
+  /** Quanto os botões − e + somam (ex.: 500 nos produtos por milheiro) */
+  passo?: number
+  /** Dica abaixo do campo (ex.: "em unidades") */
+  ajuda?: string
+}) {
   const n = Math.trunc(Number(valor)) || 0
   const botao =
     'flex shrink-0 items-center justify-center text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-marca disabled:opacity-40'
@@ -65,7 +83,7 @@ export function CampoQuantidade({ id, valor, aoMudar, erro, compacto }: { id: st
           compacto ? 'h-10' : 'h-12',
         )}
       >
-        <button type="button" className={cn(botao, compacto ? 'w-9' : 'w-12')} onClick={() => aoMudar(String(Math.max(1, n - 1)))} disabled={n <= 1} aria-label="Diminuir quantidade">
+        <button type="button" className={cn(botao, compacto ? 'w-9' : 'w-12')} onClick={() => aoMudar(String(Math.max(1, n - passo)))} disabled={n <= 1} aria-label="Diminuir quantidade">
           <Minus className="h-4 w-4" />
         </button>
         <input
@@ -77,10 +95,11 @@ export function CampoQuantidade({ id, valor, aoMudar, erro, compacto }: { id: st
           aria-describedby={erro ? `${id}-erro` : undefined}
           className={cn('min-w-0 border-x border-slate-200 bg-transparent text-center font-semibold text-slate-900 focus:outline-none', compacto ? 'w-14 text-sm' : 'w-20 text-base')}
         />
-        <button type="button" className={cn(botao, compacto ? 'w-9' : 'w-12')} onClick={() => aoMudar(String(Math.min(1_000_000, n + 1)))} aria-label="Aumentar quantidade">
+        <button type="button" className={cn(botao, compacto ? 'w-9' : 'w-12')} onClick={() => aoMudar(String(Math.min(1_000_000, n + passo)))} aria-label="Aumentar quantidade">
           <Plus className="h-4 w-4" />
         </button>
       </div>
+      {ajuda && !erro && <p className="mt-1.5 text-xs text-slate-500">{ajuda}</p>}
       <MensagemErro id={`${id}-erro`}>{erro}</MensagemErro>
     </div>
   )

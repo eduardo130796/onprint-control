@@ -5,6 +5,7 @@ import {
   linkWhatsappEnvio,
   mensagemCatalogo,
   mensagemCatalogoPdf,
+  mensagemInteresseCatalogo,
   mensagemProduto,
   mensagemVitrine,
   nomeArquivo,
@@ -149,5 +150,14 @@ describe('mensagem do catálogo em PDF', () => {
   })
   it('sem site, só o link do PDF', () => {
     expect(mensagemCatalogoPdf({ loja: 'Gráfica X', linkPdf: 'https://x/c/1' })).not.toContain('site')
+  })
+})
+
+describe('botão "Pedir pelo WhatsApp" do catálogo', () => {
+  it('produto em negrito, preço (se houver) e link', () => {
+    expect(mensagemInteresseCatalogo({ produto: 'Banner ', preco: 'R$ 45,00 / m²', link: 'https://x/produto/banner' })).toBe(
+      'Olá! Vi no catálogo e tenho interesse no *Banner* (R$ 45,00 / m²): https://x/produto/banner',
+    )
+    expect(mensagemInteresseCatalogo({ produto: 'Banner', link: 'https://x' })).toBe('Olá! Vi no catálogo e tenho interesse no *Banner*: https://x')
   })
 })

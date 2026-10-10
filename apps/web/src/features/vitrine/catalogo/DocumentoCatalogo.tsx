@@ -17,6 +17,8 @@ export interface ItemCatalogo {
   foto: string | null
   link: string
   qr: string | null
+  /** wa.me da gráfica com a mensagem do produto pronta (null sem WhatsApp visível na vitrine) */
+  whatsapp: string | null
 }
 
 export interface DadosCatalogo {
@@ -27,7 +29,8 @@ export interface DadosCatalogo {
   site: string
   url: string
   qrSite: string | null
-  contatos: { tipo: string; valor: string }[]
+  /** `link`: o item é clicável (WhatsApp abre a conversa, e-mail abre o e-mail) */
+  contatos: { tipo: string; valor: string; link?: string }[]
   fotosCapa: string[]
   grupos: { titulo: string; produtos: ItemCatalogo[] }[]
   total: number
@@ -131,7 +134,13 @@ function Capa({ d }: { d: DadosCatalogo }) {
           {d.contatos.map((c) => (
             <View key={c.tipo} style={{ flexDirection: 'row', marginBottom: 5 }}>
               <Text style={{ width: 62, fontSize: 7.5, color: COR.claro, paddingTop: 1 }}>{c.tipo}</Text>
-              <Text style={{ flex: 1, fontSize: 9, fontWeight: 600, color: COR.tinta }}>{c.valor}</Text>
+              {c.link ? (
+                <Link src={c.link} style={{ flex: 1, fontSize: 9, fontWeight: 600, color: COR.tinta, textDecoration: 'none' }}>
+                  {c.valor}
+                </Link>
+              ) : (
+                <Text style={{ flex: 1, fontSize: 9, fontWeight: 600, color: COR.tinta }}>{c.valor}</Text>
+              )}
             </View>
           ))}
           <View style={{ flexDirection: 'row', marginTop: d.contatos.length ? 2 : 0 }}>
@@ -150,6 +159,18 @@ function Capa({ d }: { d: DadosCatalogo }) {
       </View>
       <Text style={{ position: 'absolute', left: 0, right: 0, bottom: 28, textAlign: 'center', fontSize: 7, color: '#FFFFFF', opacity: 0.55 }}>Gerado com GrafyGo</Text>
     </Page>
+  )
+}
+
+const VERDE_WHATSAPP = '#1FAF54'
+
+/** Balão do WhatsApp (simplificado) em branco */
+function IconeWhatsapp({ tamanho }: { tamanho: number }) {
+  return (
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24">
+      <Circle cx="12" cy="11.5" r="9.5" fill="none" stroke="#FFFFFF" strokeWidth={2.4} />
+      <Rect x="3.2" y="18.6" width="4.6" height="2.6" fill="#FFFFFF" />
+    </Svg>
   )
 }
 
@@ -173,10 +194,27 @@ function Cartao({ p, cores }: { p: ItemCatalogo; cores: CoresTema }) {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 8, paddingTop: 8, borderTopWidth: 0.6, borderTopColor: COR.linha }}>
           {p.qr ? <Image src={p.qr} style={{ width: 30, height: 30 }} /> : null}
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 7.5, fontWeight: 700, color: COR.tinta }}>Peça seu orçamento</Text>
-            <Link src={p.link} style={{ fontSize: 7, color: cores.escuro, textDecoration: 'none', marginTop: 1 }}>
-              Ver no site
-            </Link>
+            {p.whatsapp ? (
+              <>
+                {/* Botão clicável: abre a conversa com a gráfica e a mensagem do produto pronta */}
+                <Link src={p.whatsapp} style={{ textDecoration: 'none' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: VERDE_WHATSAPP, borderRadius: 9, paddingVertical: 4.5, paddingHorizontal: 6 }}>
+                    <IconeWhatsapp tamanho={7.5} />
+                    <Text style={{ fontSize: 7, fontWeight: 700, color: '#FFFFFF' }}>Pedir pelo WhatsApp</Text>
+                  </View>
+                </Link>
+                <Link src={p.link} style={{ fontSize: 6.6, color: cores.escuro, textDecoration: 'none', marginTop: 3, textAlign: 'center' }}>
+                  ou ver no site
+                </Link>
+              </>
+            ) : (
+              <>
+                <Text style={{ fontSize: 7.5, fontWeight: 700, color: COR.tinta }}>Peça seu orçamento</Text>
+                <Link src={p.link} style={{ fontSize: 7, color: cores.escuro, textDecoration: 'none', marginTop: 1 }}>
+                  Ver no site
+                </Link>
+              </>
+            )}
           </View>
         </View>
       </View>

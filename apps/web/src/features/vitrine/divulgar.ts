@@ -63,6 +63,11 @@ export function mensagemCatalogo({ nome, loja, link }: { nome?: string | null; l
   return `${saudacao(nome)} Aqui está o nosso catálogo de produtos da *${loja}*. É só escolher, montar a lista e pedir o orçamento pelo site: ${link}`
 }
 
+/** Botão "Pedir pelo WhatsApp" de um produto no catálogo em PDF (mesmo padrão do site, dizendo que veio do catálogo) */
+export function mensagemInteresseCatalogo({ produto, preco, link }: { produto: string; preco?: string | null; link: string }): string {
+  return `Olá! Vi no catálogo e tenho interesse no *${produto.trim()}*${preco ? ` (${preco})` : ''}: ${link}`
+}
+
 /** Catálogo em PDF por link (o WhatsApp não anexa arquivo por link): o PDF e, se quiser, o site */
 export function mensagemCatalogoPdf({ nome, loja, linkPdf, site }: { nome?: string | null; loja: string; linkPdf: string; site?: string | null }): string {
   const base = `${saudacao(nome)} Segue o catálogo da *${loja}* com nossos produtos: ${linkPdf}`

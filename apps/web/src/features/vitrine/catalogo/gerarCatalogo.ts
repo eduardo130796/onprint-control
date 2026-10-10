@@ -4,7 +4,8 @@ import QRCode from 'qrcode'
 import { TEMAS, formatarTelefone, temaOuPadrao, type EmpresaConfig, type ProdutoVitrineResumo, type VitrineConfig } from '@onprint/shared'
 import { arquivosApi } from '@/api/cadastros'
 import { carregarImagem } from '../arte'
-import { agruparPorCategoria, nomeArquivo, nomeNoSite, partesPrecoProduto, recorteCapa, textoCurto, urlImagemGrande, urlProduto } from '../divulgar'
+import { linkWhatsapp } from '@/features/vitrine-site/formato'
+import { agruparPorCategoria, mensagemInteresseCatalogo, nomeArquivo, nomeNoSite, partesPrecoProduto, recorteCapa, textoCurto, textoPrecoProduto, urlImagemGrande, urlProduto } from '../divulgar'
 import { semProtocolo } from '../utils'
 import { DocumentoCatalogo, type DadosCatalogo } from './DocumentoCatalogo'
 
@@ -82,13 +83,16 @@ export async function pdfCatalogo(
     .filter(Boolean)
     .join(' · ')
   const contatos = [
-    config.mostrarWhatsapp && empresa.whatsapp ? { tipo: 'WhatsApp', valor: formatarTelefone(empresa.whatsapp) } : null,
+    config.mostrarWhatsapp && empresa.whatsapp
+      ? { tipo: 'WhatsApp', valor: formatarTelefone(empresa.whatsapp), link: linkWhatsapp(empresa.whatsapp, config.mensagemWhatsapp || 'Olá! Vi o catálogo e gostaria de um orçamento.') ?? undefined }
+      : null,
     config.mostrarTelefone && empresa.telefone && empresa.telefone !== empresa.whatsapp ? { tipo: 'Telefone', valor: formatarTelefone(empresa.telefone) } : null,
-    empresa.email ? { tipo: 'E-mail', valor: empresa.email } : null,
+    empresa.email ? { tipo: 'E-mail', valor: empresa.email, link: `mailto:${empresa.email}` } : null,
     config.mostrarEndereco && endereco ? { tipo: 'Endereço', valor: endereco } : null,
     config.horario ? { tipo: 'Atendimento', valor: config.horario } : null,
-  ].filter((c): c is { tipo: string; valor: string } => Boolean(c))
+  ].filter((c): c is { tipo: string; valor: string; link?: string } => Boolean(c))
 
+  const numeroLoja = config.mostrarWhatsapp && empresa.whatsapp ? empresa.whatsapp : null
   const capas = [...publicados].filter((p) => p.imagens.length > 0).sort((a, b) => Number(b.destaque) - Number(a.destaque)).slice(0, 3)
   const [logo, qrSite, fotosCapa, itens] = await Promise.all([
     logoPng(empresa),
@@ -97,7 +101,11 @@ export async function pdfCatalogo(
     emLotes(publicados, 6, async (p) => {
       const link = urlProduto(config.urlPublica, p.slug)
       const [foto, qrProduto] = await Promise.all([fotoJpeg(p.imagens[0] ? urlImagemGrande(p.imagens[0].url) : null, 640, 480), opcoes.qrPorProduto ? qr(link, '#1E2226', 200) : null])
-      return { id: p.id, categoria: p.categoria, nome: nomeNoSite(p), preco: opcoes.mostrarPreco ? partesPrecoProduto(p) : null, texto: textoCurto(p.descricaoPublica, 120), foto, link, qr: qrProduto }
+      // "Pedir pelo WhatsApp" do produto: conversa com a gráfica e a mensagem pronta (com o preço, se o catálogo mostra)
+      const whatsapp = numeroLoja
+        ? linkWhatsapp(numeroLoja, mensagemInteresseCatalogo({ produto: nomeNoSite(p), preco: opcoes.mostrarPreco ? textoPrecoProduto(p) : null, link }))
+        : null
+      return { id: p.id, whatsapp, categoria: p.categoria, nome: nomeNoSite(p), preco: opcoes.mostrarPreco ? partesPrecoProduto(p) : null, texto: textoCurto(p.descricaoPublica, 120), foto, link, qr: qrProduto }
     }),
   ])
 

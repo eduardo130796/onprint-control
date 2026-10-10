@@ -41,6 +41,8 @@ A propagação costuma levar alguns minutos. Para conferir no seu computador: `n
 
 Conferir: `nslookup qualquer-coisa.suaempresa.com.br` deve responder com o IP da VPS. O certificado de cada subdomínio é emitido na primeira visita (HTTPS sob demanda), e só para vitrines que estão no ar: antes de emitir, o Caddy pergunta à API (`/api/v1/publico/vitrine-permitida`). Subdomínios como `www`, `app`, `api`, `admin`, `mail`… são reservados e nunca viram vitrine.
 
+**Prévia do link no WhatsApp** (foto, nome e preço ao colar o link de um produto): já vem pronta no `Caddyfile`. Nas vitrines, os leitores de link (WhatsApp, Facebook, Telegram, LinkedIn…, reconhecidos pelo User-Agent) recebem da API um HTML com as tags Open Graph (`/api/v1/publico/vitrine-og`); visitantes e buscadores veem o site normal. Nunca vale para o endereço do sistema.
+
 ## 3. Primeiro acesso e preparo do servidor
 
 ```bash
@@ -313,6 +315,7 @@ Já vem pronto no sistema:
 |---|---|
 | Navegador avisa "certificado inválido" / o site não abre | DNS ainda não aponta para a VPS, ou as portas 80/443 estão bloqueadas (ufw ou painel). Veja `onprint logs web` |
 | Vitrine `https://{slug}.…` não abre (erro de certificado) | Falta o registro DNS `*`, `DOMINIO_VITRINE` está vazio ou diferente no `.env.prod` (mudou? refaça o build do web), ou a vitrine não está no ar: o módulo **Vitrine online** precisa estar no plano da empresa e a vitrine ativada em Vitrine → Configurar. Teste: `curl -i "https://SEU_DOMINIO/api/v1/publico/vitrine-permitida?domain=SLUG.suaempresa.com.br"` (200 = liberada) |
+| Link da vitrine no WhatsApp sem foto/título | Teste como o WhatsApp: `curl -s -A "WhatsApp/2.23" https://SLUG.suaempresa.com.br/` deve trazer `og:title` e `og:image` (a imagem abre com `curl -I` como `image/jpeg`). Sem a tag, o `Caddyfile` da VPS está desatualizado: atualize o sistema (seção 10; o `Caddyfile` vai dentro da imagem do web). O WhatsApp guarda a prévia por um tempo: teste com outro produto ou acrescente `?v=2` ao link |
 | API reinicia sem parar | Veja `onprint logs api`. "Variáveis de ambiente inválidas" = `.env.prod` com segredo fraco, `TROQUE` ou senha do banco diferente em `DATABASE_URL` |
 | Build trava ou é morto ("Killed") | Pouca memória: confira o swap (`free -h`) e construa uma imagem por vez (`build api`, depois `build web`) |
 | "Muitas tentativas" no login | 10 senhas erradas no mesmo e-mail em 15 min: aguarde 15 minutos (ou 20 tentativas por minuto do mesmo IP: aguarde 1 minuto). Reiniciar a API também zera a trava por e-mail |

@@ -24,41 +24,53 @@ export function urlMiniaturaLogada(storage: StorageService, arquivoId: string, v
   return `${API_PREFIX}/vitrine/miniaturas/${token}?w=480`
 }
 
-/** Redimensiona para WebP (sem aumentar), uma imagem por vez na fila do sharp. */
-async function gerarWebp(storage: StorageService, caminho: string, largura: number) {
+/** Formatos servidos: WebP (site) e JPEG (prévia do link no WhatsApp e redes, que nem sempre leem WebP) */
+export const FORMATOS_IMAGEM = ['webp', 'jpg'] as const
+export type FormatoImagem = (typeof FORMATOS_IMAGEM)[number]
+
+const TIPO_CONTEUDO: Record<FormatoImagem, string> = { webp: 'image/webp', jpg: 'image/jpeg' }
+
+/** Redimensiona (sem aumentar) para WebP ou JPEG, uma imagem por vez na fila do sharp. */
+async function gerarImagem(storage: StorageService, caminho: string, largura: number, formato: FormatoImagem) {
   return emFila(async () => {
     const original = await lerTudo(storage, caminho)
     const opcoes = { limitInputPixels: LIMITE_PIXELS_MINIATURA, failOn: 'error' as const }
     const { width = 0, height = 0 } = await sharp(original, opcoes).metadata()
     if (!width || !height || width * height > LIMITE_PIXELS_MINIATURA) return null
-    return sharp(original, opcoes)
-      .rotate()
-      .resize(largura, largura, { fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 80 })
-      .toBuffer()
+    const redimensionada = sharp(original, opcoes).rotate().resize(largura, largura, { fit: 'inside', withoutEnlargement: true })
+    // JPEG não tem transparência: o fundo transparente (logo em PNG) vira branco
+    return formato === 'jpg'
+      ? redimensionada.flatten({ background: '#ffffff' }).jpeg({ quality: 82, mozjpeg: true }).toBuffer()
+      : redimensionada.webp({ quality: 80 }).toBuffer()
   }).catch(() => null)
 }
 
 /**
- * Responde a imagem redimensionada. A versão WebP fica guardada ao lado do original
- * ({arquivo}.w480.webp) e é apagada junto com ele.
+ * Imagem redimensionada, guardada ao lado do original ({arquivo}.w480.webp, {arquivo}.w1200.jpg…) e apagada
+ * junto com ele (SUFIXOS_DERIVADOS). null se o original não é uma imagem legível.
  */
+export async function obterImagem(storage: StorageService, caminho: string, w: LarguraImagem, formato: FormatoImagem = 'webp') {
+  const sufixo = `.w${w}.${formato}`
+  const guardada = await storage.lerDerivado(caminho, sufixo)
+  if (guardada) return guardada
+  const imagem = await gerarImagem(storage, caminho, Number(w), formato)
+  if (imagem) await storage.gravarDerivado(caminho, sufixo, imagem).catch(() => undefined)
+  return imagem
+}
+
+/** Responde a imagem redimensionada (WebP por padrão; JPEG com f=jpg). */
 export async function enviarImagem(
   storage: StorageService,
   reply: FastifyReply,
   arquivo: { caminho: string },
   w: LarguraImagem,
   cache: 'public' | 'private',
+  formato: FormatoImagem = 'webp',
 ) {
-  const sufixo = `.w${w}.webp`
-  let imagem = await storage.lerDerivado(arquivo.caminho, sufixo)
-  if (!imagem) {
-    imagem = await gerarWebp(storage, arquivo.caminho, Number(w))
-    if (!imagem) throw AppError.naoEncontrado('Imagem não encontrada.')
-    await storage.gravarDerivado(arquivo.caminho, sufixo, imagem).catch(() => undefined)
-  }
+  const imagem = await obterImagem(storage, arquivo.caminho, w, formato)
+  if (!imagem) throw AppError.naoEncontrado('Imagem não encontrada.')
   return reply
-    .header('Content-Type', 'image/webp')
+    .header('Content-Type', TIPO_CONTEUDO[formato])
     .header('Cache-Control', cache === 'public' ? 'public, max-age=86400' : 'private, max-age=3600')
     .send(imagem)
 }

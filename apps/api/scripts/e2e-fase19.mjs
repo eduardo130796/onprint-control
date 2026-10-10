@@ -8,6 +8,12 @@ import { BASE, chamar, conferir, entrar, finalizar } from './e2e-util.mjs'
 
 const SLUG = 'principal'
 const pub = (caminho, opcoes) => chamar(opcoes?.body ? 'POST' : 'GET', `/publico/${SLUG}/vitrine${caminho}`, opcoes)
+/** Prévia do link (Open Graph): o Caddy chama com o host da vitrine e o caminho pedido */
+async function og(host, caminho) {
+  const r = await fetch(`${BASE}/publico/vitrine-og?host=${encodeURIComponent(host)}&caminho=${encodeURIComponent(caminho)}`, { headers: { 'X-Forwarded-Proto': 'https' } })
+  return { status: r.status, tipo: r.headers.get('content-type'), html: await r.text() }
+}
+const tagOg = (html, nome) => (new RegExp(`<meta (?:property|name)="${nome}" content="([^"]*)">`).exec(html)?.[1] ?? '').replaceAll('&amp;', '&')
 const permitida = async (dominio) => (await chamar('GET', `/publico/vitrine-permitida?domain=${encodeURIComponent(dominio)}`)).status
 
 /** Imagem de verdade (o sharp precisa decodificar para gerar o WebP) */
@@ -139,6 +145,35 @@ r = await chamar('POST', `/produtos/${caneca.id}/reativar`, { token: admin })
 const imgCaneca = await chamar('POST', `/produtos/${caneca.id}/imagens`, { token: admin, form: formulario(await imagem('#999999', 300, 300), 'caneca.png') })
 conferir('imagem de produto não publicado não é servida', (await fetch(`${BASE}/publico/${SLUG}/vitrine/imagens/${imgCaneca.json[0].arquivoId}`)).status, 404)
 
+console.log('\n— Prévia do link (Open Graph) —')
+const HOST = `${SLUG}.localhost`
+let p = await og(HOST, '/produto/banner-em-lona-440-g?utm_source=whatsapp')
+conferir('página do produto: HTML', `${p.status} ${p.tipo}`, '200 text/html; charset=utf-8')
+conferir('og:title = nome do produto', tagOg(p.html, 'og:title'), 'Banner em lona 440 g')
+conferir('og:description com preço exibido e texto de venda', tagOg(p.html, 'og:description').startsWith('A partir de R$ 65,00 / m²') && tagOg(p.html, 'og:description').includes('Lona 440 g com ótima resistência.'), true)
+conferir('og:url absoluto (https pelo X-Forwarded-Proto)', tagOg(p.html, 'og:url'), `https://${HOST}/produto/banner-em-lona-440-g`)
+conferir('og:site_name e twitter:card', `${tagOg(p.html, 'og:site_name')} ${tagOg(p.html, 'twitter:card')}`, 'Gráfica Exemplo summary_large_image')
+const ogImagem = tagOg(p.html, 'og:image')
+conferir('og:image = capa em JPEG (f=jpg)', `${ogImagem.startsWith(`https://${HOST}/api/v1/publico/${SLUG}/vitrine/imagens/${verso.arquivoId}`)} ${ogImagem.endsWith('f=jpg')}`, 'true true')
+conferir('og:image:width/height', `${tagOg(p.html, 'og:image:width')}x${tagOg(p.html, 'og:image:height')}`, '800x800')
+const urlJpg = new URL(ogImagem)
+const jpg = await fetch(BASE.replace('/api/v1', '') + urlJpg.pathname + urlJpg.search)
+const metaJpg = await sharp(Buffer.from(await jpg.arrayBuffer())).metadata()
+conferir('imagem JPEG da prévia', `${jpg.status} ${jpg.headers.get('content-type')} ${metaJpg.format} ${metaJpg.width}`, '200 image/jpeg jpeg 800')
+conferir('formato fora da lista: 400', (await fetch(`${BASE}/publico/${SLUG}/vitrine/imagens/${verso.arquivoId}?f=png`)).status, 400)
+p = await og(HOST, '/')
+conferir('início: título, slogan e 1º banner', `${tagOg(p.html, 'og:title')} | ${tagOg(p.html, 'og:description')} | ${tagOg(p.html, 'og:image').includes(bannerId)}`, 'Gráfica Exemplo | Impressos com qualidade | true')
+const categoria = (await pub('/')).json.categorias.find((c) => c.quantidade > 0)
+p = await og(`${HOST}:5173`, `/categoria/${categoria.id}`)
+conferir('categoria: nome e quantidade', `${tagOg(p.html, 'og:title')} | ${tagOg(p.html, 'og:description')}`, `${categoria.nome} | ${categoria.quantidade} ${categoria.quantidade === 1 ? 'produto' : 'produtos'} · Gráfica Exemplo`)
+conferir('porta mantida no endereço', tagOg(p.html, 'og:url'), `https://${HOST}:5173/categoria/${categoria.id}`)
+p = await og(HOST, '/produto/caneca-personalizada')
+conferir('produto fora do site → prévia do início', `${p.status} ${tagOg(p.html, 'og:title')} ${tagOg(p.html, 'og:url')}`, `200 Gráfica Exemplo https://${HOST}/`)
+conferir('outras páginas → início', tagOg((await og(HOST, '/lista')).html, 'og:title'), 'Gráfica Exemplo')
+p = await og('nao-existe.localhost', '/')
+conferir('empresa inexistente: HTML genérico 404', `${p.status} ${tagOg(p.html, 'og:title')}`, '404 Site não encontrado')
+conferir('subdomínio reservado: genérico', (await og('www.localhost', '/')).status, 404)
+
 console.log('\n— HTTPS sob demanda (Caddy) —')
 conferir('vitrine no ar: 200', await permitida(`${SLUG}.localhost`), 200)
 conferir('subdomínio reservado: 404', await permitida('www.localhost'), 404)
@@ -200,9 +235,12 @@ await chamar('PUT', '/vitrine/config', { token: admin, body: { ...corpoConfig, a
 conferir('vitrine desligada: site 404', (await pub('/')).status, 404)
 conferir('vitrine desligada: imagens 404', (await fetch(`${BASE}/publico/${SLUG}/vitrine/imagens/${verso.arquivoId}`)).status, 404)
 conferir('vitrine desligada: Caddy não emite', await permitida(`${SLUG}.localhost`), 404)
+p = await og(`${SLUG}.localhost`, '/produto/banner-em-lona-440-g')
+conferir('vitrine desligada: prévia genérica, sem dados da empresa', `${p.status} ${tagOg(p.html, 'og:title')} ${p.html.includes('Gráfica Exemplo')} ${p.html.includes('og:image')}`, '404 Site não encontrado false false')
 await chamar('PUT', '/vitrine/config', { token: admin, body: corpoConfig })
 await chamar('POST', `/plataforma/empresas/${empresa.id}/acoes`, { token: plataforma, body: { acao: 'modulos_extras', modulos: [] } })
 conferir('módulo retirado do plano: site 404', (await pub('/')).status, 404)
+conferir('módulo retirado do plano: prévia genérica', (await og(`${SLUG}.localhost`, '/')).html.includes('Gráfica Exemplo'), false)
 
 console.log('\n— Slug de empresa reservado —')
 r = await chamar('POST', '/plataforma/empresas', { token: plataforma, body: { nome: 'API', email: 'dono@api.local', responsavel: 'Dono API', plano: 'essencial', situacao: 'ativa' } })

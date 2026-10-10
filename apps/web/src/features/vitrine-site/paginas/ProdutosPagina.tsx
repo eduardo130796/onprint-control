@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { Container, GradeEsqueleto, GradeProdutos } from '../componentes/comum'
 import { useTituloPagina, useVitrine } from '../contexto'
 import { botao } from '../estilos'
+import { descricaoProdutos } from '../seo'
 import { NaoEncontradoPagina } from './NaoEncontradoPagina'
 
 const POR_PAGINA = 24
@@ -61,7 +62,7 @@ export function ProdutosPagina() {
   const busca = params.get('busca')?.trim() ?? ''
   const pagina = Math.max(1, Number(params.get('pagina')) || 1)
   const categoria = categoriaId ? vitrine.categorias.find((c) => c.id === categoriaId) : null
-  useTituloPagina(categoria?.nome ?? (busca ? `Busca: ${busca}` : 'Produtos'))
+  useTituloPagina(categoria?.nome ?? (busca ? `Busca: ${busca}` : 'Produtos'), descricaoProdutos(vitrine.empresa, { categoria, busca }))
 
   const [texto, setTexto] = useState(busca)
   useEffect(() => setTexto(busca), [busca])

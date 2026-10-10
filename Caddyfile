@@ -64,5 +64,15 @@
 	tls {
 		on_demand
 	}
+
+	# Prévia do link (WhatsApp, Facebook, Telegram…): os leitores de link não rodam o JavaScript do site, então
+	# recebem da API um HTML mínimo com as tags Open Graph da página. Buscadores (Googlebot) veem o site normal.
+	# O rewrite escapa os valores da query ({host} e {uri} chegam inteiros na API).
+	@previa {
+		header_regexp User-Agent (?i)(WhatsApp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|Slackbot|LinkedInBot|Discordbot|Pinterest|SkypeUriPreview)
+		not path /api/* /assets/* /socket.io/*
+	}
+	rewrite @previa /api/v1/publico/vitrine-og?host={host}&caminho={uri}
+
 	import site
 }

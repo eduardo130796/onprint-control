@@ -1,12 +1,13 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { FilePlus2, Globe, Hand, Mail, MessageCircle, Package, XCircle } from 'lucide-react'
+import { BookOpen, FilePlus2, Globe, Hand, Mail, MessageCircle, Package, XCircle } from 'lucide-react'
 import { ORIGEM_ROTULOS, formatarDataHora, formatarDataSimples, formatarTelefone, type Solicitacao, type SolicitacaoItem } from '@onprint/shared'
 import { solicitacoesApi } from '@/api/comercial'
 import { AcaoPainel, DadoPainel, PainelCartao } from '@/components/shared/kanban/PainelCartao'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useAuth } from '@/hooks/useAuth'
 import { usePermissoes } from '@/hooks/usePermission'
+import { useEnviarCatalogo } from '@/features/vitrine/useEnviarCatalogo'
 
 /** Solicitação com os campos da vitrine (itens e e-mail do contato) — ver docs/VITRINE.md §3 */
 /** A solicitação já traz e-mail e itens (pedidos da vitrine) */
@@ -37,6 +38,7 @@ export function PainelSolicitacao({ solicitacao, onFechar, onAssumir, onDescarta
   const navigate = useNavigate()
   const pode = usePermissoes()
   const { usuario } = useAuth()
+  const catalogo = useEnviarCatalogo()
   // Detalhe atualizado (a linha da lista serve de prévia enquanto carrega)
   const detalhe = useQuery({
     queryKey: ['solicitacoes', 'detalhe', solicitacao.id],
@@ -72,6 +74,7 @@ export function PainelSolicitacao({ solicitacao, onFechar, onAssumir, onDescarta
               <AcaoPainel icone={FilePlus2} rotulo="Criar orçamento" destaque onClick={() => navigate(`/orcamentos/novo?solicitacao=${s.id}&cliente=${s.clienteId}`)} />
             )}
             {zap && <AcaoPainel icone={MessageCircle} rotulo="WhatsApp" onClick={() => window.open(`https://wa.me/${zap.length <= 11 ? `55${zap}` : zap}`, '_blank', 'noopener')} />}
+            {zap && s.cliente && catalogo.disponivel && <AcaoPainel icone={BookOpen} rotulo="Enviar catálogo" onClick={() => s.cliente && catalogo.enviar(s.cliente)} />}
             {aberta && pode('orcamentos', 'editar') && s.responsavelId !== usuario?.id && (
               <AcaoPainel icone={Hand} rotulo="Assumir" carregando={assumindo} onClick={() => onAssumir(s)} />
             )}

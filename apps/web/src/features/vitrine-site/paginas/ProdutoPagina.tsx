@@ -7,11 +7,14 @@ import { cn } from '@/lib/utils'
 import { naoEncontrado } from '../api'
 import { Container, Esqueleto, GradeProdutos, ImagemProduto, TituloSecao } from '../componentes/comum'
 import { CampoMedida, CampoQuantidade, Rotulo } from '../componentes/campos'
+import { BotaoCompartilhar } from '../componentes/Compartilhar'
 import { IconeWhatsapp } from '../componentes/icones'
-import { useTituloPagina, useVitrine } from '../contexto'
+import { dadosCompartilharProduto, linkProduto, mensagemInteresse } from '../compartilhar'
+import { useMensagemWhatsappPagina, useTituloPagina, useVitrine } from '../contexto'
 import { botao } from '../estilos'
-import { formatarMetros, lerMedida, medidaParaCampo, paragrafos, partesPreco, textoPrazo } from '../formato'
+import { formatarMetros, lerMedida, medidaParaCampo, paragrafos, partesPreco, textoPrazo, textoPreco } from '../formato'
 import { novoIdItem, type ItemLista } from '../lista'
+import { descricaoProduto } from '../seo'
 import { NaoEncontradoPagina } from './NaoEncontradoPagina'
 
 function Galeria({ imagens, nome }: { imagens: string[]; nome: string }) {
@@ -114,7 +117,7 @@ function PrecoGrande({ produto }: { produto: ProdutoVitrine }) {
 
 type Erros = Partial<Record<'quantidade' | 'largura' | 'altura', string>>
 
-function FormularioLista({ produto }: { produto: ProdutoVitrine }) {
+function FormularioLista({ produto, link }: { produto: ProdutoVitrine; link: string }) {
   const { lista, whatsapp } = useVitrine()
   const usaMedidas = produto.modoCalculo === 'm2' || produto.modoCalculo === 'metro_linear'
   const medidas = produto.medidas
@@ -191,7 +194,7 @@ function FormularioLista({ produto }: { produto: ProdutoVitrine }) {
     window.setTimeout(() => aviso.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 50)
   }
 
-  const wa = whatsapp(`Olá! Tenho interesse em: ${produto.nome}. Pode me ajudar?`)
+  const wa = whatsapp(mensagemInteresse(produto.nome, link))
   const n = lista.itens.length
 
   return (
@@ -389,7 +392,7 @@ function Carregando() {
 }
 
 export function ProdutoPagina() {
-  const { api, slug } = useVitrine()
+  const { api, slug, vitrine } = useVitrine()
   const { produtoSlug = '' } = useParams()
   const consulta = useQuery({
     queryKey: ['vitrine', slug, 'produto', produtoSlug],
@@ -397,7 +400,14 @@ export function ProdutoPagina() {
     retry: (n, erro) => !naoEncontrado(erro) && n < 1,
   })
   const produto = consulta.data
-  useTituloPagina(produto?.nome ?? (consulta.isError ? 'Produto não encontrado' : null))
+  const loja = vitrine.empresa.nome
+  const link = linkProduto(window.location.origin, produto?.slug ?? produtoSlug)
+  const preco = produto ? textoPreco(produto.preco) : ''
+  useTituloPagina(
+    produto?.nome ?? (consulta.isError ? 'Produto não encontrado' : null),
+    produto ? descricaoProduto({ nome: produto.nome, preco, texto: paragrafos(produto.descricao)[0] ?? null, loja }) : null,
+  )
+  useMensagemWhatsappPagina(produto ? mensagemInteresse(produto.nome, link) : null)
 
   if (consulta.isPending) return <Carregando />
   if (!produto) {
@@ -434,15 +444,20 @@ export function ProdutoPagina() {
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-14 xl:gap-20">
         <Galeria imagens={produto.imagens} nome={produto.nome} />
         <div>
-          {produto.categoria && (
-            <Link to={`/categoria/${produto.categoria.id}`} className="text-xs font-bold uppercase tracking-[0.16em] text-marca-escuro hover:underline">
-              {produto.categoria.nome}
-            </Link>
-          )}
-          <h1 className="vt-titulo mt-2 text-3xl font-extrabold leading-tight text-slate-900 sm:text-4xl">{produto.nome}</h1>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              {produto.categoria && (
+                <Link to={`/categoria/${produto.categoria.id}`} className="text-xs font-bold uppercase tracking-[0.16em] text-marca-escuro hover:underline">
+                  {produto.categoria.nome}
+                </Link>
+              )}
+              <h1 className={cn('vt-titulo text-3xl font-extrabold leading-tight text-slate-900 sm:text-4xl', produto.categoria && 'mt-2')}>{produto.nome}</h1>
+            </div>
+            <BotaoCompartilhar dados={dadosCompartilharProduto({ nome: produto.nome, preco, loja, link })} className="shrink-0" />
+          </div>
           <PrecoGrande produto={produto} />
           {textos[0] && <p className="mt-6 text-[1.0625rem] leading-relaxed text-slate-600 lg:hidden">{textos[0]}</p>}
-          <FormularioLista key={produto.slug} produto={produto} />
+          <FormularioLista key={produto.slug} produto={produto} link={link} />
           {textos.length > 0 && (
             <section aria-labelledby="titulo-descricao" className="mt-12">
               <h2 id="titulo-descricao" className="vt-titulo text-xl font-extrabold text-slate-900">

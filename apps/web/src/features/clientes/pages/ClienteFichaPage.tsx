@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, BookOpen } from 'lucide-react'
 import { formatarDataHora } from '@onprint/shared'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Anexos } from '@/components/shared/Anexos'
@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { usePermission } from '@/hooks/usePermission'
+import { useEnviarCatalogo } from '@/features/vitrine/useEnviarCatalogo'
 import { ClienteForm } from '../components/ClienteForm'
 import { ContatosTab } from '../components/ContatosTab'
 import { EnderecosTab } from '../components/EnderecosTab'
@@ -26,6 +27,7 @@ export function ClienteFichaPage() {
   const navigate = useNavigate()
   const consulta = useCliente(novo ? undefined : id)
   const podeFinanceiro = usePermission('financeiro')
+  const catalogo = useEnviarCatalogo()
 
   const voltar = (
     <Button asChild variant="outline">
@@ -72,7 +74,16 @@ export function ClienteFichaPage() {
             <span>Atualizado em {formatarDataHora(cliente.updatedAt)}</span>
           </span>
         }
-        acoes={voltar}
+        acoes={
+          <>
+            {catalogo.disponivel && (cliente.whatsapp || cliente.telefone) && (
+              <Button type="button" variant="outline" onClick={() => catalogo.enviar(cliente)}>
+                <BookOpen /> Enviar catálogo
+              </Button>
+            )}
+            {voltar}
+          </>
+        }
       />
       <Tabs defaultValue="dados">
         <TabsList>

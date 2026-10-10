@@ -8,10 +8,12 @@ import { cn } from '@/lib/utils'
 import { Container, ImagemProduto, PrecoCompacto } from '../componentes/comum'
 import { CampoMedida, CampoQuantidade, CampoTexto, MensagemErro, Rotulo } from '../componentes/campos'
 import { IconeWhatsapp } from '../componentes/icones'
-import { useTituloPagina, useVitrine } from '../contexto'
+import { mensagemPedidoEnviado } from '../compartilhar'
+import { useMensagemWhatsappPagina, useTituloPagina, useVitrine } from '../contexto'
 import { botao } from '../estilos'
 import { formatarMetros, lerMedida, medidaParaCampo } from '../formato'
 import { itensParaPedido, type ItemLista } from '../lista'
+import { descricaoLista } from '../seo'
 
 /** Medidas que faltam ou passam da máxima (o item fica marcado e o envio espera a correção) */
 function problemaMedidas(item: ItemLista): string | null {
@@ -171,7 +173,7 @@ type CampoContato = 'nome' | 'whatsapp' | 'email' | 'mensagem'
 
 function PedidoEnviado({ resultado }: { resultado: PedidoVitrineEnviado }) {
   const { vitrine, whatsapp } = useVitrine()
-  const wa = whatsapp(`Olá! Acabei de enviar pelo site o pedido de orçamento ${resultado.numero}.`)
+  const wa = whatsapp(mensagemPedidoEnviado(resultado.numero))
   const mensagem = resultado.mensagem || vitrine.empresa.mensagemPedidoEnviado || 'Recebemos sua lista. Em breve entraremos em contato pelo WhatsApp com o orçamento.'
   return (
     <Container className="py-14 lg:py-20">
@@ -214,13 +216,15 @@ function ListaVazia() {
 }
 
 export function ListaPagina() {
-  const { api, lista } = useVitrine()
+  const { api, lista, vitrine } = useVitrine()
   const [contato, setContato] = useState({ nome: '', whatsapp: '', email: '', mensagem: '', site: '' })
   const [erros, setErros] = useState<Partial<Record<CampoContato, string>>>({})
   const [erroGeral, setErroGeral] = useState<string | null>(null)
   const [tentou, setTentou] = useState(false)
   const [resultado, setResultado] = useState<PedidoVitrineEnviado | null>(null)
-  useTituloPagina(resultado ? 'Pedido enviado' : 'Lista de orçamento')
+  useTituloPagina(resultado ? 'Pedido enviado' : 'Lista de orçamento', descricaoLista(vitrine.empresa))
+  // Depois de enviar, o WhatsApp do topo e o flutuante também levam o número do pedido
+  useMensagemWhatsappPagina(resultado ? mensagemPedidoEnviado(resultado.numero) : null)
 
   const envio = useMutation({
     mutationFn: api.enviarPedido,

@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ExternalLink, FilePlus2, MessageCircle } from 'lucide-react'
+import { BookOpen, ExternalLink, FilePlus2, MessageCircle } from 'lucide-react'
 import { formatarCpfCnpj, formatarDataSimples, formatarMoeda, formatarTelefone, type Cliente } from '@onprint/shared'
 import { titulosApi } from '@/api/financeiro'
 import { pedidosApi } from '@/api/producao'
@@ -9,6 +9,7 @@ import { AcaoPainel, DadoPainel, PainelCartao } from '@/components/shared/kanban
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePermissoes } from '@/hooks/usePermission'
+import { useEnviarCatalogo } from '@/features/vitrine/useEnviarCatalogo'
 import { useCliente } from '../hooks'
 
 const so = (v: string | null | undefined) => (v ?? '').replace(/\D/g, '')
@@ -28,6 +29,7 @@ export function PainelCliente({ cliente: resumo, onFechar }: { cliente: Cliente;
   const navigate = useNavigate()
   const pode = usePermissoes()
   const consulta = useCliente(resumo.id)
+  const catalogo = useEnviarCatalogo()
   const verFinanceiro = pode('financeiro')
   const verPedidos = pode('pedidos')
   const financeiro = useQuery({
@@ -65,6 +67,7 @@ export function PainelCliente({ cliente: resumo, onFechar }: { cliente: Cliente;
           <AcaoPainel icone={ExternalLink} rotulo="Abrir ficha" onClick={() => ir(`/clientes/${c.id}`)} destaque />
           {pode('orcamentos', 'criar') && <AcaoPainel icone={FilePlus2} rotulo="Novo orçamento" onClick={() => ir(`/orcamentos/novo?cliente=${c.id}`)} />}
           {zap && <AcaoPainel icone={MessageCircle} rotulo="WhatsApp" onClick={() => window.open(`https://wa.me/${zap.length <= 11 ? `55${zap}` : zap}`, '_blank', 'noopener')} />}
+          {zap && catalogo.disponivel && <AcaoPainel icone={BookOpen} rotulo="Enviar catálogo" onClick={() => catalogo.enviar(c)} />}
         </>
       }
     >

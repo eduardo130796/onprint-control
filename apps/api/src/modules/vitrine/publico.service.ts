@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
+import sharp from 'sharp'
 import type {
   AcabamentoVitrine,
   ModoCalculo,
@@ -17,7 +18,8 @@ import { registrarAuditoria } from '../../core/auditoria'
 import { contextoEmpresa } from '../../core/contexto-empresa'
 import { proximoNumero } from '../../core/numeracao'
 import { paginado } from '../../core/paginacao'
-import { urlImagemPublica } from './imagens'
+import { obterImagem, urlImagemPublica } from './imagens'
+import { caminhoDaPagina, resumir, textoPrazoOg, textoPrecoOg, type DadosOg, type PaginaOg } from './og'
 import { MODOS_COM_MEDIDAS, montarDescricaoSolicitacao, precoExibido } from './regras'
 import { TIPOS_VITRINE, lerConfigVitrine } from './vitrine.service'
 
@@ -141,6 +143,60 @@ export function criarVitrinePublicaService(app: FastifyInstance) {
           (pa): AcabamentoVitrine => ({ id: pa.acabamento.id, nome: pa.acabamento.nome, descricao: pa.acabamento.descricao, obrigatorio: pa.obrigatorio, padrao: pa.padrao || pa.obrigatorio }),
         ),
       }
+    },
+
+    /**
+     * Prévia do link (Open Graph) da página: início (título + slogan; 1º banner, senão logo), produto (nome, preço
+     * exibido e prazo; capa) ou categoria (nome e quantidade). Produto ou categoria que não está no site → início.
+     * A imagem JPEG de 1200 px é gerada aqui (fica no cache): o leitor de link pede logo em seguida.
+     */
+    async previaLink(pagina: PaginaOg, origem: string): Promise<DadosOg> {
+      const slug = slugEmpresa()
+      const [config, empresa] = await Promise.all([
+        lerConfigVitrine(prisma),
+        prisma.empresaConfig.findFirst({ orderBy: { createdAt: 'asc' }, select: { nomeFantasia: true, razaoSocial: true, logoArquivoId: true } }),
+      ])
+      const site = config.titulo || empresa?.nomeFantasia || empresa?.razaoSocial || contextoEmpresa.exigir().nome
+      const imagemInicio = config.banners[0] ?? empresa?.logoArquivoId ?? null
+      let alvo = { pagina: { tipo: 'inicio' } as PaginaOg, titulo: site, tituloAba: site, descricao: config.slogan || config.seoDescricao, imagemId: imagemInicio }
+
+      if (pagina.tipo === 'produto') {
+        const p = await prisma.produto.findFirst({
+          where: { ...PUBLICADO, vitrineSlug: pagina.slug },
+          select: { nome: true, vitrineNome: true, vitrineDescricao: true, vitrineModoPreco: true, precoVenda: true, modoCalculo: true, prazoProducaoDias: true, imagens: { orderBy: { ordem: 'asc' }, take: 1, select: { arquivoId: true } } },
+        })
+        if (p) {
+          const nome = p.vitrineNome || p.nome
+          const preco = textoPrecoOg(precoExibido({ vitrineModoPreco: p.vitrineModoPreco, precoVenda: p.precoVenda, modoCalculo: p.modoCalculo as ModoCalculo }))
+          const linha = [preco, textoPrazoOg(p.prazoProducaoDias)].filter(Boolean).join(' · ')
+          const texto = p.vitrineDescricao ? resumir(p.vitrineDescricao, 400) : null
+          alvo = { pagina, titulo: nome, tituloAba: `${nome} | ${site}`, descricao: texto ? `${linha} — ${texto}` : linha, imagemId: p.imagens[0]?.arquivoId ?? imagemInicio }
+        }
+      } else if (pagina.tipo === 'categoria') {
+        const noSite = { ...PUBLICADO, categoriaId: pagina.id }
+        const [categoria, quantidade, capa] = await Promise.all([
+          prisma.categoria.findFirst({ where: { id: pagina.id, ativo: true }, select: { nome: true } }),
+          prisma.produto.count({ where: noSite }),
+          prisma.produtoImagem.findFirst({ where: { produto: noSite }, orderBy: [{ produto: { vitrineOrdem: 'asc' } }, { ordem: 'asc' }], select: { arquivoId: true } }),
+        ])
+        if (categoria && quantidade) {
+          const descricao = `${quantidade} ${quantidade === 1 ? 'produto' : 'produtos'} · ${site}`
+          alvo = { pagina, titulo: categoria.nome, tituloAba: `${categoria.nome} | ${site}`, descricao, imagemId: capa?.arquivoId ?? imagemInicio }
+        }
+      }
+
+      let imagem: DadosOg['imagem'] = null
+      if (alvo.imagemId) {
+        imagem = { url: `${origem}${urlImagemPublica(slug, alvo.imagemId, '1200')}&f=jpg`, largura: null, altura: null }
+        // Tamanho real da imagem (og:image:width/height); sem ele a prévia sai do mesmo jeito
+        const arquivo = await prisma.arquivo.findUnique({ where: { id: alvo.imagemId }, select: { caminho: true } })
+        const jpg = arquivo ? await obterImagem(app.storage, arquivo.caminho, '1200', 'jpg') : null
+        if (jpg) {
+          const { width, height } = await sharp(jpg).metadata().catch(() => ({ width: undefined, height: undefined }))
+          imagem = { ...imagem, largura: width ?? null, altura: height ?? null }
+        }
+      }
+      return { titulo: alvo.titulo, tituloAba: alvo.tituloAba, descricao: alvo.descricao, url: `${origem}${caminhoDaPagina(alvo.pagina)}`, siteNome: site, imagem }
     },
 
     /** Arquivo que o site pode mostrar: banner, logo ou imagem de produto publicado (null = não pode) */

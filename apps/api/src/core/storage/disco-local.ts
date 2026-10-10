@@ -7,7 +7,7 @@ import { pipeline } from 'node:stream/promises'
 import type { ArquivoSalvo } from './index'
 
 /** Sufixos das versões derivadas (cache de imagens da vitrine): apagadas junto com o original. */
-export const SUFIXOS_DERIVADOS = ['.w480.webp', '.w1200.webp'] as const
+export const SUFIXOS_DERIVADOS = ['.w480.webp', '.w1200.webp', '.w480.jpg', '.w1200.jpg'] as const
 
 /** Nome seguro para disco: sem acentos, espaços ou caracteres especiais. */
 export function nomeSeguro(nome: string): string {

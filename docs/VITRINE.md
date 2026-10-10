@@ -112,3 +112,41 @@ logo e título da aba = nome da gráfica. Rotas: `/` (início), `/produtos` (tod
 - e2e `e2e-fase19.mjs`: módulo fora do plano → 404 público; liberar módulo; configurar e ativar; publicar produto com
   galeria; listar/detalhar público; enviar lista (cria cliente pré-cadastro + solicitação com itens + notificação);
   campo-isca não grava; limite de envios; vendedor não edita vitrine; `vitrine-permitida` 200/404.
+
+---
+
+# Etapa 1.5 — Vitrine no WhatsApp (sem integração oficial)
+
+Objetivo: facilitar a vida de quem atende pelo WhatsApp e do cliente, usando a vitrine. A integração oficial
+(API da Meta: catálogo nativo, atendente automático, avisos) fica para depois.
+
+## A. Prévia do link (Open Graph)
+- Leitores de link (User-Agent com `WhatsApp`, `facebookexternalhit`, `Facebot`, `Twitterbot`, `TelegramBot`,
+  `Slackbot`, `LinkedInBot`, `Discordbot`, `Pinterest`, `SkypeUriPreview`) que abrem uma página da vitrine recebem um
+  HTML mínimo da API com `og:title`, `og:description`, `og:image` (JPEG), `og:url`, `og:site_name`, `og:type` e
+  `twitter:card=summary_large_image`. Buscadores (Googlebot etc.) **não** entram: continuam vendo o site normal.
+- API: `GET /api/v1/publico/vitrine-og?host={host}&caminho={path}` (empresa pelo subdomínio do host). Páginas:
+  `/` (título + slogan; imagem = 1º banner, senão logo), `/produto/:slug` (nome + preço exibido + prazo; imagem = capa),
+  `/categoria/:id` (nome da categoria + quantidade), demais → início. 404 da vitrine → HTML genérico sem dados.
+- Imagem JPEG: o endpoint de imagens aceita `f=jpg` (além de WebP), com o mesmo cache em disco.
+- Produção: no Caddy (bloco das vitrines), matcher pelo User-Agent → `rewrite` para o endpoint, mantendo o host.
+  Desenvolvimento: plugin do Vite (só `serve`) faz o mesmo nos hosts `*.localhost`.
+
+## B. Compartilhar (área logada)
+- Vitrine → Produtos (e painel do produto): **Compartilhar** abre um diálogo com: link do produto (copiar), mensagem
+  pronta editável ("Olá{, nome}! Veja o {produto}: {preço} — {link}"), enviar no WhatsApp para um cliente (busca de
+  clientes; usa o WhatsApp do cadastro) ou para qualquer contato (wa.me sem número), e **imagens** geradas no navegador
+  (canvas, fontes do sistema): **Status** 1080×1920 e **Post** 1080×1080 com foto, nome, preço, logo/nome da gráfica,
+  cor do tema, "Peça pelo WhatsApp" e o endereço do site. Baixar PNG ou compartilhar (Web Share com arquivo no celular).
+- Configurar vitrine: **Divulgar a vitrine** (link, WhatsApp, imagem de Status da loja com QR code do site).
+- Cliente (painel e ficha) e Solicitação (painel): **Enviar catálogo** → wa.me para o WhatsApp do cliente com mensagem
+  pronta e o link da vitrine (só com o módulo `vitrine` e a vitrine ativa).
+- **Catálogo em PDF** (Vitrine → Produtos): capa (logo, título, slogan, contatos, QR do site), produtos publicados por
+  categoria (foto, nome, preço exibido, texto curto), QR/link de cada produto e rodapé "Gerado com GrafyGo"; baixar ou
+  compartilhar. Usa o gerador de PDF existente (`features/impressao`) e a cor do tema.
+
+## C. Site público
+- Página do produto: botão **Compartilhar** (Web Share no celular; senão menu com WhatsApp e copiar link).
+- O "Chamar no WhatsApp" na página de um produto leva o produto na mensagem ("Olá! Tenho interesse no {produto}:
+  {link}"); na lista enviada, a mensagem leva o número do pedido.
+- Título e descrição da aba (`document.title`, `meta description`) por página.

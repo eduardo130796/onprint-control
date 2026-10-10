@@ -8,26 +8,15 @@ import { cn } from '@/lib/utils'
 import { criarVitrineApi, naoEncontrado } from './api'
 import { Container, Esqueleto, GradeEsqueleto } from './componentes/comum'
 import { FeitoComGrafyGo, Rodape, Topo, WhatsappFlutuante } from './componentes/Estrutura'
-import { VitrineContexto, criarLinkWhatsapp, useListaOrcamento, type ContextoVitrine } from './contexto'
+import { VitrineContexto, criarLinkWhatsapp, definirMeta, useListaOrcamento, type ContextoVitrine } from './contexto'
 import { botao } from './estilos'
+import { descricaoLoja } from './seo'
 import { InicioPagina } from './paginas/InicioPagina'
 import { ListaPagina } from './paginas/ListaPagina'
 import { NaoEncontradoPagina } from './paginas/NaoEncontradoPagina'
 import { ProdutoPagina } from './paginas/ProdutoPagina'
 import { ProdutosPagina } from './paginas/ProdutosPagina'
 import './vitrine.css'
-
-/** Meta tag do <head> (descrição para buscadores, cor da barra do navegador) */
-function definirMeta(nome: string, conteudo: string | null) {
-  let meta = document.querySelector<HTMLMetaElement>(`meta[name="${nome}"]`)
-  if (!conteudo) return
-  if (!meta) {
-    meta = document.createElement('meta')
-    meta.name = nome
-    document.head.appendChild(meta)
-  }
-  meta.content = conteudo
-}
 
 /** Tela inteira sem o site: vitrine fora do ar (404) ou falha ao carregar */
 function TelaAviso({ titulo, texto, tentar }: { titulo: string; texto: string; tentar?: () => void }) {
@@ -77,6 +66,7 @@ function Estrutura({ slug }: { slug: string }) {
   const api = useMemo(() => criarVitrineApi(slug), [slug])
   const consulta = useQuery({ queryKey: ['vitrine', slug], queryFn: api.inicio, retry: (n, erro) => !naoEncontrado(erro) && n < 2 })
   const lista = useListaOrcamento(slug)
+  const [mensagemPagina, definirMensagemPagina] = useState<string | null>(null)
   const vitrine = consulta.data
 
   // Cara da gráfica: cor do tema, título e ícone da aba; sempre no modo claro
@@ -87,7 +77,7 @@ function Estrutura({ slug }: { slug: string }) {
     aplicarTema(e.corTema)
     const tema = TEMAS[temaOuPadrao(e.corTema)]
     definirMeta('theme-color', tema.cor)
-    definirMeta('description', e.seoDescricao || e.slogan || `${e.nome} — produtos e orçamentos online.`)
+    definirMeta('description', descricaoLoja(e))
     let vivo = true
     void gerarFavicon({ logoUrl: e.logoUrl, nome: e.nome, cor: tema.cor, contraste: tema.contraste }).then((url) => {
       if (vivo) definirFavicon(url)
@@ -98,8 +88,8 @@ function Estrutura({ slug }: { slug: string }) {
   }, [vitrine])
 
   const contexto = useMemo<ContextoVitrine | null>(
-    () => (vitrine ? { slug, api, vitrine, lista, whatsapp: criarLinkWhatsapp(vitrine) } : null),
-    [slug, api, vitrine, lista],
+    () => (vitrine ? { slug, api, vitrine, lista, whatsapp: criarLinkWhatsapp(vitrine), mensagemPagina, definirMensagemPagina } : null),
+    [slug, api, vitrine, lista, mensagemPagina],
   )
 
   if (consulta.isPending) return <CarregandoSite />

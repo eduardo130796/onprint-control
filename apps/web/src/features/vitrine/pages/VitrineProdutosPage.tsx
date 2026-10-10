@@ -2,23 +2,29 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Eye, ImageOff, Package, Settings2, Star } from 'lucide-react'
+import { ChevronDown, Download, ExternalLink, Eye, FileText, ImageOff, Loader2, Package, Settings2, Share2, Star } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Paginado, ProdutoVitrineInput, ProdutoVitrineResumo, ProdutosVitrineQuery } from '@onprint/shared'
 import { CHAVE_VITRINE_CONFIG, CHAVE_VITRINE_PRODUTOS, vitrineApi } from '@/api/vitrine'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { AcaoIcone } from '@/components/shared/AcaoIcone'
 import { CartaoIndicador } from '@/components/shared/CartaoIndicador'
 import { DataTable } from '@/components/shared/data-table/DataTable'
-import { PainelCartao } from '@/components/shared/kanban/PainelCartao'
+import { AcaoPainel, PainelCartao } from '@/components/shared/kanban/PainelCartao'
 import { Button } from '@/components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Select } from '@/components/ui/form-controls'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePermissoes } from '@/hooks/usePermission'
 import { useCategorias } from '@/features/produtos/hooks'
+import { podeCompartilharArquivo } from '../compartilhar'
+import { CompartilharDialog, type AlvoCompartilhar } from '../components/CompartilharDialog'
 import { BotaoSalvarVitrine, EditorProdutoVitrine } from '../components/EditorProdutoVitrine'
 import { Interruptor } from '../components/Interruptor'
-import { useProdutosVitrine } from '../hooks'
+import { useProdutosVitrine, useVitrineConfig } from '../hooks'
+import { useCatalogoPdf } from '../useCatalogoPdf'
 import { useEditorVitrine } from '../useEditorVitrine'
+import { urlProduto } from '../divulgar'
 import { dadosVitrine, precoExibido } from '../utils'
 
 /** Miniatura da capa (ou um ícone, sem foto) */
@@ -30,6 +36,38 @@ function Capa({ produto, tamanho = 'h-11 w-11' }: { produto: ProdutoVitrineResum
     <span className={`${tamanho} flex shrink-0 items-center justify-center rounded-xl bg-fundo text-texto-secundario ring-1 ring-border`} title="Sem foto">
       <ImageOff className="h-4 w-4" />
     </span>
+  )
+}
+
+/** "Catálogo em PDF": baixa; no celular (Web Share com arquivo), também compartilha */
+function BotaoCatalogo({ publicados }: { publicados: number }) {
+  const catalogo = useCatalogoPdf()
+  const [compartilha] = useState(podeCompartilharArquivo)
+  const icone = catalogo.gerando ? <Loader2 className="animate-spin" /> : <FileText />
+  const titulo = publicados === 0 ? 'Publique ao menos um produto para gerar o catálogo' : undefined
+  if (!compartilha) {
+    return (
+      <Button type="button" variant="outline" disabled={publicados === 0 || Boolean(catalogo.gerando)} title={titulo} onClick={() => void catalogo.gerar('baixar')}>
+        {icone} Catálogo em PDF
+      </Button>
+    )
+  }
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="outline" disabled={publicados === 0 || Boolean(catalogo.gerando)} title={titulo}>
+          {icone} Catálogo em PDF <ChevronDown />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onSelect={() => void catalogo.gerar('compartilhar')}>
+          <Share2 /> Compartilhar
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void catalogo.gerar('baixar')}>
+          <Download /> Baixar PDF
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -45,6 +83,8 @@ export function VitrineProdutosPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [abertoId, setAbertoId] = useState<string | null>(null)
+  const [compartilhando, setCompartilhando] = useState<AlvoCompartilhar | null>(null)
+  const config = useVitrineConfig()
   const buscaAtrasada = useDebounce(busca.trim())
   const q: ProdutosVitrineQuery = { busca: buscaAtrasada || undefined, categoriaId: categoriaId || undefined, publicado: publicado || undefined }
   const consulta = useProdutosVitrine(q)
@@ -144,6 +184,17 @@ export function VitrineProdutosPage() {
           />
         ),
       },
+      {
+        id: 'acoes',
+        header: '',
+        meta: { className: 'w-14 text-right' },
+        cell: ({ row: { original: p } }) =>
+          p.publicado ? (
+            <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+              <AcaoIcone icone={Share2} rotulo={`Compartilhar ${p.nomePublico || p.nome}`} onClick={() => setCompartilhando({ tipo: 'produto', produto: p })} />
+            </div>
+          ) : null,
+      },
     ],
     [podeEditar, alternar],
   )
@@ -181,11 +232,14 @@ export function VitrineProdutosPage() {
         titulo="Produtos na vitrine"
         subtitulo="Escolha o que aparece no seu site, o que fica em destaque, as fotos e como o preço é mostrado."
         acoes={
-          <Button asChild variant="outline">
-            <Link to="/vitrine">
-              <Settings2 /> Configurar vitrine
-            </Link>
-          </Button>
+          <>
+            <BotaoCatalogo publicados={resumo.publicados} />
+            <Button asChild variant="outline">
+              <Link to="/vitrine">
+                <Settings2 /> Configurar vitrine
+              </Link>
+            </Button>
+          </>
         }
       />
 
@@ -276,14 +330,34 @@ export function VitrineProdutosPage() {
       />
 
       {aberto && (
-        <PainelProduto key={aberto.id} produto={aberto} podeEditar={podeEditar} podeEditarFotos={podeEditarFotos} onFechar={() => setAbertoId(null)} />
+        <PainelProduto
+          key={aberto.id}
+          produto={aberto}
+          podeEditar={podeEditar}
+          podeEditarFotos={podeEditarFotos}
+          urlPublica={config.data?.urlPublica}
+          onCompartilhar={() => setCompartilhando({ tipo: 'produto', produto: aberto })}
+          onFechar={() => setAbertoId(null)}
+        />
       )}
+      <CompartilharDialog alvo={compartilhando} onFechar={() => setCompartilhando(null)} />
     </>
   )
 }
 
-function PainelProduto({ produto, podeEditar, podeEditarFotos, onFechar }: { produto: ProdutoVitrineResumo; podeEditar: boolean; podeEditarFotos: boolean; onFechar: () => void }) {
+interface PainelProdutoProps {
+  produto: ProdutoVitrineResumo
+  podeEditar: boolean
+  podeEditarFotos: boolean
+  urlPublica: string | undefined
+  onCompartilhar: () => void
+  onFechar: () => void
+}
+
+function PainelProduto({ produto, podeEditar, podeEditarFotos, urlPublica, onCompartilhar, onFechar }: PainelProdutoProps) {
   const editor = useEditorVitrine(produto)
+  // Compartilhar e abrir no site só depois de publicado (antes, o link dá "página não encontrada")
+  const noSite = produto.publicado && produto.slug && urlPublica
   return (
     <PainelCartao
       aberto
@@ -297,6 +371,14 @@ function PainelProduto({ produto, podeEditar, podeEditarFotos, onFechar }: { pro
             Abrir cadastro
           </Link>
         </span>
+      }
+      acoes={
+        noSite ? (
+          <>
+            <AcaoPainel icone={Share2} rotulo="Compartilhar" destaque onClick={onCompartilhar} />
+            <AcaoPainel icone={ExternalLink} rotulo="Ver no site" onClick={() => window.open(urlProduto(urlPublica, produto.slug), '_blank', 'noopener')} />
+          </>
+        ) : undefined
       }
       rodape={podeEditar ? <BotaoSalvarVitrine editor={editor} className="w-full" /> : undefined}
     >

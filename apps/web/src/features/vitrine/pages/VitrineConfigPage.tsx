@@ -1,9 +1,9 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowRight, Eye, Globe, Images, Inbox, Loader2, MapPin, MessageCircle, PackageOpen, Phone, Save, type LucideIcon } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Eye, Globe, Images, Inbox, Loader2, MapPin, Megaphone, MessageCircle, PackageOpen, Phone, Save, type LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import type { z } from 'zod'
 import { MAX_BANNERS_VITRINE, vitrineConfigSchema, type VitrineConfig, type VitrineConfigInput } from '@onprint/shared'
@@ -21,6 +21,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { usePermissoes } from '@/hooks/usePermission'
 import { cn } from '@/lib/utils'
 import { BannersVitrine } from '../components/BannersVitrine'
+import { CompartilharDialog } from '../components/CompartilharDialog'
 import { EnderecoPublico } from '../components/EnderecoPublico'
 import { Interruptor } from '../components/Interruptor'
 import { useVitrineConfig } from '../hooks'
@@ -273,6 +274,7 @@ export function VitrineConfigPage() {
   const { usuario } = useAuth()
   const nomeEmpresa = usuario?.empresa.exibicao ?? 'Sua gráfica'
   const c = consulta.data
+  const [divulgando, setDivulgando] = useState(false)
 
   return (
     <>
@@ -293,6 +295,11 @@ export function VitrineConfigPage() {
                 <PackageOpen /> Produtos na vitrine
               </Link>
             </Button>
+            {c && (
+              <Button type="button" onClick={() => setDivulgando(true)}>
+                <Megaphone /> Divulgar a vitrine
+              </Button>
+            )}
           </>
         }
       />
@@ -355,6 +362,7 @@ export function VitrineConfigPage() {
           </div>
         </div>
       )}
+      <CompartilharDialog alvo={divulgando ? { tipo: 'vitrine' } : null} onFechar={() => setDivulgando(false)} />
     </>
   )
 }

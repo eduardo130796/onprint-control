@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, NavLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { ClipboardList, Clock, Mail, MapPin, Phone, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useVitrine } from '../contexto'
+import { useVitrine, useWhatsappGeral } from '../contexto'
 import { botao } from '../estilos'
 import { linkRede } from '../formato'
 import { Container } from './comum'
@@ -105,9 +105,9 @@ function BotaoLista() {
 }
 
 export function Topo() {
-  const { vitrine, whatsapp } = useVitrine()
+  const { vitrine } = useVitrine()
   const { titulo, slogan, logoUrl } = vitrine.empresa
-  const wa = whatsapp()
+  const wa = useWhatsappGeral()
   const categorias = vitrine.categorias.filter((c) => c.quantidade > 0)
   const chip = ({ isActive }: { isActive: boolean }) =>
     cn(
@@ -313,8 +313,7 @@ export function Rodape() {
 
 /** Botão flutuante do WhatsApp (sempre à mão) */
 export function WhatsappFlutuante() {
-  const { whatsapp } = useVitrine()
-  const wa = whatsapp()
+  const wa = useWhatsappGeral()
   if (!wa) return null
   return (
     <a

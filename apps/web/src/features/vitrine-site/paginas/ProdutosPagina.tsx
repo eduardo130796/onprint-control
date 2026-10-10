@@ -162,7 +162,7 @@ export function ProdutosPagina() {
       </div>
 
       {categorias.length > 0 && (
-        <div className="vt-sem-barra -mx-4 mt-8 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0" role="list" aria-label="Filtrar por categoria">
+        <div className="mt-8 flex flex-wrap gap-2" role="list" aria-label="Filtrar por categoria">
           <Link role="listitem" to={`/produtos${sufixoBusca}`} className={chip(!categoriaId)} aria-current={!categoriaId ? 'page' : undefined}>
             Todas
           </Link>

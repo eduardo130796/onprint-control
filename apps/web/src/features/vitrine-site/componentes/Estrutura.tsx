@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { useVitrine, useWhatsappGeral } from '../contexto'
 import { botao } from '../estilos'
 import { linkRede } from '../formato'
+import { classesFade, useRolagemLateral } from '../rolagem'
 import { Container } from './comum'
 import { IconeFacebook, IconeInstagram, IconeTiktok, IconeWhatsapp, IconeYoutube } from './icones'
 
@@ -109,6 +110,7 @@ export function Topo() {
   const { titulo, slogan, logoUrl } = vitrine.empresa
   const wa = useWhatsappGeral()
   const categorias = vitrine.categorias.filter((c) => c.quantidade > 0)
+  const faixa = useRolagemLateral<HTMLElement>(categorias.length)
   const chip = ({ isActive }: { isActive: boolean }) =>
     cn(
       'shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca',
@@ -118,16 +120,16 @@ export function Topo() {
     <>
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl">
         <Container className="flex h-[4.25rem] items-center gap-3 sm:gap-5 lg:h-20">
-          <Link to="/" className="flex min-w-0 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca" aria-label={`${titulo} — início`}>
+          <Link to="/" className="flex min-w-0 items-center gap-3 rounded-lg lg:max-w-[45%] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca" aria-label={`${titulo} — início`}>
             <MarcaLoja />
             {/* No celular estreito a logo basta (o nome cortado pela metade fica pior) */}
             <span className={cn('min-w-0', logoUrl && 'max-[400px]:sr-only')}>
-              <span className="vt-titulo block truncate text-base font-extrabold leading-tight text-slate-900 sm:text-lg">{titulo}</span>
+              <span className="vt-titulo line-clamp-2 text-base font-extrabold leading-tight text-slate-900 sm:text-lg">{titulo}</span>
               {slogan && <span className="hidden truncate text-xs text-slate-500 xl:block">{slogan}</span>}
             </span>
           </Link>
-          <Busca id="busca-topo" className="ml-auto hidden w-full max-w-md md:block xl:max-w-xl" />
-          <div className="ml-auto flex shrink-0 items-center gap-2 md:ml-0">
+          <Busca id="busca-topo" className="ml-auto hidden min-w-[12rem] max-w-md flex-1 lg:block xl:max-w-xl" />
+          <div className="ml-auto flex shrink-0 items-center gap-2 lg:ml-0">
             {wa && (
               <a
                 href={wa}
@@ -145,9 +147,9 @@ export function Topo() {
         </Container>
       </header>
       <div className="border-b border-slate-200/80 bg-white">
-        <Container className="space-y-3 py-3 md:py-0">
-          <Busca id="busca-celular" className="md:hidden" />
-          <nav aria-label="Categorias" className="vt-sem-barra -mx-4 flex items-center gap-1 overflow-x-auto px-4 md:mx-0 md:h-12 md:px-0">
+        <Container className="space-y-3 py-3 lg:py-0">
+          <Busca id="busca-celular" className="lg:hidden" />
+          <nav ref={faixa.ref} aria-label="Categorias" className={cn('vt-sem-barra flex items-center gap-1 overflow-x-auto lg:h-12', classesFade(faixa))}>
             <NavLink to="/" end className={chip}>
               Início
             </NavLink>
@@ -255,7 +257,7 @@ export function Rodape() {
   return (
     <footer className="mt-24 border-t border-slate-200 bg-slate-50 lg:mt-32">
       <Container className="grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-12 lg:gap-12 lg:py-16">
-        <div className="space-y-4 sm:col-span-2 lg:col-span-4">
+        <div className="space-y-4 sm:col-span-2 lg:col-span-3">
           <div className="flex items-center gap-3">
             <MarcaLoja />
             <p className="vt-titulo text-lg font-extrabold text-slate-900">{e.titulo}</p>
@@ -283,7 +285,7 @@ export function Rodape() {
             </li>
           </ul>
         </nav>
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-4">
           <h2 className="mb-4 text-sm font-bold text-slate-900">Contato</h2>
           <ListaContatos className="text-sm" />
         </div>

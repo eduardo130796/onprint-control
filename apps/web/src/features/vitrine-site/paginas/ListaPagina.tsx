@@ -350,7 +350,13 @@ export function ListaPagina() {
 
             <button type="submit" disabled={envio.isPending} className={cn(botao.base, botao.primario, botao.lg, 'mt-6 w-full')}>
               {envio.isPending ? <Loader2 className="animate-spin" /> : <Send />}
-              {envio.isPending ? 'Enviando…' : `Enviar pedido de orçamento (${quantidadeTexto})`}
+              {envio.isPending ? (
+                'Enviando…'
+              ) : (
+                <span className="truncate">
+                  Enviar pedido<span className="max-[400px]:hidden"> de orçamento</span> ({quantidadeTexto})
+                </span>
+              )}
             </button>
             <p className="mt-4 text-center text-xs leading-relaxed text-slate-500">Sem compromisso e sem pagamento agora. Seus dados são usados só para responder ao seu pedido.</p>
           </form>

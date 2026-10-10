@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, ChevronLeft, ChevronRight, Clock, Printer } from 'lucide-react'
 import type { PrecoVitrine, ProdutoCardVitrine } from '@onprint/shared'
 import { cn } from '@/lib/utils'
 import { classeGrade } from '../estilos'
+import { useRolagemLateral } from '../rolagem'
 import { partesPreco, textoPrazo } from '../formato'
 
 /** Largura máxima e respiros laterais do site */
@@ -113,7 +114,7 @@ export function GradeEsqueleto({ quantidade = 8 }: { quantidade?: number }) {
 export function TituloSecao({ sobretitulo, titulo, descricao, acao, id }: { sobretitulo?: string; titulo: string; descricao?: string; acao?: ReactNode; id?: string }) {
   return (
     <div className="mb-8 flex flex-wrap items-end justify-between gap-4 lg:mb-10">
-      <div className="max-w-2xl">
+      <div className="min-w-0 max-w-2xl">
         {sobretitulo && <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-marca-escuro">{sobretitulo}</p>}
         <h2 id={id} className="vt-titulo text-2xl font-extrabold text-slate-900 sm:text-3xl">
           {titulo}
@@ -127,24 +128,10 @@ export function TituloSecao({ sobretitulo, titulo, descricao, acao, id }: { sobr
 
 /** Produtos numa faixa que rola para o lado (destaques): qualquer quantidade fica bem, com setas no computador */
 export function FaixaProdutos({ produtos, titulo, sobretitulo, id }: { produtos: ProdutoCardVitrine[]; titulo: string; sobretitulo?: string; id: string }) {
-  const trilho = useRef<HTMLUListElement>(null)
-  const [pos, setPos] = useState({ inicio: true, fim: true })
-  useEffect(() => {
-    const el = trilho.current
-    if (!el) return
-    const medir = () => setPos({ inicio: el.scrollLeft < 8, fim: el.scrollLeft + el.clientWidth >= el.scrollWidth - 8 })
-    medir()
-    el.addEventListener('scroll', medir, { passive: true })
-    const obs = new ResizeObserver(medir)
-    obs.observe(el)
-    return () => {
-      el.removeEventListener('scroll', medir)
-      obs.disconnect()
-    }
-  }, [produtos.length])
+  const { ref: trilho, ...pos } = useRolagemLateral<HTMLUListElement>(produtos.length)
   const rolar = (dir: 1 | -1) => trilho.current?.scrollBy({ left: dir * trilho.current.clientWidth * 0.9, behavior: 'smooth' })
   const seta =
-    'flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-900 transition hover:border-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca disabled:opacity-35 disabled:hover:border-slate-200'
+    'flex h-10 w-10 items-center sm:h-11 sm:w-11 justify-center rounded-full border border-slate-200 bg-white text-slate-900 transition hover:border-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca disabled:opacity-35 disabled:hover:border-slate-200'
   return (
     <section aria-labelledby={id} className="mt-20 lg:mt-28">
       <TituloSecao
@@ -153,7 +140,7 @@ export function FaixaProdutos({ produtos, titulo, sobretitulo, id }: { produtos:
         titulo={titulo}
         acao={
           !(pos.inicio && pos.fim) && (
-            <div className="hidden gap-2 md:flex">
+            <div className="flex gap-2">
               <button type="button" className={seta} onClick={() => rolar(-1)} disabled={pos.inicio} aria-label="Ver anteriores">
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -166,7 +153,7 @@ export function FaixaProdutos({ produtos, titulo, sobretitulo, id }: { produtos:
       />
       <ul
         ref={trilho}
-        className="vt-sem-barra -mx-4 grid snap-x snap-mandatory auto-cols-[calc((100%-2rem)/2.15)] grid-flow-col gap-x-4 overflow-x-auto scroll-px-4 px-4 pb-2 sm:-mx-6 sm:scroll-px-6 sm:px-6 sm:gap-x-6 md:auto-cols-[calc((100%-3rem)/3)] lg:mx-0 lg:scroll-px-0 lg:px-0 lg:auto-cols-[calc((100%-4.5rem)/4)]"
+        className="vt-sem-barra grid snap-x snap-mandatory auto-cols-[calc((100%-1rem)/2)] grid-flow-col gap-x-4 overflow-x-auto pb-2 sm:auto-cols-[calc((100%-1.5rem)/2)] sm:gap-x-6 md:auto-cols-[calc((100%-3rem)/3)] lg:auto-cols-[calc((100%-4.5rem)/4)]"
       >
         {produtos.map((p, i) => (
           <li key={p.slug} className="snap-start">

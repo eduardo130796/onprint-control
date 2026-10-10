@@ -5,6 +5,12 @@ html[data-app='vitrine'] {
   font-size: 16px;
   scroll-behavior: smooth;
 }
+/* Notebook (inclusive com o zoom de 125% do Windows): um pouco mais compacto para caber sem parecer gigante */
+@media (min-width: 1024px) and (max-width: 1535px) {
+  html[data-app='vitrine'] {
+    font-size: 15px;
+  }
+}
 @media (min-width: 1920px) {
   html[data-app='vitrine'] {
     font-size: 17px;
@@ -25,6 +31,17 @@ html[data-app='vitrine'] body {
 }
 .vt-sem-barra::-webkit-scrollbar {
   display: none;
+}
+
+/* Faixa que rola para o lado: some suavemente na borda que ainda tem conteúdo (em vez de cortar seco) */
+.vt-fade-fim {
+  mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+}
+.vt-fade-inicio {
+  mask-image: linear-gradient(to left, #000 calc(100% - 2.5rem), transparent);
+}
+.vt-fade-inicio.vt-fade-fim {
+  mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent);
 }
 
 @keyframes vt-pulso {

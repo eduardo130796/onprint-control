@@ -41,7 +41,7 @@ describe('navegação', () => {
 
   it('separa o menu em áreas focadas, só com o que a pessoa pode ver', () => {
     const todas = montarAreas(() => true)
-    expect(todas.map((a) => a.area)).toEqual(['inicio', 'comercial', 'producao', 'catalogo', 'estoque', 'financeiro', 'relatorios', 'configuracoes'])
+    expect(todas.map((a) => a.area)).toEqual(['inicio', 'comercial', 'producao', 'catalogo', 'vitrine', 'estoque', 'financeiro', 'relatorios', 'configuracoes'])
     const comercial = todas.find((a) => a.area === 'comercial')!
     expect(comercial.blocos.flatMap((b) => b.linhas.map((l) => l.titulo))).toEqual(['Orçamentos', 'Pedidos', 'Clientes', 'WhatsApp'])
     expect(comercial.acoes.map((a) => a.titulo)).toEqual(['Novo orçamento', 'Nova solicitação', 'Novo cliente'])
@@ -82,5 +82,14 @@ describe('navegação', () => {
     const pagina = paginas.find((p) => p.path === '/relatorios/lucratividade')!
     expect(podeAbrir(((m: string) => m === 'produtos') as never, pagina)).toBe(false)
     expect(podeAbrir((() => true) as never, pagina)).toBe(true)
+  })
+
+  it('Vitrine: área própria com configurar, produtos e o atalho dos pedidos do site (que exige orçamentos)', () => {
+    const vitrine = montarAreas(() => true).find((a) => a.area === 'vitrine')!
+    expect(vitrine.blocos.flatMap((b) => b.linhas.map((l) => l.path))).toEqual(['/vitrine', '/vitrine/produtos', '/vitrine/pedidos'])
+    expect(areaDaRota('/vitrine/produtos')).toBe('vitrine')
+    expect(linhaAtiva(vitrine.blocos.flatMap((b) => b.linhas), '/vitrine/produtos')?.titulo).toBe('Produtos na vitrine')
+    const soVitrine = filtrarNavegacao(((m: string) => m === 'vitrine') as never).find((m) => m.modulo === 'vitrine')
+    expect(soVitrine?.filhos?.map((f) => f.path)).toEqual(['/vitrine', '/vitrine/produtos'])
   })
 })

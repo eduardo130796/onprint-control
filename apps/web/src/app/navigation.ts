@@ -5,6 +5,7 @@ import {
   Factory,
   FileText,
   Gauge,
+  Globe,
   Handshake,
   House,
   LayoutDashboard,
@@ -51,6 +52,7 @@ export const AREAS_MENU = {
   comercial: { titulo: 'Comercial', rotulo: 'Comercial', icone: Handshake, descricao: 'Vendas, pedidos e clientes' },
   producao: { titulo: 'Produção', rotulo: 'Produção', icone: Factory, descricao: 'Ordens e planejamento' },
   catalogo: { titulo: 'Catálogo', rotulo: 'Catálogo', icone: Package, descricao: 'Produtos, insumos e preços' },
+  vitrine: { titulo: 'Vitrine', rotulo: 'Vitrine', icone: Globe, descricao: 'Seu site de produtos' },
   estoque: { titulo: 'Estoque e compras', rotulo: 'Estoque', icone: Boxes, descricao: 'Saldo, compras e fornecedores' },
   financeiro: { titulo: 'Financeiro', rotulo: 'Financeiro', icone: Wallet, descricao: 'Contas, fluxo e caixa' },
   relatorios: { titulo: 'Relatórios', rotulo: 'Relatórios', icone: BarChart3, descricao: 'Os números do negócio' },
@@ -134,6 +136,20 @@ export const navegacao: NavModulo[] = [
       { titulo: 'Categorias', path: '/produtos/categorias', fase: 2, novo: 'Nova categoria' },
       { titulo: 'Máquinas e processos', path: '/produtos/maquinas', fase: 2, novo: 'Nova máquina' },
       { titulo: 'Reajuste de preços', path: '/produtos/reajuste', fase: 2, acao: 'editar' },
+    ],
+  },
+
+  {
+    modulo: 'vitrine',
+    titulo: 'Vitrine online',
+    icone: Globe,
+    fase: 19,
+    area: 'vitrine',
+    filhos: [
+      { titulo: 'Configurar vitrine', path: '/vitrine', fase: 19 },
+      { titulo: 'Produtos na vitrine', path: '/vitrine/produtos', fase: 19 },
+      // Atalho para Orçamentos → Solicitações filtrado por origem "Site" (rota própria só redireciona)
+      { titulo: 'Pedidos do site', path: '/vitrine/pedidos', fase: 19, tambem: { modulo: 'orcamentos', acao: 'visualizar' } },
     ],
   },
 

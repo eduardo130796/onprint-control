@@ -1,5 +1,5 @@
 import { Suspense, type ReactElement } from 'react'
-import { createBrowserRouter, type RouteObject } from 'react-router-dom'
+import { Navigate, createBrowserRouter, type RouteObject } from 'react-router-dom'
 import type { Acao, Modulo } from '@onprint/shared'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { NaoEncontradoPage } from '@/components/shared/NaoEncontradoPage'
@@ -63,6 +63,8 @@ import {
   ReajustePage,
   PrecificacaoPage,
   SolicitacoesPage,
+  VitrineConfigPage,
+  VitrineProdutosPage,
   StatusPage,
   AparenciaPage,
   TemplatesPage,
@@ -91,6 +93,10 @@ const telas: Record<string, ReactElement> = {
   '/orcamentos/kanban': <OrcamentosKanbanPage />,
   '/orcamentos/solicitacoes': <SolicitacoesPage />,
   '/orcamentos/solicitacoes/novo': <SolicitacoesPage />,
+  '/vitrine': <VitrineConfigPage />,
+  '/vitrine/produtos': <VitrineProdutosPage />,
+  // Atalho do menu Vitrine: as solicitações vindas do site
+  '/vitrine/pedidos': <Navigate to="/orcamentos/solicitacoes?origem=site" replace />,
   '/pedidos': <PedidosPage />,
   '/pedidos/kanban': <PedidosKanbanPage />,
   '/pedidos/entregas': <EntregasPage />,

@@ -24,6 +24,16 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRES: duracao('15m'),
   JWT_REFRESH_EXPIRES: duracao('7d'),
   APP_URL: z.string().url().default('http://localhost:5173'),
+  /**
+   * Domínio das vitrines online: cada gráfica fica em https://{slug}.{DOMINIO_VITRINE} (ex.: grafygo.com.br).
+   * Vazio em desenvolvimento = http://{slug}.localhost:5173
+   */
+  DOMINIO_VITRINE: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^$|^[a-z0-9-]+(\.[a-z0-9-]+)+$/, 'use só o domínio, sem https:// (ex.: grafygo.com.br)')
+    .default(''),
   UPLOAD_DIR: z.string().default('./uploads'),
   UPLOAD_MAX_MB: z.coerce.number().int().positive().default(200),
   TZ: z.string().default('America/Sao_Paulo'),

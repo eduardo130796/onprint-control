@@ -50,6 +50,14 @@ export class StoragePorEmpresa implements StorageService {
     return this.disco().remover(caminho)
   }
 
+  lerDerivado(caminho: string, sufixo: string) {
+    return this.disco().lerDerivado(caminho, sufixo)
+  }
+
+  gravarDerivado(caminho: string, sufixo: string, dados: Buffer) {
+    return this.disco().gravarDerivado(caminho, sufixo, dados)
+  }
+
   gerarUrlTemporaria(arquivoId: string, validadeSegundos?: number): string {
     return this.assinador.gerarUrlTemporaria(`${contextoEmpresa.exigir().id}${SEPARADOR}${arquivoId}`, validadeSegundos)
   }

@@ -15,6 +15,7 @@ const MATRIZ: Record<Exclude<CodigoPapel, 'admin' | 'gerente'>, Matriz> = {
     pedidos: ['visualizar', 'criar', 'editar'],
     producao: LEITURA,
     whatsapp: LEITURA,
+    vitrine: LEITURA,
   },
   designer: {
     dashboard: LEITURA,

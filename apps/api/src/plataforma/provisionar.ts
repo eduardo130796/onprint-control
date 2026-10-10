@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import type { PrismaClient } from '@prisma/client'
+import { subdominioReservado } from '@onprint/shared'
 import { semearEmpresa, type AdminInicial } from '../../prisma/seed/empresa'
 import { AppError } from '../core/AppError'
 import { criarAssinatura, planoPorCodigo, semearPlanos } from './assinaturas'
@@ -40,9 +41,11 @@ export function gerarSlug(nome: string): string {
   return slug || 'empresa'
 }
 
+/** O slug vira subdomínio da vitrine ({slug}.grafygo.com.br): www, app, api… ficam de fora (pula para -2). */
 async function slugDisponivel(plataforma: PrismaClient, desejado: string): Promise<string> {
   for (let n = 1; n < 100; n++) {
     const slug = n === 1 ? desejado : `${desejado}-${n}`
+    if (subdominioReservado(slug)) continue
     if (!(await plataforma.assinante.findUnique({ where: { slug } }))) return slug
   }
   throw AppError.conflito('Não foi possível gerar um identificador para a empresa. Informe outro.')
@@ -63,6 +66,9 @@ export async function provisionarEmpresa(deps: DependenciasProvisionamento, dado
   await planoPorCodigo(plataforma, codigoPlano).catch((erro: Error) => {
     throw AppError.regraNegocio(erro.message)
   })
+  if (dados.slug && subdominioReservado(gerarSlug(dados.slug))) {
+    throw AppError.regraNegocio(`O identificador "${gerarSlug(dados.slug)}" é reservado. Escolha outro.`, { campo: 'slug' })
+  }
   const slug = await slugDisponivel(plataforma, gerarSlug(dados.slug || dados.nome))
   const schema = `emp_${randomBytes(6).toString('hex')}`
   // Inativa até terminar: ninguém entra numa empresa pela metade

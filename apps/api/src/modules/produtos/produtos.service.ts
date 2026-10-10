@@ -8,6 +8,7 @@ import { proximoCodigo } from '../../core/numeracao'
 import { filtroAtivo, paginacao, paginado } from '../../core/paginacao'
 import { comConflitoAmigavel } from '../../core/prisma-erros'
 import type { ArquivosService } from '../arquivos/service'
+import { sincronizarCapa } from '../vitrine/galeria'
 import type { CustosService } from './custos.service'
 
 type Dados = z.output<typeof produtoSchema>
@@ -141,7 +142,7 @@ export function criarProdutosService(app: FastifyInstance, arquivos: ArquivosSer
       })
     },
 
-    /** Imagem do produto (PNG, JPG ou SVG); a anterior é apagada. */
+    /** Imagem do produto (PNG, JPG ou SVG): troca a capa (primeira da galeria da vitrine); a anterior é apagada. */
     async trocarImagem(request: FastifyRequest, id: string, usuarioId: string) {
       const antes = await obterBase(id)
       const arquivo = await arquivos.receberUpload(
@@ -149,9 +150,14 @@ export function criarProdutosService(app: FastifyInstance, arquivos: ArquivosSer
         { entidade: 'produto', entidadeId: id, categoria: 'imagem_produto', extensoes: EXTENSOES_IMAGEM },
         usuarioId,
       )
-      const p = await prisma.produto.update({ where: { id }, data: { imagemArquivoId: arquivo.id }, include: incluirResumo })
+      await prisma.$transaction(async (tx) => {
+        await tx.produtoImagem.create({ data: { produtoId: id, arquivoId: arquivo.id, ordem: -1 } })
+        await tx.produto.update({ where: { id }, data: { imagemArquivoId: arquivo.id } })
+      })
+      // Apagar o arquivo leva junto a linha dele na galeria
       if (antes.imagemArquivoId) await arquivos.remover(antes.imagemArquivoId, usuarioId)
-      return p
+      await prisma.$transaction((tx) => sincronizarCapa(tx, id))
+      return prisma.produto.findUniqueOrThrow({ where: { id }, include: incluirResumo })
     },
   }
 }

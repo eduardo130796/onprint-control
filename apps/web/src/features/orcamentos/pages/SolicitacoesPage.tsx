@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
-import { FilePlus2, Hand, Plus, XCircle } from 'lucide-react'
+import { FilePlus2, Globe, Hand, Mail, Plus, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { ORIGEM_ROTULOS, STATUS_SOLICITACAO, formatarDataHora, formatarDataSimples, type Solicitacao, type StatusSolicitacao } from '@onprint/shared'
+import { ORIGENS_CLIENTE, ORIGEM_ROTULOS, STATUS_SOLICITACAO, formatarDataHora, formatarDataSimples, type OrigemCliente, type Solicitacao, type StatusSolicitacao } from '@onprint/shared'
 import { solicitacoesApi } from '@/api/comercial'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { AcaoIcone } from '@/components/shared/AcaoIcone'
@@ -19,6 +19,7 @@ import { useMutacao } from '@/hooks/useMutacao'
 import { usePermissoes } from '@/hooks/usePermission'
 import { useStatusConfig } from '@/hooks/useStatusConfig'
 import { AbasComercial } from '../components/AbasComercial'
+import { PainelSolicitacao, type SolicitacaoComItens } from '../components/PainelSolicitacao'
 import { SolicitacaoDialog } from '../components/SolicitacaoDialog'
 
 export function SolicitacoesPage() {
@@ -28,14 +29,47 @@ export function SolicitacoesPage() {
   const pode = usePermissoes()
   const { mapa } = useStatusConfig()
   const lista = useListagem<{ status?: string }>({})
-  const params = { ...lista.params, status: lista.filtros.status as StatusSolicitacao | undefined }
+  // Origem fica na URL: o atalho "Pedidos do site" (menu Vitrine) abre com ?origem=site
+  const [busca, setBusca] = useSearchParams()
+  const origemUrl = busca.get('origem')
+  const origem = (ORIGENS_CLIENTE as readonly string[]).includes(origemUrl ?? '') ? (origemUrl as OrigemCliente) : undefined
+  const params = { ...lista.params, status: lista.filtros.status as StatusSolicitacao | undefined, origem }
   const consulta = useQuery({ queryKey: ['solicitacoes', params], queryFn: () => solicitacoesApi.listar(params), placeholderData: keepPreviousData })
   const [criando, setCriando] = useState(false)
   const [descartando, setDescartando] = useState<Solicitacao | null>(null)
+  // ?id= abre o painel direto (link do aviso de pedido do site no sino), mesmo fora da página atual da lista
+  const idUrl = busca.get('id')
+  const [abertaId, setAbertaId] = useState<string | null>(idUrl)
+  useEffect(() => {
+    if (idUrl) setAbertaId(idUrl)
+  }, [idUrl])
+  const naLista = consulta.data?.data.find((s) => s.id === abertaId)
+  const avulsa = useQuery({
+    queryKey: ['solicitacoes', 'detalhe', abertaId],
+    queryFn: () => solicitacoesApi.obter(abertaId as string),
+    enabled: Boolean(abertaId) && !naLista && !consulta.isPending,
+  })
+  const solicitacaoAberta: SolicitacaoComItens | undefined = naLista ?? avulsa.data
+  function fecharPainel() {
+    setAbertaId(null)
+    if (busca.has('id')) {
+      const nova = new URLSearchParams(busca)
+      nova.delete('id')
+      setBusca(nova, { replace: true })
+    }
+  }
   const [motivo, setMotivo] = useState('')
   const assumir = useMutacao(['solicitacoes'], (id: string) => solicitacoesApi.assumir(id))
   const descartar = useMutacao(['solicitacoes'], (s: Solicitacao) => solicitacoesApi.descartar(s.id, motivo))
   const abertaPelaRota = pathname.endsWith('/novo')
+
+  function trocarOrigem(valor: string) {
+    const nova = new URLSearchParams(busca)
+    if (valor) nova.set('origem', valor)
+    else nova.delete('origem')
+    setBusca(nova, { replace: true })
+    lista.setPage(1)
+  }
 
   const colunas = useMemo<ColumnDef<Solicitacao, unknown>[]>(
     () => [
@@ -53,12 +87,27 @@ export function SolicitacoesPage() {
       {
         id: 'cliente',
         header: 'Cliente',
-        cell: ({ row: { original: s } }) => (
-          <div className="min-w-0">
-            <p className="truncate font-medium">{s.cliente?.nome ?? '—'}</p>
-            <p className="text-xs text-texto-secundario">{ORIGEM_ROTULOS[s.origem]}</p>
-          </div>
-        ),
+        cell: ({ row }) => {
+          const s = row.original as SolicitacaoComItens
+          const qtd = s.itens?.length ?? 0
+          return (
+            <div className="min-w-0">
+              <p className="truncate font-medium">{s.cliente?.nome ?? '—'}</p>
+              {s.origem === 'site' ? (
+                <p className="inline-flex items-center gap-1 text-xs font-medium text-marca-escuro">
+                  <Globe className="h-3 w-3" /> Site{qtd > 0 && ` · ${qtd} ${qtd === 1 ? 'item' : 'itens'}`}
+                </p>
+              ) : (
+                <p className="text-xs text-texto-secundario">{ORIGEM_ROTULOS[s.origem]}</p>
+              )}
+              {s.email && (
+                <p className="flex min-w-0 items-center gap-1 text-xs text-texto-secundario">
+                  <Mail className="h-3 w-3 shrink-0" /> <span className="truncate">{s.email}</span>
+                </p>
+              )}
+            </div>
+          )
+        },
       },
       { id: 'descricao', header: 'Pedido do cliente', meta: { className: 'max-w-sm' }, cell: ({ row }) => <p className="line-clamp-2 text-sm">{row.original.descricao}</p> },
       { id: 'prazo', header: 'Prazo desejado', meta: { ordenavel: 'prazoDesejado' }, cell: ({ row }) => formatarDataSimples(row.original.prazoDesejado) },
@@ -71,7 +120,7 @@ export function SolicitacoesPage() {
         cell: ({ row: { original: s } }) => {
           const aberta = s.status === 'nova' || s.status === 'em_atendimento'
           return (
-            <div className="flex justify-end gap-1">
+            <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
               {aberta && pode('orcamentos', 'criar') && s.clienteId && (
                 <AcaoIcone icone={FilePlus2} rotulo="Criar orçamento" onClick={() => navigate(`/orcamentos/novo?solicitacao=${s.id}&cliente=${s.clienteId}`)} />
               )}
@@ -114,21 +163,38 @@ export function SolicitacoesPage() {
         onPageSizeChange={lista.setPageSize}
         onSortChange={lista.setSort}
         idLinha={(s) => s.id}
+        onLinhaClick={(s) => setAbertaId(s.id)}
         destacarLinha={(s) => s.status === 'nova' || !s.responsavelId}
         busca={{ valor: lista.busca, onChange: lista.setBusca, placeholder: 'Número, cliente ou descrição…' }}
         filtros={
-          <div className="w-48">
-            <Select value={lista.filtros.status ?? ''} onChange={(e) => lista.setFiltro('status', e.target.value || undefined)} aria-label="Status">
-              <option value="">Todos os status</option>
-              {STATUS_SOLICITACAO.map((s) => (
-                <option key={s} value={s}>
-                  {mapa.get(`solicitacao:${s}`)?.rotulo ?? s}
-                </option>
-              ))}
-            </Select>
-          </div>
+          <>
+            <div className="w-full sm:w-48">
+              <Select value={lista.filtros.status ?? ''} onChange={(e) => lista.setFiltro('status', e.target.value || undefined)} aria-label="Status">
+                <option value="">Todos os status</option>
+                {STATUS_SOLICITACAO.map((s) => (
+                  <option key={s} value={s}>
+                    {mapa.get(`solicitacao:${s}`)?.rotulo ?? s}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="w-full sm:w-44">
+              <Select value={origem ?? ''} onChange={(e) => trocarOrigem(e.target.value)} aria-label="Origem">
+                <option value="">Todas as origens</option>
+                {ORIGENS_CLIENTE.map((o) => (
+                  <option key={o} value={o}>
+                    {ORIGEM_ROTULOS[o]}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </>
         }
-        vazio={{ titulo: 'Nenhuma solicitação', descricao: 'Registre aqui cada pedido de orçamento que chega pelo WhatsApp, balcão ou telefone.' }}
+        vazio={
+          origem === 'site'
+            ? { titulo: 'Nenhum pedido do site', descricao: 'As listas de orçamento enviadas pela sua vitrine online aparecem aqui, com os itens escolhidos.' }
+            : { titulo: 'Nenhuma solicitação', descricao: 'Registre aqui cada pedido de orçamento que chega pelo WhatsApp, balcão ou telefone.' }
+        }
       />
 
       {(criando || abertaPelaRota) && (
@@ -137,6 +203,16 @@ export function SolicitacoesPage() {
             setCriando(false)
             if (abertaPelaRota) navigate('/orcamentos/solicitacoes', { replace: true })
           }}
+        />
+      )}
+      {solicitacaoAberta && (
+        <PainelSolicitacao
+          key={solicitacaoAberta.id}
+          solicitacao={solicitacaoAberta}
+          onFechar={fecharPainel}
+          assumindo={assumir.isPending}
+          onAssumir={(s) => assumir.mutate(s.id, { onSuccess: () => toast.success('Solicitação assumida.'), onError: (e) => toast.error(e.message) })}
+          onDescartar={(s) => setDescartando(s)}
         />
       )}
       {descartando && (

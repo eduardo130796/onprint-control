@@ -16,6 +16,11 @@ const incluir = {
   cliente: { select: { id: true, nome: true, situacao: true, whatsapp: true } },
   responsavel: { select: { id: true, nome: true } },
   orcamentos: { select: { id: true, numero: true, status: true }, orderBy: { createdAt: 'asc' } },
+  // Itens da lista de orçamento da vitrine (vazio nas digitadas no sistema)
+  itens: {
+    select: { id: true, produtoId: true, descricao: true, quantidade: true, largura: true, altura: true, acabamentos: true, observacao: true },
+    orderBy: { ordem: 'asc' },
+  },
 } satisfies Prisma.SolicitacaoOrcamentoInclude
 
 /** Sem ver_todos: vê as próprias e as ainda sem responsável (fila de atendimento). */
@@ -42,6 +47,7 @@ export function criarSolicitacoesService(app: FastifyInstance) {
           escopo(ctx),
           q.status ? { status: q.status } : {},
           q.clienteId ? { clienteId: q.clienteId } : {},
+          q.origem ? { origem: q.origem } : {},
           texto ? { OR: [{ numero: texto }, { descricao: texto }, { cliente: { nome: texto } }] } : {},
         ],
       }

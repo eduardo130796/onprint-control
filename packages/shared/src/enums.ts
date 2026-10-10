@@ -14,6 +14,7 @@ export const MODULOS = [
   'caixa',
   'relatorios',
   'whatsapp',
+  'vitrine',
   'configuracoes',
   'usuarios',
   'permissoes',
@@ -162,7 +163,7 @@ export type VariavelTemplate = (typeof VARIAVEIS_TEMPLATE)[number]
 
 // ─── Arquivos ───────────────────────────────────────────────────────────────
 
-export const CATEGORIAS_ARQUIVO = ['arte', 'anexo', 'comprovante', 'logo', 'imagem_produto'] as const
+export const CATEGORIAS_ARQUIVO = ['arte', 'anexo', 'comprovante', 'logo', 'imagem_produto', 'banner_vitrine'] as const
 export type CategoriaArquivo = (typeof CATEGORIAS_ARQUIVO)[number]
 
 /** Entidades que podem ter arquivos vinculados, e o módulo de permissão de cada uma. */
@@ -199,6 +200,7 @@ export const MODULO_ROTULOS: Record<Modulo, string> = {
   caixa: 'Caixa / PDV',
   relatorios: 'Relatórios',
   whatsapp: 'WhatsApp',
+  vitrine: 'Vitrine online',
   configuracoes: 'Configurações',
   usuarios: 'Usuários',
   permissoes: 'Permissões',

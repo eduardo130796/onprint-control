@@ -48,6 +48,8 @@ export const OrcamentoEditorPage = carregar(() => import('@/features/orcamentos/
 export const OrcamentosPage = carregar(() => import('@/features/orcamentos/pages/OrcamentosPage'), 'OrcamentosPage')
 export const OrcamentosKanbanPage = carregar(() => import('@/features/orcamentos/pages/OrcamentosKanbanPage'), 'OrcamentosKanbanPage')
 export const SolicitacoesPage = carregar(() => import('@/features/orcamentos/pages/SolicitacoesPage'), 'SolicitacoesPage')
+export const VitrineConfigPage = carregar(() => import('@/features/vitrine/pages/VitrineConfigPage'), 'VitrineConfigPage')
+export const VitrineProdutosPage = carregar(() => import('@/features/vitrine/pages/VitrineProdutosPage'), 'VitrineProdutosPage')
 export const EntregasPage = carregar(() => import('@/features/pedidos/pages/EntregasPage'), 'EntregasPage')
 export const PedidoPage = carregar(() => import('@/features/pedidos/pages/PedidoPage'), 'PedidoPage')
 export const PedidosKanbanPage = carregar(() => import('@/features/pedidos/pages/PedidosKanbanPage'), 'PedidosKanbanPage')

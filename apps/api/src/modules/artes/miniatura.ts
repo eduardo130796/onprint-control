@@ -13,13 +13,14 @@ export const LIMITE_PIXELS_MINIATURA = 70_000_000
 // Uma imagem por vez: miniatura é tarefa de fundo e não deve disputar CPU/memória com a API
 sharp.concurrency(1)
 let fila: Promise<unknown> = Promise.resolve()
-function emFila<T>(tarefa: () => Promise<T>): Promise<T> {
+/** Fila única de processamento de imagens (também usada pelas imagens da vitrine). */
+export function emFila<T>(tarefa: () => Promise<T>): Promise<T> {
   const resultado = fila.then(tarefa, tarefa)
   fila = resultado.catch(() => undefined)
   return resultado
 }
 
-async function lerTudo(storage: StorageService, caminho: string) {
+export async function lerTudo(storage: StorageService, caminho: string) {
   // O tamanho já é limitado pelo upload (UPLOAD_MAX_MB); o perigo está nos pixels, conferidos antes de decodificar
   const partes: Buffer[] = []
   for await (const parte of storage.abrir(caminho)) partes.push(parte as Buffer)

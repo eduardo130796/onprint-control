@@ -46,7 +46,7 @@ describe('permissões padrão', () => {
   // Matriz da seção 7: módulos que cada papel acessa (qualquer ação) e ações que NÃO pode ter
   const modulos = (papel: Parameters<typeof permissoesPadrao>[0]) => [...new Set(permissoesPadrao(papel).map((p) => p.split(':')[0]))].sort()
   it.each([
-    ['vendedor', ['clientes', 'dashboard', 'orcamentos', 'pedidos', 'producao', 'whatsapp'], ['producao:editar', 'financeiro:visualizar', 'orcamentos:ver_todos']],
+    ['vendedor', ['clientes', 'dashboard', 'orcamentos', 'pedidos', 'producao', 'vitrine', 'whatsapp'], ['producao:editar', 'financeiro:visualizar', 'orcamentos:ver_todos', 'vitrine:editar']],
     ['designer', ['artes', 'dashboard', 'pedidos', 'producao'], ['pedidos:editar', 'producao:editar', 'clientes:visualizar']],
     ['producao', ['dashboard', 'estoque', 'pcp', 'pedidos', 'producao', 'produtos'], ['pedidos:editar', 'estoque:aprovar', 'financeiro:visualizar', 'producao:aprovar']],
     ['financeiro', ['caixa', 'clientes', 'dashboard', 'financeiro', 'fornecedores', 'relatorios'], ['clientes:editar', 'pedidos:visualizar', 'usuarios:visualizar']],

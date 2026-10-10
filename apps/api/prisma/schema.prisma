@@ -256,6 +256,7 @@ model Arquivo {
   comprovantesEntrega Entrega[]       @relation("EntregaComprovante")
   contasPagar         ContaPagar[]    @relation("ContaPagarAnexo")
   contasReceber       ContaReceber[]  @relation("ContaReceberAnexo")
+  produtoImagens      ProdutoImagem[]
 
   @@index([entidade, entidadeId])
   @@map("arquivos")
@@ -543,8 +544,21 @@ model Produto {
   prazoProducaoDias     Int         @default(0) @map("prazo_producao_dias")
   controlaEstoque       Boolean     @default(false) @map("controla_estoque")
   estoqueMinimo         Decimal     @default(0) @map("estoque_minimo") @db.Decimal(12, 3)
+  /// Capa: acompanha a primeira imagem da galeria (produto_imagens)
   imagemArquivoId       String?     @map("imagem_arquivo_id") @db.Uuid
   ativo                 Boolean     @default(true)
+  /// Vitrine online (docs/VITRINE.md): aparece no site da gráfica
+  vitrinePublicado      Boolean     @default(false) @map("vitrine_publicado")
+  vitrineDestaque       Boolean     @default(false) @map("vitrine_destaque")
+  /// Nome no site; null = nome do produto
+  vitrineNome           String?     @map("vitrine_nome")
+  /// Texto de venda no site
+  vitrineDescricao      String?     @map("vitrine_descricao")
+  /// fixo | a_partir_de | sob_consulta
+  vitrineModoPreco      String      @default("sob_consulta") @map("vitrine_modo_preco")
+  /// Endereço do produto no site (/produto/{slug}); único quando preenchido
+  vitrineSlug           String?     @unique @map("vitrine_slug")
+  vitrineOrdem          Int         @default(0) @map("vitrine_ordem")
   createdAt             DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdBy             String?     @map("created_by") @db.Uuid
@@ -565,12 +579,29 @@ model Produto {
   movimentacoesEstoque EstoqueMovimentacao[] @relation("MovimentacaoProduto")
   saldosEstoque        EstoqueSaldo[]        @relation("SaldoProduto")
   vendaPdvItens        VendaPdvItem[]        @relation("VendaPdvItemProduto")
+  imagens              ProdutoImagem[]
+  solicitacaoItens     SolicitacaoItem[]
 
   @@index([categoriaId])
   @@index([tipo])
   @@index([nome])
   @@index([fornecedorPreferidoId])
   @@map("produtos")
+}
+
+/// Galeria do produto (vitrine): a primeira é a capa
+model ProdutoImagem {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  produtoId String   @map("produto_id") @db.Uuid
+  arquivoId String   @unique @map("arquivo_id") @db.Uuid
+  ordem     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  produto Produto @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  arquivo Arquivo @relation(fields: [arquivoId], references: [id], onDelete: Cascade)
+
+  @@index([produtoId, ordem])
+  @@map("produto_imagens")
 }
 
 /// Insumos que o acabamento consome (ilhós, bastão, fita…), por unidade da cobrança do acabamento
@@ -822,6 +853,8 @@ model SolicitacaoOrcamento {
   /// Vínculo futuro com uma conversa do WhatsApp (Fase 9)
   referenciaExterna String?           @map("referencia_externa")
   motivoDescarte    String?           @map("motivo_descarte")
+  /// E-mail do contato (pedidos da vitrine)
+  email             String?
   createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdBy         String?           @map("created_by") @db.Uuid
@@ -829,11 +862,64 @@ model SolicitacaoOrcamento {
   cliente     Cliente?    @relation(fields: [clienteId], references: [id], onDelete: Restrict)
   responsavel Usuario?    @relation("SolicitacaoResponsavel", fields: [responsavelId], references: [id], onDelete: Restrict)
   orcamentos  Orcamento[]
+  itens       SolicitacaoItem[]
 
   @@index([status])
   @@index([clienteId])
   @@index([responsavelId])
+  @@index([origem])
   @@map("solicitacoes_orcamento")
+}
+
+/// Itens da lista de orçamento enviada pela vitrine
+model SolicitacaoItem {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  solicitacaoId String   @map("solicitacao_id") @db.Uuid
+  /// null se o produto for excluído depois
+  produtoId     String?  @map("produto_id") @db.Uuid
+  /// Nome do produto no momento do pedido
+  descricao     String
+  quantidade    Int
+  largura       Decimal? @db.Decimal(10, 3)
+  altura        Decimal? @db.Decimal(10, 3)
+  /// [{ id, nome }] dos acabamentos escolhidos
+  acabamentos   Json     @default("[]")
+  observacao    String?
+  ordem         Int      @default(0)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  solicitacao SolicitacaoOrcamento @relation(fields: [solicitacaoId], references: [id], onDelete: Cascade)
+  produto     Produto?             @relation(fields: [produtoId], references: [id], onDelete: SetNull)
+
+  @@index([solicitacaoId])
+  @@index([produtoId])
+  @@map("solicitacao_itens")
+}
+
+/// Vitrine online (linha única): textos, contato exibido e banners do site da gráfica
+model VitrineConfig {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ativa                 Boolean  @default(false)
+  titulo                String?
+  slogan                String?
+  sobre                 String?
+  horario               String?
+  instagram             String?
+  facebook              String?
+  tiktok                String?
+  youtube               String?
+  mostrarEndereco       Boolean  @default(true) @map("mostrar_endereco")
+  mostrarTelefone       Boolean  @default(true) @map("mostrar_telefone")
+  mostrarWhatsapp       Boolean  @default(true) @map("mostrar_whatsapp")
+  mensagemWhatsapp      String?  @map("mensagem_whatsapp")
+  mensagemPedidoEnviado String?  @map("mensagem_pedido_enviado")
+  seoDescricao          String?  @map("seo_descricao")
+  /// Ids dos arquivos do banner (até 3), na ordem
+  banners               String[] @default([]) @db.Uuid
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("vitrine_config")
 }
 
 model Orcamento {

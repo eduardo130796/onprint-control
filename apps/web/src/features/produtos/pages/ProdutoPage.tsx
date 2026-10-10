@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Suspense, lazy, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -22,11 +22,15 @@ import { SimuladorPreco } from '../components/produto/SimuladorPreco'
 import { AbaCustoPreco } from '../components/custo/AbaCustoPreco'
 import { ABA_DO_CAMPO, semPrecoECusto, valoresProduto, type ProdutoSaida } from '../components/produto/formProduto'
 
+// Aba "Vitrine" (módulo vitrine): carregada só quando aberta (traz o arrastar e soltar da galeria)
+const AbaVitrineProduto = lazy(() => import('@/features/vitrine/components/AbaVitrineProduto').then((m) => ({ default: m.AbaVitrineProduto })))
+
 function Formulario({ produto }: { produto?: ProdutoDetalhe }) {
   const navigate = useNavigate()
   const podeSalvar = usePermission('produtos', produto ? 'editar' : 'criar')
   const veCustos = usePermission('produtos', 'editar')
   const podeVerEstoque = usePermission('estoque')
+  const veVitrine = usePermission('vitrine')
   // ?aba=custo abre direto na aba (links do reajuste e do insumo)
   const [params] = useSearchParams()
   const [aba, setAba] = useState(() => (produto && params.get('aba')) || 'geral')
@@ -61,6 +65,7 @@ function Formulario({ produto }: { produto?: ProdutoDetalhe }) {
     ...(veCustos ? [{ valor: 'custo', titulo: 'Custo e preço' }] : []),
     { valor: 'acabamentos', titulo: 'Acabamentos' },
     { valor: 'simulador', titulo: 'Simulador de preço' },
+    ...(veVitrine ? [{ valor: 'vitrine', titulo: 'Vitrine' }] : []),
   ]
 
   // Todas as abas do formulário ficam montadas (só escondidas) para manter os campos registrados
@@ -123,6 +128,13 @@ function Formulario({ produto }: { produto?: ProdutoDetalhe }) {
           <TabsContent value="simulador">
             <SimuladorPreco produto={produto} alteracoesPendentes={isDirty} />
           </TabsContent>
+          {veVitrine && (
+            <TabsContent value="vitrine">
+              <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                <AbaVitrineProduto produtoId={produto.id} />
+              </Suspense>
+            </TabsContent>
+          )}
         </>
       )}
     </Tabs>

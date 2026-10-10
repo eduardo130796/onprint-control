@@ -33,6 +33,14 @@ No painel de DNS do domínio, crie um registro:
 
 A propagação costuma levar alguns minutos. Para conferir no seu computador: `nslookup erp.suaempresa.com.br` deve responder com o IP da VPS. **Só avance para o passo 8 depois disso**, porque o HTTPS precisa do domínio apontado.
 
+**Vitrine online** (site de produtos de cada gráfica em `https://{slug}.suaempresa.com.br`): crie também o registro curinga.
+
+| Tipo | Nome | Valor | TTL |
+|---|---|---|---|
+| `A` | `*` | IP da VPS | 3600 |
+
+Conferir: `nslookup qualquer-coisa.suaempresa.com.br` deve responder com o IP da VPS. O certificado de cada subdomínio é emitido na primeira visita (HTTPS sob demanda), e só para vitrines que estão no ar: antes de emitir, o Caddy pergunta à API (`/api/v1/publico/vitrine-permitida`). Subdomínios como `www`, `app`, `api`, `admin`, `mail`… são reservados e nunca viram vitrine.
+
 ## 3. Primeiro acesso e preparo do servidor
 
 ```bash
@@ -133,6 +141,7 @@ Troque **todos** os valores marcados com `TROQUE`:
 |---|---|
 | `DOMINIO` | o domínio do passo 2, sem `https://` (ex.: `erp.suaempresa.com.br`) |
 | `APP_URL` | o mesmo domínio com `https://` |
+| `DOMINIO_VITRINE` | domínio das vitrines online, sem `https://` (ex.: `suaempresa.com.br` → `https://{slug}.suaempresa.com.br`). Precisa do registro curinga `*` do passo 2. Vai para a API, para o Caddy e para o build do front (`VITE_DOMINIO_VITRINE`) |
 | `POSTGRES_PASSWORD` | uma senha gerada. Ela aparece **também** dentro de `DATABASE_URL`: troque nos dois lugares |
 | `JWT_ACCESS_SECRET` e `JWT_REFRESH_SECRET` | dois valores gerados, **diferentes entre si**. A API se recusa a subir com segredos fracos ou de exemplo |
 | `ADMIN_EMAIL` e `ADMIN_SENHA_INICIAL` | o primeiro acesso. A troca de senha é obrigatória no 1º login. Numa instalação nova são **obrigatórios**: senha com 12+ caracteres e sem `TROQUE`, senão o seed para e a API não sobe |
@@ -151,7 +160,7 @@ chmod 600 .env.prod
 
 > Guarde uma cópia do `.env.prod` fora da VPS (num cofre de senhas, por exemplo). Sem ele, os backups continuam válidos, mas você precisa recriar os segredos.
 
-> O `.env.prod` só vai inteiro para o container da API. O banco recebe apenas `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB`, e o Caddy (web) apenas `DOMINIO`, sempre pelo `--env-file .env.prod` dos comandos abaixo (sem ele o compose avisa que falta `POSTGRES_USER`).
+> O `.env.prod` só vai inteiro para o container da API. O banco recebe apenas `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB`, e o Caddy (web) apenas `DOMINIO` e `DOMINIO_VITRINE` (este também no build do front), sempre pelo `--env-file .env.prod` dos comandos abaixo (sem ele o compose avisa que falta `POSTGRES_USER`).
 
 ## 8. Subir o sistema
 
@@ -303,6 +312,7 @@ Já vem pronto no sistema:
 | Sintoma | Causa provável / solução |
 |---|---|
 | Navegador avisa "certificado inválido" / o site não abre | DNS ainda não aponta para a VPS, ou as portas 80/443 estão bloqueadas (ufw ou painel). Veja `onprint logs web` |
+| Vitrine `https://{slug}.…` não abre (erro de certificado) | Falta o registro DNS `*`, `DOMINIO_VITRINE` está vazio ou diferente no `.env.prod` (mudou? refaça o build do web), ou a vitrine não está no ar: o módulo **Vitrine online** precisa estar no plano da empresa e a vitrine ativada em Vitrine → Configurar. Teste: `curl -i "https://SEU_DOMINIO/api/v1/publico/vitrine-permitida?domain=SLUG.suaempresa.com.br"` (200 = liberada) |
 | API reinicia sem parar | Veja `onprint logs api`. "Variáveis de ambiente inválidas" = `.env.prod` com segredo fraco, `TROQUE` ou senha do banco diferente em `DATABASE_URL` |
 | Build trava ou é morto ("Killed") | Pouca memória: confira o swap (`free -h`) e construa uma imagem por vez (`build api`, depois `build web`) |
 | "Muitas tentativas" no login | 10 senhas erradas no mesmo e-mail em 15 min: aguarde 15 minutos (ou 20 tentativas por minuto do mesmo IP: aguarde 1 minuto). Reiniciar a API também zera a trava por e-mail |

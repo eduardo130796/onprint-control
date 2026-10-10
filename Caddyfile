@@ -1,6 +1,17 @@
 # Produção: defina DOMINIO no .env.prod (ex.: erp.suaempresa.com.br) para HTTPS automático (Let's Encrypt).
 # Sem DOMINIO, atende em https://localhost com certificado local (teste do compose de produção).
-{$DOMINIO:localhost} {
+# Vitrine online: DOMINIO_VITRINE (ex.: grafygo.com.br) + DNS curinga *.grafygo.com.br → IP da VPS. Cada gráfica
+# fica em https://{slug}.{DOMINIO_VITRINE}, com certificado emitido na primeira visita (HTTPS sob demanda).
+{
+	# Antes de emitir o certificado de um subdomínio, o Caddy pergunta à API se é uma vitrine no ar
+	# (200 = emite; 404 = recusa). Impede que qualquer nome apontado para a VPS gere certificados.
+	on_demand_tls {
+		ask http://api:3333/api/v1/publico/vitrine-permitida
+	}
+}
+
+# Configuração comum ao sistema e às vitrines (o mesmo build do front serve os dois)
+(site) {
 	encode zstd gzip
 
 	header {
@@ -41,4 +52,17 @@
 		try_files {path} /index.html
 		file_server
 	}
+}
+
+# Sistema (endereço exato: tem prioridade sobre o curinga das vitrines)
+{$DOMINIO:localhost} {
+	import site
+}
+
+# Vitrines: {slug}.{DOMINIO_VITRINE}, um certificado por subdomínio, emitido sob demanda
+*.{$DOMINIO_VITRINE:vitrine.localhost} {
+	tls {
+		on_demand
+	}
+	import site
 }

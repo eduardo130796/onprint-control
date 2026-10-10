@@ -30,6 +30,8 @@ import { dashboardRoutes } from './modules/dashboard/routes'
 import { relatoriosRoutes } from './modules/relatorios/routes'
 import { produtosRoutes } from './modules/produtos/routes'
 import { usuariosRoutes } from './modules/usuarios/routes'
+import { vitrinePermitidaRoutes, vitrinePublicaRoutes } from './modules/vitrine/publico.routes'
+import { vitrineRoutes } from './modules/vitrine/routes'
 import { authPlugin } from './plugins/auth'
 import { cronPlugin } from './plugins/cron'
 import { integracoesPlugin } from './plugins/integracoes'
@@ -106,7 +108,10 @@ export async function buildApp(config: Env) {
       await v1.register(caixaRoutes)
       await v1.register(dashboardRoutes)
       await v1.register(relatoriosRoutes)
+      await v1.register(vitrineRoutes)
       await v1.register(publicoRoutes, { prefix: '/publico/:empresa' })
+      await v1.register(vitrinePublicaRoutes, { prefix: '/publico/:empresa/vitrine' })
+      await v1.register(vitrinePermitidaRoutes, { prefix: '/publico' })
       await v1.register(webhooksRoutes, { prefix: '/plataforma' })
       await v1.register(cadastroRoutes, { prefix: '/plataforma' })
       await v1.register(plataformaRoutes, { prefix: '/plataforma' })

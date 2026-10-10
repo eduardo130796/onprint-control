@@ -54,9 +54,13 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       target: prod
-    # O Caddy só precisa do domínio (HTTPS automático)
+      args:
+        # Domínio das vitrines no build do front: {slug}.{domínio} abre o site da gráfica
+        VITE_DOMINIO_VITRINE: ${DOMINIO_VITRINE:-}
+    # O Caddy só precisa dos domínios (HTTPS automático; vitrines com HTTPS sob demanda)
     environment:
       DOMINIO: ${DOMINIO:-}
+      DOMINIO_VITRINE: ${DOMINIO_VITRINE:-}
     restart: unless-stopped
     ports:
       - "80:80"

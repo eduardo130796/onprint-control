@@ -54,6 +54,8 @@ export type SolicitacaoInput = z.input<typeof solicitacaoSchema>
 export const solicitacoesQuerySchema = paginacaoQuerySchema.extend({
   status: z.enum(STATUS_SOLICITACAO).optional(),
   clienteId: z.string().uuid().optional(),
+  /** Ex.: "site" = pedidos da vitrine */
+  origem: z.enum(ORIGENS_CLIENTE).optional(),
 })
 export type SolicitacoesQuery = z.input<typeof solicitacoesQuerySchema>
 

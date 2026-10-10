@@ -8,6 +8,7 @@ import type {
   Orcamento,
   OrcamentoPublico,
   OrcamentosQuery,
+  OrigemCliente,
   Paginado,
   ProdutoCatalogo,
   Solicitacao,
@@ -16,7 +17,8 @@ import type {
 import { http, qs } from './http'
 
 export const solicitacoesApi = {
-  listar: (q: SolicitacoesQuery) => http<Paginado<Solicitacao>>(`/solicitacoes${qs(q)}`),
+  // origem: filtro da listagem (ex.: "site" para os pedidos da vitrine)
+  listar: (q: SolicitacoesQuery & { origem?: OrigemCliente }) => http<Paginado<Solicitacao>>(`/solicitacoes${qs(q)}`),
   obter: (id: string) => http<Solicitacao>(`/solicitacoes/${id}`),
   criar: (dados: unknown) => http<Solicitacao>('/solicitacoes', { method: 'POST', body: dados }),
   assumir: (id: string) => http<Solicitacao>(`/solicitacoes/${id}/assumir`, { method: 'POST' }),

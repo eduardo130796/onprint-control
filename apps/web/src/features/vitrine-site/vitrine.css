@@ -1,0 +1,66 @@
+/* Vitrine online (site público da gráfica): só carrega no endereço {slug}.{domínio} */
+
+/* Site de compras: texto confortável em todas as telas (o sistema compacta para 14px no computador) */
+html[data-app='vitrine'] {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+@media (min-width: 1920px) {
+  html[data-app='vitrine'] {
+    font-size: 17px;
+  }
+}
+html[data-app='vitrine'] body {
+  background: #fff;
+  color: rgb(var(--slate-900));
+}
+
+.vt-titulo {
+  font-family: 'Plus Jakarta Sans Variable', 'Manrope Variable', 'Inter Variable', system-ui, sans-serif;
+  letter-spacing: -0.025em;
+}
+
+.vt-sem-barra {
+  scrollbar-width: none;
+}
+.vt-sem-barra::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes vt-pulso {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes vt-surgir {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.vt-surgir {
+  animation: vt-surgir 0.35s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-app='vitrine'] {
+    scroll-behavior: auto;
+  }
+  html[data-app='vitrine'] *,
+  html[data-app='vitrine'] *::before,
+  html[data-app='vitrine'] *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

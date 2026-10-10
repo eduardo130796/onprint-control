@@ -1,10 +1,13 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 import { createReadStream, createWriteStream } from 'node:fs'
-import { mkdir, rm, stat } from 'node:fs/promises'
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join, normalize, sep } from 'node:path'
 import type { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import type { ArquivoSalvo } from './index'
+
+/** Sufixos das versões derivadas (cache de imagens da vitrine): apagadas junto com o original. */
+export const SUFIXOS_DERIVADOS = ['.w480.webp', '.w1200.webp'] as const
 
 /** Nome seguro para disco: sem acentos, espaços ou caracteres especiais. */
 export function nomeSeguro(nome: string): string {
@@ -49,6 +52,23 @@ export class DiscoLocalStorage {
 
   async remover(caminho: string) {
     await rm(this.resolver(caminho), { force: true })
+    for (const sufixo of SUFIXOS_DERIVADOS) await rm(this.resolver(caminho + sufixo), { force: true })
+  }
+
+  async lerDerivado(caminho: string, sufixo: string): Promise<Buffer | null> {
+    try {
+      return await readFile(this.resolver(caminho + sufixo))
+    } catch {
+      return null
+    }
+  }
+
+  /** Grava num temporário e renomeia: quem lê ao mesmo tempo nunca pega o arquivo pela metade. */
+  async gravarDerivado(caminho: string, sufixo: string, dados: Buffer) {
+    const destino = this.resolver(caminho + sufixo)
+    const temporario = `${destino}.${randomUUID()}.tmp`
+    await writeFile(temporario, dados)
+    await rename(temporario, destino)
   }
 
   private assinar(dados: string): string {

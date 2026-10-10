@@ -12,6 +12,7 @@ import type {
   TipoEntrega,
 } from './enums-comercial'
 import type { Auditavel } from './tipos'
+import type { SolicitacaoItem } from './schemas/vitrine'
 
 type Ref = { id: string; nome: string }
 
@@ -27,6 +28,10 @@ export interface Solicitacao extends Auditavel {
   responsavel: Ref | null
   referenciaExterna: string | null
   motivoDescarte: string | null
+  /** E-mail do contato (pedidos da vitrine) */
+  email: string | null
+  /** Itens da lista de orçamento (vazio nas solicitações digitadas no sistema) */
+  itens: SolicitacaoItem[]
   orcamentos: { id: string; numero: string; status: StatusOrcamento }[]
 }
 

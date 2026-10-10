@@ -18,7 +18,7 @@ function variaveis(t: CoresTema) {
 
 /**
  * Aplica a cor do tema da empresa: uma folha de estilo com as variáveis do modo claro (:root) e do escuro
- * (.dark, com o texto na cor clareado e o fundo suave tingido). Sem código, volta ao verde ONPrint do index.css.
+ * (.dark, com o texto na cor clareado e o fundo suave tingido). Sem código, volta ao azul GrafyGo do index.css.
  */
 export function aplicarTema(codigo: string | null | undefined) {
   let estilo = document.getElementById('tema-empresa')
@@ -59,8 +59,8 @@ export function aplicarModo(modo: ModoTela | null) {
   pararDeOuvir = () => consulta.removeEventListener('change', atualizar)
 }
 
-const FAVICON_PADRAO = '/favicon.svg'
-export const TITULO_PADRAO = 'ONPrint Control'
+const FAVICON_PADRAO = '/favicon.png'
+export const TITULO_PADRAO = 'GrafyGo'
 
 /**
  * Ícone da aba gerado no navegador (64 px, nítido e sem link que expira): logo quase quadrada vai centralizada
@@ -105,7 +105,7 @@ export async function gerarFavicon(opcoes: { logoUrl: string | null | undefined;
   return canvas.toDataURL('image/png')
 }
 
-/** Ícone da aba: o gerado para a empresa ou o da ONPrint. */
+/** Ícone da aba: o gerado para a empresa ou o da GrafyGo. */
 export function definirFavicon(url: string | null | undefined) {
   let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
   if (!link) {

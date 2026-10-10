@@ -138,7 +138,7 @@ export interface EmpresaConfig extends Auditavel {
   cidade: string | null
   uf: string | null
   logoArquivoId: string | null
-  /** Cor do tema do sistema (TEMAS); null = verde ONPrint */
+  /** Cor do tema do sistema (TEMAS); null = azul GrafyGo */
   corTema: string | null
   /** Minutos sem uso até o sistema sair sozinho */
   inatividadeMinutos: number

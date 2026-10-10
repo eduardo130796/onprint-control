@@ -14,7 +14,7 @@ describe('temas', () => {
   })
 
   it('sugere a cor da paleta pela cor da logo', () => {
-    expect(temaMaisProximo('#1E40AF')).toBe('azul')
+    expect(temaMaisProximo('#1E40AF')).toBe('grafygo')
     expect(temaMaisProximo('#E11D48')).toBe('vinho')
     expect(temaMaisProximo('#16A34A')).toBe('verde')
     expect(temaMaisProximo('#111111')).toBe('grafite')

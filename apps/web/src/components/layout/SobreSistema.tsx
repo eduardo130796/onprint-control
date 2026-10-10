@@ -29,8 +29,11 @@ export function SobreSistema({ aberto, onFechar }: { aberto: boolean; onFechar: 
     <Dialog open={aberto} onOpenChange={(v) => !v && onFechar()}>
       <DialogContent className="max-w-sm gap-0 overflow-hidden p-0">
         <div className="bg-grafite px-6 pb-6 pt-7">
-          <Logo claro />
-          <DialogDescription className="mt-3 text-sm text-white/70">{MARCA.descricao}.</DialogDescription>
+          <Logo claro className="h-11" />
+          <DialogDescription className="mt-3 text-sm text-white/70">
+            {MARCA.slogan}
+            <span className="mt-0.5 block text-xs text-white/50">{MARCA.descricao}.</span>
+          </DialogDescription>
         </div>
         <div className="space-y-4 px-6 py-5 text-sm">
           <DialogTitle className="sr-only">Sobre o {MARCA.produto}</DialogTitle>

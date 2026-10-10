@@ -88,7 +88,7 @@ export const usuarioLogadoSchema = z.object({
     /** Nome que aparece no sistema (nome fantasia, razão social ou o do cadastro) */
     exibicao: z.string(),
     logoArquivoId: z.string().uuid().nullable(),
-    /** Cor do tema (TEMAS); null = verde ONPrint */
+    /** Cor do tema (TEMAS); null = azul GrafyGo */
     corTema: z.string().nullable(),
     /** Minutos sem uso até sair sozinho */
     inatividadeMinutos: z.number(),

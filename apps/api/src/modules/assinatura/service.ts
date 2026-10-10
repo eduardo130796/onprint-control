@@ -111,7 +111,7 @@ export function criarAssinaturaService(app: FastifyInstance) {
         clienteId,
         valor: plano.valor,
         inicio,
-        descricao: `ONPrint ${plano.nome}`,
+        descricao: `GrafyGo ${plano.nome}`,
         contrato: `ONP-${assinanteId.slice(0, 8)}-${Date.now().toString(36)}`,
       }),
     )
@@ -264,7 +264,7 @@ export function criarAssinaturaService(app: FastifyInstance) {
           valor: valorInicial,
           proximoVencimento: primeiroVencimento,
           forma: dados.forma,
-          descricao: `ONPrint Control - plano ${plano.nome} (${config?.nomeFantasia || empresa.nome})`,
+          descricao: `GrafyGo - plano ${plano.nome} (${config?.nomeFantasia || empresa.nome})`,
           referencia: empresa.id,
         }),
       )

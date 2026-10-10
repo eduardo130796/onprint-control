@@ -9,7 +9,7 @@ export const swaggerPlugin = fp(async (app) => {
 
   await app.register(swagger, {
     openapi: {
-      info: { title: 'ONPrint Control API', version: '0.1.0' },
+      info: { title: 'GrafyGo API', version: '0.1.0' },
       components: {
         securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },
       },

@@ -72,7 +72,7 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
   return (
     <section ref={ref} className="scroll-mt-24 space-y-8 rounded-3xl bg-card p-6 shadow-suave sm:p-8" aria-label="Assinar">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-marca-escuro">{a.situacao === 'teste' || a.situacao === 'cortesia' ? 'Continue sem interrupção' : a.situacao === 'cancelada' ? 'Volte a usar o ONPrint' : 'Regularize pelo pagamento online'}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-marca-escuro">{a.situacao === 'teste' || a.situacao === 'cortesia' ? 'Continue sem interrupção' : a.situacao === 'cancelada' ? 'Volte a usar a GrafyGo' : 'Regularize pelo pagamento online'}</p>
         <h2 className="mt-1 font-titulo text-2xl font-extrabold text-tinta sm:text-3xl">Escolha como assinar</h2>
       </div>
 
@@ -178,7 +178,7 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
           </div>
           <p className="mt-4 flex items-start gap-2 text-xs text-texto-secundario">
             <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            Pagamento processado pelo Asaas, instituição autorizada pelo Banco Central. Os dados do cartão são digitados na página do Asaas e não passam pelo ONPrint.
+            Pagamento processado pelo Asaas, instituição autorizada pelo Banco Central. Os dados do cartão são digitados na página do Asaas e não passam pela GrafyGo.
           </p>
         </div>
 

@@ -27,7 +27,7 @@ const papeis = (await chamar('GET', '/permissoes', { token: admin })).json.papei
 await chamar('POST', '/usuarios', { token: admin, body: { nome: 'Vendedora', email: 'vend@aurora.local', papelId: papeis.find((p) => p.codigo === 'vendedor').id, senhaProvisoria: 'provisoria1' } })
 const vend = await entrar('vend@aurora.local', 'provisoria1', 'Vendedora123')
 conferir('vendedora vê a cor da empresa', (await chamar('GET', '/auth/me', { token: vend })).json.empresa.corTema, 'roxo')
-conferir('vendedora não troca a cor', (await chamar('PUT', '/empresa/tema', { token: vend, body: { corTema: 'azul' } })).status, 403)
+conferir('vendedora não troca a cor', (await chamar('PUT', '/empresa/tema', { token: vend, body: { corTema: 'grafygo' } })).status, 403)
 
 console.log('\n— Modo da tela (de cada usuário) —')
 conferir('padrão: claro', (await chamar('GET', '/auth/me', { token: vend })).json.modoTela, 'claro')

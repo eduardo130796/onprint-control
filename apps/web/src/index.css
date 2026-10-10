@@ -11,33 +11,33 @@
     --peso-semi: 600;
     --peso-forte: 700;
     --peso-extra: 800;
-    /* Variáveis do shadcn/ui mapeadas para a identidade ONPrint (HSL): grafite + verde WhatsApp, laranja nos detalhes */
+    /* Variáveis do shadcn/ui mapeadas para a identidade (HSL): grafite + azul GrafyGo, laranja nos detalhes */
     --background: 200 13% 95%; /* fundo #F2F4F5 */
     --foreground: 213 13% 14%; /* texto #1F2328 */
     --card: 0 0% 100%;
     --card-foreground: 213 13% 14%;
     --popover: 0 0% 100%;
     --popover-foreground: 213 13% 14%;
-    --primary: 142 70% 49%; /* verde WhatsApp #25D366 */
-    --primary-foreground: 210 12% 13%;
+    --primary: 213 98% 44%; /* azul GrafyGo #0265DC */
+    --primary-foreground: 0 0% 100%;
     --secondary: 213 11% 19%; /* grafite #2B3036 */
     --secondary-foreground: 0 0% 100%;
     --muted: 195 13% 94%;
     --muted-foreground: 212 8% 38%; /* #5A6169 */
-    --accent: 143 57% 95%; /* verde suave #E9F9EF */
+    --accent: 210 92% 95%; /* azul suave #E6F2FE */
     --accent-foreground: 213 11% 19%;
     --destructive: 1 83% 64%; /* coral #EF5A57 */
     --destructive-foreground: 0 0% 100%;
     --border: 206 11% 88%;
     --input: 207 11% 83%;
-    --ring: 174 79% 29%;
+    --ring: 218 98% 40%;
     --radius: 0.75rem;
-    /* Cor da marca (RGB) — padrão verde ONPrint; o tema da empresa troca em tempo de execução (aplicarTema) */
-    --marca: 37 211 102; /* #25D366 */
-    --marca-escuro: 11 119 109; /* #0B776D */
-    --marca-hover: 30 190 90; /* #1EBE5A */
-    --marca-suave: 233 249 239; /* #E9F9EF */
-    --marca-contraste: 30 34 38; /* #1E2226 */
+    /* Cor da marca (RGB) — padrão azul GrafyGo; o tema da empresa troca em tempo de execução (aplicarTema) */
+    --marca: 2 101 220; /* #0265DC */
+    --marca-escuro: 2 77 204; /* #024DCC */
+    --marca-hover: 2 77 204; /* #024DCC */
+    --marca-suave: 230 242 254; /* #E6F2FE */
+    --marca-contraste: 255 255 255; /* #FFFFFF */
     /* Tokens da identidade (RGB) */
     --fundo: 242 244 245; /* #F2F4F5 */
     --texto: 31 35 40; /* #1F2328 */
@@ -74,9 +74,9 @@
     --grafite: 38 43 50; /* #262B32 */
     --grafite-escuro: 27 31 36; /* #1B1F24 */
     --coral-escuro: 248 113 113; /* #F87171 */
-    /* Verde ONPrint no escuro (os outros temas são gerados por aplicarTema) */
-    --marca-escuro: 37 211 102;
-    --marca-suave: 28 63 47;
+    /* Azul GrafyGo no escuro (os outros temas são gerados por aplicarTema) */
+    --marca-escuro: 77 184 250; /* #4DB8FA */
+    --marca-suave: 11 42 74; /* #0B2A4A */
     color-scheme: dark;
   }
 

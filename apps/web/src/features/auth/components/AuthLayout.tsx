@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { anosDireitos, MARCA } from '@/app/marca'
 import { Logo } from '@/components/layout/Logo'
 
 interface AuthLayoutProps {
@@ -12,19 +13,21 @@ export function AuthLayout({ titulo, descricao, children }: AuthLayoutProps) {
   return (
     <div className="flex min-h-screen flex-col lg:flex-row">
       <aside className="flex items-center justify-center bg-grafite px-6 py-8 lg:w-5/12 lg:flex-col lg:items-start lg:justify-between lg:p-12">
-        <Logo claro />
+        <Logo claro className="h-11 lg:h-16" />
         <div className="hidden lg:block">
           <span className="mb-4 block h-1 w-10 rounded-full bg-laranja" aria-hidden="true" />
           <p className="font-titulo text-3xl font-extrabold leading-tight text-white">
-            Do orçamento à entrega,
+            Gestão inteligente
             <br />
-            <span className="text-marca">tudo sob controle.</span>
+            <span className="text-[#02BAF8]">para quem transforma ideias.</span>
           </p>
           <p className="mt-4 max-w-sm text-sm text-white/70">
             Orçamentos, pedidos, arte, produção, estoque e financeiro da sua comunicação visual em um só lugar.
           </p>
         </div>
-        <p className="hidden text-xs text-white/60 lg:block">ONPrint Control</p>
+        <p className="hidden text-xs text-white/50 lg:block">
+          © {anosDireitos()} {MARCA.empresa} · Todos os direitos reservados
+        </p>
       </aside>
       <main className="flex flex-1 items-center justify-center px-4 py-10">
         <div className="w-full max-w-sm">

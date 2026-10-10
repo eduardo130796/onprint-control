@@ -26,7 +26,7 @@ describe('modelos de e-mail', () => {
 
   it('convite: login do usuário e validade de 72 horas', () => {
     const m = emailConviteUsuario({ nome: 'João', empresa: 'Gráfica Boa', email: 'joao@x.com', link, validadeHoras: 72 })
-    expect(m.assunto).toBe('Seu acesso a Gráfica Boa — ONPrint Control')
+    expect(m.assunto).toBe('Seu acesso a Gráfica Boa — GrafyGo')
     expect(m.texto).toContain('joao@x.com')
     expect(m.html).toContain('72 horas')
   })

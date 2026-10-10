@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 
 /**
  * Marca da gráfica no topo do sistema: a logo (sobre um fundo claro, para logos escuras ou com fundo
- * transparente) e o nome; sem logo, a inicial na cor do tema. A ONPrint aparece discreta no rodapé do menu.
+ * transparente) e o nome; sem logo, a inicial na cor do tema. A GrafyGo aparece discreta no rodapé do menu.
  */
 export function MarcaEmpresa({ compacta, className }: { compacta?: boolean; className?: string }) {
   const { usuario } = useAuth()

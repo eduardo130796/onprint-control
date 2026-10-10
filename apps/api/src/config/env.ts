@@ -59,7 +59,7 @@ const envSchema = z.object({
   ASAAS_NF_ATIVA: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   ASAAS_NF_SERVICO_ID: z.string().default(''),
   ASAAS_NF_SERVICO_CODIGO: z.string().default(''),
-  ASAAS_NF_SERVICO_NOME: z.string().default('Licença de uso de software (ONPrint Control)'),
+  ASAAS_NF_SERVICO_NOME: z.string().default('Licença de uso de software (GrafyGo)'),
   ASAAS_NF_OBSERVACOES: z.string().default(''),
   ASAAS_NF_RETER_ISS: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   /** Alíquotas em % (Simples Nacional normalmente só o ISS) */

@@ -19,8 +19,8 @@ const ESCURO = '#1E2226'
 const BRANCO = '#FFFFFF'
 
 export const TEMAS = {
-  verde: { nome: 'Verde ONPrint', cor: '#25D366', escuro: '#0B776D', hover: '#1EBE5A', suave: '#E9F9EF', contraste: ESCURO },
-  azul: { nome: 'Azul', cor: '#2563EB', escuro: '#1D4ED8', hover: '#1D4ED8', suave: '#EAF1FD', contraste: BRANCO },
+  grafygo: { nome: 'Azul GrafyGo', cor: '#0265DC', escuro: '#024DCC', hover: '#024DCC', suave: '#E6F2FE', contraste: BRANCO },
+  verde: { nome: 'Verde', cor: '#25D366', escuro: '#0B776D', hover: '#1EBE5A', suave: '#E9F9EF', contraste: ESCURO },
   petroleo: { nome: 'Petróleo', cor: '#0F766E', escuro: '#0F766E', hover: '#115E59', suave: '#E6F6F4', contraste: BRANCO },
   roxo: { nome: 'Roxo', cor: '#7C3AED', escuro: '#6D28D9', hover: '#6D28D9', suave: '#F3EEFE', contraste: BRANCO },
   rosa: { nome: 'Rosa', cor: '#DB2777', escuro: '#BE185D', hover: '#BE185D', suave: '#FDEEF6', contraste: BRANCO },
@@ -32,7 +32,7 @@ export const TEMAS = {
 
 export type CodigoTema = keyof typeof TEMAS
 export const CODIGOS_TEMA = Object.keys(TEMAS) as CodigoTema[]
-export const TEMA_PADRAO: CodigoTema = 'verde'
+export const TEMA_PADRAO: CodigoTema = 'grafygo'
 
 export const temaOuPadrao = (codigo: string | null | undefined): CodigoTema => (codigo && codigo in TEMAS ? (codigo as CodigoTema) : TEMA_PADRAO)
 

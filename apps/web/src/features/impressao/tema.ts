@@ -30,21 +30,21 @@ Font.register({
 // Sem hifenização automática (palavras inteiras quebram melhor em português)
 Font.registerHyphenationCallback((palavra) => [palavra])
 
-/** Paleta dos documentos: cinza escuro (principal) + verde WhatsApp (destaque). Trocar aqui recolore todos. */
+/** Paleta dos documentos: cinza escuro (principal) + azul GrafyGo (destaque). Trocar aqui recolore todos. */
 export const COR = {
   /** Títulos, faixa do topo, faixa do total */
   principal: '#2B3036',
   principalEscuro: '#1E2226',
-  /** Verde WhatsApp: faixa, selos, bordas de destaque (decorativo) */
-  destaque: '#25D366',
-  /** Verde para texto sobre fundo claro (rótulos de tipo, links) */
-  destaqueTexto: '#128C7E',
+  /** Azul GrafyGo: faixa, selos, bordas de destaque (decorativo) */
+  destaque: '#0265DC',
+  /** Azul para texto sobre fundo claro (rótulos de tipo, links) */
+  destaqueTexto: '#024DCC',
   tinta: '#1F2328',
   suave: '#4A5259',
   claro: '#7A838A',
   linha: '#E1E5E8',
   fundo: '#F3F5F6',
-  fundoDestaque: '#E9F9EF',
+  fundoDestaque: '#E6F2FE',
   /** Laranja: pequenos detalhes da identidade (lasca na faixa do topo) */
   laranja: '#F97316',
   coral: '#C8322F',

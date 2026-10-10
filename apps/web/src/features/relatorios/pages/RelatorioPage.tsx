@@ -60,7 +60,7 @@ export function RelatorioPage({ tipo }: { tipo: TipoRelatorio }) {
     setGerandoPdf(true)
     try {
       const { baixarPdfRelatorio } = await import('../components/gerarPdfRelatorio')
-      await baixarPdfRelatorio(r, empresa.data?.nomeFantasia || empresa.data?.razaoSocial || 'ONPrint Control', nomeArquivo)
+      await baixarPdfRelatorio(r, empresa.data?.nomeFantasia || empresa.data?.razaoSocial || 'GrafyGo', nomeArquivo)
     } catch (e) {
       toast.error((e as Error).message)
     } finally {

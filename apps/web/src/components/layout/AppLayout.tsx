@@ -84,7 +84,7 @@ export function AppLayout() {
     return () => aplicarEscala(null)
   }, [usuario?.escala])
 
-  // Cor do tema da empresa; ao sair (login, páginas públicas) volta ao verde ONPrint
+  // Cor do tema da empresa; ao sair (login, páginas públicas) volta ao azul GrafyGo
   useEffect(() => {
     aplicarTema(empresa?.corTema)
     return () => aplicarTema(null)

@@ -96,7 +96,7 @@ export function LoginPage() {
           </Link>
         </p>
         <p className="text-center text-sm text-texto-secundario">
-          Ainda não usa o ONPrint?{' '}
+          Ainda não usa a GrafyGo?{' '}
           <Link to="/criar-conta" className="font-medium text-marca-escuro hover:underline">
             Criar conta grátis
           </Link>

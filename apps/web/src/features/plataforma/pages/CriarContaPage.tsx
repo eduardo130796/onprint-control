@@ -57,7 +57,7 @@ export function CriarContaPage() {
       if (dados.cupom && cupom.isError) return toast.error((cupom.error as Error).message)
       await publico('/cadastro', { ...dados, plano: escolhido })
       await entrar({ email: dados.email, senha: dados.senha })
-      toast.success('Conta criada! Bem-vindo(a) ao ONPrint Control.')
+      toast.success('Conta criada! Bem-vindo(a) à GrafyGo.')
       navigate('/', { replace: true })
     } catch (e) {
       toast.error((e as Error).message)

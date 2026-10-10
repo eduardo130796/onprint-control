@@ -344,7 +344,7 @@ export function AparenciaPage() {
                     </span>
                     <span className="min-w-0">
                       <span className="block text-sm font-semibold text-tinta">{t.nome}</span>
-                      {codigo === 'verde' && <span className="block text-[0.6875rem] text-texto-secundario">Padrão</span>}
+                      {codigo === 'grafygo' && <span className="block text-[0.6875rem] text-texto-secundario">Padrão</span>}
                       {sugestao.data === codigo && (
                         <span className="mt-0.5 inline-flex items-center gap-1 text-[0.6875rem] font-semibold text-texto-secundario">
                           <Wand2 className="h-3 w-3" /> Combina com a logo

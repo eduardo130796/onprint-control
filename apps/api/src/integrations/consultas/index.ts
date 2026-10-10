@@ -32,7 +32,7 @@ export interface OpcoesConsultas {
 const DIA = 24 * 60 * 60 * 1000
 export const VALIDADE_CACHE = { cep: 7 * DIA, cnpj: DIA, naoEncontrado: 60 * 60 * 1000 }
 // A BrasilAPI recusa (403) chamadas sem User-Agent
-const CABECALHOS = { Accept: 'application/json', 'User-Agent': 'ONPrintControl/1.0 (consulta de cadastro)' }
+const CABECALHOS = { Accept: 'application/json', 'User-Agent': 'GrafyGo/1.0 (consulta de cadastro)' }
 
 /** Cache simples: Map em ordem de uso; passou do limite, sai o menos usado. */
 export class CacheLru<T> {

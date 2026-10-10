@@ -2,7 +2,7 @@ import type { EmailMensagem } from './index'
 
 type Modelo = Omit<EmailMensagem, 'para'>
 
-const COR = { grafite: '#2B3036', marca: '#25D366', laranja: '#F97316', texto: '#3A4048', secundario: '#5F6670', fundo: '#F4F5F7' }
+const COR = { grafite: '#2B3036', marinho: '#021A40', marca: '#0265DC', celeste: '#02BAF8', laranja: '#F97316', texto: '#3A4048', secundario: '#5F6670', fundo: '#F4F5F7' }
 
 /** Escapa texto vindo do usuário (nome, empresa) antes de entrar no HTML. */
 export function escaparHtml(texto: string): string {
@@ -21,14 +21,14 @@ function layout({ titulo, paragrafos, botao, rodape }: Corpo): string {
   const p = (t: string) => `<p style="margin:0 0 14px;font-size:15px;line-height:22px;color:${COR.texto}">${t}</p>`
   const btn = botao
     ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 22px"><tr><td style="border-radius:8px;background:${COR.marca}">
-<a href="${botao.link}" style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:bold;color:${COR.grafite};text-decoration:none;border-radius:8px">${botao.texto}</a></td></tr></table>
+<a href="${botao.link}" style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:8px">${botao.texto}</a></td></tr></table>
 <p style="margin:0 0 14px;font-size:12px;line-height:18px;color:${COR.secundario}">Se o botão não abrir, copie este endereço no navegador:<br><span style="word-break:break-all">${botao.link}</span></p>`
     : ''
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${titulo}</title></head>
 <body style="margin:0;padding:0;background:${COR.fundo};font-family:Arial,Helvetica,sans-serif">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${COR.fundo};padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden">
-<tr><td style="background:${COR.grafite};padding:18px 28px;font-size:18px;font-weight:bold;color:#ffffff">ONPrint <span style="color:${COR.marca}">Control</span></td></tr>
+<tr><td style="background:${COR.marinho};padding:18px 28px;font-size:20px;font-weight:bold;letter-spacing:-0.3px;color:#ffffff">Grafy<span style="color:${COR.celeste}">go</span><span style="display:block;margin-top:2px;font-size:11px;font-weight:normal;letter-spacing:0;color:#9DB4D6">Gestão inteligente para quem transforma ideias.</span></td></tr>
 <tr><td style="height:4px;background:${COR.marca};font-size:0;line-height:0"><span style="display:inline-block;width:56px;height:4px;background:${COR.laranja}"></span></td></tr>
 <tr><td style="padding:28px">
 <h1 style="margin:0 0 18px;font-size:21px;line-height:28px;color:${COR.grafite}">${titulo}</h1>
@@ -44,7 +44,7 @@ export function emailRedefinirSenha(d: { nome: string; empresa: string; link: st
   const nome = escaparHtml(d.nome.split(' ')[0] ?? d.nome)
   const empresa = escaparHtml(d.empresa)
   return {
-    assunto: 'Redefinição de senha — ONPrint Control',
+    assunto: 'Redefinição de senha — GrafyGo',
     texto: [
       `Olá, ${d.nome.split(' ')[0]}!`,
       `Recebemos um pedido para redefinir a sua senha de acesso a ${d.empresa}.`,
@@ -65,7 +65,7 @@ export function emailConviteUsuario(d: { nome: string; empresa: string; email: s
   const nome = escaparHtml(d.nome.split(' ')[0] ?? d.nome)
   const empresa = escaparHtml(d.empresa)
   return {
-    assunto: `Seu acesso a ${d.empresa} — ONPrint Control`,
+    assunto: `Seu acesso a ${d.empresa} — GrafyGo`,
     texto: [
       `Olá, ${d.nome.split(' ')[0]}!`,
       `Você recebeu acesso ao sistema de ${d.empresa}. Seu login é ${d.email}.`,
@@ -84,7 +84,7 @@ export function emailConviteUsuario(d: { nome: string; empresa: string; email: s
 
 export function emailSenhaAlterada(d: { nome: string; empresa: string; quando: string }): Modelo {
   return {
-    assunto: 'Sua senha foi alterada — ONPrint Control',
+    assunto: 'Sua senha foi alterada — GrafyGo',
     texto: [
       `Olá, ${d.nome.split(' ')[0]}!`,
       `A senha do seu acesso a ${d.empresa} foi alterada em ${d.quando}. As sessões abertas em outros aparelhos foram encerradas.`,
@@ -105,7 +105,7 @@ export function emailBoasVindas(d: { nome: string; empresa: string; email: strin
   const primeiro = d.nome.split(' ')[0] ?? d.nome
   const teste = d.testeAte ? `O teste grátis vai até ${d.testeAte}. Até lá, use à vontade: nenhum cartão foi pedido.` : ''
   return {
-    assunto: `Bem-vindo(a) ao ONPrint Control, ${primeiro}!`,
+    assunto: `Bem-vindo(a) à GrafyGo, ${primeiro}!`,
     texto: [
       `Olá, ${primeiro}!`,
       `A conta de ${d.empresa} está pronta. Entre com o e-mail ${d.email} e a senha que você criou:`,
@@ -124,7 +124,7 @@ export function emailBoasVindas(d: { nome: string; empresa: string; email: strin
         'Primeiros passos: complete os dados da empresa, cadastre seus produtos e convide a equipe em Configurações → Usuários.',
       ],
       botao: { texto: 'Entrar no sistema', link: d.link },
-      rodape: 'Você recebeu este e-mail porque criou uma conta no ONPrint Control.',
+      rodape: 'Você recebeu este e-mail porque criou uma conta na GrafyGo.',
     }),
   }
 }

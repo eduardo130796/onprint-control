@@ -1,4 +1,4 @@
-// ONPrint Control — schema do banco (PostgreSQL 16)
+// GrafyGo — schema do banco (PostgreSQL 16)
 // Modelos em PascalCase mapeados para tabelas/colunas em snake_case (português, sem acento).
 
 generator client {
@@ -152,7 +152,7 @@ model EmpresaConfig {
   cidade                String?
   uf                    String?  @db.Char(2)
   logoArquivoId         String?  @map("logo_arquivo_id") @db.Uuid
-  /// Cor do tema do sistema (paleta TEMAS: verde, azul, roxo…); null = verde ONPrint
+  /// Cor do tema do sistema (paleta TEMAS: verde, azul, roxo…); null = azul GrafyGo
   corTema               String?  @map("cor_tema")
   /// Minutos sem uso até o sistema sair sozinho (15, 30, 60, 120 ou 240)
   inatividadeMinutos    Int      @default(30) @map("inatividade_minutos")

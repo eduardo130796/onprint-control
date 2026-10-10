@@ -1,13 +1,14 @@
 import { Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { NavLink, Navigate, Outlet, useNavigate } from 'react-router-dom'
-import { BellRing, Building2, Gauge, Layers, Loader2, LogOut, ShieldCheck, TicketPercent } from 'lucide-react'
+import { BellRing, Building2, Gauge, Layers, Loader2, LogOut, TicketPercent } from 'lucide-react'
 import { iniciais } from '@onprint/shared'
 import { TelaCarregando } from '@/components/shared/TelaCarregando'
 import { AvisoInatividade } from '@/features/auth/AvisoInatividade'
 import { useInatividade } from '@/features/auth/useInatividade'
 import { cn } from '@/lib/utils'
 import { plataformaApi, sessaoPlataforma } from '../api'
+import { Logo } from '@/components/layout/Logo'
 
 const LINKS = [
   { para: '/plataforma', rotulo: 'Painel', Icone: Gauge, fim: true },
@@ -45,14 +46,10 @@ export function PlataformaLayout() {
           <div className="absolute -right-24 -top-40 h-72 w-72 rounded-full bg-marca/20 blur-3xl" />
         </div>
         <div className="relative mx-auto flex max-w-[87.5rem] items-center gap-3 px-4 pt-3 sm:px-6">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-marca text-grafite-escuro">
-              <ShieldCheck className="h-5 w-5" aria-hidden="true" />
-            </span>
-            <div className="leading-tight">
-              <p className="font-titulo text-base font-extrabold">ONPrint Control</p>
-              <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-marca">Plataforma</p>
-            </div>
+          <div className="flex items-center gap-3">
+            <Logo claro className="h-8" />
+            <span className="h-6 w-px bg-white/15" aria-hidden="true" />
+            <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-marca">Plataforma</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <span className="hidden text-right text-xs leading-tight sm:block">

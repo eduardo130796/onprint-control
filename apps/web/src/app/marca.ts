@@ -1,11 +1,12 @@
 /**
- * Marca do sistema (quem produz o ONPrint): assinatura discreta no rodapé do menu e a janela "Sobre o sistema".
- * A marca em destaque nas telas é a da gráfica cliente; esta aparece só como autoria e direitos.
+ * Marca do sistema (quem produz a GrafyGo): logo, assinatura discreta no rodapé do menu e a janela "Sobre o sistema".
+ * A marca em destaque nas telas é a da gráfica cliente; esta aparece como autoria, direitos e no login.
  */
 export const MARCA = {
-  produto: 'ONPrint Control',
+  produto: 'GrafyGo',
   /** Titular dos direitos autorais */
-  empresa: 'ONPrint',
+  empresa: 'GrafyGo',
+  slogan: 'Gestão inteligente para quem transforma ideias.',
   descricao: 'Sistema de gestão para gráficas e comunicação visual',
   anoInicio: 2026,
 }

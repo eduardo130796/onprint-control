@@ -1,4 +1,6 @@
-# ONPrint Control
+# GrafyGo
+
+> Gestão inteligente para quem transforma ideias.
 
 ERP web para comunicação visual, gráfica e personalizados: orçamentos, pedidos, arte, produção, estoque, financeiro e caixa.
 
@@ -74,7 +76,7 @@ Para enviar de verdade, preencha no `.env` os dados SMTP do seu provedor e recri
 | Zoho | `smtp.zoho.com` | `465` / `true` | o e-mail e a senha (ou senha de app) |
 | Brevo | `smtp-relay.brevo.com` | `587` / `false` | o login SMTP e a chave SMTP do painel |
 
-Use em `EMAIL_REMETENTE` um endereço do mesmo domínio autorizado no provedor (ex.: `ONPrint Control <nao-responda@suaempresa.com.br>`). Sem SPF/DKIM configurados no domínio, os e-mails tendem a cair no spam.
+Use em `EMAIL_REMETENTE` um endereço do mesmo domínio autorizado no provedor (ex.: `GrafyGo <nao-responda@suaempresa.com.br>`). Sem SPF/DKIM configurados no domínio, os e-mails tendem a cair no spam.
 
 Com o e-mail ativo:
 - **Esqueci minha senha** (tela de login): link de uso único que vale 1 hora. A resposta é a mesma exista ou não a conta.

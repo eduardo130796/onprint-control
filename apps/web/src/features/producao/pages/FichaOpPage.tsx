@@ -50,7 +50,7 @@ export function FichaOpPage() {
   if (consulta.isError) return <EstadoErro erro={consulta.error} />
   const op = consulta.data
   const e = empresa.data
-  const nomeEmpresa = e?.nomeFantasia || e?.razaoSocial || 'ONPrint'
+  const nomeEmpresa = e?.nomeFantasia || e?.razaoSocial || 'GrafyGo'
   const prazo = formatarDataSimples(op.dataFimPrevista ?? op.pedido.dataPrevistaEntrega)
   const urgente = op.prioridade === 'urgente' || op.prioridade === 'alta'
 
@@ -66,7 +66,7 @@ export function FichaOpPage() {
       <article className="mx-auto max-w-[210mm] overflow-hidden rounded-xl bg-white shadow-lg print:max-w-none print:rounded-none print:shadow-none">
         <div className="flex h-1.5">
           <div className="flex-[7] bg-[#2B3036]" />
-          <div className="flex-[2.6] bg-[#25D366]" />
+          <div className="flex-[2.6] bg-[#0265DC]" />
           <div className="flex-[0.4] bg-[#F97316]" />
         </div>
 
@@ -109,7 +109,7 @@ export function FichaOpPage() {
                 </Dado>
               </dl>
               {op.observacoes && (
-                <div className="rounded-lg border-l-4 border-[#25D366] bg-[#E9F9EF] px-4 py-3">
+                <div className="rounded-lg border-l-4 border-[#0265DC] bg-[#E6F2FE] px-4 py-3">
                   <p className="text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-[#128C7E]">Observações</p>
                   <p className="mt-0.5 whitespace-pre-line">{op.observacoes}</p>
                 </div>

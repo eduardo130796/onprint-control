@@ -114,7 +114,7 @@ export class AsaasGateway implements GatewayPagamentos {
     try {
       resposta = await fetch(`${this.base}${caminho}`, {
         method: metodo,
-        headers: { access_token: this.config.ASAAS_API_KEY, 'Content-Type': 'application/json', 'User-Agent': 'ONPrint-Control' },
+        headers: { access_token: this.config.ASAAS_API_KEY, 'Content-Type': 'application/json', 'User-Agent': 'GrafyGo' },
         body: corpo === undefined ? undefined : JSON.stringify(corpo),
         signal: AbortSignal.timeout(20_000),
       })

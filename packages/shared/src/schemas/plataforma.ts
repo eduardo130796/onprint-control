@@ -93,6 +93,8 @@ export const cadastroPublicoSchema = z.object({
   /** Preferência vinda da página de planos (vale de verdade quando assinar) */
   ciclo: z.enum(CICLOS_ASSINATURA).optional(),
   cupom: codigoCupom,
+  /** Começa com o catálogo de exemplo (banner, adesivo, cartão… com preço): orçamento no primeiro minuto */
+  exemplos: z.boolean().optional(),
   aceite: z.literal(true, { message: 'Aceite os termos de uso para continuar.' }),
   site: z.string().max(0).optional(),
 })

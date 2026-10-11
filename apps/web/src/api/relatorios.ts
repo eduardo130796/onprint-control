@@ -1,8 +1,11 @@
-import type { Dashboard, LucratividadeQuery, Notificacao, Relatorio, RelatorioLucratividade, RelatorioQuery, ResultadoBusca, TipoRelatorio } from '@onprint/shared'
+import type { Dashboard, LucratividadeQuery, Notificacao, Relatorio, RelatorioLucratividade, RelatorioQuery, ResultadoBusca, TipoRelatorio, PrimeirosPassos } from '@onprint/shared'
 import { http, qs } from './http'
 
 /** Dashboard, relatórios, busca global e notificações (Fase 7). */
-export const dashboardApi = { obter: () => http<Dashboard>('/dashboard') }
+export const dashboardApi = {
+  obter: () => http<Dashboard>('/dashboard'),
+  primeirosPassos: () => http<PrimeirosPassos>('/primeiros-passos'),
+}
 
 export const relatoriosApi = {
   obter: (tipo: TipoRelatorio, q: RelatorioQuery) => http<Relatorio>(`/relatorios/${tipo}${qs(q)}`),

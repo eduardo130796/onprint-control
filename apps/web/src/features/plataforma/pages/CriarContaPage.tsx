@@ -40,7 +40,7 @@ export function CriarContaPage() {
   const ciclo: CicloAssinatura = params.get('ciclo') === 'anual' ? 'anual' : 'mensal'
   const cupomDoLink = params.get('cupom')?.toUpperCase() ?? ''
   const [abrirCupom, setAbrirCupom] = useState(Boolean(cupomDoLink))
-  const form = useForm<CadastroPublicoInput>({ resolver: zodResolver(cadastroPublicoSchema), defaultValues: { empresa: '', nome: '', email: '', telefone: '', senha: '', site: '', cupom: cupomDoLink } })
+  const form = useForm<CadastroPublicoInput>({ resolver: zodResolver(cadastroPublicoSchema), defaultValues: { empresa: '', nome: '', email: '', telefone: '', senha: '', site: '', cupom: cupomDoLink, exemplos: true } })
   const codigoCupom = String(form.watch('cupom') ?? '').trim().toUpperCase()
   const [cupomConferido, setCupomConferido] = useState(cupomDoLink)
   const { errors, isSubmitting } = form.formState
@@ -128,6 +128,13 @@ export function CriarContaPage() {
             </span>
           </p>
         )}
+        <label className="flex items-start gap-2 rounded-xl bg-marca-suave/60 p-3 text-sm">
+          <Checkbox className="mt-0.5" {...form.register('exemplos')} />
+          <span>
+            <strong className="text-tinta">Começar com produtos de exemplo</strong>
+            <span className="block text-xs text-texto-secundario">Banner, adesivo, cartão e outros, já com preço: faça um orçamento no primeiro minuto. Dá para editar ou apagar depois.</span>
+          </span>
+        </label>
         {/* Armadilha para robôs: invisível para pessoas */}
         <input type="text" tabIndex={-1} autoComplete="off" aria-hidden="true" className="hidden" {...form.register('site')} />
         <label className="flex items-start gap-2 text-sm">

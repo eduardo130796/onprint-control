@@ -77,7 +77,7 @@ export const cadastroRoutes: FastifyPluginAsyncZod = async (app) => {
       const assinante = await provisionarEmpresa(
         { plataforma: app.plataforma, databaseUrl: app.config.DATABASE_URL, clienteDe: app.empresas.clienteDe },
         // A pessoa escolheu a própria senha: não precisa trocar no primeiro login
-        { nome: d.empresa, plano: codigoPlano, situacao: 'teste', admin: { nome: d.nome, email: d.email, senha: d.senha, deveTrocarSenha: false } },
+        { nome: d.empresa, plano: codigoPlano, situacao: 'teste', exemplos: d.exemplos ?? false, exemplosSemMinimo: true, admin: { nome: d.nome, email: d.email, senha: d.senha, deveTrocarSenha: false } },
       )
       // Anual escolhido na página de planos: já vem marcado na hora de assinar
       if (d.ciclo === 'anual' && plano.valorAnual) await app.plataforma.assinatura.update({ where: { assinanteId: assinante.id }, data: { ciclo: 'anual' } })

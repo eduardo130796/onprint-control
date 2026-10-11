@@ -3,17 +3,24 @@ import { z } from 'zod'
 import { buscaGlobalQuerySchema, idParamSchema, notificacoesQuerySchema } from '@onprint/shared'
 import { criarBuscaService } from './busca.service'
 import { criarDashboardService } from './dashboard.service'
+import { criarPrimeirosPassos } from './primeiros-passos'
 
 /** Dashboard, busca global (Ctrl+K) e central de notificações do usuário logado. */
 export const dashboardRoutes: FastifyPluginAsyncZod = async (app) => {
   const dashboard = criarDashboardService(app)
   const busca = criarBuscaService(app)
+  const primeirosPassos = criarPrimeirosPassos(app)
   const autenticado = { onRequest: [app.autenticar] }
   const { prisma } = app
 
   app.get('/dashboard', { onRequest: [app.exigirPermissao('dashboard', 'visualizar')], schema: { tags: ['dashboard'], summary: 'KPIs, gráficos e listas do dashboard' } }, (req) =>
     dashboard.montar(req),
   )
+  // Só quem configura a empresa vê a lista (é quem consegue fazer os passos)
+  app.get('/primeiros-passos', { onRequest: [app.exigirPermissao('configuracoes', 'editar')], schema: { tags: ['dashboard'], summary: 'Primeiros passos da gráfica nova (progresso medido nos dados)' } }, () =>
+    primeirosPassos.calcular(),
+  )
+
   app.get('/busca', { ...autenticado, schema: { tags: ['dashboard'], summary: 'Busca global: clientes, orçamentos e pedidos (respeita permissões)', querystring: buscaGlobalQuerySchema } }, (req) =>
     busca.buscar(req, req.query.q),
   )

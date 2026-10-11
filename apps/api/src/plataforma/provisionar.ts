@@ -15,6 +15,8 @@ export interface DadosNovaEmpresa {
   cnpj?: string
   admin: AdminInicial
   exemplos?: boolean
+  /** Exemplos sem estoque mínimo (cadastro pelo site: o painel do primeiro dia não acusa "estoque baixo" de mentira) */
+  exemplosSemMinimo?: boolean
   /** Código do plano (padrão: profissional) */
   plano?: string
   /** Começa em teste grátis (padrão) ou já ativa */
@@ -80,6 +82,7 @@ export async function provisionarEmpresa(deps: DependenciasProvisionamento, dado
       nomeEmpresa: dados.nome,
       admin: { ...dados.admin, email },
       exemplos: dados.exemplos ?? false,
+      exemplosSemMinimo: dados.exemplosSemMinimo ?? false,
     })
     if (!resultado.adminCriado) throw new Error('O administrador da empresa nova não foi criado.')
     await criarIndiceLogin(plataforma).reservar(email, assinante.id, resultado.adminCriado.id)

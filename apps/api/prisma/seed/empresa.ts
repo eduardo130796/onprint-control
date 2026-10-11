@@ -21,6 +21,8 @@ export interface OpcoesSemeadura {
   admin?: AdminInicial
   /** Catálogo de exemplo (produtos, insumos, acabamentos, máquinas) */
   exemplos: boolean
+  /** Zera o estoque mínimo dos exemplos (os insumos começam sem saldo e acusariam "estoque baixo") */
+  exemplosSemMinimo?: boolean
 }
 
 export interface ResultadoSemeadura {
@@ -94,5 +96,6 @@ export async function semearEmpresa(prisma: PrismaClient, opcoes: OpcoesSemeadur
   for (const u of UNIDADES) await prisma.unidadeMedida.upsert({ where: { sigla: u.sigla }, update: {}, create: u })
   const financeiro = await criarFinanceiroPadrao(prisma)
   const catalogo = opcoes.exemplos && (await criarCatalogoExemplo(prisma))
+  if (catalogo && opcoes.exemplosSemMinimo) await prisma.produto.updateMany({ where: { estoqueMinimo: { gt: 0 } }, data: { estoqueMinimo: 0 } })
   return { permissoes, adminCriado, financeiro, catalogo }
 }

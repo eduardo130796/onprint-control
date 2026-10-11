@@ -39,6 +39,7 @@ import { useStatusConfig } from '@/hooks/useStatusConfig'
 import { formatarDataExtenso } from '@/lib/datas'
 import { formatarValor } from '@/lib/formatoValor'
 import { cn } from '@/lib/utils'
+import { PrimeirosPassos } from '../components/PrimeirosPassos'
 
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 const rotuloMes = (m: string) => `${MESES[Number(m.slice(5, 7)) - 1]}/${m.slice(2, 4)}`
@@ -184,6 +185,7 @@ export function DashboardPage() {
   return (
     <>
       <Cabecalho nome={primeiroNome} />
+      <PrimeirosPassos />
       {consulta.isPending ? (
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="grid gap-4 sm:grid-cols-2 lg:col-span-2 xl:grid-cols-3">

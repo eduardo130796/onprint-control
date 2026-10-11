@@ -13,9 +13,9 @@ export const MARCA = {
    * Quem vende o serviço (exigido no site pelo Decreto 7.962/2013): nome completo e CPF enquanto for pessoa física,
    * razão social e CNPJ quando abrir a empresa. Aparece nos termos de uso, na privacidade e no rodapé da página de venda.
    */
-  titular: '',
+  titular: 'Eduardo Roquête Cabral Júnior',
   /** CPF ou CNPJ, com pontuação (ex.: 123.456.789-00 ou 12.345.678/0001-90) */
-  documento: '',
+  documento: '030.154.681-97',
   /** Atendimento, privacidade (DPO) e comercial */
   contato: 'contato@grafygo.com.br',
 }

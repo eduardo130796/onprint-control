@@ -50,12 +50,12 @@ Ordem: **0** código pronto → **1** VPS → **2** DNS → **3** e-mail → **4
 
 ## 0. Antes de tudo: o código (no seu computador)
 
-- [ ] **Titular do serviço.** Em `apps/web/src/app/marca.ts`, preencha `titular` (seu nome completo) e `documento`
-      (seu CPF, ex.: `123.456.789-00`). A lei do comércio eletrônico exige mostrar quem vende. Isso aparece nos termos,
-      na privacidade e no rodapé. Quando tiver CNPJ, troque pela razão social e pelo CNPJ.
-- [ ] Confira `contato: 'contato@grafygo.com.br'` no mesmo arquivo.
+- [x] **Titular do serviço** em `apps/web/src/app/marca.ts`: Eduardo Roquête Cabral Júnior, CPF 030.154.681-97 (a lei
+      do comércio eletrônico exige mostrar quem vende; aparece nos termos, na privacidade e no rodapé). Quando tiver
+      CNPJ, troque pela razão social e pelo CNPJ.
+- [x] `contato: 'contato@grafygo.com.br'` no mesmo arquivo.
 - [ ] Revise os textos de `apps/web/src/features/legal/textos.ts` (de preferência com um advogado).
-- [ ] Suba para o GitHub: `git add -A && git commit -m "Dados do titular" && git push`.
+- [x] Já está no GitHub.
 
 > Dica: abrir um **MEI** resolve duas coisas de uma vez: o site deixa de mostrar o seu CPF e você passa a poder emitir
 > nota fiscal (aí é só ligar `ASAAS_NF_ATIVA=true`, ver etapa 4).
@@ -98,7 +98,9 @@ Os três devem responder com o IP da VPS. **Não suba o sistema (etapa 7) antes 
 O sistema manda: boas-vindas no cadastro, convite de usuário, "esqueci a senha" e a confirmação de pedido da vitrine.
 Os e-mails das gráficas saem com o **nome da gráfica** e "Responder para" o e-mail dela; o endereço que envia é o seu.
 
-- [ ] No provedor do `contato@grafygo.com.br`, pegue os dados de **SMTP** (servidor, porta, usuário e senha):
+O e-mail `contato@grafygo.com.br` está na **Hostinger**: `SMTP_HOST=smtp.hostinger.com`, porta `465`, `SMTP_SEGURO=true`,
+usuário `contato@grafygo.com.br` e a senha da caixa (definida no hPanel → **E-mails**). Tabela de outros provedores, se
+um dia mudar:
 
   | Provedor | SMTP_HOST | SMTP_PORTA | SMTP_SEGURO |
   |---|---|---|---|
@@ -109,8 +111,9 @@ Os e-mails das gráficas saem com o **nome da gráfica** e "Responder para" o e-
 
 - [ ] Use o próprio `contato@grafygo.com.br` como usuário e remetente (a maioria dos provedores exige que o remetente
       seja a conta autenticada). Se quiser separar, crie a caixa `nao-responda@grafygo.com.br` e use ela.
-- [ ] No DNS, confira que o provedor deixou **SPF** e **DKIM** configurados (o painel do e-mail costuma mostrar
-      "verificado"). Acrescente também um **DMARC** simples:
+- [ ] No hPanel da Hostinger → **E-mails** → `grafygo.com.br` → **Configurar/Registros DNS**, confira que **MX**,
+      **SPF** e **DKIM** aparecem como ativos (se o DNS do domínio também está na Hostinger, ela cria sozinha; se o DNS
+      estiver em outro lugar, copie os registros que o hPanel mostra). Acrescente também um **DMARC** simples:
 
   | Tipo | Nome | Valor |
   |---|---|---|
@@ -192,7 +195,7 @@ SEED_EXEMPLOS=true
 PLATAFORMA_ADMIN_EMAIL=<seu e-mail pessoal>
 PLATAFORMA_ADMIN_SENHA=<senha forte, 12+ caracteres, diferente das outras>
 
-SMTP_HOST=<ex.: smtp.hostinger.com>
+SMTP_HOST=smtp.hostinger.com
 SMTP_PORTA=465
 SMTP_SEGURO=true
 SMTP_USUARIO=contato@grafygo.com.br
@@ -201,7 +204,7 @@ EMAIL_REMETENTE=GrafyGo <contato@grafygo.com.br>
 
 PLANO_PADRAO=profissional
 # Aparece no botão "Falar com a gente" da página de venda e em "Minha assinatura" (WhatsApp com DDD)
-SUPORTE_CONTATO=<(61) 9XXXX-XXXX>
+SUPORTE_CONTATO=(61) 99352-6884
 CADASTRO_PUBLICO=true
 
 ASAAS_API_KEY=<chave de PRODUÇÃO>

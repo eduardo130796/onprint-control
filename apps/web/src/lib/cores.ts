@@ -1,2 +1,2 @@
-/** Paleta das séries dos gráficos (marca, petróleo, âmbar, coral, roxo). */
-export const CORES_SERIES = ['#0265DC', '#2B3036', '#F97316', '#10857A', '#8B5CF6']
+/** Paleta das séries dos gráficos: a 1ª é a cor do tema da empresa (segue a personalização), depois grafite, âmbar, petróleo e roxo. */
+export const CORES_SERIES = ['rgb(var(--marca))', '#2B3036', '#F59E0B', '#10857A', '#8B5CF6']

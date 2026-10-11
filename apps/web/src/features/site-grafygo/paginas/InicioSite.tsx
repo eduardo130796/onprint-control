@@ -7,11 +7,13 @@ import { cn } from '@/lib/utils'
 import { FLUXO, PERGUNTAS, RECURSOS, VITRINE_ITENS } from '../conteudo'
 import { baseSistema, linkCadastro, usePlanosPublicos, whatsappSuporte, type PlanosPublicos } from '../dados'
 import { MockAprovacao, MockArte, MockPainel, MockVitrine } from '../componentes/Mockups'
+import { Personalizacao } from '../componentes/Personalizacao'
 import { Planos } from '../componentes/Planos'
 import { Tour } from '../componentes/Tour'
 
 const NAV = [
   { href: '#por-dentro', rotulo: 'Por dentro' },
+  { href: '#personalizacao', rotulo: 'Sua marca' },
   { href: '#recursos', rotulo: 'Recursos' },
   { href: '#vitrine', rotulo: 'Vitrine online' },
   { href: '#planos', rotulo: 'Planos' },
@@ -183,6 +185,25 @@ function PorDentro() {
         </div>
         <div className="mt-14">
           <Tour />
+        </div>
+      </Container>
+    </section>
+  )
+}
+
+function SuaMarca() {
+  return (
+    <section id="personalizacao" className="scroll-mt-20 py-20 sm:py-28" aria-labelledby="titulo-personalizacao">
+      <Container>
+        <div className="mx-auto max-w-2xl text-center">
+          <Sobretitulo>Personalização</Sobretitulo>
+          <h2 id="titulo-personalizacao" className="mt-3 font-titulo text-3xl font-extrabold text-[#021A40] sm:text-4xl">
+            Com a cara da sua gráfica, do sistema ao documento
+          </h2>
+          <p className="mt-4 text-lg text-slate-600">O cliente vê a sua marca em tudo: no orçamento, no e-mail, no link de aprovação e no site. A equipe trabalha num sistema que é seu.</p>
+        </div>
+        <div className="mt-14">
+          <Personalizacao />
         </div>
       </Container>
     </section>
@@ -467,6 +488,7 @@ export function InicioSite() {
         <Hero dados={dados} cupom={cupom} />
         <Dores />
         <PorDentro />
+        <SuaMarca />
         <Recursos />
         <Fluxo />
         <Vitrine dados={dados} cupom={cupom} />

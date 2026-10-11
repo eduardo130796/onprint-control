@@ -1,4 +1,6 @@
-# Colocar o ONPrint Control no ar (VPS Linux)
+# Colocar a GrafyGo no ar (VPS Linux)
+
+> **Lançamento da GrafyGo:** siga primeiro o roteiro [LANCAMENTO_GRAFYGO.md](LANCAMENTO_GRAFYGO.md), que traz a ordem das etapas e os valores de grafygo.com.br já preenchidos. Este guia tem os comandos detalhados de cada etapa.
 
 Passo a passo para instalar o sistema numa VPS (ex.: Hostinger KVM) com domínio próprio, HTTPS automático e backup diário. Os comandos são para **Ubuntu 24.04**; copie e cole um bloco por vez.
 

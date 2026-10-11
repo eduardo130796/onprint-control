@@ -14,7 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ResumoEstoqueProduto } from '@/features/estoque/components/KardexDialog'
 import { usePermission } from '@/hooks/usePermission'
-import { useMutacao, useProduto } from '../hooks'
+import { useCategorias, useMutacao, useProduto, useUnidades } from '../hooks'
 import { AbaEstoque } from '../components/produto/AbaEstoque'
 import { AbaGeral } from '../components/produto/AbaGeral'
 import { AcabamentosEditor } from '../components/produto/AcabamentosEditor'
@@ -146,6 +146,10 @@ export function ProdutoPage() {
   const { id } = useParams()
   const novo = !id || id === 'novo'
   const consulta = useProduto(novo ? undefined : id)
+  // Os selects (categoria, unidade) precisam das opções antes de montar o formulário, senão perdem o valor salvo
+  const unidades = useUnidades()
+  const categorias = useCategorias('true')
+  const listasProntas = !unidades.isPending && !categorias.isPending
   const voltar = (
     <Button asChild variant="outline">
       <Link to="/produtos">
@@ -158,11 +162,11 @@ export function ProdutoPage() {
     return (
       <>
         <PageHeader titulo="Novo produto ou serviço" subtitulo="Custo e preço, acabamentos e simulador ficam disponíveis após salvar." acoes={voltar} />
-        <Formulario />
+        {listasProntas ? <Formulario /> : <Skeleton className="h-96 w-full" />}
       </>
     )
   }
-  if (consulta.isPending) return <Skeleton className="h-96 w-full" />
+  if (consulta.isPending || !listasProntas) return <Skeleton className="h-96 w-full" />
   if (consulta.isError) return <Card><EstadoErro erro={consulta.error} onTentarNovamente={() => void consulta.refetch()} /></Card>
 
   const p = consulta.data

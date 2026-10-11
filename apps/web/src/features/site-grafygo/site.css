@@ -9,6 +9,25 @@ html[data-app='site'] body {
   background: #f5f8fc;
 }
 
+/* Faixa que rola para o lado sem barra (abas da visita no celular) */
+.vt-sem-barra {
+  scrollbar-width: none;
+}
+.vt-sem-barra::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes vt-surgir {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html[data-app='site'] {
     scroll-behavior: auto;

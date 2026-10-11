@@ -18,6 +18,8 @@ export const cadastroRoutes: FastifyPluginAsyncZod = async (app) => {
       urlSistema: app.config.APP_URL,
       suporte: app.config.SUPORTE_CONTATO,
       pagamentoOnline: Boolean(app.pagamentos),
+      // Nota fiscal da mensalidade (ASAAS_NF_ATIVA): sem ela, a página de venda não promete nota
+      notaFiscal: Boolean(app.pagamentos) && app.config.ASAAS_NF_ATIVA,
       planos: planos.map((p) => ({
         codigo: p.codigo,
         nome: p.nome,

@@ -98,7 +98,6 @@ export const INCLUSO: string[] = [
   'Backup diário dos seus dados',
   'Acesso pelo computador e pelo celular',
   'Suporte pelo WhatsApp e e-mail',
-  'Nota fiscal de cada pagamento',
   'Sem fidelidade: cancele quando quiser',
 ]
 
@@ -114,7 +113,7 @@ export const PERGUNTAS: { pergunta: string; resposta: string }[] = [
   {
     pergunta: 'Como funciona o pagamento?',
     resposta:
-      'Pelo Asaas, instituição autorizada pelo Banco Central: cartão de crédito (renova sozinho), PIX ou boleto. No plano anual você paga uma vez por ano e ganha 2 meses. Emitimos nota fiscal de cada pagamento.',
+      'Pelo Asaas, instituição autorizada pelo Banco Central: cartão de crédito (renova sozinho), PIX ou boleto. No plano anual você paga uma vez por ano e ganha 2 meses. O comprovante de cada pagamento fica no sistema.',
   },
   {
     pergunta: 'Posso trocar de plano ou cancelar?',

@@ -157,7 +157,7 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
 
       <form onSubmit={enviar} noValidate className="grid gap-6 lg:grid-cols-[1fr_22.5rem]">
         <div>
-          <Titulo passo={3} detalhe={`Vai na cobrança e na nota fiscal ${anual ? 'da anuidade' : 'da mensalidade'}.`}>
+          <Titulo passo={3} detalhe={`Vai na cobrança${a.notaFiscal ? ' e na nota fiscal' : ''} ${anual ? 'da anuidade' : 'da mensalidade'}.`}>
             Dados da cobrança
           </Titulo>
           <label htmlFor="as-doc" className="text-sm font-medium">

@@ -183,6 +183,8 @@ export interface MinhaAssinatura {
   suporte: string
   /** Pagamento online (Asaas) disponível na plataforma */
   pagamentoOnline: boolean
+  /** A plataforma emite nota fiscal das mensalidades (ASAAS_NF_ATIVA) */
+  notaFiscal: boolean
   /** O usuário pode assinar, trocar plano/forma e cancelar (administrador da empresa) */
   podeGerenciar: boolean
   /** Já assinou pelo pagamento online (tem assinatura no gateway) */

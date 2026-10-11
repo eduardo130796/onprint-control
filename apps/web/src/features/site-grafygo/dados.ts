@@ -21,6 +21,8 @@ export interface PlanosPublicos {
   /** Contato do suporte (WhatsApp ou e-mail), se configurado */
   suporte: string
   pagamentoOnline: boolean
+  /** Nota fiscal das mensalidades ligada (sem CNPJ, a página não promete nota) */
+  notaFiscal?: boolean
   planos: PlanoPublico[]
 }
 

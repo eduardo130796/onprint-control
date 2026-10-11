@@ -220,6 +220,7 @@ export function criarAssinaturaService(app: FastifyInstance) {
         planos: planos.map((p) => ({ codigo: p.codigo, nome: p.nome, descricao: p.descricao, valorMensal: p.valorMensal.toFixed(2), valorAnual: p.valorAnual?.toFixed(2) ?? null, limiteUsuarios: p.limiteUsuarios, atual: p.id === a.planoId, modulos: p.modulos })),
         suporte: app.config.SUPORTE_CONTATO,
         pagamentoOnline: Boolean(app.pagamentos),
+        notaFiscal: Boolean(app.pagamentos) && app.config.ASAAS_NF_ATIVA,
         podeGerenciar,
         assinadaOnline: Boolean(a.gatewayAssinaturaId || a.gatewayAutorizacaoId),
         formaPagamento: (a.formaPagamento as FormaAssinatura | null) ?? null,

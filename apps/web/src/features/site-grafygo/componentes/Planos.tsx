@@ -156,7 +156,7 @@ export function Planos({ dados, cupom }: { dados: PlanosPublicos | null; cupom: 
       <div className="mt-14 rounded-3xl bg-white p-7 shadow-sm ring-1 ring-slate-200 sm:p-9">
         <h3 className="text-center font-titulo text-lg font-extrabold text-[#021A40]">Todos os planos incluem</h3>
         <ul className="mt-6 grid gap-x-6 gap-y-3 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
-          {INCLUSO.map((t) => (
+          {[...INCLUSO, ...(dados?.notaFiscal ? ['Nota fiscal de cada pagamento'] : [])].map((t) => (
             <li key={t} className="flex items-start gap-2">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" /> {t}
             </li>

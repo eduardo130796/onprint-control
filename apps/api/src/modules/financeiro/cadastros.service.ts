@@ -27,6 +27,7 @@ export function criarCadastrosFinanceiros(app: FastifyInstance) {
   const categorias = criarCrud<z.output<typeof categoriaFinanceiraSchema>, QueryCadastro>(app, {
     tabela: 'categorias_financeiras',
     rotulo: 'Categoria',
+    semAutor: true,
     delegate: (db) => db.categoriaFinanceira,
     include: { pai: { select: { id: true, nome: true } } },
     busca: ['nome'],

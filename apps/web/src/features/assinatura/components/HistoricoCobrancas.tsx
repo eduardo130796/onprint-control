@@ -20,19 +20,21 @@ const FORMA: Record<string, { rotulo: string; Icone: typeof Wallet }> = {
 const NOTA: Record<string, string> = { agendada: 'Nota em emissão', emitida: 'Nota fiscal', erro: 'Nota com erro', cancelada: 'Nota cancelada' }
 
 /** Mensalidades (mais recentes primeiro): situação, como foi paga, nota fiscal e "Pagar" nas abertas. */
-export function HistoricoCobrancas({ cobrancas }: { cobrancas: CobrancaResumo[] }) {
+export function HistoricoCobrancas({ cobrancas, notaFiscal = true }: { cobrancas: CobrancaResumo[]; notaFiscal?: boolean }) {
   if (cobrancas.length === 0) return null
+  // Coluna de nota só quando a plataforma emite (ou alguma cobrança já tem nota)
+  const comNota = notaFiscal || cobrancas.some((c) => c.notaFiscal)
   return (
     <section className="rounded-3xl bg-card p-6 shadow-suave sm:p-8" aria-label="Mensalidades">
       <h3 className="font-titulo text-lg font-extrabold text-tinta">Mensalidades</h3>
-      <p className="text-sm text-texto-secundario">Pagamentos e notas fiscais da sua assinatura.</p>
+      <p className="text-sm text-texto-secundario">{comNota ? 'Pagamentos e notas fiscais da sua assinatura.' : 'Pagamentos da sua assinatura.'}</p>
 
       <div className="mt-5 hidden grid-cols-[6.875rem_7.5rem_8.125rem_1fr_auto] gap-4 border-b border-border pb-2 text-xs font-semibold uppercase tracking-wide text-texto-secundario md:grid">
         <span>Vencimento</span>
         <span>Valor</span>
         <span>Situação</span>
         <span>Pagamento</span>
-        <span className="text-right">Nota fiscal</span>
+        <span className="text-right">{comNota ? 'Nota fiscal' : ''}</span>
       </div>
       <ul className="divide-y divide-border">
         {cobrancas.map((c) => {

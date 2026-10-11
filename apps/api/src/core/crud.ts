@@ -39,6 +39,8 @@ export interface ConfigCrud<TDados extends object, TQuery extends QueryCadastro>
   conflitos?: Record<string, string>
   /** Regras extras antes de gravar (lança AppError) */
   validar?: (dados: TDados, id: string | null) => Promise<void>
+  /** Tabela sem a coluna created_by (quem criou fica só na auditoria) */
+  semAutor?: boolean
 }
 
 /**
@@ -80,7 +82,7 @@ export function criarCrud<TDados extends object, TQuery extends QueryCadastro>(
       return comConflitoAmigavel(
         () =>
           prisma.$transaction(async (tx) => {
-            const registro = await cfg.delegate(tx).create({ data: { ...dados, createdBy: usuarioId }, ...incluir })
+            const registro = await cfg.delegate(tx).create({ data: cfg.semAutor ? dados : { ...dados, createdBy: usuarioId }, ...incluir })
             await registrarAuditoria(tx, { tabela: cfg.tabela, registroId: registro.id, acao: 'criar', depois: registro, usuarioId })
             return registro
           }),

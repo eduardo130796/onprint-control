@@ -83,7 +83,7 @@ export function MinhaAssinaturaPage() {
               </section>
             ))}
 
-          <HistoricoCobrancas cobrancas={a.cobrancas} />
+          <HistoricoCobrancas cobrancas={a.cobrancas} notaFiscal={a.notaFiscal} />
 
           {!emAtraso && !cortesiaFixa && <LinhaDoTempoAtraso a={a} informativo />}
 

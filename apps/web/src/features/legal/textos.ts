@@ -1,4 +1,4 @@
-import { MARCA } from '@/app/marca'
+import { MARCA, titularCompleto } from '@/app/marca'
 
 /**
  * Termos de uso e política de privacidade da GrafyGo (contratação do sistema pela internet, LGPD).
@@ -17,7 +17,7 @@ export interface DocumentoLegal {
   secoes: SecaoLegal[]
 }
 
-const TITULAR = MARCA.razaoSocial ? `${MARCA.razaoSocial}${MARCA.cnpj ? `, CNPJ ${MARCA.cnpj}` : ''}` : MARCA.empresa
+const TITULAR = titularCompleto()
 
 export const TERMOS_DE_USO: DocumentoLegal = {
   titulo: 'Termos de uso',
@@ -50,7 +50,7 @@ export const TERMOS_DE_USO: DocumentoLegal = {
       titulo: '4. Planos, preços e pagamento',
       paragrafos: [
         'Os planos, os recursos de cada um e os preços estão na página de planos. A cobrança é recorrente, mensal ou anual, conforme a escolha no momento da assinatura, e é processada pelo Asaas (instituição de pagamento autorizada pelo Banco Central). Os dados de cartão são digitados no ambiente do Asaas e não passam pelos nossos servidores.',
-        'Emitimos nota fiscal de serviço para cada pagamento. Cupons de desconto valem conforme as condições informadas e somente no pagamento mensal, salvo indicação em contrário.',
+        'O comprovante de cada pagamento fica disponível no sistema e a nota fiscal de serviço é emitida quando aplicável, conforme a legislação do prestador. Cupons de desconto valem conforme as condições informadas e somente no pagamento mensal, salvo indicação em contrário.',
         'Podemos reajustar os preços com aviso prévio de pelo menos 30 dias. O novo valor vale a partir da renovação seguinte ao aviso; quem paga o ano mantém o valor até o fim do período pago.',
       ],
     },
@@ -143,7 +143,7 @@ export const POLITICA_PRIVACIDADE: DocumentoLegal = {
       paragrafos: [''],
       itens: [
         'prestar o serviço contratado (execução de contrato);',
-        'cobrar, emitir nota fiscal e cumprir obrigações legais e fiscais;',
+        'cobrar e cumprir obrigações legais e fiscais;',
         'garantir a segurança, prevenir fraudes e investigar incidentes (legítimo interesse);',
         'enviar avisos sobre a conta, cobranças e mudanças no serviço;',
         'melhorar o sistema com base em estatísticas de uso, sem identificar pessoas.',
@@ -153,7 +153,7 @@ export const POLITICA_PRIVACIDADE: DocumentoLegal = {
       titulo: '4. Com quem compartilhamos',
       paragrafos: ['Não vendemos dados pessoais. Compartilhamos apenas o necessário com:'],
       itens: [
-        'Asaas, para processar pagamentos e emitir notas fiscais;',
+        'Asaas, para processar pagamentos (e emitir notas fiscais, quando aplicável);',
         'provedores de servidor, cópia de segurança e envio de e-mails, contratados com obrigações de sigilo e segurança;',
         'autoridades públicas, quando exigido por lei ou ordem judicial.',
       ],

@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowRight, BadgeCheck, Check, ChevronDown, CreditCard, FileText, Lock, Menu, MessageCircle, QrCode, Receipt, ShieldCheck, Sparkles, X } from 'lucide-react'
-import { MARCA, anosDireitos } from '@/app/marca'
+import { MARCA, anosDireitos, documentoTitular } from '@/app/marca'
 import { Logo } from '@/components/layout/Logo'
 import { cn } from '@/lib/utils'
 import { FLUXO, PERGUNTAS, RECURSOS, VITRINE_ITENS } from '../conteudo'
 import { baseSistema, linkCadastro, usePlanosPublicos, whatsappSuporte, type PlanosPublicos } from '../dados'
 import { MockAprovacao, MockArte, MockPainel, MockVitrine } from '../componentes/Mockups'
 import { Planos } from '../componentes/Planos'
+import { Tour } from '../componentes/Tour'
 
 const NAV = [
+  { href: '#por-dentro', rotulo: 'Por dentro' },
   { href: '#recursos', rotulo: 'Recursos' },
   { href: '#vitrine', rotulo: 'Vitrine online' },
   { href: '#planos', rotulo: 'Planos' },
@@ -168,6 +170,25 @@ function Dores() {
   )
 }
 
+function PorDentro() {
+  return (
+    <section id="por-dentro" className="scroll-mt-20 bg-white py-20 sm:py-28" aria-labelledby="titulo-por-dentro">
+      <Container>
+        <div className="mx-auto max-w-2xl text-center">
+          <Sobretitulo>Conheça por dentro</Sobretitulo>
+          <h2 id="titulo-por-dentro" className="mt-3 font-titulo text-3xl font-extrabold text-[#021A40] sm:text-4xl">
+            Veja cada parte do sistema funcionando
+          </h2>
+          <p className="mt-4 text-lg text-slate-600">Telas reais de uma gráfica usando a GrafyGo. Escolha uma área e veja o que ela faz por você.</p>
+        </div>
+        <div className="mt-14">
+          <Tour />
+        </div>
+      </Container>
+    </section>
+  )
+}
+
 function Recursos() {
   return (
     <section id="recursos" className="scroll-mt-20 py-20 sm:py-28" aria-labelledby="titulo-recursos">
@@ -263,12 +284,12 @@ function Vitrine({ dados, cupom }: { dados: PlanosPublicos | null; cupom: string
   )
 }
 
-function Pagamento() {
+function Pagamento({ notaFiscal }: { notaFiscal: boolean }) {
   const formas = [
     { icone: CreditCard, titulo: 'Cartão de crédito', texto: 'Renova sozinho, sem você lembrar.' },
     { icone: QrCode, titulo: 'PIX', texto: 'Na hora, pelo app do banco.' },
     { icone: Receipt, titulo: 'Boleto', texto: 'Para quem prefere pagar no banco.' },
-    { icone: FileText, titulo: 'Nota fiscal', texto: 'Emitida a cada pagamento.' },
+    notaFiscal ? { icone: FileText, titulo: 'Nota fiscal', texto: 'Emitida a cada pagamento.' } : { icone: FileText, titulo: 'Comprovante', texto: 'Cada pagamento registrado no sistema.' },
   ]
   return (
     <section className="py-16" aria-labelledby="titulo-pagamento">
@@ -419,7 +440,8 @@ function Rodape({ dados }: { dados: PlanosPublicos | null }) {
         <Container className="flex flex-col items-center justify-between gap-2 py-6 text-xs text-slate-500 sm:flex-row">
           <p>
             © {anosDireitos()} {MARCA.empresa}
-            {MARCA.cnpj ? ` · CNPJ ${MARCA.cnpj}` : ''} · Todos os direitos reservados
+            {MARCA.titular ? ` · ${MARCA.titular}` : ''}
+            {documentoTitular() ? ` · ${documentoTitular()}` : ''} · Todos os direitos reservados
           </p>
           <p>Feito no Brasil para quem imprime o Brasil.</p>
         </Container>
@@ -444,6 +466,7 @@ export function InicioSite() {
       <main id="conteudo">
         <Hero dados={dados} cupom={cupom} />
         <Dores />
+        <PorDentro />
         <Recursos />
         <Fluxo />
         <Vitrine dados={dados} cupom={cupom} />
@@ -461,7 +484,7 @@ export function InicioSite() {
             </div>
           </Container>
         </section>
-        <Pagamento />
+        <Pagamento notaFiscal={Boolean(dados?.notaFiscal)} />
         <Duvidas />
         <ChamadaFinal dados={dados} cupom={cupom} />
       </main>

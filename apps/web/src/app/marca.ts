@@ -9,11 +9,29 @@ export const MARCA = {
   slogan: 'Gestão inteligente para quem transforma ideias.',
   descricao: 'Sistema de gestão para gráficas e comunicação visual',
   anoInicio: 2026,
-  /** Termos de uso e privacidade: preencha antes de divulgar (aparecem como titular do serviço) */
-  razaoSocial: '',
-  cnpj: '',
+  /**
+   * Quem vende o serviço (exigido no site pelo Decreto 7.962/2013): nome completo e CPF enquanto for pessoa física,
+   * razão social e CNPJ quando abrir a empresa. Aparece nos termos de uso, na privacidade e no rodapé da página de venda.
+   */
+  titular: '',
+  /** CPF ou CNPJ, com pontuação (ex.: 123.456.789-00 ou 12.345.678/0001-90) */
+  documento: '',
   /** Atendimento, privacidade (DPO) e comercial */
   contato: 'contato@grafygo.com.br',
+}
+
+/** "CPF 123.456.789-00" ou "CNPJ 12.345.678/0001-90" (vazio se não preenchido) */
+export function documentoTitular(): string {
+  const d = MARCA.documento.trim()
+  if (!d) return ''
+  return `${d.replace(/\D/g, '').length === 11 ? 'CPF' : 'CNPJ'} ${d}`
+}
+
+/** Titular com o documento, para os textos legais (sem titular, a marca) */
+export function titularCompleto(): string {
+  if (!MARCA.titular.trim()) return MARCA.empresa
+  const doc = documentoTitular()
+  return doc ? `${MARCA.titular.trim()}, ${doc}` : MARCA.titular.trim()
 }
 
 /** "2026" ou "2026–2028" */

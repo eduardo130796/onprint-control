@@ -147,6 +147,8 @@ export interface PlanoPlataforma {
   nome: string
   descricao: string | null
   valorMensal: string
+  /** null = sem opção anual */
+  valorAnual: string | null
   modulos: string[]
   limiteUsuarios: number | null
   diasTeste: number

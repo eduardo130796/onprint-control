@@ -43,7 +43,14 @@ export function criarPainelService(app: FastifyInstance) {
         if (!e.assinatura) continue
         const { acesso } = resumirAssinatura(e.assinatura, hoje)
         const situacao = e.assinatura.situacao as SituacaoAssinatura
-        indicadores.push({ situacao, acesso, valorMensal: e.assinatura.plano.valorMensal.toFixed(2), valorCobrado: cobrado(e.assinatura) })
+        // Receita mensal: a anuidade conta 1/12 por mês
+        const valorCobrado = cobrado(e.assinatura)
+        indicadores.push({
+          situacao,
+          acesso,
+          valorMensal: e.assinatura.plano.valorMensal.toFixed(2),
+          valorCobrado: e.assinatura.ciclo === 'anual' ? (Math.round((Number(valorCobrado) * 100) / 12) / 100).toFixed(2) : valorCobrado,
+        })
         const empresa = { id: e.id, nome: e.nome, slug: e.slug }
         const categoria = categoriaEmpresa(situacao, acesso)
         const data = (diaISO(e.assinatura.atrasoDesde) ?? diaISO(e.assinatura.testeAte) ?? e.assinatura.updatedAt.toISOString()) as string

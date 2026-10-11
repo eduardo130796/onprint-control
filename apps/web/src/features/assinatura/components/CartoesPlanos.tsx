@@ -1,5 +1,5 @@
 import { Check, Crown } from 'lucide-react'
-import { MODULO_ROTULOS, formatarMoeda, type MinhaAssinatura, type Modulo } from '@onprint/shared'
+import { MODULO_ROTULOS, economiaAnual, formatarMoeda, mensalNoAnual, type MinhaAssinatura, type Modulo } from '@onprint/shared'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -12,13 +12,15 @@ interface Props {
   onEscolher?: (codigo: string) => void
   /** Texto do botão de cada plano que não é o atual (ex.: "Mudar para este") */
   acao?: string
+  /** Anual: mostra quanto sai por mês pagando o ano e a economia */
+  ciclo?: 'mensal' | 'anual'
 }
 
 /**
  * Comparação de planos: preço em destaque, o que cada um libera e o plano atual marcado.
  * O plano do meio (quando há três) leva o selo "Mais escolhido".
  */
-export function CartoesPlanos({ planos, selecionado, onEscolher, acao }: Props) {
+export function CartoesPlanos({ planos, selecionado, onEscolher, acao, ciclo = 'mensal' }: Props) {
   const destaque = planos.length === 3 ? planos[1]?.codigo : undefined
   return (
     <div className="grid gap-4 md:grid-cols-3">
@@ -49,10 +51,22 @@ export function CartoesPlanos({ planos, selecionado, onEscolher, acao }: Props) 
               ) : null}
             </div>
             <p className="mt-1 min-h-10 text-sm text-texto-secundario">{p.descricao}</p>
-            <p className="mt-4">
-              <span className="font-titulo text-4xl font-extrabold tracking-tight text-tinta">{formatarMoeda(p.valorMensal)}</span>
-              <span className="text-sm text-texto-secundario">/mês</span>
-            </p>
+            {ciclo === 'anual' && p.valorAnual ? (
+              <div className="mt-4">
+                <p>
+                  <span className="font-titulo text-4xl font-extrabold tracking-tight text-tinta">{formatarMoeda(mensalNoAnual(p.valorAnual))}</span>
+                  <span className="text-sm text-texto-secundario">/mês</span>
+                </p>
+                <p className="mt-1 text-xs text-texto-secundario">
+                  {formatarMoeda(p.valorAnual)} por ano · <strong className="text-marca-escuro">economia de {formatarMoeda(economiaAnual(p.valorMensal, p.valorAnual))}</strong>
+                </p>
+              </div>
+            ) : (
+              <p className="mt-4">
+                <span className="font-titulo text-4xl font-extrabold tracking-tight text-tinta">{formatarMoeda(p.valorMensal)}</span>
+                <span className="text-sm text-texto-secundario">/mês</span>
+              </p>
+            )}
 
             <ul className="mt-5 space-y-2 border-t border-border pt-5 text-sm">
               <li className="flex items-center gap-2 font-semibold text-tinta">

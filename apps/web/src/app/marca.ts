@@ -9,6 +9,11 @@ export const MARCA = {
   slogan: 'Gestão inteligente para quem transforma ideias.',
   descricao: 'Sistema de gestão para gráficas e comunicação visual',
   anoInicio: 2026,
+  /** Termos de uso e privacidade: preencha antes de divulgar (aparecem como titular do serviço) */
+  razaoSocial: '',
+  cnpj: '',
+  /** Atendimento, privacidade (DPO) e comercial */
+  contato: 'contato@grafygo.com.br',
 }
 
 /** "2026" ou "2026–2028" */

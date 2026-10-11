@@ -1,5 +1,5 @@
 import type { Assinatura, Plano, Prisma, PrismaClient } from '@prisma/client'
-import { adicionarDias, calcularAcesso, hojeISO, modulosLiberados, type AcessoAssinatura, type Modulo, type SituacaoAssinatura } from '@onprint/shared'
+import { MODULOS, adicionarDias, calcularAcesso, hojeISO, modulosLiberados, type AcessoAssinatura, type Modulo, type SituacaoAssinatura } from '@onprint/shared'
 
 /** Resumo da assinatura que acompanha a empresa no contexto de cada requisição. */
 export interface AssinaturaContexto {
@@ -9,14 +9,21 @@ export interface AssinaturaContexto {
   acesso: AcessoAssinatura
 }
 
-/** Planos criados numa plataforma nova (preços e módulos se ajustam depois, no painel). */
+const COMERCIAL = ['orcamentos', 'pedidos', 'artes', 'clientes', 'fornecedores', 'produtos', 'financeiro', 'caixa'] as const
+const OPERACAO = [...COMERCIAL, 'producao', 'pcp', 'estoque', 'relatorios'] as const
+
+/**
+ * Planos criados numa plataforma nova (preços e módulos se ajustam depois, no painel). Preço de lançamento pensado
+ * para volume; o anual sai por 10 mensalidades (2 meses grátis). O WhatsApp entra no Completo quando ficar pronto.
+ */
 export const PLANOS_PADRAO = [
   {
     codigo: 'essencial',
     nome: 'Essencial',
-    descricao: 'Orçamentos, pedidos, arte, clientes, produtos, financeiro e caixa.',
-    valorMensal: '149.00',
-    modulos: ['orcamentos', 'pedidos', 'artes', 'clientes', 'fornecedores', 'produtos', 'financeiro', 'caixa'],
+    descricao: 'Para começar organizado: orçamentos, pedidos, aprovação de arte, financeiro e caixa.',
+    valorMensal: '69.00',
+    valorAnual: '690.00',
+    modulos: [...COMERCIAL],
     limiteUsuarios: 3,
     ordem: 1,
   },
@@ -24,21 +31,26 @@ export const PLANOS_PADRAO = [
     codigo: 'profissional',
     nome: 'Profissional',
     descricao: 'Tudo do Essencial + produção, PCP, estoque e relatórios.',
-    valorMensal: '279.00',
-    modulos: ['orcamentos', 'pedidos', 'artes', 'clientes', 'fornecedores', 'produtos', 'financeiro', 'caixa', 'producao', 'pcp', 'estoque', 'relatorios'],
-    limiteUsuarios: 10,
+    valorMensal: '129.00',
+    valorAnual: '1290.00',
+    modulos: [...OPERACAO],
+    limiteUsuarios: 8,
     ordem: 2,
   },
   {
     codigo: 'completo',
     nome: 'Completo',
-    descricao: 'Todos os módulos e usuários ilimitados.',
-    valorMensal: '449.00',
-    modulos: ['orcamentos', 'pedidos', 'artes', 'clientes', 'fornecedores', 'produtos', 'financeiro', 'caixa', 'producao', 'pcp', 'estoque', 'relatorios', 'whatsapp'],
+    descricao: 'Tudo do Profissional + Vitrine online e usuários ilimitados.',
+    valorMensal: '199.00',
+    valorAnual: '1990.00',
+    modulos: [...OPERACAO, 'vitrine', 'whatsapp'],
     limiteUsuarios: null,
     ordem: 3,
   },
 ] as const
+
+/** Preços do plano como texto (para valorDoCiclo) */
+export const precosDoPlano = (p: { valorMensal: { toFixed(n: number): string }; valorAnual: { toFixed(n: number): string } | null }) => ({ valorMensal: p.valorMensal.toFixed(2), valorAnual: p.valorAnual?.toFixed(2) ?? null })
 
 /** Datas de dia (@db.Date) chegam como meia-noite UTC. */
 export const diaISO = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : null)
@@ -47,7 +59,8 @@ export const paraDia = (iso: string) => new Date(`${iso.slice(0, 10)}T00:00:00Z`
 export function resumirAssinatura(a: Assinatura & { plano: Plano }, hoje = hojeISO()): AssinaturaContexto {
   return {
     plano: { codigo: a.plano.codigo, nome: a.plano.nome },
-    modulos: modulosLiberados(a.plano.modulos, a.modulosExtras),
+    // Teste grátis com tudo liberado (inclusive a Vitrine): a pessoa experimenta o sistema inteiro e escolhe o plano ao assinar
+    modulos: a.situacao === 'teste' ? modulosLiberados(MODULOS, a.modulosExtras) : modulosLiberados(a.plano.modulos, a.modulosExtras),
     limiteUsuarios: a.plano.limiteUsuarios,
     acesso: calcularAcesso(
       {

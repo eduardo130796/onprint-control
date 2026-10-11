@@ -4,7 +4,9 @@
 // Critério de aceite: assinar → cobrança → pagamento confirma a assinatura → atraso bloqueia → pagamento libera,
 // com nota fiscal, troca de plano/forma, cancelamento, avisos duplicados ignorados e conferência diária.
 import { asaas, cli, cliAssincrono, dia, hoje, novaCobranca, servidor, webhook } from './e2e-asaas-falso.mjs'
-import { chamar, conferir, entrar, finalizar } from './e2e-util.mjs'
+import { chamar, conferir, entrar, finalizar, fixarPrecosDeTeste } from './e2e-util.mjs'
+
+await fixarPrecosDeTeste()
 
 conferir('empresa B em teste (Essencial)', cli('criar-empresa', ['--nome', 'Gráfica Assinante', '--email', 'dono@assinante.local', '--senha', 'Inicial123', '--plano', 'essencial', '--exemplos']).status, 0)
 const b = await entrar('dono@assinante.local', 'Inicial123', 'Assinante123')
@@ -177,6 +179,20 @@ conferir('cobrança manual vencida há 20 dias', cli('assinatura', ['--empresa',
 conferir('bloqueada pelo atraso', (await chamar('GET', '/auth/me', { token: c })).json.assinatura.nivel, 'bloqueado')
 cli('assinatura', ['--empresa', 'grafica-manual', '--registrar-pagamento'])
 conferir('pagamento registrado pelo suporte libera', (await chamar('GET', '/auth/me', { token: c })).json.assinatura.nivel, 'normal')
+
+console.log('\n— Anual (2 meses grátis) —')
+cli('criar-empresa', ['--nome', 'Gráfica Anual', '--email', 'dono@anual.local', '--senha', 'Inicial123', '--plano', 'essencial'])
+const anual = await entrar('dono@anual.local', 'Inicial123', 'Anual12345')
+const corpoAnual = { plano: 'profissional', cpfCnpj: '11.222.333/0001-81', ciclo: 'anual' }
+conferir('anual não usa PIX Automático (é mensal)', (await chamar('POST', '/assinatura/assinar', { token: anual, body: { ...corpoAnual, forma: 'pix_automatico' } })).status, 422)
+conferir('anual não usa cupom (o desconto já está no preço)', (await chamar('POST', '/assinatura/assinar', { token: anual, body: { ...corpoAnual, forma: 'cartao', cupom: 'QUALQUER' } })).status, 422)
+const antesAnual = new Set(asaas.assinaturas.keys())
+r = await chamar('POST', '/assinatura/assinar', { token: anual, body: { ...corpoAnual, forma: 'cartao' } })
+const subAnual = [...asaas.assinaturas.entries()].find(([id]) => !antesAnual.has(id))?.[1]
+conferir('Asaas: anual, anuidade do plano, no cartão, vence no fim do teste', `${r.status} ${subAnual?.cycle} ${subAnual?.value} ${subAnual?.billingType} ${subAnual?.nextDueDate}`, `200 YEARLY 1290 CREDIT_CARD ${dia(14)}`)
+const telaAnual = (await chamar('GET', '/assinatura', { token: anual })).json
+conferir('tela: ciclo anual com a anuidade do plano', `${telaAnual.ciclo} ${telaAnual.plano.valorAnual}`, 'anual 1290.00')
+conferir('teste grátis com tudo liberado (Vitrine inclusive)', (await chamar('GET', '/auth/me', { token: anual })).json.permissoes.some((x) => x.startsWith('vitrine:')), true)
 
 conferir('chamadas ao Asaas sempre com a chave (nenhuma recusada)', asaas.chamadas.length > 5, true)
 servidor.close()

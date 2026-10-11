@@ -20,6 +20,7 @@ export function criarPlanosService(app: FastifyInstance) {
         nome: p.nome,
         descricao: p.descricao,
         valorMensal: p.valorMensal.toFixed(2),
+        valorAnual: p.valorAnual?.toFixed(2) ?? null,
         modulos: p.modulos,
         limiteUsuarios: p.limiteUsuarios,
         diasTeste: p.diasTeste,

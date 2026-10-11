@@ -4,7 +4,9 @@
 // age na assinatura de qualquer empresa e uma gráfica nova se cadastra sozinha em teste grátis.
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { chamar, conferir, entrar, finalizar } from './e2e-util.mjs'
+import { chamar, conferir, entrar, finalizar, fixarPrecosDeTeste } from './e2e-util.mjs'
+
+await fixarPrecosDeTeste()
 
 const hoje = new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10)
 const dia = (n) => new Date(Date.parse(`${hoje}T12:00:00Z`) + n * 86400e3).toISOString().slice(0, 10)

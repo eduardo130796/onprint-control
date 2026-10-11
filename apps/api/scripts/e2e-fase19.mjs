@@ -27,6 +27,8 @@ function formulario(conteudo, nome) {
 const admin = await entrar('admin@onprint.local', 'admin123', 'Admin12345')
 const plataforma = (await chamar('POST', '/plataforma/auth/login', { body: { email: 'plataforma@onprint.local', senha: 'plataforma123' } })).json.accessToken
 const empresa = (await chamar('GET', '/plataforma/empresas', { token: plataforma })).json.find((e) => e.slug === SLUG)
+// A Vitrine vem no Completo: a empresa do teste fica no Profissional para provar o "fora do plano"
+await chamar('POST', `/plataforma/empresas/${empresa.id}/acoes`, { token: plataforma, body: { acao: 'plano', plano: 'profissional' } })
 
 console.log('— Fora do plano —')
 conferir('site público: 404', (await pub('/')).status, 404)

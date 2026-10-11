@@ -1,6 +1,6 @@
 import { Prisma, type PrismaClient } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
-import { adicionarMeses, formatarMoeda, hojeISO } from '@onprint/shared'
+import { adicionarMeses, formatarMoeda, hojeISO, mesesDoCiclo } from '@onprint/shared'
 import { situacaoAutorizacaoAsaas, type AutorizacaoAsaas, type NotaAsaas, type PagamentoAsaas } from '../integrations/pagamentos/asaas'
 import type { CobrancaGateway, NotaFiscalGateway } from '../integrations/pagamentos'
 import { diaISO, paraDia } from './assinaturas'
@@ -52,7 +52,7 @@ export async function recalcularAssinatura(plataforma: PrismaClient, assinanteId
     .filter((c) => c.tipo === 'mensalidade' && ABERTAS.includes(c.situacao))
     .map(vencimentoQueConta)
     .sort()
-  // Sem cobrança em aberto, o próximo vencimento é um mês depois da última mensalidade paga ou abonada (fim do período coberto)
+  // Sem cobrança em aberto, o próximo vencimento é um ciclo (1 ou 12 meses) depois da última mensalidade paga ou abonada (fim do período coberto)
   const ultimaPaga = cobrancas
     .filter((c) => c.tipo === 'mensalidade' && (c.situacao === 'paga' || c.situacao === 'abonada'))
     .map(vencimentoQueConta)
@@ -62,7 +62,7 @@ export async function recalcularAssinatura(plataforma: PrismaClient, assinanteId
   const fimCortesiaPrevisto = a.situacao === 'cortesia' ? diaISO(a.cortesiaAte) : null
   const proximo =
     mensalidadesAbertas.find((v) => v >= hoje) ??
-    (fimCortesiaPrevisto && fimCortesiaPrevisto >= hoje ? fimCortesiaPrevisto : mensalidadesAbertas.length === 0 && ultimaPaga ? adicionarMeses(ultimaPaga, 1) : undefined)
+    (fimCortesiaPrevisto && fimCortesiaPrevisto >= hoje ? fimCortesiaPrevisto : mensalidadesAbertas.length === 0 && ultimaPaga ? adicionarMeses(ultimaPaga, mesesDoCiclo(a.ciclo)) : undefined)
   const dados: Prisma.AssinaturaUncheckedUpdateInput = {}
   const eventos: { tipo: string; descricao: string }[] = []
 

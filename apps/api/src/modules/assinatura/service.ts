@@ -12,7 +12,9 @@ import {
   formatarMoeda,
   hojeISO,
   calcularTrocaPlano,
+  mesesDoCiclo,
   valorDaMensalidade,
+  valorDoCiclo,
   type AssinarInput,
   type PreviaTrocaPlano,
   type CobrancaResumo,
@@ -23,9 +25,9 @@ import {
 import { AppError } from '../../core/AppError'
 import { contextoEmpresa } from '../../core/contexto-empresa'
 import { ErroGateway } from '../../integrations/pagamentos'
-import { alterarAssinatura, diaISO, paraDia, planoPorCodigo, resumirAssinatura } from '../../plataforma/assinaturas'
+import { alterarAssinatura, diaISO, paraDia, planoPorCodigo, precosDoPlano, resumirAssinatura } from '../../plataforma/assinaturas'
 import { aplicarCupom, aplicarValores, cupomEmVigor, descricaoCupom, iniciarCupom, regrasDeValor, resumoCupom, validarCupom } from '../../plataforma/beneficios'
-import { inicioPeriodoAtual, recalcularAssinatura, salvarCobranca, vencimentoQueConta } from '../../plataforma/cobrancas'
+import { inicioPeriodoAtual, recalcularAssinatura, registrarEvento, salvarCobranca, vencimentoQueConta } from '../../plataforma/cobrancas'
 
 const ABERTAS = ['pendente', 'vencida']
 
@@ -130,16 +132,29 @@ export function criarAssinaturaService(app: FastifyInstance) {
     })
   }
 
-  /** Prévia da troca: compara com o plano em vigor, no período em curso (se houver). */
-  /** Prévia da troca: compara o que se paga no período em curso (com cupom) com o que se pagaria no plano novo. */
-  async function previa(a: { assinanteId: string }, plano: { codigo: string; nome: string; valorMensal: { toFixed(n: number): string } }, hoje = hojeISO()): Promise<PreviaTrocaPlano> {
+  /**
+   * Prévia da troca: compara o que se paga no período em curso (com cupom) com o que se pagaria no plano novo.
+   * No anual, o período é o ano e os valores são as anuidades.
+   */
+  async function previa(
+    a: { assinanteId: string; ciclo: string },
+    plano: { codigo: string; nome: string; valorMensal: { toFixed(n: number): string }; valorAnual: { toFixed(n: number): string } | null },
+    hoje = hojeISO(),
+  ): Promise<PreviaTrocaPlano> {
     const inicio = await inicioPeriodoAtual(plataforma, a.assinanteId, hoje)
     const regras = await regrasDeValor(plataforma, a.assinanteId)
-    const novas = { ...regras, valorPlano: plano.valorMensal.toFixed(2), agendado: null }
+    const novas = { ...regras, valorPlano: valorDoCiclo(precosDoPlano(plano), a.ciclo), agendado: null }
     const base = inicio ?? hoje
-    const r = calcularTrocaPlano({ valorAtual: valorDaMensalidade({ ...regras, agendado: null }, base).valor, valorNovo: valorDaMensalidade(novas, base).valor, inicioPeriodo: inicio, hoje })
+    const r = calcularTrocaPlano({
+      valorAtual: valorDaMensalidade({ ...regras, agendado: null }, base).valor,
+      valorNovo: valorDaMensalidade(novas, base).valor,
+      inicioPeriodo: inicio,
+      hoje,
+      meses: mesesDoCiclo(a.ciclo),
+    })
     const novaMensalidade = { ...r.novaMensalidade, valor: valorDaMensalidade(novas, r.novaMensalidade.aPartirDe ?? hoje).valor }
-    return { ...r, novaMensalidade, plano: { codigo: plano.codigo, nome: plano.nome, valorMensal: plano.valorMensal.toFixed(2) } }
+    const ciclo = a.ciclo === 'anual' ? 'anual' : 'mensal'
+    return { ...r, novaMensalidade, ciclo, plano: { codigo: plano.codigo, nome: plano.nome, valorMensal: plano.valorMensal.toFixed(2) } }
   }
 
   /** Diferença proporcional do upgrade: cobrança avulsa (no gateway, ou lançada no modo manual), vencendo hoje. */
@@ -176,11 +191,13 @@ export function criarAssinaturaService(app: FastifyInstance) {
       const agendado = a.planoAgendadoId ? planos.find((p) => p.id === a.planoAgendadoId) ?? (await plataforma.plano.findUnique({ where: { id: a.planoAgendadoId } })) : null
       const completa: MinhaAssinatura = {
         situacao: a.situacao as SituacaoAssinatura,
+        ciclo: a.ciclo === 'anual' ? 'anual' : 'mensal',
         plano: {
           codigo: a.plano.codigo,
           nome: a.plano.nome,
           descricao: a.plano.descricao,
           valorMensal: a.plano.valorMensal.toFixed(2),
+          valorAnual: a.plano.valorAnual?.toFixed(2) ?? null,
           limiteUsuarios: a.plano.limiteUsuarios,
           diasTeste: a.plano.diasTeste,
           diasAteSomenteLeitura: a.plano.diasAteSomenteLeitura,
@@ -200,7 +217,7 @@ export function criarAssinaturaService(app: FastifyInstance) {
           incluido: resumo.modulos.includes(m),
           planos: planos.filter((p) => p.modulos.includes(m)).map((p) => p.nome),
         })),
-        planos: planos.map((p) => ({ codigo: p.codigo, nome: p.nome, descricao: p.descricao, valorMensal: p.valorMensal.toFixed(2), limiteUsuarios: p.limiteUsuarios, atual: p.id === a.planoId, modulos: p.modulos })),
+        planos: planos.map((p) => ({ codigo: p.codigo, nome: p.nome, descricao: p.descricao, valorMensal: p.valorMensal.toFixed(2), valorAnual: p.valorAnual?.toFixed(2) ?? null, limiteUsuarios: p.limiteUsuarios, atual: p.id === a.planoId, modulos: p.modulos })),
         suporte: app.config.SUPORTE_CONTATO,
         pagamentoOnline: Boolean(app.pagamentos),
         podeGerenciar,
@@ -213,7 +230,7 @@ export function criarAssinaturaService(app: FastifyInstance) {
         cobrancaAberta: aberta ? resumoCobranca(aberta) : null,
         // A pagar agora: vencidas, diferenças proporcionais e mensalidades dos próximos 7 dias (as distantes são "próxima cobrança")
         cobrancasAbertas: abertas.filter((c) => c.tipo === 'proporcional' || vencimentoQueConta(c) <= adicionarDias(hojeISO(), 7)).map((c) => resumoCobranca(c)),
-        planoAgendado: agendado && a.planoAgendadoEm ? { nome: agendado.nome, valorMensal: agendado.valorMensal.toFixed(2), em: diaISO(a.planoAgendadoEm) as string } : null,
+        planoAgendado: agendado && a.planoAgendadoEm ? { nome: agendado.nome, valorMensal: agendado.valorMensal.toFixed(2), valorAnual: agendado.valorAnual?.toFixed(2) ?? null, em: diaISO(a.planoAgendadoEm) as string } : null,
         cobrancas: cobrancas.map((c) => resumoCobranca(c)),
       }
       if (podeGerenciar) return completa
@@ -234,6 +251,12 @@ export function criarAssinaturaService(app: FastifyInstance) {
         throw AppError.regraNegocio('Plano indisponível.')
       })
       await limiteNoPlano(plano.limiteUsuarios, plano.nome)
+      const ciclo = dados.ciclo ?? 'mensal'
+      if (ciclo === 'anual') {
+        if (!plano.valorAnual) throw AppError.regraNegocio(`O plano ${plano.nome} não tem a opção anual.`)
+        if (dados.forma === 'pix_automatico') throw AppError.regraNegocio('No anual, pague com cartão de crédito ou PIX/boleto.')
+        if (dados.cupom) throw AppError.regraNegocio('Cupons valem no pagamento mensal: o anual já sai com 2 meses grátis.')
+      }
       // Cupom digitado agora: confere antes de mexer no gateway (o guardado no cadastro já vale)
       if (dados.cupom) await regra(() => validarCupom(plataforma, dados.cupom as string, plano.codigo, hojeISO(), { publico: true }))
       const config = await app.prisma.empresaConfig.findFirst({ select: { razaoSocial: true, nomeFantasia: true, telefone: true } })
@@ -251,9 +274,21 @@ export function criarAssinaturaService(app: FastifyInstance) {
         await plataforma.assinatura.update({ where: { assinanteId: empresa.id }, data: { gateway: 'asaas', gatewayClienteId: clienteId, documentoCobranca: dados.cpfCnpj } })
       }
       if (dados.forma === 'pix_automatico' && !app.config.ASAAS_PIX_AUTOMATICO) throw AppError.regraNegocio('O PIX Automático ainda não está disponível. Escolha cartão ou PIX/boleto.')
-      if (dados.cupom) await regra(() => aplicarCupom({ plataforma, pagamentos: app.pagamentos }, empresa.id, dados.cupom as string, email))
-      await iniciarCupom(plataforma, empresa.id, primeiroVencimento)
-      const valorInicial = valorDaMensalidade({ ...(await regrasDeValor(plataforma, empresa.id)), valorPlano: plano.valorMensal.toFixed(2), agendado: null }, primeiroVencimento).valor
+      // O ciclo vale já: as regras de valor (anuidade, sem cupom) leem dele
+      if (a.ciclo !== ciclo) await plataforma.assinatura.update({ where: { assinanteId: empresa.id }, data: { ciclo } })
+      if (ciclo === 'anual') {
+        // Cupom guardado no cadastro não vale no anual (o desconto já está no preço): encerra para não confundir
+        const uso = await cupomEmVigor(plataforma, empresa.id)
+        if (uso) {
+          await plataforma.cupomUso.update({ where: { id: uso.id }, data: { encerradoEm: new Date() } })
+          await registrarEvento(plataforma, empresa.id, 'cupom', `Cupom ${uso.cupom.codigo} não usado: assinatura anual (o desconto do anual já vale)`, undefined, email)
+        }
+      } else {
+        if (dados.cupom) await regra(() => aplicarCupom({ plataforma, pagamentos: app.pagamentos }, empresa.id, dados.cupom as string, email))
+        await iniciarCupom(plataforma, empresa.id, primeiroVencimento)
+      }
+      const valorInicial = valorDaMensalidade({ ...(await regrasDeValor(plataforma, empresa.id)), valorPlano: valorDoCiclo(precosDoPlano(plano), ciclo), agendado: null }, primeiroVencimento).valor
+      const nomeCiclo = ciclo === 'anual' ? ' anual' : ''
       if (dados.forma === 'pix_automatico') {
         await autorizarPix(empresa.id, clienteId, { nome: plano.nome, valor: valorInicial }, config?.nomeFantasia || empresa.nome, { formaPagamento: 'pix_automatico', documentoCobranca: dados.cpfCnpj, planoId: plano.id, cancelarEm: null }, email)
         return { linkPagamento: null }
@@ -264,15 +299,16 @@ export function criarAssinaturaService(app: FastifyInstance) {
           valor: valorInicial,
           proximoVencimento: primeiroVencimento,
           forma: dados.forma,
-          descricao: `GrafyGo - plano ${plano.nome} (${config?.nomeFantasia || empresa.nome})`,
+          descricao: `GrafyGo - plano ${plano.nome}${nomeCiclo} (${config?.nomeFantasia || empresa.nome})`,
           referencia: empresa.id,
+          ciclo,
         }),
       )
       await alterarAssinatura(
         plataforma,
         empresa.id,
         { gateway: 'asaas', gatewayAssinaturaId, formaPagamento: dados.forma, documentoCobranca: dados.cpfCnpj, planoId: plano.id, cancelarEm: null },
-        { tipo: 'assinatura_online', descricao: `Assinou o plano ${plano.nome} (${FORMA_ASSINATURA_ROTULOS[dados.forma]}); 1º vencimento ${formatarDataSimples(primeiroVencimento)}`, autor: email },
+        { tipo: 'assinatura_online', descricao: `Assinou o plano ${plano.nome}${nomeCiclo} (${FORMA_ASSINATURA_ROTULOS[dados.forma]}); 1º vencimento ${formatarDataSimples(primeiroVencimento)}`, autor: email },
       )
       // Nota fiscal: uma falha aqui não impede a assinatura (fica no histórico para o suporte resolver)
       await g.configurarNotaFiscal(gatewayAssinaturaId).catch(async (erro: Error) => {
@@ -321,6 +357,7 @@ export function criarAssinaturaService(app: FastifyInstance) {
         throw AppError.regraNegocio('No PIX Automático o valor fica na autorização do seu banco: para trocar de plano, cancele a assinatura e assine de novo no plano novo.')
       }
       if (!a.gatewayAssinaturaId && a.situacao !== 'teste') throw AppError.regraNegocio('Para trocar de plano, fale com o suporte.')
+      if (a.ciclo === 'anual' && !plano.valorAnual) throw AppError.regraNegocio(`O plano ${plano.nome} não tem a opção anual. Fale com o suporte para mudar para o mensal.`)
       await limiteNoPlano(plano.limiteUsuarios, plano.nome)
       const p = await previa(a, plano, hoje)
 

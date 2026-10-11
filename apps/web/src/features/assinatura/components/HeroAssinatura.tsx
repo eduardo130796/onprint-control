@@ -1,5 +1,5 @@
 import { CalendarClock, CreditCard, ExternalLink, Gift, Layers, QrCode, Receipt, Sparkles, TicketPercent, Users } from 'lucide-react'
-import { FORMA_ASSINATURA_ROTULOS, MODULO_ROTULOS, formatarDataSimples, formatarMoeda, type MinhaAssinatura, type Modulo } from '@onprint/shared'
+import { FORMA_ASSINATURA_ROTULOS, MODULO_ROTULOS, formatarDataSimples, formatarMoeda, sufixoCiclo, valorDoCiclo, type MinhaAssinatura, type Modulo } from '@onprint/shared'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { statusDaAssinatura, type TomStatus } from '../status'
@@ -65,7 +65,9 @@ export function HeroAssinatura({ a, onAssinar }: { a: MinhaAssinatura; onAssinar
   const aberta = a.cobrancaAberta
   const cortesia = a.acesso.motivo === 'cortesia'
   const noTeste = a.acesso.diasRestantesTeste !== null && !cortesia
-  const comDesconto = a.cupom && Number(a.cupom.desconto) > 0 ? (Number(a.plano.valorMensal) - Number(a.cupom.desconto)).toFixed(2) : null
+  const valorPlano = valorDoCiclo(a.plano, a.ciclo)
+  const sufixo = sufixoCiclo(a.ciclo)
+  const comDesconto = a.ciclo !== 'anual' && a.cupom && Number(a.cupom.desconto) > 0 ? (Number(a.plano.valorMensal) - Number(a.cupom.desconto)).toFixed(2) : null
   const IconeForma = a.formaPagamento ? ICONE_FORMA[a.formaPagamento] : CreditCard
   const modulos = a.modulos.filter((m) => m.incluido)
   const emAtraso = a.acesso.diasAtraso > 0 && Boolean(a.atrasoDesde)
@@ -88,13 +90,17 @@ export function HeroAssinatura({ a, onAssinar }: { a: MinhaAssinatura; onAssinar
             {cortesia ? (
               <p className="pb-1 text-white/80">
                 <span className="font-titulo text-2xl font-extrabold text-violet-200">Cortesia</span>
-                <span className="ml-2 text-sm text-white/50 line-through">{formatarMoeda(a.plano.valorMensal)}/mês</span>
+                <span className="ml-2 text-sm text-white/50 line-through">
+                  {formatarMoeda(valorPlano)}
+                  {sufixo}
+                </span>
               </p>
             ) : (
               <p className="pb-1 text-white/80">
-                <span className="font-titulo text-2xl font-extrabold text-white">{formatarMoeda(comDesconto ?? a.plano.valorMensal)}</span>
-                <span className="text-sm">/mês</span>
+                <span className="font-titulo text-2xl font-extrabold text-white">{formatarMoeda(comDesconto ?? valorPlano)}</span>
+                <span className="text-sm">{sufixo}</span>
                 {comDesconto && <span className="ml-2 text-sm text-white/50 line-through">{formatarMoeda(a.plano.valorMensal)}</span>}
+                {a.ciclo === 'anual' && <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 text-xs font-semibold">Anual</span>}
               </p>
             )}
           </div>
@@ -176,9 +182,9 @@ export function HeroAssinatura({ a, onAssinar }: { a: MinhaAssinatura; onAssinar
             <Anel valor={a.acesso.diasRestantesTeste ?? 0} total={Math.max(a.plano.diasTeste, a.acesso.diasRestantesTeste ?? 0)} rotulo={`${a.acesso.diasRestantesTeste ?? 0}`} legenda={`${a.acesso.diasRestantesTeste === 1 ? 'dia' : 'dias'} de teste grátis`} />
           ) : (
             <div>
-              <p className="text-sm text-white/60">{a.cobrancasAbertas.length > 1 ? `Em aberto (${a.cobrancasAbertas.length} cobranças)` : 'Mensalidade'}</p>
+              <p className="text-sm text-white/60">{a.cobrancasAbertas.length > 1 ? `Em aberto (${a.cobrancasAbertas.length} cobranças)` : a.ciclo === 'anual' ? 'Anuidade' : 'Mensalidade'}</p>
               <p className="font-titulo text-3xl font-extrabold">
-                {formatarMoeda(a.cobrancasAbertas.length > 1 ? a.cobrancasAbertas.reduce((t, c) => t + Number(c.valor), 0).toFixed(2) : (aberta?.valor ?? comDesconto ?? a.plano.valorMensal))}
+                {formatarMoeda(a.cobrancasAbertas.length > 1 ? a.cobrancasAbertas.reduce((t, c) => t + Number(c.valor), 0).toFixed(2) : (aberta?.valor ?? comDesconto ?? valorPlano))}
               </p>
               <p className={cn('text-sm', emAtraso ? 'text-amber-200' : 'text-white/60')}>
                 {aberta ? `${aberta.situacao === 'vencida' ? 'venceu' : 'vence'} em ${formatarDataSimples(aberta.vencimento)}` : emAtraso && a.atrasoDesde ? `vencida desde ${formatarDataSimples(a.atrasoDesde)}` : 'nenhuma em aberto'}

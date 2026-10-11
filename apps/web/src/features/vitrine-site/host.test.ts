@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { SUBDOMINIOS_RESERVADOS as DO_CONTRATO } from '@onprint/shared'
-import { SUBDOMINIOS_RESERVADOS, dominioBaseVitrine, pareceDominioProprio, slugDaVitrine } from './host'
+import { SUBDOMINIOS_RESERVADOS, dominioBaseVitrine, ehSiteGrafygo, pareceDominioProprio, slugDaVitrine } from './host'
 
 describe('slugDaVitrine', () => {
   it('reconhece {slug}.localhost em desenvolvimento (com ou sem porta)', () => {
@@ -63,5 +63,18 @@ describe('pareceDominioProprio', () => {
     expect(pareceDominioProprio('grafica.localhost:5173', 'localhost')).toBe(false)
     expect(pareceDominioProprio('192.168.0.10:5173', 'localhost')).toBe(false)
     expect(pareceDominioProprio('[::1]:5173', 'localhost')).toBe(false)
+  })
+})
+
+describe('ehSiteGrafygo', () => {
+  it('a página de venda abre no domínio base e no www', () => {
+    expect(ehSiteGrafygo('grafygo.com.br', 'grafygo.com.br')).toBe(true)
+    expect(ehSiteGrafygo('www.grafygo.com.br', 'grafygo.com.br')).toBe(true)
+    expect(ehSiteGrafygo('www.localhost:5173', 'localhost')).toBe(true)
+  })
+  it('sistema, vitrines e localhost não são a página de venda', () => {
+    expect(ehSiteGrafygo('app.grafygo.com.br', 'grafygo.com.br')).toBe(false)
+    expect(ehSiteGrafygo('grafica-x.grafygo.com.br', 'grafygo.com.br')).toBe(false)
+    expect(ehSiteGrafygo('localhost:5173', 'localhost')).toBe(false)
   })
 })

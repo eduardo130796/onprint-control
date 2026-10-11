@@ -228,3 +228,12 @@ Especificação em `docs/PRECIFICACAO.md`, seção "Fase 3" (D207).
 - [x] Verificado (API): testes unitários (`tests/custos.test.ts`) e e2e `fase18`; `fase2`–`fase8` e `fase17` sem regressão
 - [x] Telas: editor do orçamento com semáforo ao vivo (POST /analisar com debounce; números e "Composição do custo" só para quem vê custos; substitui a "Margem estimada"), lucro por item e total no pedido, "O que este acabamento gasta" com custo de referência, pagamento a prazo na entrada (parcelas editáveis), Relatórios → Lucratividade (por pedido/produto, CSV), linha informativa na DRE; verificado no navegador (admin × vendedor, celular, escuro)
 - [ ] Aceite validado pelo usuário
+
+### Lançamento comercial ✅ (aguardando OK)
+
+- [x] **Página de venda** em `{DOMINIO_VITRINE}` e `www` (`features/site-grafygo`): recursos, fluxo do orçamento à entrega, Vitrine online em destaque, planos com chave mensal/anual (preços do painel), formas de pagamento, dúvidas e chamada final; ilustrações do produto em código; `?cupom=` segue para o cadastro
+- [x] **Planos de lançamento** (migration `planos_lancamento`): Essencial R$ 69 (3 usuários), Profissional R$ 129 (8), Completo R$ 199 (ilimitado + Vitrine online); WhatsApp "em breve"
+- [x] **Pagamento anual** (10 mensalidades = 2 meses grátis): `planos.valor_anual`, `assinaturas.ciclo`; Asaas `YEARLY`; cartão ou PIX/boleto; cupom só no mensal; troca de plano proporcional ao ano
+- [x] **Teste grátis com tudo liberado** (inclusive a Vitrine); o plano escolhido vale ao assinar
+- [x] Cadastro recebe `?plano=` e `?ciclo=` da página de venda; **termos de uso** e **política de privacidade** (`/termos`, `/privacidade`)
+

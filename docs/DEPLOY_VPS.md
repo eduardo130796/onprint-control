@@ -41,6 +41,8 @@ A propagação costuma levar alguns minutos. Para conferir no seu computador: `n
 
 Conferir: `nslookup qualquer-coisa.suaempresa.com.br` deve responder com o IP da VPS. O certificado de cada subdomínio é emitido na primeira visita (HTTPS sob demanda), e só para vitrines que estão no ar: antes de emitir, o Caddy pergunta à API (`/api/v1/publico/vitrine-permitida`). Subdomínios como `www`, `app`, `api`, `admin`, `mail`… são reservados e nunca viram vitrine.
 
+**Página de venda** (`https://suaempresa.com.br` e `www`): crie também os registros `A` com nome `@` e `www` apontando para o IP da VPS. Ela mostra os planos e preços do painel da plataforma, e o "Testar grátis" leva para o cadastro no `APP_URL`. Use um subdomínio para o sistema (ex.: `DOMINIO=app.suaempresa.com.br`): o domínio principal fica com a página de venda. Antes de divulgar, preencha razão social e CNPJ em `apps/web/src/app/marca.ts` (aparecem nos termos de uso e no rodapé) e revise os textos de `apps/web/src/features/legal/textos.ts` com um advogado.
+
 **Domínio próprio da gráfica** (opcional, ex.: `www.graficadocliente.com.br`): nada a fazer no servidor. A gráfica cadastra o domínio em Vitrine → Configurar e cria no DNS dela um `CNAME www → {slug}.suaempresa.com.br` (a tela mostra os valores para copiar). O bloco `https://` do `Caddyfile` atende qualquer outro nome e emite o certificado na primeira visita, só para domínios cadastrados de vitrines no ar.
 
 **Prévia do link no WhatsApp** (foto, nome e preço ao colar o link de um produto): já vem pronta no `Caddyfile`. Nas vitrines, os leitores de link (WhatsApp, Facebook, Telegram, LinkedIn…, reconhecidos pelo User-Agent) recebem da API um HTML com as tags Open Graph (`/api/v1/publico/vitrine-og`); visitantes e buscadores veem o site normal. Nunca vale para o endereço do sistema.
@@ -143,7 +145,7 @@ Troque **todos** os valores marcados com `TROQUE`:
 
 | Variável | O que colocar |
 |---|---|
-| `DOMINIO` | o domínio do passo 2, sem `https://` (ex.: `erp.suaempresa.com.br`) |
+| `DOMINIO` | o domínio do passo 2, sem `https://` (ex.: `app.suaempresa.com.br`). Precisa ser diferente de `DOMINIO_VITRINE`, que fica com a página de venda |
 | `APP_URL` | o mesmo domínio com `https://` |
 | `DOMINIO_VITRINE` | domínio das vitrines online, sem `https://` (ex.: `suaempresa.com.br` → `https://{slug}.suaempresa.com.br`). Precisa do registro curinga `*` do passo 2. Vai para a API, para o Caddy e para o build do front (`VITE_DOMINIO_VITRINE`) |
 | `POSTGRES_PASSWORD` | uma senha gerada. Ela aparece **também** dentro de `DATABASE_URL`: troque nos dois lugares |

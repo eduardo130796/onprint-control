@@ -13,6 +13,8 @@ export type TipoTrocaPlano = 'upgrade' | 'downgrade' | 'imediata'
 export interface PreviaTrocaPlano {
   tipo: TipoTrocaPlano
   plano: { codigo: string; nome: string; valorMensal: string }
+  /** Ciclo da assinatura: no anual, o período é de 12 meses e `novaMensalidade` é a anuidade */
+  ciclo?: 'mensal' | 'anual'
   /** Diferença proporcional cobrada agora (upgrade com período em curso) */
   valorProporcional: string | null
   diasRestantes: number | null
@@ -31,6 +33,8 @@ export interface EntradaTrocaPlano {
   /** Vencimento da mensalidade do período em curso (a última com vencimento até hoje), se houver */
   inicioPeriodo: string | null
   hoje: string
+  /** Meses do período (1 no mensal, 12 no anual) */
+  meses?: number
 }
 
 const centavos = (v: string | number) => Math.round(Number(v) * 100)
@@ -39,7 +43,7 @@ export const PROPORCIONAL_MINIMO = 5
 
 /** Diferença proporcional aos dias que faltam no período: (novo − atual) × restantes ÷ total, em centavos. */
 export function calcularTrocaPlano(e: EntradaTrocaPlano): Omit<PreviaTrocaPlano, 'plano'> {
-  const fim = e.inicioPeriodo ? adicionarMeses(e.inicioPeriodo, 1) : null
+  const fim = e.inicioPeriodo ? adicionarMeses(e.inicioPeriodo, e.meses ?? 1) : null
   const emCurso = Boolean(e.inicioPeriodo && fim && e.inicioPeriodo <= e.hoje && e.hoje < fim)
   const novo = centavos(e.valorNovo)
   const atual = centavos(e.valorAtual)

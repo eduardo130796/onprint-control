@@ -3,6 +3,8 @@ import {
   MENSALIDADE_MINIMA,
   adicionarDias,
   adicionarMeses,
+  mesesDoCiclo,
+  valorDoCiclo,
   cupomIndisponivel,
   descontoDoCupom,
   descreverCupom,
@@ -17,7 +19,7 @@ import {
   type TipoCupom,
 } from '@onprint/shared'
 import type { GatewayPagamentos } from '../integrations/pagamentos'
-import { diaISO, paraDia } from './assinaturas'
+import { precosDoPlano, diaISO, paraDia } from './assinaturas'
 import { inicioPeriodoAtual, registrarEvento, vencimentoQueConta } from './cobrancas'
 
 /**
@@ -44,10 +46,11 @@ export async function regrasDeValor(plataforma: PrismaClient, assinanteId: strin
   const a = await plataforma.assinatura.findUniqueOrThrow({ where: { assinanteId }, include: { plano: true } })
   const agendado = a.planoAgendadoId && a.planoAgendadoEm ? await plataforma.plano.findUnique({ where: { id: a.planoAgendadoId } }) : null
   const uso = await cupomEmVigor(plataforma, assinanteId)
+  // Anual: a cobrança é a anuidade do plano (o desconto já está no preço; cupom vale só no mensal)
   return {
-    valorPlano: a.plano.valorMensal.toFixed(2),
-    agendado: agendado && a.planoAgendadoEm ? { valor: agendado.valorMensal.toFixed(2), em: diaISO(a.planoAgendadoEm) as string } : null,
-    desconto: uso ? { tipo: uso.cupom.tipo as TipoCupom, valor: uso.cupom.valor.toFixed(2), desde: diaISO(uso.desde), ate: diaISO(uso.ate) } : null,
+    valorPlano: valorDoCiclo(precosDoPlano(a.plano), a.ciclo),
+    agendado: agendado && a.planoAgendadoEm ? { valor: valorDoCiclo(precosDoPlano(agendado), a.ciclo), em: diaISO(a.planoAgendadoEm) as string } : null,
+    desconto: uso && a.ciclo !== 'anual' ? { tipo: uso.cupom.tipo as TipoCupom, valor: uso.cupom.valor.toFixed(2), desde: diaISO(uso.desde), ate: diaISO(uso.ate) } : null,
   }
 }
 
@@ -76,7 +79,7 @@ export async function descontoDaMensalidade(plataforma: PrismaClient, assinanteI
 async function proximaAGerar(plataforma: PrismaClient, assinanteId: string, hoje: string) {
   const a = await plataforma.assinatura.findUniqueOrThrow({ where: { assinanteId } })
   const ultima = (await plataforma.cobranca.findMany({ where: { assinanteId, tipo: 'mensalidade', situacao: { notIn: ['cancelada', 'estornada'] } } })).map(vencimentoQueConta).sort().at(-1)
-  const data = ultima ? adicionarMeses(ultima, 1) : (diaISO(a.proximoVencimento) ?? hoje)
+  const data = ultima ? adicionarMeses(ultima, mesesDoCiclo(a.ciclo)) : (diaISO(a.proximoVencimento) ?? hoje)
   return data > hoje ? data : hoje
 }
 
@@ -128,7 +131,7 @@ async function primeiraNaoIniciada(plataforma: PrismaClient, assinanteId: string
   const proximo = diaISO(a.proximoVencimento)
   if (proximo && proximo > hoje) return proximo
   const inicio = await inicioPeriodoAtual(plataforma, assinanteId, hoje)
-  return inicio ? adicionarMeses(inicio, 1) : null
+  return inicio ? adicionarMeses(inicio, mesesDoCiclo(a.ciclo)) : null
 }
 
 export const CUPOM_INVALIDO_PUBLICO = 'Cupom inválido ou indisponível.'

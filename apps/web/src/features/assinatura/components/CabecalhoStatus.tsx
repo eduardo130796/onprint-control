@@ -1,5 +1,5 @@
 import { AlertTriangle, Ban, CalendarX, CheckCircle2, ExternalLink, Eye, Gift, Hourglass, ShieldCheck, Sparkles } from 'lucide-react'
-import { FORMA_ASSINATURA_ROTULOS, formatarDataSimples, formatarMoeda, type MinhaAssinatura } from '@onprint/shared'
+import { FORMA_ASSINATURA_ROTULOS, formatarDataSimples, formatarMoeda, valorDoCiclo, type MinhaAssinatura } from '@onprint/shared'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { statusDaAssinatura, type TomStatus } from '../status'
@@ -21,7 +21,7 @@ function detalhe(a: MinhaAssinatura): string {
   const m = a.acesso.motivo
   if (m === 'em_dia') {
     if (!a.proximoVencimento) return 'Nenhuma mensalidade em aberto.'
-    const valor = a.cobrancasAbertas[0]?.valor ?? (a.cupom ? (Number(a.plano.valorMensal) - Number(a.cupom.desconto)).toFixed(2) : a.plano.valorMensal)
+    const valor = a.cobrancasAbertas[0]?.valor ?? (a.cupom && a.ciclo !== 'anual' ? (Number(a.plano.valorMensal) - Number(a.cupom.desconto)).toFixed(2) : valorDoCiclo(a.plano, a.ciclo))
     const forma = a.formaPagamento ? ` · ${FORMA_ASSINATURA_ROTULOS[a.formaPagamento]}` : ''
     return `Próxima cobrança em ${formatarDataSimples(a.proximoVencimento)}: ${formatarMoeda(valor)}${forma}.`
   }

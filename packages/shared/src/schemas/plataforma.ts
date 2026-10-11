@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { TIPOS_CUPOM } from '../beneficios'
 import { MODULOS } from '../enums'
-import { codigoCupom } from './assinatura'
+import { CICLOS_ASSINATURA, codigoCupom } from './assinatura'
 import { SENHA_MAX, SENHA_MIN } from './auth'
 import { telefoneOpcional, valorMonetario } from './campos'
 
@@ -18,6 +18,8 @@ export const planoSchema = z
     nome: nome('o nome'),
     descricao: z.preprocess((v) => (v === '' ? null : v), z.string().trim().max(500).nullable().optional()),
     valorMensal: valorMonetario,
+    /** Pagando o ano de uma vez (ex.: 10 mensalidades = 2 meses grátis); vazio = sem opção anual */
+    valorAnual: z.preprocess((v) => (v === '' || v === undefined ? null : v), valorMonetario.nullable()),
     modulos: z.array(z.enum(MODULOS)).max(MODULOS.length),
     /** null = sem limite */
     limiteUsuarios: z.preprocess((v) => (v === '' || v === undefined ? null : v), z.coerce.number().int().min(1).max(10_000).nullable()),
@@ -88,6 +90,8 @@ export const cadastroPublicoSchema = z.object({
   telefone: telefoneOpcional,
   senha: z.string().min(SENHA_MIN, `A senha precisa ter pelo menos ${SENHA_MIN} caracteres.`).max(SENHA_MAX),
   plano: z.string().max(40).optional(),
+  /** Preferência vinda da página de planos (vale de verdade quando assinar) */
+  ciclo: z.enum(CICLOS_ASSINATURA).optional(),
   cupom: codigoCupom,
   aceite: z.literal(true, { message: 'Aceite os termos de uso para continuar.' }),
   site: z.string().max(0).optional(),

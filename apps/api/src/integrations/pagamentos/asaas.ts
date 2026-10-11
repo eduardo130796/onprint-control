@@ -142,14 +142,14 @@ export class AsaasGateway implements GatewayPagamentos {
     return r.id
   }
 
-  async criarAssinatura(d: { clienteId: string; valor: string; proximoVencimento: string; forma: FormaAssinatura; descricao: string; referencia: string }) {
+  async criarAssinatura(d: { clienteId: string; valor: string; proximoVencimento: string; forma: FormaAssinatura; descricao: string; referencia: string; ciclo?: 'mensal' | 'anual' }) {
     const r = await this.chamar<{ id: string }>('POST', '/subscriptions', {
       customer: d.clienteId,
       // UNDEFINED: na fatura o cliente escolhe PIX, boleto ou cartão; CREDIT_CARD: o cartão fica salvo e as próximas são automáticas
       billingType: tipoCobranca(d.forma),
       value: Number(d.valor),
       nextDueDate: d.proximoVencimento,
-      cycle: 'MONTHLY',
+      cycle: d.ciclo === 'anual' ? 'YEARLY' : 'MONTHLY',
       description: d.descricao,
       externalReference: d.referencia,
     })

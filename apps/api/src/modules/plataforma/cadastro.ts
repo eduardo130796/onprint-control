@@ -14,7 +14,20 @@ export const cadastroRoutes: FastifyPluginAsyncZod = async (app) => {
     return {
       cadastroAberto: app.config.CADASTRO_PUBLICO,
       planoPadrao: app.config.PLANO_PADRAO,
-      planos: planos.map((p) => ({ codigo: p.codigo, nome: p.nome, descricao: p.descricao, valorMensal: p.valorMensal.toFixed(2), limiteUsuarios: p.limiteUsuarios, diasTeste: p.diasTeste, modulos: p.modulos })),
+      // Página de venda (grafygo.com.br) leva o "Testar grátis" para o endereço do sistema
+      urlSistema: app.config.APP_URL,
+      suporte: app.config.SUPORTE_CONTATO,
+      pagamentoOnline: Boolean(app.pagamentos),
+      planos: planos.map((p) => ({
+        codigo: p.codigo,
+        nome: p.nome,
+        descricao: p.descricao,
+        valorMensal: p.valorMensal.toFixed(2),
+        valorAnual: p.valorAnual?.toFixed(2) ?? null,
+        limiteUsuarios: p.limiteUsuarios,
+        diasTeste: p.diasTeste,
+        modulos: p.modulos,
+      })),
     }
   })
 
@@ -64,6 +77,8 @@ export const cadastroRoutes: FastifyPluginAsyncZod = async (app) => {
         // A pessoa escolheu a própria senha: não precisa trocar no primeiro login
         { nome: d.empresa, plano: codigoPlano, situacao: 'teste', admin: { nome: d.nome, email: d.email, senha: d.senha, deveTrocarSenha: false } },
       )
+      // Anual escolhido na página de planos: já vem marcado na hora de assinar
+      if (d.ciclo === 'anual' && plano.valorAnual) await app.plataforma.assinatura.update({ where: { assinanteId: assinante.id }, data: { ciclo: 'anual' } })
       // Contato informado no cadastro já aparece nos dados da empresa (orçamentos, documentos)
       if (d.telefone) await app.empresas.clienteDe(assinante.schema).empresaConfig.updateMany({ data: { telefone: d.telefone, whatsapp: d.telefone, email: d.email } })
       // Cupom guardado: o desconto começa na 1ª mensalidade, quando assinar

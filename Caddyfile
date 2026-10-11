@@ -70,6 +70,12 @@
 	import site
 }
 
+# Página de venda da GrafyGo: o domínio das vitrines e o www (ex.: grafygo.com.br). O sistema fica em DOMINIO
+# (ex.: app.grafygo.com.br), que precisa ser diferente destes. DNS: registros A "@" e "www" para o IP da VPS.
+{$DOMINIO_VITRINE:vitrine.localhost}, www.{$DOMINIO_VITRINE:vitrine.localhost} {
+	import site
+}
+
 # Sistema (endereço exato: tem prioridade sobre o curinga das vitrines)
 {$DOMINIO:localhost} {
 	import site

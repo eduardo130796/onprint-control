@@ -1,6 +1,6 @@
 import { StrictMode, type ComponentType } from 'react'
 import { createRoot } from 'react-dom/client'
-import { dominioBaseVitrine, pareceDominioProprio, slugDaVitrine } from '@/features/vitrine-site/host'
+import { dominioBaseVitrine, ehSiteGrafygo, pareceDominioProprio, slugDaVitrine } from '@/features/vitrine-site/host'
 // Fontes empacotadas com o sistema (funciona sem internet), variáveis para os pesos leve/normal/forte:
 // Inter no texto (ou a fonte escolhida pelo usuário em Aparência), Manrope nos títulos. Só baixa a que estiver em uso.
 import '@fontsource-variable/inter'
@@ -26,7 +26,10 @@ const abrirSistema = () => void import('./sistema').then(({ SistemaApp }) => mon
 const host = window.location.host
 const base = dominioBaseVitrine(import.meta.env.VITE_DOMINIO_VITRINE)
 const slug = slugDaVitrine(host, base)
-if (slug) {
+if (ehSiteGrafygo(host, base)) {
+  // grafygo.com.br: a página de venda (o sistema fica em app.grafygo.com.br)
+  void import('@/features/site-grafygo/SiteGrafygoApp').then(({ SiteGrafygoApp }) => montar(SiteGrafygoApp))
+} else if (slug) {
   abrirVitrine(slug)
 } else if (pareceDominioProprio(host, base)) {
   // Domínio próprio da gráfica (www.suagrafica.com.br → CNAME para o subdomínio dela): a API diz de qual vitrine é

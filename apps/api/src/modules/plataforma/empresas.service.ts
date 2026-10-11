@@ -8,6 +8,7 @@ import {
   formatarMoeda,
   hojeISO,
   valorDaMensalidade,
+  valorDoCiclo,
   type AcaoAssinatura,
   type EmpresaPlataformaDetalhe,
   type EmpresaPlataformaResumo,
@@ -19,7 +20,7 @@ import {
 import { AppError } from '../../core/AppError'
 import { contextoEmpresa } from '../../core/contexto-empresa'
 import { ErroGateway } from '../../integrations/pagamentos'
-import { diaISO, resumirAssinatura } from '../../plataforma/assinaturas'
+import { precosDoPlano, diaISO, resumirAssinatura } from '../../plataforma/assinaturas'
 import { cupomEmVigor, resumoCupom } from '../../plataforma/beneficios'
 import { vencimentoQueConta } from '../../plataforma/cobrancas'
 import { executarAcao } from '../../plataforma/operacoes'
@@ -45,9 +46,9 @@ export async function valoresCobrados(plataforma: PrismaClient, hoje: string) {
     const uso = usoDe.get(a.assinanteId)
     return valorDaMensalidade(
       {
-        valorPlano: a.plano.valorMensal.toFixed(2),
-        agendado: agendado ? { valor: agendado.valorMensal.toFixed(2), em: diaISO(a.planoAgendadoEm) as string } : null,
-        desconto: uso ? { tipo: uso.cupom.tipo as TipoCupom, valor: uso.cupom.valor.toFixed(2), desde: diaISO(uso.desde), ate: diaISO(uso.ate) } : null,
+        valorPlano: valorDoCiclo(precosDoPlano(a.plano), a.ciclo),
+        agendado: agendado ? { valor: valorDoCiclo(precosDoPlano(agendado), a.ciclo), em: diaISO(a.planoAgendadoEm) as string } : null,
+        desconto: uso && a.ciclo !== 'anual' ? { tipo: uso.cupom.tipo as TipoCupom, valor: uso.cupom.valor.toFixed(2), desde: diaISO(uso.desde), ate: diaISO(uso.ate) } : null,
       },
       diaISO(a.proximoVencimento) ?? hoje,
     ).valor

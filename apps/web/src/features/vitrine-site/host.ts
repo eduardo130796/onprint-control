@@ -33,6 +33,13 @@ export function dominioBaseVitrine(valor: string | undefined): string {
   return base || 'localhost'
 }
 
+/** A página de venda da GrafyGo: {base} e www.{base} (em desenvolvimento, www.localhost) */
+export function ehSiteGrafygo(host: string, base: string): boolean {
+  const h = host.trim().toLowerCase().replace(/:\d+$/, '').replace(/\.$/, '')
+  const b = dominioBaseVitrine(base)
+  return h === `www.${b}` || (b !== 'localhost' && h === b)
+}
+
 /**
  * Pode ser o domínio próprio de uma gráfica (www.suagrafica.com.br): não é localhost, IP, a base das vitrines nem
  * subdomínio dela. Só então o site pergunta à API de qual vitrine é (o sistema no endereço dele não paga essa consulta).

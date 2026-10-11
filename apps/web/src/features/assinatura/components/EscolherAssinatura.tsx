@@ -7,9 +7,11 @@ import {
   FORMA_ASSINATURA_DETALHES,
   FORMA_ASSINATURA_ROTULOS,
   assinarSchema,
+  economiaAnual,
   formatarDataSimples,
   formatarMoeda,
   hojeISO,
+  type CicloAssinatura,
   type FormaAssinatura,
   type MinhaAssinatura,
 } from '@onprint/shared'
@@ -38,7 +40,13 @@ function Titulo({ passo, children, detalhe }: { passo: number; children: React.R
 export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }>(function EscolherAssinatura({ a }, ref) {
   const queryClient = useQueryClient()
   const [plano, setPlano] = useState(a.plano.codigo)
-  const [forma, setForma] = useState<FormaAssinatura>(a.formasDisponiveis[0] ?? 'cartao')
+  const temAnual = a.planos.some((p) => p.valorAnual)
+  const [ciclo, setCiclo] = useState<CicloAssinatura>(temAnual ? a.ciclo : 'mensal')
+  const anual = ciclo === 'anual'
+  // No anual: cartão ou PIX/boleto (o PIX Automático é mensal)
+  const formas = anual ? a.formasDisponiveis.filter((f) => f !== 'pix_automatico') : a.formasDisponiveis
+  const [formaEscolhida, setForma] = useState<FormaAssinatura>(a.formasDisponiveis[0] ?? 'cartao')
+  const forma = formas.includes(formaEscolhida) ? formaEscolhida : (formas[0] ?? 'cartao')
   const [documento, setDocumento] = useState(mascaraCpfCnpj(a.documentoSugerido))
   const [erro, setErro] = useState<string>()
   const assinar = useMutation({ mutationFn: assinaturaApi.assinar, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['assinatura'] }) })
@@ -48,20 +56,22 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
   const [cupomDigitado, setCupomDigitado] = useState('')
   const [cupom, setCupom] = useState<string | null>(null)
   const conferido = useQuery({ queryKey: ['assinatura', 'cupom', cupom, plano], queryFn: () => assinaturaApi.conferirCupom(cupom as string, plano), enabled: Boolean(cupom), retry: false })
-  const cupomValido = cupom && conferido.data ? conferido.data : null
-  const descontoGuardado = !cupom && a.cupom && plano === a.plano.codigo ? a.cupom : null
+  // Cupom vale só no mensal (o anual já sai com desconto)
+  const cupomValido = !anual && cupom && conferido.data ? conferido.data : null
+  const descontoGuardado = !anual && !cupom && a.cupom && plano === a.plano.codigo ? a.cupom : null
   const valorFinal = cupomValido?.valor ?? (descontoGuardado && escolhido ? (Number(escolhido.valorMensal) - Number(descontoGuardado.desconto)).toFixed(2) : null)
+  const valorCheio = escolhido ? (anual && escolhido.valorAnual ? escolhido.valorAnual : escolhido.valorMensal) : null
   const fimGratis = a.situacao === 'teste' ? a.testeAte : a.situacao === 'cortesia' ? (a.cortesia?.ate ?? null) : null
   const fimTeste = fimGratis && fimGratis > hojeISO() ? fimGratis : null
   const primeira = forma === 'pix_automatico' || !fimTeste ? 'hoje' : formatarDataSimples(fimTeste)
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault()
-    const dados = assinarSchema.safeParse({ plano, forma, cpfCnpj: documento })
+    const dados = assinarSchema.safeParse({ plano, forma, cpfCnpj: documento, ciclo })
     if (!dados.success) return setErro(dados.error.issues[0]?.message)
-    if (cupom && !cupomValido) return toast.error(conferido.isError ? (conferido.error as Error).message : 'Aguarde a conferência do cupom.')
+    if (!anual && cupom && !cupomValido) return toast.error(conferido.isError ? (conferido.error as Error).message : 'Aguarde a conferência do cupom.')
     try {
-      const r = await assinar.mutateAsync({ plano, forma, cpfCnpj: documento, ...(cupomValido ? { cupom: cupomValido.codigo } : {}) })
+      const r = await assinar.mutateAsync({ plano, forma, cpfCnpj: documento, ciclo, ...(cupomValido ? { cupom: cupomValido.codigo } : {}) })
       if (r.linkPagamento) window.open(r.linkPagamento, '_blank', 'noopener')
       toast.success(forma === 'pix_automatico' ? 'Pronto! Agora é só ler o QR Code no app do seu banco.' : 'Assinatura criada. Se a página de pagamento não abriu, use o botão "Pagar".', { duration: 8000 })
     } catch (err) {
@@ -77,16 +87,38 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
       </div>
 
       <div>
-        <Titulo passo={1}>Plano</Titulo>
-        <CartoesPlanos planos={a.planos} selecionado={plano} onEscolher={setPlano} />
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <Titulo passo={1}>Plano</Titulo>
+          {temAnual && (
+            <div role="radiogroup" aria-label="Como pagar" className="inline-flex rounded-full bg-fundo p-1 ring-1 ring-border">
+              {(['mensal', 'anual'] as const).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  role="radio"
+                  aria-checked={ciclo === c}
+                  onClick={() => setCiclo(c)}
+                  className={cn(
+                    'rounded-full px-4 py-1.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca-escuro',
+                    ciclo === c ? 'bg-card text-tinta shadow-suave' : 'text-texto-secundario hover:text-tinta',
+                  )}
+                >
+                  {c === 'mensal' ? 'Mensal' : 'Anual'}
+                  {c === 'anual' && <span className="ml-1.5 rounded-full bg-marca-suave px-1.5 py-0.5 text-[0.6875rem] font-bold text-marca-escuro">2 meses grátis</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <CartoesPlanos planos={a.planos} selecionado={plano} onEscolher={setPlano} ciclo={ciclo} />
       </div>
 
       <div>
         <Titulo passo={2} detalhe="Você pode trocar depois.">
           Forma de pagamento
         </Titulo>
-        <div className={cn('grid gap-3', a.formasDisponiveis.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2')}>
-          {a.formasDisponiveis.map((f) => {
+        <div className={cn('grid gap-3', formas.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2')}>
+          {formas.map((f) => {
             const Icone = ICONE[f]
             const marcado = forma === f
             return (
@@ -106,14 +138,16 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
                 </span>
                 <span>
                   <span className="flex flex-wrap items-center gap-2 font-semibold text-tinta">
-                    {FORMA_ASSINATURA_ROTULOS[f]}
+                    {anual && f === 'pix_boleto' ? 'PIX ou boleto' : FORMA_ASSINATURA_ROTULOS[f]}
                     {FORMAS_AUTOMATICAS.includes(f) && (
                       <span className="inline-flex items-center gap-0.5 rounded-full bg-grafite px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-white">
                         <Zap className="h-3 w-3" aria-hidden="true" /> Automático
                       </span>
                     )}
                   </span>
-                  <span className="mt-1 block text-sm text-texto-secundario">{FORMA_ASSINATURA_DETALHES[f]}</span>
+                  <span className="mt-1 block text-sm text-texto-secundario">
+                    {anual ? (f === 'cartao' ? 'Informe o cartão no pagamento; a renovação do ano seguinte é automática.' : 'Uma cobrança por ano: pague por PIX ou boleto.') : FORMA_ASSINATURA_DETALHES[f]}
+                  </span>
                 </span>
               </button>
             )
@@ -123,7 +157,7 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
 
       <form onSubmit={enviar} noValidate className="grid gap-6 lg:grid-cols-[1fr_22.5rem]">
         <div>
-          <Titulo passo={3} detalhe="Vai na cobrança e na nota fiscal da mensalidade.">
+          <Titulo passo={3} detalhe={`Vai na cobrança e na nota fiscal ${anual ? 'da anuidade' : 'da mensalidade'}.`}>
             Dados da cobrança
           </Titulo>
           <label htmlFor="as-doc" className="text-sm font-medium">
@@ -147,7 +181,11 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
             </p>
           )}
           <div className="mt-5">
-            {cupomValido || (descontoGuardado && !cupom) ? (
+            {anual ? (
+              <p className="flex items-center gap-2 text-sm text-texto-secundario">
+                <TicketPercent className="h-4 w-4 shrink-0" aria-hidden="true" /> Cupons valem no pagamento mensal: o anual já sai com 2 meses grátis.
+              </p>
+            ) : cupomValido || (descontoGuardado && !cupom) ? (
               <p className="flex flex-wrap items-center gap-2 rounded-xl bg-marca-suave px-3 py-2 text-sm text-tinta">
                 <TicketPercent className="h-4 w-4 text-marca-escuro" aria-hidden="true" />
                 Cupom <strong className="font-mono">{cupomValido?.codigo ?? descontoGuardado?.codigo}</strong>: {cupomValido?.descricao ?? descontoGuardado?.descricao}
@@ -194,15 +232,16 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
               <dd className="text-right font-semibold">{FORMA_ASSINATURA_ROTULOS[forma]}</dd>
             </div>
             <div className="flex justify-between gap-3">
-              <dt className="text-white/60">1ª mensalidade</dt>
+              <dt className="text-white/60">{anual ? '1ª anuidade' : '1ª mensalidade'}</dt>
               <dd className="font-semibold">{primeira}</dd>
             </div>
           </dl>
           <p className="mt-5 border-t border-white/10 pt-5">
-            <span className="font-titulo text-3xl font-extrabold">{escolhido && formatarMoeda(valorFinal ?? escolhido.valorMensal)}</span>
-            <span className="text-sm text-white/60">/mês</span>
+            <span className="font-titulo text-3xl font-extrabold">{valorCheio && formatarMoeda(valorFinal ?? valorCheio)}</span>
+            <span className="text-sm text-white/60">{anual ? '/ano' : '/mês'}</span>
             {valorFinal && escolhido && <span className="ml-2 text-sm text-white/50 line-through">{formatarMoeda(escolhido.valorMensal)}</span>}
           </p>
+          {anual && escolhido?.valorAnual && <p className="mt-1 text-xs text-marca">Economia de {formatarMoeda(economiaAnual(escolhido.valorMensal, escolhido.valorAnual))} no ano</p>}
           {(cupomValido || descontoGuardado) && <p className="mt-1 text-xs text-marca">{cupomValido?.descricao ?? descontoGuardado?.descricao}</p>}
           {forma === 'pix_automatico' && fimTeste && <p className="mt-2 text-xs text-amber-200">No PIX Automático a 1ª mensalidade é paga na autorização, hoje; o teste grátis termina nesse momento.</p>}
           {forma !== 'pix_automatico' && fimTeste && <p className="mt-2 text-xs text-white/60">Você não perde nenhum dia {a.situacao === 'cortesia' ? 'da cortesia' : 'do teste grátis'}.</p>}

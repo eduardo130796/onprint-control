@@ -2,15 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ArrowUpRight, CalendarClock, CreditCard, Loader2, QrCode, Receipt, RefreshCw, XCircle, Zap } from 'lucide-react'
 import { toast } from 'sonner'
-import {
-  FORMAS_AUTOMATICAS,
-  FORMA_ASSINATURA_DETALHES,
-  FORMA_ASSINATURA_ROTULOS,
-  formatarDataSimples,
-  formatarMoeda,
-  type FormaAssinatura,
-  type MinhaAssinatura,
-} from '@onprint/shared'
+import { FORMAS_AUTOMATICAS, FORMA_ASSINATURA_DETALHES, FORMA_ASSINATURA_ROTULOS, formatarDataSimples, formatarMoeda, type FormaAssinatura, type MinhaAssinatura, sufixoCiclo, valorDoCiclo } from '@onprint/shared'
 import { assinaturaApi } from '@/api/assinatura'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Button } from '@/components/ui/button'
@@ -78,7 +70,8 @@ export function GerenciarAssinatura({ a }: { a: MinhaAssinatura }) {
         <div className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl bg-fundo p-4 ring-1 ring-border">
           <CalendarClock className="h-5 w-5 shrink-0 text-tinta" aria-hidden="true" />
           <p className="min-w-0 flex-1 text-sm">
-            <strong className="text-tinta">Troca agendada:</strong> o plano passa a ser o {a.planoAgendado.nome} ({formatarMoeda(a.planoAgendado.valorMensal)}/mês) em {formatarDataSimples(a.planoAgendado.em)}. Até lá, continua o {a.plano.nome}, já pago.
+            <strong className="text-tinta">Troca agendada:</strong> o plano passa a ser o {a.planoAgendado.nome} ({formatarMoeda(valorDoCiclo(a.planoAgendado, a.ciclo))}
+            {sufixoCiclo(a.ciclo)}) em {formatarDataSimples(a.planoAgendado.em)}. Até lá, continua o {a.plano.nome}, já pago.
           </p>
           {a.podeGerenciar && atualPlano && (
             <Button variant="outline" size="sm" onClick={() => setPlanoNovo(atualPlano.codigo)}>

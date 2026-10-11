@@ -2,7 +2,9 @@
 // Critério de aceite: cupom (cadastro, assinatura, janela de meses, limite, relatório), meses grátis (com e sem gateway),
 // abono de cobrança, cortesia (sem prazo, com prazo, encerrada) e a empresa da plataforma como cortesia.
 import { asaas, cli, dia, hoje, novaCobranca, servidor, webhook } from './e2e-asaas-falso.mjs'
-import { chamar, conferir, entrar, finalizar } from './e2e-util.mjs'
+import { chamar, conferir, entrar, finalizar, fixarPrecosDeTeste } from './e2e-util.mjs'
+
+await fixarPrecosDeTeste()
 
 /** Mesma regra do sistema: soma meses e prende no fim do mês (31/01 + 1 = 28/02). */
 function maisMeses(iso, n) {

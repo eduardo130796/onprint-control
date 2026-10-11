@@ -1937,6 +1937,10 @@ model Plano {
   descricao             String?
   valorMensal           Decimal  @map("valor_mensal") @db.Decimal(10, 2)
   /**
+   * Pagando o ano de uma vez (null = sem opção anual)
+   */
+  valorAnual            Decimal? @map("valor_anual") @db.Decimal(10, 2)
+  /**
    * Códigos de módulo (MODULOS); os essenciais entram sempre
    */
   modulos               String[]
@@ -1978,6 +1982,10 @@ model Assinatura {
    * teste | ativa | cortesia | cancelada
    */
   situacao             String    @default("teste")
+  /**
+   * mensal | anual (cada cobrança cobre 1 ou 12 meses)
+   */
+  ciclo                String    @default("mensal")
   testeAte             DateTime? @map("teste_ate") @db.Date
   /// Cortesia (assinatura grátis): até esta data (null = sem prazo) e o motivo
   cortesiaAte          DateTime? @map("cortesia_ate") @db.Date

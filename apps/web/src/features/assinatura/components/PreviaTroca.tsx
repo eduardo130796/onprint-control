@@ -1,5 +1,5 @@
 import { ArrowDownRight, ArrowUpRight, CalendarClock } from 'lucide-react'
-import { formatarDataSimples, formatarMoeda, type PreviaTrocaPlano } from '@onprint/shared'
+import { formatarDataSimples, formatarMoeda, sufixoCiclo, type PreviaTrocaPlano } from '@onprint/shared'
 
 /** O que acontece ao trocar de plano: diferença proporcional (upgrade), data (downgrade) e a mensalidade nova. */
 export function PreviaTroca({ p, planoAtual }: { p: PreviaTrocaPlano; planoAtual: string }) {
@@ -10,7 +10,12 @@ export function PreviaTroca({ p, planoAtual }: { p: PreviaTrocaPlano; planoAtual
           <ArrowDownRight className="mt-0.5 h-5 w-5 shrink-0 text-tinta" aria-hidden="true" />
           <span>
             Você já pagou o <strong>{planoAtual}</strong> neste período: ele continua valendo até <strong>{formatarDataSimples(p.valeA)}</strong>. A partir daí, o plano passa a ser o{' '}
-            <strong>{p.plano.nome}</strong> por <strong>{formatarMoeda(p.novaMensalidade.valor)}/mês</strong>.
+            <strong>{p.plano.nome}</strong> por{' '}
+            <strong>
+              {formatarMoeda(p.novaMensalidade.valor)}
+              {sufixoCiclo(p.ciclo)}
+            </strong>
+            .
           </span>
         </span>
         <span className="block text-xs text-texto-secundario">Sem cobrança extra e sem estorno. Você pode desfazer até lá.</span>
@@ -35,7 +40,7 @@ export function PreviaTroca({ p, planoAtual }: { p: PreviaTrocaPlano; planoAtual
         </span>
         <span className="flex items-center gap-2 text-sm">
           <CalendarClock className="h-4 w-4 text-texto-secundario" aria-hidden="true" />
-          Mensalidade de {formatarMoeda(p.novaMensalidade.valor)} a partir de {p.novaMensalidade.aPartirDe ? formatarDataSimples(p.novaMensalidade.aPartirDe) : 'a próxima'}.
+          {p.ciclo === 'anual' ? 'Anuidade' : 'Mensalidade'} de {formatarMoeda(p.novaMensalidade.valor)} a partir de {p.novaMensalidade.aPartirDe ? formatarDataSimples(p.novaMensalidade.aPartirDe) : 'a próxima'}.
         </span>
         <span className="block text-xs text-texto-secundario">Mensalidades vencidas continuam com o valor do plano em que foram usadas.</span>
       </span>
@@ -43,7 +48,7 @@ export function PreviaTroca({ p, planoAtual }: { p: PreviaTrocaPlano; planoAtual
   }
   return (
     <span className="block text-left">
-      O plano muda agora para o <strong>{p.plano.nome}</strong>. A próxima mensalidade já vem em <strong>{formatarMoeda(p.novaMensalidade.valor)}</strong>.
+      O plano muda agora para o <strong>{p.plano.nome}</strong>. A próxima {p.ciclo === 'anual' ? 'anuidade' : 'mensalidade'} já vem em <strong>{formatarMoeda(p.novaMensalidade.valor)}</strong>.
     </span>
   )
 }

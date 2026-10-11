@@ -164,7 +164,9 @@ export const ACOES_ESCRITA: readonly Acao[] = ACOES.filter((a) => !ACOES_LEITURA
 /** Tela "Minha assinatura" (GET /assinatura). */
 export interface MinhaAssinatura {
   situacao: SituacaoAssinatura
-  plano: { codigo: string; nome: string; descricao: string | null; valorMensal: string; limiteUsuarios: number | null; diasTeste: number; diasAteSomenteLeitura: number; diasAteBloqueio: number }
+  /** Mensal ou anual (no teste, a preferência vinda da página de planos) */
+  ciclo: 'mensal' | 'anual'
+  plano: { codigo: string; nome: string; descricao: string | null; valorMensal: string; valorAnual: string | null; limiteUsuarios: number | null; diasTeste: number; diasAteSomenteLeitura: number; diasAteBloqueio: number }
   acesso: AcessoAssinatura
   testeAte: string | null
   cortesia: { ate: string | null; motivo: string | null } | null
@@ -176,7 +178,7 @@ export interface MinhaAssinatura {
   usuariosAtivos: number
   /** Módulos do sistema (menos os essenciais): incluídos no plano atual ou em quais planos existem */
   modulos: { codigo: Modulo; rotulo: string; incluido: boolean; planos: string[] }[]
-  planos: { codigo: string; nome: string; descricao: string | null; valorMensal: string; limiteUsuarios: number | null; atual: boolean; modulos: string[] }[]
+  planos: { codigo: string; nome: string; descricao: string | null; valorMensal: string; valorAnual: string | null; limiteUsuarios: number | null; atual: boolean; modulos: string[] }[]
   /** Contato do suporte para pagar ou mudar de plano (vazio se não configurado) */
   suporte: string
   /** Pagamento online (Asaas) disponível na plataforma */
@@ -199,7 +201,7 @@ export interface MinhaAssinatura {
   /** A pagar agora (vencidas, diferenças proporcionais e mensalidades dos próximos 7 dias), da mais antiga para a mais nova */
   cobrancasAbertas: CobrancaResumo[]
   /** Downgrade agendado: plano que passa a valer e quando */
-  planoAgendado: { nome: string; valorMensal: string; em: string } | null
+  planoAgendado: { nome: string; valorMensal: string; valorAnual: string | null; em: string } | null
   cobrancas: CobrancaResumo[]
 }
 

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { calcularAcesso, diasEntre, filtrarPermissoes, modulosLiberados, type DadosAcesso } from './assinatura'
 import { adicionarMeses } from './datas'
+import { assinarSchema, economiaAnual, mensalNoAnual, mesesDoCiclo, sufixoCiclo, valorDoCiclo } from './schemas/assinatura'
+import { calcularTrocaPlano } from './troca-plano'
 
 const prazos = { diasAteSomenteLeitura: 5, diasAteBloqueio: 15 }
 const ativa = (extra: Partial<DadosAcesso> = {}): DadosAcesso => ({ situacao: 'ativa', ...prazos, ...extra })
@@ -102,5 +104,38 @@ describe('módulos e permissões', () => {
   })
   it('bloqueado: nenhuma', () => {
     expect(filtrarPermissoes(permissoes, modulos, 'bloqueado')).toEqual([])
+  })
+})
+
+describe('ciclo de cobrança (mensal ou anual)', () => {
+  it('anual cobra a anuidade do plano; sem ela, 12 mensalidades', () => {
+    expect(valorDoCiclo({ valorMensal: '69.00', valorAnual: '690.00' }, 'anual')).toBe('690.00')
+    expect(valorDoCiclo({ valorMensal: '69.00', valorAnual: '690.00' }, 'mensal')).toBe('69.00')
+    expect(valorDoCiclo({ valorMensal: '69.00', valorAnual: null }, 'anual')).toBe('828.00')
+    expect(mesesDoCiclo('anual')).toBe(12)
+    expect(mesesDoCiclo('mensal')).toBe(1)
+    expect(mesesDoCiclo(null)).toBe(1)
+  })
+  it('economia e quanto sai por mês no anual', () => {
+    expect(economiaAnual('129.00', '1290.00')).toBe('258.00')
+    expect(economiaAnual('129.00', null)).toBe('0.00')
+    expect(economiaAnual('100.00', '1300.00')).toBe('0.00')
+    expect(mensalNoAnual('1990.00')).toBe('165.83')
+    expect(sufixoCiclo('anual')).toBe('/ano')
+    expect(sufixoCiclo('mensal')).toBe('/mês')
+  })
+  it('troca de plano no anual: período de 12 meses e proporcional pelos dias do ano', () => {
+    const r = calcularTrocaPlano({ valorAtual: '690.00', valorNovo: '1290.00', inicioPeriodo: '2026-01-10', hoje: '2026-07-10', meses: 12 })
+    expect(r.tipo).toBe('upgrade')
+    expect(r.periodo).toEqual({ inicio: '2026-01-10', fim: '2027-01-10' })
+    expect(r.diasPeriodo).toBe(365)
+    expect(r.diasRestantes).toBe(184)
+    expect(r.valorProporcional).toBe('302.47')
+  })
+  it('assinar aceita o ciclo e assume mensal', () => {
+    const base = { plano: 'completo', cpfCnpj: '11.222.333/0001-81', forma: 'cartao' }
+    expect(assinarSchema.parse(base).ciclo).toBe('mensal')
+    expect(assinarSchema.parse({ ...base, ciclo: 'anual' }).ciclo).toBe('anual')
+    expect(assinarSchema.safeParse({ ...base, ciclo: 'semanal' }).success).toBe(false)
   })
 })

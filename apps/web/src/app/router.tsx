@@ -71,6 +71,8 @@ import {
   TrocarSenhaPage,
   MinhaAssinaturaPage,
   CriarContaPage,
+  TermosPage,
+  PrivacidadePage,
   PlataformaLoginPage,
   PlataformaLayout,
   PainelPlataformaPage,
@@ -213,6 +215,8 @@ export const router = createBrowserRouter(
   { path: '/esqueci-senha', element: comCarregamento(<EsqueciSenhaPage />) },
   { path: '/redefinir-senha', element: comCarregamento(<RedefinirSenhaPage />) },
   { path: '/criar-conta', element: comCarregamento(<CriarContaPage />) },
+  { path: '/termos', element: comCarregamento(<TermosPage />) },
+  { path: '/privacidade', element: comCarregamento(<PrivacidadePage />) },
   // Painel da plataforma (dono do sistema / suporte): sessão própria, fora do layout das empresas
   { path: '/plataforma/login', element: comCarregamento(<PlataformaLoginPage />) },
   {

@@ -15,9 +15,9 @@ import { plataformaApi } from '../api'
 import { CabecalhoPlataforma, Secao } from '../components/Secao'
 
 /** Valores do formulário (descrição sempre texto; o schema converte vazio em null). */
-type FormPlano = Omit<PlanoInput, 'descricao'> & { descricao: string }
+type FormPlano = Omit<PlanoInput, 'descricao' | 'valorAnual'> & { descricao: string; valorAnual: string }
 
-const NOVO: FormPlano = { codigo: '', nome: '', descricao: '', valorMensal: '0', modulos: [], limiteUsuarios: null, diasTeste: 14, diasAteSomenteLeitura: 5, diasAteBloqueio: 15, publico: true, ativo: true, ordem: 10 }
+const NOVO: FormPlano = { codigo: '', nome: '', descricao: '', valorMensal: '0', valorAnual: '', modulos: [], limiteUsuarios: null, diasTeste: 14, diasAteSomenteLeitura: 5, diasAteBloqueio: 15, publico: true, ativo: true, ordem: 10 }
 
 function PlanoDialog({ plano, onFechar }: { plano: PlanoPlataforma | null; onFechar: () => void }) {
   const queryClient = useQueryClient()
@@ -28,6 +28,7 @@ function PlanoDialog({ plano, onFechar }: { plano: PlanoPlataforma | null; onFec
           nome: plano.nome,
           descricao: plano.descricao ?? '',
           valorMensal: plano.valorMensal.replace('.', ','),
+          valorAnual: plano.valorAnual?.replace('.', ',') ?? '',
           modulos: plano.modulos as Modulo[],
           limiteUsuarios: plano.limiteUsuarios,
           diasTeste: plano.diasTeste,
@@ -74,6 +75,24 @@ function PlanoDialog({ plano, onFechar }: { plano: PlanoPlataforma | null; onFec
           <Input id="pl-valor" inputMode="decimal" value={String(v.valorMensal)} onChange={(e) => campo('valorMensal', e.target.value)} />
         </CampoFormulario>
       </div>
+      <CampoFormulario
+        id="pl-anual"
+        rotulo="Anual (R$)"
+        acao={
+          <button
+            type="button"
+            className="text-xs font-medium text-marca-escuro hover:underline"
+            onClick={() => campo('valorAnual', (Math.round(Number(String(v.valorMensal).replace(',', '.')) * 1000) / 100).toFixed(2).replace('.', ','))}
+          >
+            Usar 10× a mensalidade
+          </button>
+        }
+      >
+        <Input id="pl-anual" inputMode="decimal" value={v.valorAnual} onChange={(e) => campo('valorAnual', e.target.value)} aria-describedby="pl-anual-dica" />
+        <p id="pl-anual-dica" className="text-xs text-texto-secundario">
+          Pagando o ano de uma vez. Vazio = sem opção anual. 10 mensalidades = 2 meses grátis.
+        </p>
+      </CampoFormulario>
       <CampoFormulario id="pl-desc" rotulo="Descrição (aparece na página de planos)">
         <Input id="pl-desc" value={v.descricao} onChange={(e) => campo('descricao', e.target.value)} />
       </CampoFormulario>
@@ -164,6 +183,7 @@ export function PlanosPlataformaPage() {
                   <p className="relative mt-4">
                     <span className="font-titulo text-4xl font-extrabold tabular-nums">{formatarMoeda(p.valorMensal)}</span>
                     <span className="text-sm text-white/60">/mês</span>
+                    {p.valorAnual && <span className="block text-sm text-white/60">ou {formatarMoeda(p.valorAnual)}/ano</span>}
                   </p>
                   <div className="relative mt-3 flex flex-wrap gap-1.5 text-xs font-semibold">
                     <span className="rounded-full bg-marca/15 px-2.5 py-1 text-marca ring-1 ring-marca/30">{p.assinaturas} empresa(s)</span>

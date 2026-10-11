@@ -41,7 +41,8 @@ export type SituacaoAutorizacaoPix = 'aguardando' | 'ativa' | 'encerrada'
 export interface GatewayPagamentos {
   readonly nome: 'asaas'
   criarCliente(d: { nome: string; email: string; cpfCnpj: string; telefone?: string | null; referencia: string }): Promise<string>
-  criarAssinatura(d: { clienteId: string; valor: string; proximoVencimento: string; forma: FormaAssinatura; descricao: string; referencia: string }): Promise<string>
+  /** `ciclo` anual: uma cobrança por ano (padrão: mensal) */
+  criarAssinatura(d: { clienteId: string; valor: string; proximoVencimento: string; forma: FormaAssinatura; descricao: string; referencia: string; ciclo?: 'mensal' | 'anual' }): Promise<string>
   /** Valor, forma e/ou data da próxima cobrança a gerar (as já geradas não mudam: quem decide é o sistema) */
   alterarAssinatura(id: string, d: { valor?: string; forma?: FormaAssinatura; proximoVencimento?: string }): Promise<void>
   cancelarAssinatura(id: string): Promise<void>

@@ -73,11 +73,17 @@
 # Página de venda da GrafyGo: o domínio das vitrines e o www (ex.: grafygo.com.br). O sistema fica em DOMINIO
 # (ex.: app.grafygo.com.br), que precisa ser diferente destes. DNS: registros A "@" e "www" para o IP da VPS.
 {$DOMINIO_VITRINE:vitrine.localhost}, www.{$DOMINIO_VITRINE:vitrine.localhost} {
+	# Caddy 2.10+: sem isto, o www usaria o certificado do curinga das vitrines (que é sob demanda e só libera vitrines)
+	tls force_automate
+
 	import site
 }
 
 # Sistema (endereço exato: tem prioridade sobre o curinga das vitrines)
 {$DOMINIO:localhost} {
+	# Caddy 2.10+: certificado próprio, mesmo coberto pelo curinga das vitrines
+	tls force_automate
+
 	import site
 }
 

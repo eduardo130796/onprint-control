@@ -11,6 +11,23 @@ x-logs: &logs
 services:
   db:
     image: postgres:16-alpine
+    # Multiempresa: cada gráfica em uso abre até DB_CONEXOES_POR_EMPRESA (3) conexões e a API mantém até
+    # DB_MAX_EMPRESAS_ABERTAS (60) abertas: ~180 + plataforma. O padrão do Postgres (100) não basta.
+    # Memória pensada para VPS de 4–8 GB; numa de 16 GB+, suba shared_buffers para 2GB e effective_cache_size para 8GB.
+    command:
+      - postgres
+      - -c
+      - max_connections=300
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - effective_cache_size=2GB
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=128MB
+    # Memória compartilhada para consultas paralelas (o padrão do Docker, 64 MB, é pouco)
+    shm_size: 256mb
     # Só o que o Postgres usa (os segredos da API não entram neste container); valores vêm do --env-file .env.prod
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env.prod}

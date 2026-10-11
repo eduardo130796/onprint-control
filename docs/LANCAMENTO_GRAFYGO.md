@@ -295,6 +295,52 @@ Antes de divulgar, faça uma compra real pequena:
 | Quando tiver CNPJ | troque `titular`/`documento` em `marca.ts` (e suba), configure as notas no Asaas e ligue `ASAAS_NF_ATIVA=true` (com `ASAAS_NF_SERVICO_CODIGO` e alíquotas) no `.env.prod`; depois `onprint up -d --force-recreate api` |
 | Mudou algo no `.env.prod` | `onprint up -d --force-recreate api` (se mudou `DOMINIO`/`DOMINIO_VITRINE`, rode o `atualizar.sh` para refazer o web) |
 
+## Capacidade e crescimento
+
+**O que pesa em cada recurso:**
+- **Processador:** pouco. Os PDFs (orçamento, pedido, catálogo) são gerados no navegador de quem usa, não no servidor;
+  o servidor só converte imagens ao receber (instantes).
+- **Memória:** cresce com quantas gráficas estão **usando ao mesmo tempo**. Cada uma em uso ocupa ~30 MB na API e
+  até 3 conexões no banco; a API mantém até 60 abertas e fecha as mais antigas sozinha (`DB_MAX_EMPRESAS_ABERTAS`).
+- **Disco:** é o primeiro limite. O banco cresce pouco (algumas centenas de MB por gráfica por ano); o que enche são
+  os **arquivos**: artes que a gráfica anexa nos pedidos (até 200 MB cada, `UPLOAD_MAX_MB`), fotos de produtos e
+  catálogos em PDF da vitrine (até 30 por gráfica).
+
+**Estimativa por gráfica, por ano:**
+
+| Uso | Banco | Arquivos | Total |
+|---|---|---|---|
+| Leve (fotos de produtos, poucas artes) | ~100 MB | ~1 GB | ~1 GB |
+| Médio (arte em boa parte dos pedidos) | ~200 MB | ~4 GB | ~4 GB |
+| Pesado (toda arte em alta resolução no sistema) | ~300 MB | ~10–15 GB | ~12 GB |
+
+**Projeção na Hostinger KVM 2** (2 vCPU, 8 GB, 100 GB de disco; ~80 GB livres depois do sistema e das imagens):
+
+| Gráficas assinantes | Memória | Disco no 1º ano (uso médio) | Situação |
+|---|---|---|---|
+| até 30 | ~3 GB | ~25–40 GB | folgado |
+| 30 a 60 | ~4–5 GB | ~60–80 GB | ok; acompanhe o disco todo mês |
+| 60 a 120 | ~5–6 GB | passa de 100 GB | subir para **KVM 4** (16 GB, 200 GB) ou levar os arquivos para fora (abaixo) |
+| 120+ | | | KVM 8, ou banco num servidor separado e arquivos em armazenamento de objetos |
+
+Com 30 gráficas pagando o Profissional, a receita (~R$ 3.900/mês) cobre a VPS dezenas de vezes: dá para subir de
+plano antes de apertar. Na Hostinger, a troca KVM 2 → KVM 4 é feita pelo painel e mantém os dados.
+
+**Acompanhe uma vez por mês** (na VPS):
+
+```bash
+df -h /                                   # disco livre (ação quando passar de 70% usado)
+free -h                                   # memória
+docker stats --no-stream                  # memória e CPU de cada container
+docker system df                          # espaço das imagens/volumes do Docker
+docker run --rm -v onprint-control-prod_uploads:/u alpine du -sh /u   # tamanho dos arquivos das gráficas
+du -sh ~/onprint/backups                  # backups locais
+```
+
+**Quando os arquivos crescerem:** o caminho natural é guardar os uploads num armazenamento de objetos barato
+(Cloudflare R2 ou Backblaze B2, centavos de dólar por GB) em vez do disco da VPS; o disco passa a ter só o banco.
+É uma mudança no código (a camada de arquivos já é separada); peça quando o disco passar de ~60%.
+
 **Ponto de atenção no crescimento:** cada vitrine (`{gráfica}.grafygo.com.br`) ganha um certificado próprio do Let's
 Encrypt, que limita a cerca de **50 certificados novos por semana** por domínio. Isso basta para começar. Se um dia
 passar disso, o caminho é um certificado curinga (`*.grafygo.com.br`) emitido por DNS (Cloudflare); peça ajuda ao

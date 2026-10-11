@@ -200,9 +200,9 @@ Abra **https://SEU_DOMINIO** no navegador. O certificado HTTPS é emitido na pri
 ## 9. Backup diário (banco + arquivos), com cópia fora da VPS
 
 O script `scripts/vps/backup.sh`:
-- gera `backups/onprint_DATA.dump` (banco compactado) e `backups/uploads_DATA.tar.gz` (artes e anexos);
-- apaga os backups com mais de 14 dias (ajuste com `DIAS_RETENCAO`);
-- se `RCLONE_DESTINO` estiver definido, envia uma cópia para fora da VPS.
+- gera `backups/onprint_DATA.dump` (banco compactado) todo dia e guarda 14 dias na VPS (`DIAS_RETENCAO`);
+- gera `backups/uploads_DATA.tar.gz` (artes, fotos e PDFs) e guarda **só o mais recente** na VPS (os arquivos são o que mais cresce: 14 cópias inteiras lotariam o disco);
+- se `RCLONE_DESTINO` estiver definido, manda o dump para `DESTINO/banco/` (guarda 30 dias, `DIAS_RETENCAO_REMOTO`) e **espelha** os arquivos em `DESTINO/uploads/` de forma incremental: só sobe o que mudou, e o que foi apagado ou substituído fica 30 dias em `DESTINO/uploads-alterados/DATA`. O espelho roda pela imagem oficial do rclone (`rclone/rclone`), lendo o volume do Docker.
 
 **Teste manual:**
 
@@ -229,7 +229,7 @@ crontab -e
 Acrescente a linha (ajuste o destino):
 
 ```
-30 2 * * * RCLONE_DESTINO=gdrive:onprint-backups /home/onprint/onprint/scripts/vps/backup.sh >> /home/onprint/backup.log 2>&1
+30 2 * * * RCLONE_DESTINO=gdrive:grafygo-backups /home/onprint/onprint/scripts/vps/backup.sh >> /home/onprint/backup.log 2>&1
 ```
 
 Confira no dia seguinte com `tail /home/onprint/backup.log` e verificando a pasta no Drive.
@@ -269,7 +269,15 @@ ls backups/
 scripts/vps/restore.sh backups/onprint_AAAA-MM-DD_HH-MM-SS.dump backups/uploads_AAAA-MM-DD_HH-MM-SS.tar.gz
 ```
 
-O script pede para digitar `RESTAURAR`, para a API, restaura o banco (e os arquivos, se informados) e sobe a API de novo. Para trazer um backup do Drive antes: `rclone copy gdrive:onprint-backups/ARQUIVO backups/`.
+O script pede para digitar `RESTAURAR`, para a API, restaura o banco (e os arquivos, se informados) e sobe a API de novo. Para trazer um dump do Drive antes: `rclone copy gdrive:grafygo-backups/banco/ARQUIVO backups/`.
+
+**Arquivos a partir do espelho no Drive** (VPS nova, ou o pacote local perdido), com a API parada:
+
+```bash
+onprint stop api
+docker run --rm -v onprint-control-prod_uploads:/uploads -v ~/.config/rclone:/config/rclone rclone/rclone:1.68 sync gdrive:grafygo-backups/uploads /uploads
+onprint start api
+```
 
 ## 12. Comandos úteis
 

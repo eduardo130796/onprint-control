@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Contact, Pencil, Plus, Star, Trash2 } from 'lucide-react'
+import { Contact, Mail, MessageCircle, Pencil, Phone, Plus, Star, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { contatoSchema, formatarTelefone, type ClienteDetalhe, type Contato, type ContatoInput } from '@onprint/shared'
 import type { z } from 'zod'
@@ -78,17 +78,48 @@ export function ContatosTab({ cliente }: { cliente: ClienteDetalhe }) {
   const [removendo, setRemovendo] = useState<Contato | null>(null)
   const remover = useMutacaoClientes((id: string) => clientesApi.removerContato(cliente.id, id))
 
+  const doCadastro = [
+    cliente.whatsapp && { Icone: MessageCircle, rotulo: 'WhatsApp', valor: formatarTelefone(cliente.whatsapp) },
+    cliente.telefone && { Icone: Phone, rotulo: 'Telefone', valor: formatarTelefone(cliente.telefone) },
+    cliente.email && { Icone: Mail, rotulo: 'E-mail', valor: cliente.email },
+  ].filter((x): x is { Icone: typeof Phone; rotulo: string; valor: string } => Boolean(x))
+
   return (
     <div className="space-y-4">
-      {podeEditar && (
-        <div className="flex justify-end">
-          <Button onClick={() => setEditando('novo')}>
-            <Plus /> Adicionar contato
-          </Button>
+      {/* WhatsApp, telefone e e-mail digitados em Dados: aparecem aqui também */}
+      <section className="rounded-2xl border border-border p-4" aria-labelledby="ct-cadastro">
+        <h3 id="ct-cadastro" className="text-sm font-semibold">
+          Contato do cadastro
+        </h3>
+        {doCadastro.length ? (
+          <ul className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+            {doCadastro.map(({ Icone, rotulo, valor }) => (
+              <li key={rotulo} className="flex items-center gap-1.5">
+                <Icone className="h-4 w-4 text-texto-secundario" aria-hidden />
+                <span className="sr-only">{rotulo}: </span>
+                {valor}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-1 text-sm text-texto-secundario">Nenhum WhatsApp, telefone ou e-mail no cadastro.</p>
+        )}
+        <p className="mt-2 text-xs text-texto-secundario">Para mudar, edite na aba Dados.</p>
+      </section>
+
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold">Pessoas de contato</h3>
+          <p className="text-xs text-texto-secundario">Quem você atende na empresa do cliente: compras, financeiro, marketing…</p>
         </div>
-      )}
+        {podeEditar && (
+          <Button onClick={() => setEditando('novo')}>
+            <Plus /> Adicionar pessoa
+          </Button>
+        )}
+      </div>
       {cliente.contatos.length === 0 ? (
-        <EmptyState icone={Contact} titulo="Nenhum contato" descricao="Pessoas da empresa do cliente: compras, financeiro, marketing…" />
+        <EmptyState icone={Contact} titulo="Nenhuma pessoa de contato" descricao="Adicione quem fala com você, com WhatsApp e cargo de cada um." />
       ) : (
         <ul className="divide-y divide-border rounded-2xl border border-border">
           {cliente.contatos.map((c) => (

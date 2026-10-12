@@ -91,7 +91,7 @@ export function ClienteFichaPage() {
         <TabsList>
           <TabsTrigger value="dados">Dados</TabsTrigger>
           <TabsTrigger value="enderecos">Endereços ({cliente.enderecos.length})</TabsTrigger>
-          <TabsTrigger value="contatos">Contatos ({cliente.contatos.length})</TabsTrigger>
+          <TabsTrigger value="contatos">Contatos ({cliente.contatos.length + (cliente.whatsapp || cliente.telefone || cliente.email ? 1 : 0)})</TabsTrigger>
           <TabsTrigger value="orcamentos">Orçamentos</TabsTrigger>
           <TabsTrigger value="pedidos">Pedidos</TabsTrigger>
           {podeFinanceiro && <TabsTrigger value="financeiro">Financeiro</TabsTrigger>}

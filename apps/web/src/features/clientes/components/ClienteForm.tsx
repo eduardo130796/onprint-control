@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, Save } from 'lucide-react'
@@ -14,6 +14,7 @@ import {
   type ClienteInput,
   type DadosCnpj,
   type EnderecoInput,
+  somenteDigitos,
 } from '@onprint/shared'
 import { clientesApi } from '@/api/cadastros'
 import { AvisoReceita, type ConsultaReceita } from '@/components/shared/AvisoReceita'
@@ -72,6 +73,15 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
   })
   const { errors, isDirty } = form.formState
   const tipo = form.watch('tipoPessoa')
+  // O documento decide o tipo: 11 dígitos = pessoa física, 14 = jurídica
+  const documento = somenteDigitos(String(form.watch('cpfCnpj') ?? ''))
+  useEffect(() => {
+    const certo = documento.length === 14 ? 'PJ' : documento.length === 11 ? 'PF' : null
+    if (certo && form.getValues('tipoPessoa') !== certo) form.setValue('tipoPessoa', certo, { shouldDirty: true })
+  }, [documento, form])
+  // Empresa sem pessoas de contato: "Falar com" vira o contato principal (aba Contatos)
+  const comFalarCom = tipo === 'PJ' && (!cliente || cliente.contatos.length === 0)
+  const [falarCom, setFalarCom] = useState('')
 
   // Cliente novo (ou ainda sem endereço): endereço principal editável aqui mesmo, digitado ou vindo da Receita
   const comEndereco = !cliente || cliente.enderecos.length === 0
@@ -79,9 +89,10 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
   const [enderecoDaReceita, setEnderecoDaReceita] = useState(false)
   const [daReceita, setDaReceita] = useState<ConsultaReceita | null>(null)
   // Endereço salvo junto, antes de a lista de clientes ser recarregada
-  const salvar = useMutacaoClientes(async ({ dados, endereco }: { dados: ClienteDados; endereco: EnderecoInput | null }) => {
+  const salvar = useMutacaoClientes(async ({ dados, endereco, contato }: { dados: ClienteDados; endereco: EnderecoInput | null; contato: string }) => {
     const salvo = await (cliente ? clientesApi.atualizar(cliente.id, dados) : clientesApi.criar(dados))
     let enderecoFalhou = false
+    let contatoFalhou = false
     if (endereco) {
       try {
         await clientesApi.salvarEndereco(salvo.id, endereco)
@@ -89,7 +100,14 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
         enderecoFalhou = true
       }
     }
-    return { salvo, enderecoFalhou }
+    if (contato) {
+      try {
+        await clientesApi.salvarContato(salvo.id, { nome: contato, cargo: '', email: dados.email ?? '', telefone: dados.telefone ?? '', whatsapp: dados.whatsapp ?? '', principal: true })
+      } catch {
+        contatoFalhou = true
+      }
+    }
+    return { salvo, enderecoFalhou, contatoFalhou }
   })
   const consultaCnpj = useConsultaCnpj({
     form,
@@ -119,9 +137,11 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
       endereco = formEndereco.getValues()
     }
     try {
-      const { salvo, enderecoFalhou } = await salvar.mutateAsync({ dados, endereco })
+      const { salvo, enderecoFalhou, contatoFalhou } = await salvar.mutateAsync({ dados, endereco, contato: comFalarCom ? falarCom.trim() : '' })
       if (enderecoFalhou) toast.warning('Cliente salvo, mas o endereço não.', { description: 'Adicione o endereço na aba Endereços.' })
+      if (contatoFalhou) toast.warning('Cliente salvo, mas o contato não.', { description: 'Adicione a pessoa na aba Contatos.' })
       formEndereco.reset(ENDERECO_VAZIO)
+      setFalarCom('')
       setEnderecoDaReceita(false)
       setDaReceita(null)
       form.reset(valoresIniciais(salvo))
@@ -143,11 +163,27 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-6">
             <div className="md:col-span-2">
+              <CampoFormulario
+                id="cli-cpfCnpj"
+                rotulo="CPF ou CNPJ"
+                erro={errors.cpfCnpj?.message}
+                acao={<BotaoBuscarCnpj consulta={consultaCnpj} />}
+                dica={cliente ? undefined : 'Com o CNPJ, nome, telefone e endereço se preenchem sozinhos.'}
+              >
+                <CpfCnpjInput autoFocus={!cliente} {...campo('cpfCnpj')} {...form.register('cpfCnpj')} />
+              </CampoFormulario>
+            </div>
+            <div className="md:col-span-2">
               <CampoFormulario id="cli-tipoPessoa" rotulo="Tipo">
                 <Select {...campo('tipoPessoa')} {...form.register('tipoPessoa')}>
                   <option value="PF">Pessoa física</option>
                   <option value="PJ">Pessoa jurídica</option>
                 </Select>
+              </CampoFormulario>
+            </div>
+            <div className="md:col-span-2">
+              <CampoFormulario id="cli-ie" rotulo={tipo === 'PJ' ? 'Inscrição estadual' : 'RG'}>
+                <Input {...campo('ie')} {...form.register('ie')} />
               </CampoFormulario>
             </div>
             <div className="md:col-span-4">
@@ -158,21 +194,6 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
             <div className="md:col-span-2">
               <CampoFormulario id="cli-fantasia" rotulo={tipo === 'PJ' ? 'Nome fantasia' : 'Apelido'}>
                 <Input {...campo('fantasia')} {...form.register('fantasia')} />
-              </CampoFormulario>
-            </div>
-            <div className="md:col-span-2">
-              <CampoFormulario
-                id="cli-cpfCnpj"
-                rotulo={tipo === 'PJ' ? 'CNPJ' : 'CPF'}
-                erro={errors.cpfCnpj?.message}
-                acao={<BotaoBuscarCnpj consulta={consultaCnpj} />}
-              >
-                <CpfCnpjInput {...campo('cpfCnpj')} {...form.register('cpfCnpj')} />
-              </CampoFormulario>
-            </div>
-            <div className="md:col-span-2">
-              <CampoFormulario id="cli-ie" rotulo={tipo === 'PJ' ? 'Inscrição estadual' : 'RG'}>
-                <Input {...campo('ie')} {...form.register('ie')} />
               </CampoFormulario>
             </div>
             {daReceita && <AvisoReceita consulta={daReceita} onFechar={() => setDaReceita(null)} className="md:col-span-6" />}
@@ -200,6 +221,13 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
             <CardTitle className="text-base">Contato</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-4">
+            {comFalarCom && (
+              <div className="md:col-span-4">
+                <CampoFormulario id="cli-falarCom" rotulo="Falar com" dica="Pessoa da empresa que você atende (vira o contato principal, na aba Contatos).">
+                  <Input id="cli-falarCom" value={falarCom} onChange={(e) => setFalarCom(e.target.value)} placeholder="Ex.: Ana, do marketing" maxLength={120} />
+                </CampoFormulario>
+              </div>
+            )}
             <CampoFormulario id="cli-whatsapp" rotulo="WhatsApp" erro={errors.whatsapp?.message}>
               <PhoneInput {...campo('whatsapp')} {...form.register('whatsapp')} />
             </CampoFormulario>
@@ -270,7 +298,7 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
 
         {podeSalvar && (
           <div className="flex justify-end">
-            <Button type="submit" disabled={salvar.isPending || (Boolean(cliente) && !isDirty && !formEndereco.formState.isDirty)}>
+            <Button type="submit" disabled={salvar.isPending || (Boolean(cliente) && !isDirty && !formEndereco.formState.isDirty && !falarCom.trim())}>
               {salvar.isPending ? <Loader2 className="animate-spin" /> : <Save />}
               {cliente ? 'Salvar alterações' : 'Cadastrar cliente'}
             </Button>

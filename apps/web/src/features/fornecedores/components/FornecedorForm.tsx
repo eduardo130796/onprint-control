@@ -89,11 +89,27 @@ export function FornecedorForm({ fornecedor, onSalvo }: { fornecedor?: Fornecedo
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-6">
             <div className="md:col-span-2">
+              <CampoFormulario
+                id="for-doc"
+                rotulo="CPF ou CNPJ"
+                erro={errors.cpfCnpj?.message}
+                acao={<BotaoBuscarCnpj consulta={consultaCnpj} />}
+                dica={fornecedor ? undefined : 'Com o CNPJ, nome, telefone e endereço se preenchem sozinhos.'}
+              >
+                <CpfCnpjInput id="for-doc" autoFocus={!fornecedor} aria-invalid={Boolean(errors.cpfCnpj)} {...r('cpfCnpj')} />
+              </CampoFormulario>
+            </div>
+            <div className="md:col-span-2">
               <CampoFormulario id="for-tipo" rotulo="Tipo">
                 <Select id="for-tipo" {...r('tipoPessoa')}>
                   <option value="PJ">Pessoa jurídica</option>
                   <option value="PF">Pessoa física</option>
                 </Select>
+              </CampoFormulario>
+            </div>
+            <div className="md:col-span-2">
+              <CampoFormulario id="for-ie" rotulo="Inscrição estadual">
+                <Input id="for-ie" {...r('ie')} />
               </CampoFormulario>
             </div>
             <div className="md:col-span-4">
@@ -106,17 +122,7 @@ export function FornecedorForm({ fornecedor, onSalvo }: { fornecedor?: Fornecedo
                 <Input id="for-fantasia" {...r('fantasia')} />
               </CampoFormulario>
             </div>
-            <div className="md:col-span-2">
-              <CampoFormulario id="for-doc" rotulo="CPF/CNPJ" erro={errors.cpfCnpj?.message} acao={<BotaoBuscarCnpj consulta={consultaCnpj} />}>
-                <CpfCnpjInput id="for-doc" aria-invalid={Boolean(errors.cpfCnpj)} {...r('cpfCnpj')} />
-              </CampoFormulario>
-            </div>
             {daReceita && <AvisoReceita consulta={daReceita} onFechar={() => setDaReceita(null)} className="md:col-span-6" />}
-            <div className="md:col-span-2">
-              <CampoFormulario id="for-ie" rotulo="Inscrição estadual">
-                <Input id="for-ie" {...r('ie')} />
-              </CampoFormulario>
-            </div>
             <div className="md:col-span-2">
               <CampoFormulario id="for-contato" rotulo="Pessoa de contato">
                 <Input id="for-contato" {...r('contato')} />

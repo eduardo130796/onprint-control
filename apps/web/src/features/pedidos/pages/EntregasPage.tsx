@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { CheckSquare } from 'lucide-react'
-import { STATUS_ENTREGA, STATUS_ENTREGA_ROTULOS, TIPO_ENTREGA_ROTULOS, formatarDataHora, type Entrega, type StatusEntrega } from '@onprint/shared'
+import { STATUS_ENTREGA, STATUS_ENTREGA_ROTULOS, TIPO_ENTREGA_ROTULOS, formatarDataHora, nomeCliente, type Entrega, type StatusEntrega } from '@onprint/shared'
 import { entregasApi } from '@/api/producao'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ABAS_PEDIDOS } from '@/app/abas'
@@ -79,7 +79,7 @@ export function EntregasPage() {
         header: 'Pedido',
         cell: ({ row: { original: e } }) => (
           <div className="min-w-0">
-            <p className="truncate font-medium">{e.pedido?.cliente.nome}</p>
+            <p className="truncate font-medium">{e.pedido && nomeCliente(e.pedido.cliente)}</p>
             <p className="flex items-center gap-2 text-xs text-texto-secundario">
               <span className="font-mono">{e.pedido?.numero}</span>
               {e.pedido && <StatusBadge entidade="pedido" codigo={e.pedido.status} className="text-[0.6875rem]" />}

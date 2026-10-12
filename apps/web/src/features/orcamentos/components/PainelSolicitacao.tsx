@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { BookOpen, FilePlus2, Globe, Hand, Mail, MessageCircle, Package, XCircle } from 'lucide-react'
-import { ORIGEM_ROTULOS, formatarDataHora, formatarDataSimples, formatarTelefone, type Solicitacao, type SolicitacaoItem } from '@onprint/shared'
+import { ORIGEM_ROTULOS, formatarDataHora, formatarDataSimples, formatarTelefone, nomeCliente, type Solicitacao, type SolicitacaoItem } from '@onprint/shared'
 import { solicitacoesApi } from '@/api/comercial'
 import { AcaoPainel, DadoPainel, PainelCartao } from '@/components/shared/kanban/PainelCartao'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -89,10 +89,10 @@ export function PainelSolicitacao({ solicitacao, onFechar, onAssumir, onDescarta
         {s.cliente ? (
           pode('clientes') ? (
             <Link to={`/clientes/${s.cliente.id}`} className="text-base font-semibold text-tinta hover:text-marca-escuro hover:underline">
-              {s.cliente.nome}
+              {nomeCliente(s.cliente)}
             </Link>
           ) : (
-            <p className="text-base font-semibold text-tinta">{s.cliente.nome}</p>
+            <p className="text-base font-semibold text-tinta">{nomeCliente(s.cliente)}</p>
           )
         ) : (
           <p className="text-base font-semibold text-tinta">—</p>

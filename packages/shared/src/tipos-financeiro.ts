@@ -1,5 +1,6 @@
 /** Respostas da API do financeiro e do caixa/PDV. Valores em string decimal. */
 import type { StatusComissao, StatusConta, StatusPedido } from './enums-comercial'
+import type { RefCliente } from './tipos'
 import type { TipoCaixaMovimento, TipoCategoriaFinanceira, TipoContaFinanceira, TipoFormaPagamento } from './financeiro'
 
 type Ref = { id: string; nome: string }
@@ -59,7 +60,7 @@ export interface Titulo {
   atrasado: boolean
   observacao: string | null
   motivoCancelamento: string | null
-  cliente?: Ref
+  cliente?: RefCliente
   fornecedor?: Ref | null
   pedido?: { id: string; numero: string; status: StatusPedido } | null
   formaPagamento: Ref | null
@@ -128,7 +129,7 @@ export interface DiaCalendario {
 export interface Comissao {
   id: string
   vendedor: Ref
-  pedido: { id: string; numero: string; status: StatusPedido; statusFinanceiro: string; cliente: Ref }
+  pedido: { id: string; numero: string; status: StatusPedido; statusFinanceiro: string; cliente: RefCliente }
   base: string
   percentual: string
   valor: string
@@ -188,7 +189,7 @@ export interface VendaPdv {
   id: string
   numero: string
   sessaoId: string
-  cliente: Ref | null
+  cliente: RefCliente | null
   usuario: Ref | null
   subtotal: string
   desconto: string

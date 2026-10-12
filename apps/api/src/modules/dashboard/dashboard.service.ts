@@ -109,7 +109,7 @@ export function criarDashboardService(app: FastifyInstance) {
         ).map((r) => ({ produto: r.produto, quantidade: n(r.quantidade), total: n(r.total) }))
         const listaPedidos = (filtro: Prisma.Sql, ordem: Prisma.Sql) =>
           q<{ id: string; numero: string; cliente: string; data: Date; status: string }>(Prisma.sql`
-            SELECT p.id, p.numero, c.nome AS cliente, p.data_prevista_entrega AS data, p.status::text AS status
+            SELECT p.id, p.numero, COALESCE(NULLIF(c.fantasia, ''), c.nome) AS cliente, p.data_prevista_entrega AS data, p.status::text AS status
             FROM pedidos p JOIN clientes c ON c.id = p.cliente_id WHERE ${filtro} ${escopoPed} ORDER BY ${ordem} LIMIT 8`)
         const fmt = (l: { id: string; numero: string; cliente: string; data: Date; status: string }[]) => l.map((r) => ({ ...r, data: r.data.toISOString().slice(0, 10) }))
         resultado.proximasEntregas = fmt(

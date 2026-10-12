@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
-import { ETAPAS_PRODUCAO, formatarDataSimples, type EtapaProducao, type OrdemProducao } from '@onprint/shared'
+import { ETAPAS_PRODUCAO, formatarDataSimples, nomeCliente, type EtapaProducao, type OrdemProducao } from '@onprint/shared'
 import { opsApi } from '@/api/producao'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ABAS_PRODUCAO } from '@/app/abas'
@@ -33,7 +33,7 @@ export function OpsPage() {
         header: 'Pedido / item',
         cell: ({ row: { original: op } }) => (
           <div className="min-w-0">
-            <p className="truncate font-medium">{op.pedido.cliente.nome}</p>
+            <p className="truncate font-medium">{nomeCliente(op.pedido.cliente)}</p>
             <p className="truncate text-xs text-texto-secundario">
               {op.pedido.numero} · {Number(op.quantidade).toLocaleString('pt-BR')} × {op.item.descricao}
             </p>
@@ -105,7 +105,7 @@ export function OpsPage() {
           colunas: [
             { titulo: 'OP', valor: (op) => op.numero },
             { titulo: 'Pedido', valor: (op) => op.pedido.numero },
-            { titulo: 'Cliente', valor: (op) => op.pedido.cliente.nome },
+            { titulo: 'Cliente', valor: (op) => nomeCliente(op.pedido.cliente) },
             { titulo: 'Item', valor: (op) => op.item.descricao },
             { titulo: 'Quantidade', valor: (op) => Number(op.quantidade).toLocaleString('pt-BR') },
             { titulo: 'Etapa', valor: (op) => mapa.get(`producao:${op.etapaAtual}`)?.rotulo ?? op.etapaAtual },

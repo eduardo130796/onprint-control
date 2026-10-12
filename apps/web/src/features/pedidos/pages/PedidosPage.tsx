@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
-import { STATUS_PEDIDO, formatarData, formatarDataSimples, saldoPedido, type Pedido, type StatusPedido } from '@onprint/shared'
+import { STATUS_PEDIDO, formatarData, formatarDataSimples, nomeCliente, saldoPedido, type Pedido, type StatusPedido } from '@onprint/shared'
 import { pedidosApi } from '@/api/producao'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ABAS_PEDIDOS } from '@/app/abas'
@@ -45,7 +45,7 @@ export function PedidosPage() {
         header: 'Cliente',
         cell: ({ row: { original: p } }) => (
           <div className="min-w-0">
-            <p className="truncate font-medium">{p.cliente.nome}</p>
+            <p className="truncate font-medium">{nomeCliente(p.cliente)}</p>
             <Progresso pedido={p} />
           </div>
         ),
@@ -115,7 +115,7 @@ export function PedidosPage() {
           buscarTodos: () => buscarTodasPaginas((page, pageSize) => pedidosApi.listar({ ...params, page, pageSize })),
           colunas: [
             { titulo: 'Número', valor: (p) => p.numero },
-            { titulo: 'Cliente', valor: (p) => p.cliente.nome },
+            { titulo: 'Cliente', valor: (p) => nomeCliente(p.cliente) },
             { titulo: 'Vendedor', valor: (p) => p.vendedor?.nome },
             { titulo: 'Criado em', valor: (p) => formatarData(p.createdAt) },
             { titulo: 'Entrega prevista', valor: (p) => formatarDataSimples(p.dataPrevistaEntrega) },

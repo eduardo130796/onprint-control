@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Search } from 'lucide-react'
 import { toast } from 'sonner'
-import { aplicarBaixa, formatarDataSimples, formatarMoeda, hojeISO, normalizarDecimal, type CaixaSessaoDetalhe } from '@onprint/shared'
+import { aplicarBaixa, formatarDataSimples, formatarMoeda, hojeISO, nomeCliente, normalizarDecimal, type CaixaSessaoDetalhe } from '@onprint/shared'
 import { caixaApi, type TituloAberto } from '@/api/financeiro'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { MoneyInput } from '@/components/shared/inputs'
@@ -47,7 +47,7 @@ function Recebimento({ sessao }: { sessao: CaixaSessaoDetalhe }) {
     setSalvando(true)
     try {
       await caixaApi.receber({ contaReceberId: titulo.id, valorRecebido: n(valor), juros: n(juros), desconto: n(desconto), formaPagamentoId: forma })
-      toast.success(`Recebido ${formatarMoeda(n(valor))} de ${titulo.cliente.nome}.`)
+      toast.success(`Recebido ${formatarMoeda(n(valor))} de ${nomeCliente(titulo.cliente)}.`)
       setTitulo(null)
       await Promise.all(['caixa', 'financeiro', 'pedidos'].map((c) => queryClient.invalidateQueries({ queryKey: [c] })))
     } catch (e) {
@@ -73,7 +73,7 @@ function Recebimento({ sessao }: { sessao: CaixaSessaoDetalhe }) {
               <li key={t.id}>
                 <button type="button" onClick={() => escolher(t)} className={cn('flex w-full items-center gap-3 px-2 py-2 text-left hover:bg-fundo', titulo?.id === t.id && 'bg-marca/10')}>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{t.cliente.nome}</span>
+                    <span className="block truncate font-medium">{nomeCliente(t.cliente)}</span>
                     <span className="block truncate text-xs text-texto-secundario">{t.descricao}</span>
                   </span>
                   <span className="text-right">
@@ -90,7 +90,7 @@ function Recebimento({ sessao }: { sessao: CaixaSessaoDetalhe }) {
       <div className="space-y-4">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">{titulo ? `Receber de ${titulo.cliente.nome}` : 'Escolha um título'}</CardTitle>
+            <CardTitle className="text-base">{titulo ? `Receber de ${nomeCliente(titulo.cliente)}` : 'Escolha um título'}</CardTitle>
           </CardHeader>
           {titulo && (
             <CardContent className="space-y-3 text-sm">

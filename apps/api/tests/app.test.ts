@@ -121,6 +121,11 @@ describe('API — multiempresa', () => {
     expect(errado.statusCode).toBe(401)
   })
 
+  it('endereço da vitrine: trocar e consultar exigem login', async () => {
+    expect((await app.inject({ method: 'PUT', url: '/api/v1/empresa/link-vitrine', payload: { slug: 'nova-grafica' } })).statusCode).toBe(401)
+    expect((await app.inject({ method: 'GET', url: '/api/v1/empresa/link-vitrine/disponivel?slug=nova-grafica' })).statusCode).toBe(401)
+  })
+
   it('link público com empresa inexistente responde 404', async () => {
     app.empresas.porSlug = async () => null
     const res = await app.inject({ method: 'GET', url: '/api/v1/publico/nao-existe/orcamentos/abcdefghijklmnopqrstuvwxyz' })

@@ -3,6 +3,7 @@ import type { TipoCobranca } from './enums'
 import type { Prioridade, StatusArte, StatusFinanceiroPedido, StatusPedido, TipoEntrega } from './enums-comercial'
 import type { EtapaProducao, StatusEntrega } from './enums-producao'
 import type { ContaReceberResumo } from './tipos-comercial'
+import type { RefCliente } from './tipos'
 
 type Ref = { id: string; nome: string }
 
@@ -10,7 +11,7 @@ export interface Pedido {
   id: string
   numero: string
   clienteId: string
-  cliente: Ref & { whatsapp: string | null; telefone: string | null }
+  cliente: RefCliente & { whatsapp: string | null; telefone: string | null }
   vendedorId: string | null
   vendedor: Ref | null
   orcamento: { id: string; numero: string } | null
@@ -83,7 +84,7 @@ export interface PedidoItemDetalhe {
 export interface Entrega {
   id: string
   pedidoId: string
-  pedido?: { id: string; numero: string; cliente: Ref; status: StatusPedido }
+  pedido?: { id: string; numero: string; cliente: RefCliente; status: StatusPedido }
   tipo: TipoEntrega
   dataAgendada: string | null
   dataRealizada: string | null
@@ -122,7 +123,7 @@ export interface OrdemProducao {
   id: string
   numero: string
   pedidoId: string
-  pedido: { id: string; numero: string; cliente: Ref; dataPrevistaEntrega: string; status: StatusPedido }
+  pedido: { id: string; numero: string; cliente: RefCliente; dataPrevistaEntrega: string; status: StatusPedido }
   pedidoItemId: string
   item: { id: string; descricao: string; produto: { id: string; nome: string } }
   quantidade: string

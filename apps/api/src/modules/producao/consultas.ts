@@ -2,7 +2,7 @@ import type { Prisma } from '@prisma/client'
 import { STATUS_PEDIDO_SEM_ATRASO, hojeISO } from '@onprint/shared'
 
 export const incluirOp = {
-  pedido: { select: { id: true, numero: true, dataPrevistaEntrega: true, status: true, cliente: { select: { id: true, nome: true } } } },
+  pedido: { select: { id: true, numero: true, dataPrevistaEntrega: true, status: true, cliente: { select: { id: true, nome: true, fantasia: true } } } },
   pedidoItem: {
     select: {
       id: true,

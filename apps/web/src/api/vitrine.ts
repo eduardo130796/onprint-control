@@ -1,6 +1,8 @@
 import type {
   CatalogoPublicado,
+  DisponibilidadeLinkVitrine,
   ImagemProdutoVitrine,
+  LinkVitrine,
   ProdutoVitrineInput,
   ProdutoVitrineResumo,
   ProdutosVitrineQuery,
@@ -17,6 +19,10 @@ export const vitrineApi = {
   /** Domínio próprio (null tira); devolve a configuração com o que apontar no DNS */
   salvarDominio: (dominio: string | null) => http<VitrineConfig>('/vitrine/dominio', { method: 'PUT', body: { dominio } }),
   verificarDominio: () => http<VerificacaoDominio>('/vitrine/dominio/verificar', { method: 'POST' }),
+  /** Endereço da vitrine ({slug}.grafygo.com.br): trocar mantém os links antigos funcionando */
+  linkVitrine: () => http<LinkVitrine>('/empresa/link-vitrine'),
+  linkDisponivel: (slug: string) => http<DisponibilidadeLinkVitrine>(`/empresa/link-vitrine/disponivel${qs({ slug })}`),
+  salvarLinkVitrine: (slug: string) => http<LinkVitrine>('/empresa/link-vitrine', { method: 'PUT', body: { slug } }),
 
   // Banners (até MAX_BANNERS_VITRINE), identificados pelo arquivo
   enviarBanner: (arquivo: File, aoProgredir?: (pct: number) => void) => upload<unknown>('/vitrine/banners', arquivo, aoProgredir),
@@ -39,4 +45,5 @@ export const vitrineApi = {
 
 /** Chaves do React Query da vitrine */
 export const CHAVE_VITRINE_CONFIG = ['vitrine-config']
+export const CHAVE_LINK_VITRINE = ['link-vitrine']
 export const CHAVE_VITRINE_PRODUTOS = 'vitrine-produtos'

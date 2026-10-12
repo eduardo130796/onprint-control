@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Plus } from 'lucide-react'
-import { STATUS_ORCAMENTO, formatarData, formatarDataSimples, formatarMoeda, hojeISO, type Orcamento, type StatusOrcamento } from '@onprint/shared'
+import { STATUS_ORCAMENTO, formatarData, formatarDataSimples, formatarMoeda, hojeISO, nomeCliente, type Orcamento, type StatusOrcamento } from '@onprint/shared'
 import { orcamentosApi } from '@/api/comercial'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Can } from '@/components/shared/Can'
@@ -39,7 +39,7 @@ export function OrcamentosPage() {
         header: 'Cliente',
         cell: ({ row: { original: o } }) => (
           <div className="min-w-0">
-            <p className="truncate font-medium">{o.cliente.nome}</p>
+            <p className="truncate font-medium">{nomeCliente(o.cliente)}</p>
             {o.cliente.situacao === 'pre_cadastro' && <p className="text-xs text-amber-800">pré-cadastro</p>}
           </div>
         ),
@@ -107,7 +107,7 @@ export function OrcamentosPage() {
           buscarTodos: () => buscarTodasPaginas((page, pageSize) => orcamentosApi.listar({ ...params, page, pageSize })),
           colunas: [
             { titulo: 'Número', valor: (o) => o.numero },
-            { titulo: 'Cliente', valor: (o) => o.cliente.nome },
+            { titulo: 'Cliente', valor: (o) => nomeCliente(o.cliente) },
             { titulo: 'Vendedor', valor: (o) => o.vendedor?.nome },
             { titulo: 'Criado em', valor: (o) => formatarData(o.createdAt) },
             { titulo: 'Validade', valor: (o) => formatarDataSimples(o.validade) },

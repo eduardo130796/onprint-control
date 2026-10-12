@@ -1,7 +1,7 @@
 import { Document, Page, Text, View } from '@react-pdf/renderer'
 import { formatarCpfCnpj, formatarDataHora, formatarDataSimples, formatarMoeda, formatarTelefone, type EmpresaConfig, type OrcamentoDetalhe } from '@onprint/shared'
 import { AssinaturaPdf, BlocoInfo, CabecalhoPdf, FaixaMarca, NotaPdf, RodapePdf, TabelaPdf, TextoPdf, TotaisPdf } from '@/features/impressao/PecasPdf'
-import { dadosEmpresa } from '@/features/impressao/pdfComum'
+import { dadosEmpresa, nomesClientePdf } from '@/features/impressao/pdfComum'
 import { COR, base } from '@/features/impressao/tema'
 import { linkAprovacao } from '../../mensagem'
 
@@ -10,6 +10,8 @@ const metros = (v: string | null) => (v ? Number(v).toLocaleString('pt-BR', { ma
 /** Orçamento em A4: cliente, itens, totais, condições, aprovação online e assinatura do cliente. */
 export function DocumentoOrcamento({ o, empresa, logo }: { o: OrcamentoDetalhe; empresa: EmpresaConfig; logo: string | null }) {
   const contato = [formatarTelefone(o.cliente.whatsapp ?? o.cliente.telefone), o.cliente.email].filter(Boolean).join('  ·  ')
+  const cliente = nomesClientePdf(o.cliente)
+  const legal = [cliente.razaoSocial, o.cliente.cpfCnpj && formatarCpfCnpj(o.cliente.cpfCnpj)].filter(Boolean).join(' · ')
   const totais = [
     { rotulo: 'Subtotal', valor: formatarMoeda(o.subtotal) },
     ...(Number(o.desconto) > 0 ? [{ rotulo: 'Desconto', valor: `− ${formatarMoeda(o.desconto)}` }] : []),
@@ -39,8 +41,8 @@ export function DocumentoOrcamento({ o, empresa, logo }: { o: OrcamentoDetalhe; 
               largura: 2,
               conteudo: (
                 <>
-                  <Text style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: 11 }}>{o.cliente.nome}</Text>
-                  {o.cliente.cpfCnpj ? <Text style={base.suave}>{formatarCpfCnpj(o.cliente.cpfCnpj)}</Text> : null}
+                  <Text style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: 11 }}>{cliente.exibicao}</Text>
+                  {legal ? <Text style={base.suave}>{legal}</Text> : null}
                   {contato ? <Text style={base.suave}>{contato}</Text> : null}
                 </>
               ),

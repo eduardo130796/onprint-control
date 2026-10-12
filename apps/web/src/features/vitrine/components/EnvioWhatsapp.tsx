@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { MessageCircle, UserRound, Users } from 'lucide-react'
-import { formatarTelefone } from '@onprint/shared'
+import { formatarTelefone, nomeCliente } from '@onprint/shared'
 import { clientesApi } from '@/api/cadastros'
 import { SearchSelect, type OpcaoBusca } from '@/components/shared/SearchSelect'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,7 @@ import { linkWhatsappEnvio, numeroValido, trocarSaudacao } from '../divulgar'
 
 interface OpcaoCliente extends OpcaoBusca {
   numero: string | null
+  documento: string | null
 }
 
 /** Clientes ativos com o WhatsApp do cadastro (ou o telefone) */
@@ -17,7 +18,7 @@ async function buscarClientes(termo: string): Promise<OpcaoCliente[]> {
   const r = await clientesApi.listar({ busca: termo || undefined, pageSize: 10, ativo: 'true' })
   return r.data.map((c) => {
     const numero = c.whatsapp || c.telefone || null
-    return { id: c.id, rotulo: c.nome, numero, detalhe: numero ? formatarTelefone(numero) : 'sem WhatsApp no cadastro' }
+    return { id: c.id, rotulo: nomeCliente(c), numero, documento: c.cpfCnpj ?? null, detalhe: numero ? formatarTelefone(numero) : 'sem WhatsApp no cadastro' }
   })
 }
 
@@ -38,13 +39,13 @@ export function EnvioWhatsapp({ mensagemPadrao, id, dica = 'No WhatsApp, *texto*
   const [cliente, setCliente] = useState<OpcaoCliente | null>(null)
   const [destino, setDestino] = useState<'cliente' | 'contato'>('cliente')
   const [mensagem, setMensagem] = useState<string | null>(null)
-  const padraoComNome = trocarSaudacao(mensagemPadrao, cliente?.rotulo)
+  const padraoComNome = trocarSaudacao(mensagemPadrao, cliente?.rotulo, cliente?.documento)
   const texto = mensagem ?? padraoComNome
 
   function escolherCliente(o: OpcaoBusca | null) {
     const escolhido = o as OpcaoCliente | null
     setCliente(escolhido)
-    if (mensagem !== null) setMensagem(trocarSaudacao(mensagem, escolhido?.rotulo))
+    if (mensagem !== null) setMensagem(trocarSaudacao(mensagem, escolhido?.rotulo, escolhido?.documento))
   }
 
   const semNumero = destino === 'cliente' && cliente && !numeroValido(cliente.numero)

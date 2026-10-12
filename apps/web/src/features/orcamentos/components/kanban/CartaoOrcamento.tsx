@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { CalendarClock, CheckCircle2, ExternalLink, Link2, Phone, Printer, Send, ThumbsDown, User } from 'lucide-react'
-import { formatarDataSimples, formatarMoeda, formatarTelefone, hojeISO, type Orcamento } from '@onprint/shared'
+import { formatarDataSimples, formatarMoeda, formatarTelefone, hojeISO, nomeCliente, type Orcamento } from '@onprint/shared'
 import { BotaoCartao } from '@/components/shared/kanban/BotaoCartao'
 import { cn } from '@/lib/utils'
 
@@ -27,8 +27,8 @@ export function CartaoOrcamento({ o, acoes }: { o: Orcamento; acoes: AcoesCartao
         </Link>
         <span className="font-semibold tabular-nums">{formatarMoeda(o.total)}</span>
       </div>
-      <p className="mt-0.5 truncate text-[0.9375rem] font-semibold" title={o.cliente.nome}>
-        {o.cliente.nome}
+      <p className="mt-0.5 truncate text-[0.9375rem] font-semibold" title={nomeCliente(o.cliente)}>
+        {nomeCliente(o.cliente)}
       </p>
       {telefone && (
         <p className="inline-flex items-center gap-1 text-xs text-texto-secundario">

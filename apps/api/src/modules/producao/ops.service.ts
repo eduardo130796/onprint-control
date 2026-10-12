@@ -60,7 +60,7 @@ export function criarOpsService(app: FastifyInstance, aoConcluir: AoConcluirOp =
         ...(q.prioridade ? { prioridade: q.prioridade } : {}),
         ...(q.pedidoId ? { pedidoId: q.pedidoId } : {}),
         ...(q.atrasadas === 'true' ? { etapaAtual: { not: 'concluido' }, pedido: { dataPrevistaEntrega: { lt: hoje } } } : {}),
-        ...(texto ? { AND: [{ OR: [{ numero: texto }, { pedido: { numero: texto } }, { pedido: { cliente: { nome: texto } } }, { pedidoItem: { descricao: texto } }] }] } : {}),
+        ...(texto ? { AND: [{ OR: [{ numero: texto }, { pedido: { numero: texto } }, { pedido: { cliente: { nome: texto } } }, { pedido: { cliente: { fantasia: texto } } }, { pedidoItem: { descricao: texto } }] }] } : {}),
       }
       const pag = paginacao(q, ['ordemKanban', 'numero', 'dataFimPrevista', 'createdAt'] as const, { campo: 'ordemKanban', direcao: 'asc' })
       const [total, data] = await prisma.$transaction([

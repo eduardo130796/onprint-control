@@ -14,14 +14,14 @@ export async function relatorioFinanceiro({ prisma, de, ate, veCustos }: Context
   if (visao === 'inadimplencia') {
     const hoje = hojeISO()
     const linhas = await prisma.$queryRaw<Record<string, unknown>[]>(Prisma.sql`
-      SELECT c.nome AS cliente, COUNT(*) AS titulos, SUM(t.valor - t.valor_pago) AS saldo, MAX(${hoje}::date - t.vencimento) AS maior_atraso,
+      SELECT COALESCE(NULLIF(c.fantasia, ''), c.nome) AS cliente, COUNT(*) AS titulos, SUM(t.valor - t.valor_pago) AS saldo, MAX(${hoje}::date - t.vencimento) AS maior_atraso,
              COALESCE(SUM(t.valor - t.valor_pago) FILTER (WHERE ${hoje}::date - t.vencimento <= 30), 0) AS ate_30,
              COALESCE(SUM(t.valor - t.valor_pago) FILTER (WHERE ${hoje}::date - t.vencimento BETWEEN 31 AND 60), 0) AS de_31_60,
              COALESCE(SUM(t.valor - t.valor_pago) FILTER (WHERE ${hoje}::date - t.vencimento BETWEEN 61 AND 90), 0) AS de_61_90,
              COALESCE(SUM(t.valor - t.valor_pago) FILTER (WHERE ${hoje}::date - t.vencimento > 90), 0) AS acima_90
       FROM contas_receber t JOIN clientes c ON c.id = t.cliente_id
       WHERE t.status IN ('aberto', 'parcial', 'vencido') AND t.vencimento < ${hoje}::date
-      GROUP BY c.nome ORDER BY 3 DESC`)
+      GROUP BY c.id ORDER BY 3 DESC`)
     return relatorio({
       titulo: 'Inadimplência',
       periodo: null,

@@ -1,4 +1,4 @@
-import { somenteDigitos, type ProdutoVitrineResumo } from '@onprint/shared'
+import { nomeParaSaudacao, somenteDigitos, type ProdutoVitrineResumo } from '@onprint/shared'
 import { linkWhatsapp, partesPreco, textoPreco, type PartesPreco } from '@/features/vitrine-site/formato'
 import { UNIDADE_VITRINE } from './utils'
 
@@ -24,15 +24,16 @@ export function urlProduto(urlPublica: string, slug: string | null | undefined):
 }
 
 /** Primeiro nome, com a primeira letra maiúscula ("MARIA DA SILVA" → "Maria") */
-export function primeiroNome(nome: string | null | undefined): string {
-  const p = (nome ?? '').trim().split(/\s+/)[0] ?? ''
-  if (!p) return ''
+export function primeiroNome(nome: string | null | undefined, documento?: string | null): string {
+  // Empresa (CNPJ, "Ltda"…) pelo nome sem o sufixo: "Olá, Pet Feliz!", não "Olá, Pet!"
+  const p = nomeParaSaudacao(nome ?? '', documento)
+  if (!p || p.includes(' ')) return p
   return p.charAt(0).toLocaleUpperCase('pt-BR') + p.slice(1).toLocaleLowerCase('pt-BR')
 }
 
 /** "Olá!" ou "Olá, Maria!" */
-export const saudacao = (nome?: string | null) => {
-  const n = primeiroNome(nome)
+export const saudacao = (nome?: string | null, documento?: string | null) => {
+  const n = primeiroNome(nome, documento)
   return n ? `Olá, ${n}!` : 'Olá!'
 }
 
@@ -40,8 +41,8 @@ export const saudacao = (nome?: string | null) => {
  * Troca a saudação do começo da mensagem pelo nome do cliente escolhido (mantém o resto, mesmo editado).
  * Sem saudação no começo, acrescenta uma.
  */
-export function trocarSaudacao(texto: string, nome?: string | null): string {
-  const nova = saudacao(nome)
+export function trocarSaudacao(texto: string, nome?: string | null, documento?: string | null): string {
+  const nova = saudacao(nome, documento)
   const m = /^\s*(olá|oi|ola)(\s*,\s*[^!\n]*)?!\s*/i.exec(texto)
   if (m) return `${nova} ${texto.slice(m[0].length)}`.trimEnd()
   return texto.trim() ? `${nova} ${texto.trim()}` : nova

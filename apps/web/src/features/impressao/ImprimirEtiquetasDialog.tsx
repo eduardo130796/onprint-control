@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import { FileDown, ListPlus, Loader2, Printer } from 'lucide-react'
-import { FORMATOS_ETIQUETA, FORMATO_ETIQUETA, distribuirEtiquetas, posicaoInicialValida, type FormatoEtiqueta, type PedidoDetalhe } from '@onprint/shared'
+import { FORMATOS_ETIQUETA, FORMATO_ETIQUETA, distribuirEtiquetas, nomeCliente, posicaoInicialValida, type FormatoEtiqueta, type PedidoDetalhe } from '@onprint/shared'
 import { pedidosApi } from '@/api/producao'
 import { EstadoErro } from '@/components/shared/EstadoErro'
 import { Button } from '@/components/ui/button'
@@ -151,7 +151,7 @@ export function ImprimirEtiquetasDialog({ lotes, onFechar, onImpresso, daFila }:
                         />
                         <span className="flex min-w-0 flex-1 items-baseline gap-2">
                           <span className="shrink-0 font-mono text-xs font-semibold text-tinta">{pedido.numero}</span>
-                          <span className="truncate text-sm font-semibold text-tinta">{pedido.cliente.nome}</span>
+                          <span className="truncate text-sm font-semibold text-tinta">{nomeCliente(pedido.cliente)}</span>
                         </span>
                         <span className="shrink-0 text-xs text-texto-secundario">
                           {marcadasAqui}/{volumes.length}

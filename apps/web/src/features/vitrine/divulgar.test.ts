@@ -49,6 +49,7 @@ describe('mensagens', () => {
     expect(trocarSaudacao('Olá, Carlos! Veja isto', null)).toBe('Olá! Veja isto')
     expect(trocarSaudacao('Oi! texto', 'Bia')).toBe('Olá, Bia! texto')
     expect(trocarSaudacao('Veja isto', 'Bia')).toBe('Olá, Bia! Veja isto')
+    expect(trocarSaudacao('Olá! Veja isto', 'Pet Feliz', '12.345.678/0001-90')).toBe('Olá, Pet Feliz! Veja isto')
   })
 })
 

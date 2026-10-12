@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ClipboardList, ExternalLink, ImageOff, Palette, Pencil, ShoppingCart, Tag } from 'lucide-react'
-import { PRIORIDADE_ROTULOS, formatarDataHora, formatarDataSimples, type OrdemProducao } from '@onprint/shared'
+import { PRIORIDADE_ROTULOS, formatarDataHora, formatarDataSimples, nomeCliente, type OrdemProducao } from '@onprint/shared'
 import { opsApi } from '@/api/producao'
 import { EstadoErro } from '@/components/shared/EstadoErro'
 import { AcaoPainel, DadoPainel, PainelCartao } from '@/components/shared/kanban/PainelCartao'
@@ -37,7 +37,7 @@ export function PainelOp({ op, onFechar, onEditar }: PainelOpProps) {
       <PainelCartao
         aberto
         onFechar={onFechar}
-        titulo={`${op.numero} · ${op.pedido.cliente.nome}`}
+        titulo={`${op.numero} · ${nomeCliente(op.pedido.cliente)}`}
         subtitulo={
           <span className="flex flex-wrap items-center gap-2">
             <StatusBadge entidade="producao" codigo={op.etapaAtual} />

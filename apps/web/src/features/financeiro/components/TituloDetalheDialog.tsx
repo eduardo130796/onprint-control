@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Ban, CircleDollarSign, Paperclip, Pencil, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatarData, formatarDataSimples, formatarMoeda } from '@onprint/shared'
+import { formatarData, formatarDataSimples, formatarMoeda, nomeCliente } from '@onprint/shared'
 import { arquivosApi } from '@/api/cadastros'
 import { titulosApi, type TipoTitulo } from '@/api/financeiro'
 import { Can } from '@/components/shared/Can'
@@ -79,7 +79,7 @@ export function TituloDetalheDialog({ tipo, id, onFechar }: { tipo: TipoTitulo; 
     <Dialog open={Boolean(id)} onOpenChange={(x) => !x && onFechar()}>
       <DialogContent className="top-[5%] max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogTitle>{t?.descricao ?? 'Conta'}</DialogTitle>
-        <DialogDescription>{tipo === 'receber' ? t?.cliente?.nome : (t?.fornecedor?.nome ?? 'Sem fornecedor')}</DialogDescription>
+        <DialogDescription>{tipo === 'receber' ? t?.cliente && nomeCliente(t.cliente) : (t?.fornecedor?.nome ?? 'Sem fornecedor')}</DialogDescription>
         {consulta.isPending ? (
           <Skeleton className="h-48 w-full" />
         ) : consulta.isError || !t ? (

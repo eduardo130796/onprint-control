@@ -7,6 +7,7 @@ import {
   formatarDataSimples,
   formatarMoeda,
   formatarTelefone,
+  nomeCliente,
   type EmpresaConfig,
   type FormatoEtiqueta,
   type OrcamentoDetalhe,
@@ -31,19 +32,19 @@ const renderizar = (doc: ReactElement) => pdf(doc as Parameters<typeof pdf>[0]).
 
 export async function pdfOrcamento(o: OrcamentoDetalhe, empresa: EmpresaConfig): Promise<PdfGerado> {
   const logo = await carregarLogo(empresa)
-  return { blob: await renderizar(createElement(DocumentoOrcamento, { o, empresa, logo })), nome: `${o.numero} - ${o.cliente.nome}.pdf` }
+  return { blob: await renderizar(createElement(DocumentoOrcamento, { o, empresa, logo })), nome: `${o.numero} - ${nomeCliente(o.cliente)}.pdf` }
 }
 
 export async function pdfPedido(p: PedidoDetalhe, empresa: EmpresaConfig, recebimentos?: RecebimentosPedido | null): Promise<PdfGerado> {
   const logo = await carregarLogo(empresa)
-  return { blob: await renderizar(createElement(DocumentoPedido, { p, empresa, logo, recebimentos })), nome: `${p.numero} - ${p.cliente.nome}.pdf` }
+  return { blob: await renderizar(createElement(DocumentoPedido, { p, empresa, logo, recebimentos })), nome: `${p.numero} - ${nomeCliente(p.cliente)}.pdf` }
 }
 
 /** Recibo dos pagamentos escolhidos (duas vias na mesma folha). */
 export async function pdfRecibo(p: PedidoDetalhe, recebimentos: RecebimentosPedido, empresa: EmpresaConfig): Promise<PdfGerado> {
   if (recebimentos.pagamentos.length === 0) throw new Error('Escolha ao menos um pagamento.')
   const logo = await carregarLogo(empresa)
-  return { blob: await renderizar(createElement(DocumentoRecibo, { p, recebimentos, empresa, logo })), nome: `Recibo ${p.numero} - ${p.cliente.nome}.pdf` }
+  return { blob: await renderizar(createElement(DocumentoRecibo, { p, recebimentos, empresa, logo })), nome: `Recibo ${p.numero} - ${nomeCliente(p.cliente)}.pdf` }
 }
 
 const metros = (v: string) => Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 3 })
@@ -84,7 +85,7 @@ async function etiquetasDoPedido({ pedido: p, chaves }: GrupoEtiquetas, empresa:
       totalEtiquetas: total,
       entrega: ENTREGA_CURTA[entrega?.tipo ?? p.tipoEntrega],
       retirada,
-      cliente: p.cliente.nome,
+      cliente: nomeCliente(p.cliente),
       telefone: formatarTelefone(p.cliente.whatsapp ?? p.cliente.telefone),
       destino,
       quando: entrega?.dataAgendada ? formatarDataHora(entrega.dataAgendada) : formatarDataSimples(p.dataPrevistaEntrega),

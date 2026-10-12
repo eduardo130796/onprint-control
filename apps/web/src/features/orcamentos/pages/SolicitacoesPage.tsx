@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { FilePlus2, Globe, Hand, Mail, Plus, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { ORIGENS_CLIENTE, ORIGEM_ROTULOS, STATUS_SOLICITACAO, formatarDataHora, formatarDataSimples, type OrigemCliente, type Solicitacao, type StatusSolicitacao } from '@onprint/shared'
+import { ORIGENS_CLIENTE, ORIGEM_ROTULOS, STATUS_SOLICITACAO, formatarDataHora, formatarDataSimples, nomeCliente, type OrigemCliente, type Solicitacao, type StatusSolicitacao } from '@onprint/shared'
 import { solicitacoesApi } from '@/api/comercial'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { AcaoIcone } from '@/components/shared/AcaoIcone'
@@ -92,7 +92,7 @@ export function SolicitacoesPage() {
           const qtd = s.itens?.length ?? 0
           return (
             <div className="min-w-0">
-              <p className="truncate font-medium">{s.cliente?.nome ?? '—'}</p>
+              <p className="truncate font-medium">{s.cliente ? nomeCliente(s.cliente) : '—'}</p>
               {s.origem === 'site' ? (
                 <p className="inline-flex items-center gap-1 text-xs font-medium text-marca-escuro">
                   <Globe className="h-3 w-3" /> Site{qtd > 0 && ` · ${qtd} ${qtd === 1 ? 'item' : 'itens'}`}

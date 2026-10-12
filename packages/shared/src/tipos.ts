@@ -58,7 +58,17 @@ export interface Cliente extends Auditavel {
   vendedor: { id: string; nome: string } | null
   observacoes: string | null
   tags: string[]
+  /** Foto/imagem do cliente (arquivo) e a miniatura dela por link assinado, para <img> */
+  fotoArquivoId: string | null
+  fotoUrl: string | null
   ativo: boolean
+}
+
+/** Cliente citado em outros registros: mostrar com nomeCliente() (fantasia, senão o nome) */
+export interface RefCliente {
+  id: string
+  nome: string
+  fantasia: string | null
 }
 
 export interface ClienteDetalhe extends Cliente {

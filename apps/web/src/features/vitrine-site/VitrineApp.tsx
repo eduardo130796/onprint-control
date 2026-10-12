@@ -10,6 +10,7 @@ import { Container, Esqueleto, GradeEsqueleto } from './componentes/comum'
 import { FeitoComGrafyGo, Rodape, Topo, WhatsappFlutuante } from './componentes/Estrutura'
 import { VitrineContexto, criarLinkWhatsapp, definirMeta, useListaOrcamento, useVitrine, type ContextoVitrine } from './contexto'
 import { botao } from './estilos'
+import { dominioBaseVitrine, enderecoNoSlugNovo } from './host'
 import { descricaoLoja } from './seo'
 import { InicioPagina } from './paginas/InicioPagina'
 import { ListaPagina } from './paginas/ListaPagina'
@@ -92,7 +93,13 @@ function Estrutura({ slug }: { slug: string }) {
     [slug, api, vitrine, lista, mensagemPagina],
   )
 
-  if (consulta.isPending) return <CarregandoSite />
+  // A gráfica trocou o nome do endereço: o subdomínio antigo continua abrindo, mas leva ao novo (mesma página)
+  const enderecoNovo = vitrine ? enderecoNoSlugNovo(window.location.href, vitrine.slug, dominioBaseVitrine(import.meta.env.VITE_DOMINIO_VITRINE)) : null
+  useEffect(() => {
+    if (enderecoNovo) window.location.replace(enderecoNovo)
+  }, [enderecoNovo])
+
+  if (consulta.isPending || enderecoNovo) return <CarregandoSite />
   if (naoEncontrado(consulta.error)) {
     return <TelaAviso titulo="Vitrine indisponível" texto="Este site não está no ar no momento. Se você procura esta empresa, tente novamente mais tarde." />
   }

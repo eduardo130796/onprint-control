@@ -16,6 +16,7 @@ import {
   urlPublicaVitrine,
   variantesDominio,
 } from '../src/modules/vitrine/regras'
+import { INTERVALO_TROCA_SLUG_MS, MAX_SLUGS_ANTERIORES, anterioresDepoisDaTroca, trocaLiberadaEm } from '../src/modules/empresa/link-vitrine'
 
 describe('vitrine: slug do produto', () => {
   it('normaliza sem acento, minúsculo e com hífen', () => {
@@ -182,5 +183,29 @@ describe('vitrine: e-mail de confirmação do pedido', () => {
     expect(linkWhatsappLoja('(11) 98888-7777', 'Olá! Pedido SOL-1')).toBe('https://wa.me/5511988887777?text=Ol%C3%A1!%20Pedido%20SOL-1')
     expect(linkWhatsappLoja('5511988887777', 'x')).toBe('https://wa.me/5511988887777?text=x')
     expect(linkWhatsappLoja('123', 'x')).toBeNull()
+  })
+})
+
+describe('vitrine: troca do endereço (slug da empresa)', () => {
+  it('guarda o nome anterior, sem repetir e sem o novo', () => {
+    expect(anterioresDepoisDaTroca('ponto', [], 'ponto-visual')).toEqual(['ponto'])
+    // Voltar a um nome antigo: ele sai da lista e o atual entra no fim
+    expect(anterioresDepoisDaTroca('b', ['a', 'c'], 'a')).toEqual(['c', 'b'])
+    expect(anterioresDepoisDaTroca('b', ['b', 'a'], 'c')).toEqual(['a', 'b'])
+  })
+  it('limita os nomes anteriores (o mais antigo fica livre)', () => {
+    const muitos = Array.from({ length: MAX_SLUGS_ANTERIORES }, (_, i) => `nome-${i}`)
+    const lista = anterioresDepoisDaTroca('atual', muitos, 'novo')
+    expect(lista).toHaveLength(MAX_SLUGS_ANTERIORES)
+    expect(lista[0]).toBe('nome-1')
+    expect(lista.at(-1)).toBe('atual')
+  })
+  it('uma troca por dia; desfazer a última não espera', () => {
+    const agora = new Date('2026-10-18T12:00:00Z')
+    expect(trocaLiberadaEm(null, agora)).toBeNull()
+    const ha1h = new Date(agora.getTime() - 3_600_000)
+    expect(trocaLiberadaEm(ha1h, agora)?.getTime()).toBe(ha1h.getTime() + INTERVALO_TROCA_SLUG_MS)
+    expect(trocaLiberadaEm(ha1h, agora, true)).toBeNull()
+    expect(trocaLiberadaEm(new Date(agora.getTime() - INTERVALO_TROCA_SLUG_MS), agora)).toBeNull()
   })
 })

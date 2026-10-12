@@ -1,4 +1,4 @@
-import { formatarTelefone, type EmpresaConfig } from '@onprint/shared'
+import { formatarTelefone, nomeCliente, type EmpresaConfig } from '@onprint/shared'
 import { arquivosApi } from '@/api/cadastros'
 
 // Utilitários dos PDFs (orçamento, pedido, etiquetas). Só é carregado junto com a biblioteca de PDF.
@@ -27,6 +27,15 @@ export async function carregarLogo(empresa: EmpresaConfig): Promise<string | nul
   } catch {
     return null
   }
+}
+
+/**
+ * Cliente nos documentos: o nome fantasia em destaque e a razão social (dado legal) só quando é diferente,
+ * na linha de detalhe junto do CPF/CNPJ. Assinatura e recibo continuam pela razão social.
+ */
+export function nomesClientePdf(c: { nome: string; fantasia?: string | null }) {
+  const exibicao = nomeCliente(c)
+  return { exibicao, razaoSocial: exibicao !== c.nome ? c.nome : null }
 }
 
 export function dadosEmpresa(empresa: EmpresaConfig) {

@@ -29,8 +29,8 @@ export async function relatorioVendas({ prisma, de, ate }: Contexto, visao: stri
       porVendedor
         ? Prisma.sql`SELECT COALESCE(u.nome, 'Sem vendedor') AS nome, COUNT(*) AS quantidade, SUM(x.total) AS total, AVG(x.total) AS ticket
                      FROM (${vendas}) x LEFT JOIN usuarios u ON u.id = x.vendedor_id GROUP BY 1 ORDER BY 3 DESC`
-        : Prisma.sql`SELECT COALESCE(c.nome, 'Consumidor (balcão)') AS nome, COUNT(*) AS quantidade, SUM(x.total) AS total, AVG(x.total) AS ticket
-                     FROM (${vendas}) x LEFT JOIN clientes c ON c.id = x.cliente_id GROUP BY 1 ORDER BY 3 DESC`,
+        : Prisma.sql`SELECT COALESCE(NULLIF(c.fantasia, ''), c.nome, 'Consumidor (balcão)') AS nome, COUNT(*) AS quantidade, SUM(x.total) AS total, AVG(x.total) AS ticket
+                     FROM (${vendas}) x LEFT JOIN clientes c ON c.id = x.cliente_id GROUP BY c.id, 1 ORDER BY 3 DESC`,
     )
     return relatorio({
       titulo: porVendedor ? 'Vendas por vendedor' : 'Vendas por cliente',

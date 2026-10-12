@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, BookOpen } from 'lucide-react'
-import { formatarDataHora } from '@onprint/shared'
+import { formatarDataHora, nomeCliente } from '@onprint/shared'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Anexos } from '@/components/shared/Anexos'
 import { EstadoErro } from '@/components/shared/EstadoErro'
@@ -14,6 +14,7 @@ import { useEnviarCatalogo } from '@/features/vitrine/useEnviarCatalogo'
 import { ClienteForm } from '../components/ClienteForm'
 import { ContatosTab } from '../components/ContatosTab'
 import { EnderecosTab } from '../components/EnderecosTab'
+import { FotoCliente } from '../components/FotoCliente'
 import { FinanceiroDoCliente } from '../components/FinanceiroDoCliente'
 import { OrcamentosDoCliente } from '../components/OrcamentosDoCliente'
 import { PedidosDoCliente } from '../components/PedidosDoCliente'
@@ -27,6 +28,7 @@ export function ClienteFichaPage() {
   const navigate = useNavigate()
   const consulta = useCliente(novo ? undefined : id)
   const podeFinanceiro = usePermission('financeiro')
+  const podeEditar = usePermission('clientes', 'editar')
   const catalogo = useEnviarCatalogo()
 
   const voltar = (
@@ -40,7 +42,7 @@ export function ClienteFichaPage() {
   if (novo) {
     return (
       <>
-        <PageHeader titulo="Novo cliente" subtitulo="Endereços, contatos e anexos ficam disponíveis após salvar." acoes={voltar} />
+        <PageHeader titulo="Novo cliente" subtitulo="Foto, endereços, contatos e anexos ficam disponíveis após salvar." acoes={voltar} />
         <ClienteForm onSalvo={(c) => navigate(`/clientes/${c.id}`, { replace: true })} />
       </>
     )
@@ -66,7 +68,7 @@ export function ClienteFichaPage() {
   return (
     <>
       <PageHeader
-        titulo={cliente.nome}
+        titulo={nomeCliente(cliente)}
         subtitulo={
           <span className="flex flex-wrap items-center gap-2">
             <StatusBadge entidade="cliente" codigo={cliente.situacao} />
@@ -95,7 +97,8 @@ export function ClienteFichaPage() {
           {podeFinanceiro && <TabsTrigger value="financeiro">Financeiro</TabsTrigger>}
           <TabsTrigger value="anexos">Anexos</TabsTrigger>
         </TabsList>
-        <TabsContent value="dados">
+        <TabsContent value="dados" className="space-y-6">
+          <FotoCliente cliente={cliente} podeEditar={podeEditar} />
           <ClienteForm key={cliente.updatedAt} cliente={cliente} onSalvo={() => void consulta.refetch()} />
         </TabsContent>
         <TabsContent value="enderecos">

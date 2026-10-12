@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@prisma/client'
-import { Decimal, formatarDataHora, formatarMoeda, hojeISO } from '@onprint/shared'
+import { Decimal, formatarDataHora, formatarMoeda, hojeISO, nomeCliente } from '@onprint/shared'
 import { usuariosDoEstoque } from '../modules/estoque/movimentacao'
 
 /**
@@ -59,7 +59,7 @@ export async function avisosDoDia(prisma: PrismaClient): Promise<number> {
       status: { in: ['pendente', 'agendada'] },
       dataAgendada: { gte: new Date(`${hoje}T00:00:00-03:00`), lte: new Date(`${hoje}T23:59:59.999-03:00`) },
     },
-    select: { tipo: true, dataAgendada: true, responsavelId: true, pedido: { select: { id: true, numero: true, vendedorId: true, cliente: { select: { nome: true } } } } },
+    select: { tipo: true, dataAgendada: true, responsavelId: true, pedido: { select: { id: true, numero: true, vendedorId: true, cliente: { select: { nome: true, fantasia: true } } } } },
   })
   for (const e of entregas) {
     const usuarioId = e.responsavelId ?? e.pedido.vendedorId
@@ -68,7 +68,7 @@ export async function avisosDoDia(prisma: PrismaClient): Promise<number> {
       data: {
         usuarioId,
         titulo: `${e.tipo === 'retirada' ? 'Retirada' : e.tipo === 'instalacao' ? 'Instalação' : 'Entrega'} hoje: ${e.pedido.numero}`,
-        mensagem: `${e.pedido.cliente.nome} · ${formatarDataHora(e.dataAgendada)}`,
+        mensagem: `${nomeCliente(e.pedido.cliente)} · ${formatarDataHora(e.dataAgendada)}`,
         link: `/pedidos/${e.pedido.id}?aba=entrega`,
       },
     })

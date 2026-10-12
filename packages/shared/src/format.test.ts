@@ -7,6 +7,7 @@ import {
   formatarMoeda,
   formatarTelefone,
   iniciais,
+  nomeCliente,
   nomeParaSaudacao,
 } from './format'
 
@@ -58,5 +59,21 @@ describe('nomeParaSaudacao', () => {
     expect(nomeParaSaudacao('Construtora Alfa S/A')).toBe('Construtora Alfa')
     expect(nomeParaSaudacao('Mercado Bom Preço', '12.345.678/0001-90')).toBe('Mercado Bom Preço')
     expect(nomeParaSaudacao('Ltda')).toBe('Ltda')
+  })
+})
+
+describe('nomeCliente', () => {
+  it('prefere o nome fantasia', () => {
+    expect(nomeCliente({ nome: 'Pet Feliz Comércio de Rações Ltda', fantasia: 'Pet Feliz' })).toBe('Pet Feliz')
+    expect(nomeCliente({ nome: 'José Carlos Souza', fantasia: '  Zé da Banca ' })).toBe('Zé da Banca')
+  })
+  it('sem fantasia, usa o nome / razão social', () => {
+    expect(nomeCliente({ nome: 'Maria da Silva', fantasia: null })).toBe('Maria da Silva')
+    expect(nomeCliente({ nome: 'Maria da Silva', fantasia: '   ' })).toBe('Maria da Silva')
+    expect(nomeCliente({ nome: 'Maria da Silva' })).toBe('Maria da Silva')
+  })
+  it('a saudação usa o nome de exibição', () => {
+    const pet = { nome: 'Comércio de Rações Silva Ltda', fantasia: 'Pet Feliz' }
+    expect(nomeParaSaudacao(nomeCliente(pet), '12.345.678/0001-90')).toBe('Pet Feliz')
   })
 })

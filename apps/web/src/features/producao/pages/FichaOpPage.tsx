@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ImageOff, Printer } from 'lucide-react'
 import QRCode from 'qrcode'
-import { ETAPAS_PRODUCAO, PRIORIDADE_ROTULOS, formatarCpfCnpj, formatarDataHora, formatarDataSimples } from '@onprint/shared'
+import { ETAPAS_PRODUCAO, PRIORIDADE_ROTULOS, formatarCpfCnpj, formatarDataHora, formatarDataSimples, nomeCliente } from '@onprint/shared'
 import { opsApi } from '@/api/producao'
 import { EstadoErro } from '@/components/shared/EstadoErro'
 import { TelaCarregando } from '@/components/shared/TelaCarregando'
@@ -76,7 +76,7 @@ export function FichaOpPage() {
               <p className="text-[0.625rem] font-bold uppercase tracking-[0.25em] text-[#128C7E]">Ordem de produção · {nomeEmpresa}</p>
               <h1 className="mt-1 font-titulo text-4xl font-extrabold leading-tight text-[#2B3036]">{op.numero}</h1>
               <p className="mt-1 text-[#4A5259]">
-                Pedido <strong className="text-[#1F2328]">{op.pedido.numero}</strong> · {op.pedido.cliente.nome}
+                Pedido <strong className="text-[#1F2328]">{op.pedido.numero}</strong> · {nomeCliente(op.pedido.cliente)}
               </p>
             </div>
             <div className="flex items-start gap-5">

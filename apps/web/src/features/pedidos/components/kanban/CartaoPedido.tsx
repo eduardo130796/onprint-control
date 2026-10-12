@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { CalendarClock, ExternalLink, MapPin, Pencil, Printer, Store, User, Wrench } from 'lucide-react'
-import { formatarDataSimples, formatarMoeda, saldoPedido, type Pedido } from '@onprint/shared'
+import { formatarDataSimples, formatarMoeda, nomeCliente, saldoPedido, type Pedido } from '@onprint/shared'
 import { BotaoCartao } from '@/components/shared/kanban/BotaoCartao'
 import { SeloAtraso, SeloPrioridade } from '@/components/shared/Selos'
 import { cn } from '@/lib/utils'
@@ -48,8 +48,8 @@ export function CartaoPedido({ pedido: p, acoes }: { pedido: Pedido; acoes: Acoe
         </Link>
         <ValorPedido pedido={p} />
       </div>
-      <p className="mt-0.5 truncate text-[0.9375rem] font-semibold" title={p.cliente.nome}>
-        {p.cliente.nome}
+      <p className="mt-0.5 truncate text-[0.9375rem] font-semibold" title={nomeCliente(p.cliente)}>
+        {nomeCliente(p.cliente)}
       </p>
       {r && r.principais.length > 0 && (
         <ul className="mt-1.5 space-y-0.5 text-xs text-texto-secundario">

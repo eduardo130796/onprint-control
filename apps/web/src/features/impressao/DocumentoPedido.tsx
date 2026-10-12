@@ -1,7 +1,7 @@
 import { Document, Page, Text, View } from '@react-pdf/renderer'
 import { TIPO_ENTREGA_ROTULOS, formatarDataHora, formatarDataSimples, formatarMoeda, formatarTelefone, type EmpresaConfig, type PedidoDetalhe, type RecebimentosPedido } from '@onprint/shared'
 import { AssinaturaPdf, BlocoInfo, CabecalhoPdf, FaixaMarca, RodapePdf, TabelaPdf, TextoPdf, TotaisPdf } from './PecasPdf'
-import { dadosEmpresa } from './pdfComum'
+import { dadosEmpresa, nomesClientePdf } from './pdfComum'
 import { COR, base } from './tema'
 
 const SITUACAO = { aberto: 'Em aberto', parcial: 'Pago em parte', vencido: 'Vencido', pago: 'Pago', cancelado: 'Cancelado' } as const
@@ -14,6 +14,7 @@ const metros = (v: string | null) => (v ? Number(v).toLocaleString('pt-BR', { ma
  */
 export function DocumentoPedido({ p, empresa, logo, recebimentos }: { p: PedidoDetalhe; empresa: EmpresaConfig; logo: string | null; recebimentos?: RecebimentosPedido | null }) {
   const parcelas = p.contasReceber.filter((c) => c.status !== 'cancelado')
+  const cliente = nomesClientePdf(p.cliente)
   const pagamentos = recebimentos?.pagamentos ?? []
   const totalRecebido = pagamentos.reduce((s, x) => s + Number(x.valor), 0)
   const emAberto = Number(p.total) - Number(p.valorPago)
@@ -46,7 +47,8 @@ export function DocumentoPedido({ p, empresa, logo, recebimentos }: { p: PedidoD
               largura: 2,
               conteudo: (
                 <>
-                  <Text style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: 11 }}>{p.cliente.nome}</Text>
+                  <Text style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: 11 }}>{cliente.exibicao}</Text>
+                  {cliente.razaoSocial ? <Text style={base.suave}>{cliente.razaoSocial}</Text> : null}
                   <Text style={base.suave}>{formatarTelefone(p.cliente.whatsapp ?? p.cliente.telefone)}</Text>
                 </>
               ),

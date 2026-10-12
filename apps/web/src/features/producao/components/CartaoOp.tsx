@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { CalendarClock, ClipboardList, Clock, Cpu, ExternalLink, Hourglass, Pencil, Ruler, Tag, User } from 'lucide-react'
-import { formatarDataSimples, type OrdemProducao } from '@onprint/shared'
+import { formatarDataSimples, nomeCliente, type OrdemProducao } from '@onprint/shared'
 import { BotaoCartao } from '@/components/shared/kanban/BotaoCartao'
 import { Checkbox } from '@/components/ui/form-controls'
 import { SeloAtraso, SeloPrioridade } from '@/components/shared/Selos'
@@ -67,8 +67,8 @@ export function CartaoOp({ op, acoes, selecao }: { op: OrdemProducao; acoes?: Ac
             {op.pedido.numero}
           </Link>
         </div>
-        <p className="mt-0.5 truncate text-[0.9375rem] font-semibold" title={op.pedido.cliente.nome}>
-          {op.pedido.cliente.nome}
+        <p className="mt-0.5 truncate text-[0.9375rem] font-semibold" title={nomeCliente(op.pedido.cliente)}>
+          {nomeCliente(op.pedido.cliente)}
         </p>
         <p className="text-xs text-texto-secundario" title={op.item.descricao}>
           {num(op.quantidade)} × {op.item.descricao}

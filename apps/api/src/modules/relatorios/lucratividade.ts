@@ -96,7 +96,7 @@ export async function relatorioLucratividade(prisma: PrismaClient, q: Required<P
         SELECT m.pedido_id, SUM(-m.quantidade * m.custo_unitario) AS real
         FROM estoque_movimentacoes m WHERE m.tipo = 'consumo_producao' AND m.pedido_id IN (${pedidosDoPeriodo}) GROUP BY 1
       )
-      SELECT p.id, p.numero, c.nome AS cliente, it.receita, it.custo, r.real
+      SELECT p.id, p.numero, COALESCE(NULLIF(c.fantasia, ''), c.nome) AS cliente, it.receita, it.custo, r.real
       FROM itens it JOIN pedidos p ON p.id = it.pedido_id JOIN clientes c ON c.id = p.cliente_id LEFT JOIN reais r ON r.pedido_id = p.id
       ORDER BY p.created_at, p.numero`)
     agregados = linhas.map((l) => ({ id: l.id, titulo: l.numero, subtitulo: l.cliente, receita: l.receita, custo: l.custo, real: l.real, lucroMinimo: null }))

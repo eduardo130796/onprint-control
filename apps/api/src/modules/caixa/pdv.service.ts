@@ -14,8 +14,9 @@ import { baixarTitulo, categoriaPorCodigo, estornarMovimento, registrarTaxa } fr
 import type { SessaoService } from './sessao.service'
 
 const ref = { select: { id: true, nome: true } } as const
+const refCliente = { select: { id: true, nome: true, fantasia: true } } as const
 const incluirVenda = {
-  cliente: ref,
+  cliente: refCliente,
   usuario: ref,
   // O custo da venda é só para os relatórios (quem opera o caixa não vê custo)
   itens: { orderBy: { id: 'asc' }, omit: { custo: true } },
@@ -188,7 +189,7 @@ export function criarPdvService(app: FastifyInstance, sessoes: SessaoService) {
         ...(q.sessaoId ? { sessaoId: q.sessaoId } : {}),
         ...(veTodos ? {} : { usuarioId }),
         ...(q.de || q.ate ? { createdAt: { ...(q.de ? { gte: new Date(`${q.de}T00:00:00-03:00`) } : {}), ...(q.ate ? { lte: new Date(`${q.ate}T23:59:59.999-03:00`) } : {}) } } : {}),
-        ...(q.busca ? { OR: [{ numero: { contains: q.busca, mode: 'insensitive' } }, { cliente: { nome: { contains: q.busca, mode: 'insensitive' } } }] } : {}),
+        ...(q.busca ? { OR: [{ numero: { contains: q.busca, mode: 'insensitive' } }, { cliente: { nome: { contains: q.busca, mode: 'insensitive' } } }, { cliente: { fantasia: { contains: q.busca, mode: 'insensitive' } } }] } : {}),
       }
       const pag = paginacao(q, ['createdAt', 'total'] as const, { campo: 'createdAt', direcao: 'desc' })
       const [total, data] = await prisma.$transaction([prisma.vendaPdv.count({ where }), prisma.vendaPdv.findMany({ where, ...pag, include: incluirVenda })])
@@ -199,10 +200,10 @@ export function criarPdvService(app: FastifyInstance, sessoes: SessaoService) {
     async titulosAbertos(busca?: string) {
       const texto = busca ? { contains: busca, mode: 'insensitive' as const } : undefined
       const titulos = await prisma.contaReceber.findMany({
-        where: { status: { in: ['aberto', 'parcial', 'vencido'] }, ...(texto ? { OR: [{ cliente: { nome: texto } }, { pedido: { numero: texto } }, { descricao: texto }] } : {}) },
+        where: { status: { in: ['aberto', 'parcial', 'vencido'] }, ...(texto ? { OR: [{ cliente: { nome: texto } }, { cliente: { fantasia: texto } }, { pedido: { numero: texto } }, { descricao: texto }] } : {}) },
         orderBy: { vencimento: 'asc' },
         take: 20,
-        select: { id: true, descricao: true, valor: true, valorPago: true, vencimento: true, status: true, cliente: ref, pedido: { select: { id: true, numero: true } } },
+        select: { id: true, descricao: true, valor: true, valorPago: true, vencimento: true, status: true, cliente: refCliente, pedido: { select: { id: true, numero: true } } },
       })
       return titulos.map((t) => ({ ...t, saldo: new Decimal(t.valor.toString()).minus(t.valorPago.toString()).toFixed(2) }))
     },

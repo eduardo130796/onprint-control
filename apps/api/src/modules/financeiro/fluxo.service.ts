@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
 import type { z } from 'zod'
-import { Decimal, adicionarDias, hojeISO, type fluxoQuerySchema, type movimentosQuerySchema } from '@onprint/shared'
+import { Decimal, adicionarDias, hojeISO, nomeCliente, type fluxoQuerySchema, type movimentosQuerySchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { paginacao, paginado } from '../../core/paginacao'
 import { formatarMovimento, incluirMovimento } from './titulos-consultas'
@@ -108,7 +108,7 @@ export function criarFluxoService(app: FastifyInstance) {
       const fim = `${mes}-${String(new Date(Date.UTC(ano, numeroMes, 0)).getUTCDate()).padStart(2, '0')}`
       const filtro = { vencimento: { gte: dataBanco(de), lte: dataBanco(fim) }, status: { not: 'cancelado' as const } }
       const [receber, pagar, movs] = await Promise.all([
-        prisma.contaReceber.findMany({ where: filtro, select: { id: true, descricao: true, valor: true, valorPago: true, vencimento: true, status: true, cliente: { select: { nome: true } } } }),
+        prisma.contaReceber.findMany({ where: filtro, select: { id: true, descricao: true, valor: true, valorPago: true, vencimento: true, status: true, cliente: { select: { nome: true, fantasia: true } } } }),
         prisma.contaPagar.findMany({ where: filtro, select: { id: true, descricao: true, valor: true, valorPago: true, vencimento: true, status: true, fornecedor: { select: { nome: true } } } }),
         prisma.movimentoFinanceiro.findMany({ where: { data: { gte: dataBanco(de), lte: dataBanco(fim) }, transferenciaId: null, OR: [{ contaReceberId: { not: null } }, { contaPagarId: { not: null } }] }, select: { tipo: true, valor: true, data: true } }),
       ])
@@ -121,7 +121,7 @@ export function criarFluxoService(app: FastifyInstance) {
         const saldo = new Decimal(t.valor.toString()).minus(t.valorPago.toString())
         const d = dia(iso(t.vencimento))
         if (saldo.gt(0)) d.aReceber = d.aReceber.plus(saldo)
-        d.titulos.push({ id: t.id, tipo: 'receber', descricao: t.descricao, saldo: saldo.toFixed(2), status: t.status, pessoa: t.cliente.nome })
+        d.titulos.push({ id: t.id, tipo: 'receber', descricao: t.descricao, saldo: saldo.toFixed(2), status: t.status, pessoa: nomeCliente(t.cliente) })
       }
       for (const t of pagar) {
         const saldo = new Decimal(t.valor.toString()).minus(t.valorPago.toString())

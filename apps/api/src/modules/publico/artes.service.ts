@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify'
+import { nomeCliente } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
 import { avisarMudancaPedido, sincronizarStatusPedido } from '../pedidos/automacao'
@@ -26,7 +27,7 @@ export function criarArtesPublicoService(app: FastifyInstance) {
             quantidade: true,
             largura: true,
             altura: true,
-            pedido: { select: { id: true, numero: true, vendedorId: true, cliente: { select: { nome: true } } } },
+            pedido: { select: { id: true, numero: true, vendedorId: true, cliente: { select: { nome: true, fantasia: true } } } },
             artes: { orderBy: { versao: 'desc' }, take: 1, select: { id: true } },
           },
         },
@@ -81,7 +82,7 @@ export function criarArtesPublicoService(app: FastifyInstance) {
       status: arte.status,
       ultimaVersao: ultima,
       podeResponder: ultima && arte.status === 'enviada_cliente',
-      pedido: { numero: arte.pedidoItem.pedido.numero, cliente: arte.pedidoItem.pedido.cliente.nome },
+      pedido: { numero: arte.pedidoItem.pedido.numero, cliente: nomeCliente(arte.pedidoItem.pedido.cliente) },
       item: {
         descricao: arte.pedidoItem.descricao,
         quantidade: arte.pedidoItem.quantidade.toString(),

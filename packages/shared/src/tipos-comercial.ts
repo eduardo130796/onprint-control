@@ -11,7 +11,7 @@ import type {
   StatusSolicitacao,
   TipoEntrega,
 } from './enums-comercial'
-import type { Auditavel } from './tipos'
+import type { Auditavel, RefCliente } from './tipos'
 import type { SolicitacaoItem } from './schemas/vitrine'
 
 type Ref = { id: string; nome: string }
@@ -19,7 +19,7 @@ type Ref = { id: string; nome: string }
 export interface Solicitacao extends Auditavel {
   numero: string
   clienteId: string | null
-  cliente: (Ref & { situacao: string; whatsapp: string | null }) | null
+  cliente: (RefCliente & { situacao: string; whatsapp: string | null }) | null
   origem: OrigemCliente
   descricao: string
   prazoDesejado: string | null
@@ -95,7 +95,7 @@ export interface PedidoResumo {
 export interface Orcamento extends Auditavel {
   numero: string
   clienteId: string
-  cliente: Ref & { situacao: string; whatsapp: string | null; email: string | null; telefone: string | null; cpfCnpj: string | null }
+  cliente: RefCliente & { situacao: string; whatsapp: string | null; email: string | null; telefone: string | null; cpfCnpj: string | null }
   vendedorId: string | null
   vendedor: Ref | null
   solicitacaoId: string | null
@@ -140,6 +140,7 @@ export interface OrcamentoPublico {
   validade: string
   expirado: boolean
   podeResponder: boolean
+  /** Nome de exibição (fantasia, senão o nome) */
   cliente: { nome: string }
   vendedor: { nome: string } | null
   empresa: {

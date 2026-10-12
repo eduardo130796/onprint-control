@@ -1,9 +1,10 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import type { FastifyRequest } from 'fastify'
-import { empresaSchema, precificacaoSchema, temaEmpresaSchema } from '@onprint/shared'
-import type { z } from 'zod'
+import { empresaSchema, linkVitrineSchema, precificacaoSchema, temaEmpresaSchema } from '@onprint/shared'
+import { z } from 'zod'
 import { criarArquivosService } from '../arquivos/service'
 import { criarCustosService } from '../produtos/custos.service'
+import { criarLinkVitrine } from './link-vitrine'
 import { criarEmpresaService } from './service'
 
 const tags = ['empresa']
@@ -53,6 +54,25 @@ export const empresaRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: { tags, summary: 'Envia o logo (multipart, PNG/JPG/SVG)', consumes: ['multipart/form-data'] },
     },
     (req) => c.trocarLogo(req),
+  )
+
+  // Endereço da vitrine ({slug}.grafygo.com.br, também nos links de aprovação): troca com os links antigos valendo
+  const link = criarLinkVitrine(app)
+  app.get('/link-vitrine', { onRequest: [app.autenticar], schema: { tags, summary: 'Endereço da vitrine (slug da empresa)' } }, () => link.obter())
+  app.get(
+    '/link-vitrine/disponivel',
+    {
+      onRequest: [app.exigirPermissao('configuracoes', 'editar')],
+      // Consulta a cada letra digitada (com espera): folgado, mas sem virar varredura de nomes
+      config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
+      schema: { tags, summary: 'O nome está livre para o endereço da vitrine?', querystring: z.object({ slug: z.string().max(100) }) },
+    },
+    (req) => link.disponivel(req.query.slug),
+  )
+  app.put(
+    '/link-vitrine',
+    { onRequest: [app.exigirPermissao('configuracoes', 'editar')], schema: { tags, summary: 'Troca o endereço da vitrine (os anteriores continuam valendo)', body: linkVitrineSchema } },
+    (req) => link.alterar(req.body.slug, req.user.sub),
   )
 
   // Precificação (impostos, comissão, custos fixos, lucro padrão): o custo dos produtos em composição é recalculado

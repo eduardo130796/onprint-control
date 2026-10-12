@@ -35,6 +35,8 @@ interface OpcoesUpload {
   entidadeId: string | null
   categoria: CategoriaArquivo
   extensoes?: readonly string[]
+  /** Limite menor que o geral (UPLOAD_MAX_MB), ex.: foto do cliente */
+  tamanhoMaxMb?: number
 }
 
 const selecionar = {
@@ -106,6 +108,10 @@ export function criarArquivosService(app: FastifyInstance) {
         await storage.remover(salvo.caminho)
         throw new AppError(413, 'VALIDACAO', `Arquivo maior que o limite de ${app.config.UPLOAD_MAX_MB} MB.`)
       }
+      if (opcoes.tamanhoMaxMb && salvo.tamanho > opcoes.tamanhoMaxMb * 1024 * 1024) {
+        await storage.remover(salvo.caminho)
+        throw new AppError(413, 'VALIDACAO', `Arquivo maior que o limite de ${opcoes.tamanhoMaxMb} MB.`)
+      }
       // A extensão não basta: o começo do arquivo precisa ser do tipo declarado (ex.: HTML renomeado para .png)
       const confere = conteudoConfere(extensao, await lerInicio(storage.abrir(salvo.caminho)))
       if (confere === false) {
@@ -135,7 +141,8 @@ export function criarArquivosService(app: FastifyInstance) {
 
     async listar(entidade: string, entidadeId: string) {
       return prisma.arquivo.findMany({
-        where: { entidade, entidadeId, categoria: { not: 'logo' } },
+        // Logo e foto do cliente têm tela própria: não aparecem entre os anexos
+        where: { entidade, entidadeId, categoria: { notIn: ['logo', 'foto_cliente'] } },
         orderBy: { createdAt: 'desc' },
         select: selecionar,
       })
@@ -158,6 +165,7 @@ export function criarArquivosService(app: FastifyInstance) {
       const arquivo = await this.obter(id)
       await prisma.$transaction(async (tx) => {
         await tx.empresaConfig.updateMany({ where: { logoArquivoId: id }, data: { logoArquivoId: null } })
+        await tx.cliente.updateMany({ where: { fotoArquivoId: id }, data: { fotoArquivoId: null } })
         await tx.arquivo.delete({ where: { id } })
         await registrarAuditoria(tx, { tabela: 'arquivos', registroId: id, acao: 'excluir', antes: arquivo, usuarioId })
       })

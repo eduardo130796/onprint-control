@@ -84,6 +84,14 @@ export function formatarDataSimples(data: string | null | undefined): string {
   return `${d}/${m}/${a}`
 }
 
+/**
+ * Nome do cliente fora do cadastro: o nome fantasia (ou apelido) quando preenchido, senão o nome / razão social.
+ * A razão social só aparece no próprio cadastro e nos documentos, ao lado do CPF/CNPJ.
+ */
+export function nomeCliente(cliente: { nome: string; fantasia?: string | null }): string {
+  return cliente.fantasia?.trim() || cliente.nome
+}
+
 const SUFIXO_EMPRESA = /[\s,.-]+(ltda|me|epp|eireli|mei|s\/?\.?a\.?|sa|s\.a)\.?$/i
 const PALAVRA_EMPRESA = /\b(ltda|eireli|epp|s\/a|s\.a\.?|mei|me)\b\.?/i
 

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { STATUS_ORCAMENTO_ABERTOS, hojeISO, type OrcamentoPublico } from '@onprint/shared'
+import { STATUS_ORCAMENTO_ABERTOS, hojeISO, nomeCliente, type OrcamentoPublico } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
 
@@ -16,7 +16,7 @@ export function criarPublicoService(app: FastifyInstance) {
     const o = await prisma.orcamento.findUnique({
       where: { tokenPublico: token },
       include: {
-        cliente: { select: { nome: true } },
+        cliente: { select: { nome: true, fantasia: true } },
         vendedor: { select: { id: true, nome: true } },
         itens: { orderBy: { ordem: 'asc' }, include: { acabamentos: { select: { nome: true } } } },
       },
@@ -47,7 +47,7 @@ export function criarPublicoService(app: FastifyInstance) {
         validade: o.validade.toISOString().slice(0, 10),
         expirado: o.status === 'expirado',
         podeResponder: podeResponder(o.status),
-        cliente: { nome: o.cliente.nome },
+        cliente: { nome: nomeCliente(o.cliente) },
         vendedor: o.vendedor ? { nome: o.vendedor.nome } : null,
         empresa: {
           nome: empresa?.nomeFantasia || empresa?.razaoSocial || '',
@@ -99,8 +99,8 @@ export function criarPublicoService(app: FastifyInstance) {
               usuarioId: o.vendedor.id,
               titulo: resposta.aprovar ? `Orçamento ${o.numero} aprovado` : `Orçamento ${o.numero} recusado`,
               mensagem: resposta.aprovar
-                ? `${o.cliente.nome} aprovou pelo link (${resposta.nome}).`
-                : `${o.cliente.nome} recusou: ${resposta.motivo}`,
+                ? `${nomeCliente(o.cliente)} aprovou pelo link (${resposta.nome}).`
+                : `${nomeCliente(o.cliente)} recusou: ${resposta.motivo}`,
               link: `/orcamentos/${o.id}`,
             },
           })

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { FileDown, Link2, MessageSquareText, Pencil, Printer, ShoppingCart } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatarDataSimples, formatarMoeda, formatarTelefone, type Orcamento } from '@onprint/shared'
+import { formatarDataSimples, formatarMoeda, formatarTelefone, nomeCliente, type Orcamento } from '@onprint/shared'
 import { orcamentosApi, templatesLeituraApi } from '@/api/comercial'
 import { EstadoErro } from '@/components/shared/EstadoErro'
 import { AcaoPainel, DadoPainel, PainelCartao } from '@/components/shared/kanban/PainelCartao'
@@ -42,7 +42,7 @@ export function PainelOrcamento({ orcamento: resumo, onFechar }: { orcamento: Or
       <PainelCartao
         aberto={!convertendo}
         onFechar={onFechar}
-        titulo={`${resumo.numero} · ${resumo.cliente.nome}`}
+        titulo={`${resumo.numero} · ${nomeCliente(resumo.cliente)}`}
         subtitulo={
           <span className="flex flex-wrap items-center gap-2">
             <StatusBadge entidade="orcamento" codigo={resumo.status} />

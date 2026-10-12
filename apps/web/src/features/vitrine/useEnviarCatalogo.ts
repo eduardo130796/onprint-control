@@ -1,3 +1,4 @@
+import { nomeCliente } from '@onprint/shared'
 import { useAuth } from '@/hooks/useAuth'
 import { usePermissoes } from '@/hooks/usePermission'
 import { linkWhatsappEnvio, mensagemCatalogo } from './divulgar'
@@ -15,10 +16,10 @@ export function useEnviarCatalogo() {
   const c = config.data
   const disponivel = Boolean(permitido && c?.ativa && c.liberadaNoPlano)
 
-  function enviar(cliente: { nome: string; whatsapp?: string | null; telefone?: string | null }) {
+  function enviar(cliente: { nome: string; fantasia?: string | null; whatsapp?: string | null; telefone?: string | null }) {
     if (!c) return
     const loja = (c.titulo || usuario?.empresa.exibicao || '').trim()
-    const mensagem = mensagemCatalogo({ nome: cliente.nome, loja, link: c.urlPublica })
+    const mensagem = mensagemCatalogo({ nome: nomeCliente(cliente), loja, link: c.urlPublica })
     window.open(linkWhatsappEnvio(cliente.whatsapp || cliente.telefone, mensagem), '_blank', 'noopener')
   }
 

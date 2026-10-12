@@ -4,6 +4,7 @@ import {
   adicionarDiasUteis,
   formatarDataSimples,
   hojeISO,
+  nomeCliente,
   nomeParaSaudacao,
   preencherTemplate,
   statusAutomaticoPedido,
@@ -33,7 +34,7 @@ export async function sincronizarStatusPedido(
   const pedido = await tx.pedido.findUnique({
     where: { id: pedidoId },
     include: {
-      cliente: { select: { nome: true, cpfCnpj: true } },
+      cliente: { select: { nome: true, fantasia: true, cpfCnpj: true } },
       itens: { select: { artes: { orderBy: { versao: 'desc' }, take: 1, select: { status: true } } } },
       ordensProducao: { where: { cancelada: false }, select: { etapaAtual: true } },
     },
@@ -60,7 +61,7 @@ export async function sincronizarStatusPedido(
   if (novo === 'pronto' && pedido.vendedorId) {
     const template = await tx.mensagemTemplate.findFirst({ where: { categoria: 'pedido_pronto', ativo: true }, orderBy: { createdAt: 'asc' } })
     const texto = preencherTemplate(template?.conteudo ?? 'Olá, {{cliente_nome}}! Seu pedido está pronto.', {
-      cliente_nome: nomeParaSaudacao(pedido.cliente.nome, pedido.cliente.cpfCnpj),
+      cliente_nome: nomeParaSaudacao(nomeCliente(pedido.cliente), pedido.cliente.cpfCnpj),
       numero_pedido: pedido.numero,
       data_entrega: formatarDataSimples(adicionarDiasUteis(hojeISO(), 0)),
     })

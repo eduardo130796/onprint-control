@@ -1,4 +1,4 @@
-import { formatarTelefone } from '@onprint/shared'
+import { formatarTelefone, nomeCliente } from '@onprint/shared'
 import { clientesApi } from '@/api/cadastros'
 import { orcamentosApi } from '@/api/comercial'
 import type { OpcaoBusca } from '@/components/shared/SearchSelect'
@@ -10,7 +10,7 @@ export async function buscarClientes(termo: string): Promise<OpcaoBusca[]> {
   const r = await clientesApi.listar({ busca: termo || undefined, pageSize: 10, ativo: 'true' })
   return r.data.map((c) => ({
     id: c.id,
-    rotulo: c.nome,
+    rotulo: nomeCliente(c),
     detalhe: [c.situacao === 'pre_cadastro' ? 'pré-cadastro' : null, formatarTelefone(c.whatsapp ?? c.telefone)].filter(Boolean).join(' · '),
   }))
 }

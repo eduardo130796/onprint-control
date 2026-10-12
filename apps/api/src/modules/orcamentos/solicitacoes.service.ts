@@ -13,7 +13,7 @@ type Dados = z.output<typeof solicitacaoSchema>
 type Query = z.output<typeof solicitacoesQuerySchema>
 
 const incluir = {
-  cliente: { select: { id: true, nome: true, situacao: true, whatsapp: true } },
+  cliente: { select: { id: true, nome: true, fantasia: true, situacao: true, whatsapp: true } },
   responsavel: { select: { id: true, nome: true } },
   orcamentos: { select: { id: true, numero: true, status: true }, orderBy: { createdAt: 'asc' } },
   // Itens da lista de orçamento da vitrine (vazio nas digitadas no sistema)
@@ -48,7 +48,7 @@ export function criarSolicitacoesService(app: FastifyInstance) {
           q.status ? { status: q.status } : {},
           q.clienteId ? { clienteId: q.clienteId } : {},
           q.origem ? { origem: q.origem } : {},
-          texto ? { OR: [{ numero: texto }, { descricao: texto }, { cliente: { nome: texto } }] } : {},
+          texto ? { OR: [{ numero: texto }, { descricao: texto }, { cliente: { nome: texto } }, { cliente: { fantasia: texto } }] } : {},
         ],
       }
       const pag = paginacao(q, ['createdAt', 'numero', 'prazoDesejado'] as const, { campo: 'createdAt', direcao: 'desc' })

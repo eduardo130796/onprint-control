@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, CalendarClock, ImageOff, Printer } from 'lucide-react'
-import { ETAPAS_PRODUCAO, formatarDataHora, formatarDataSimples, type EtapaProducao } from '@onprint/shared'
+import { ETAPAS_PRODUCAO, formatarDataHora, formatarDataSimples, nomeCliente, type EtapaProducao } from '@onprint/shared'
 import { opsApi } from '@/api/producao'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Can } from '@/components/shared/Can'
@@ -54,7 +54,7 @@ export function OpPage() {
             {op.atrasada && <SeloAtraso />}
             <SeloPrioridade prioridade={op.prioridade} />
             <Link to={`/pedidos/${op.pedidoId}`} className="text-marca-escuro hover:underline">
-              {op.pedido.numero} · {op.pedido.cliente.nome}
+              {op.pedido.numero} · {nomeCliente(op.pedido.cliente)}
             </Link>
           </span>
         }

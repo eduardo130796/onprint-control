@@ -20,6 +20,8 @@ export const clientesApi = {
   atualizar: (id: string, dados: unknown) => http<Cliente>(`/clientes/${id}`, { method: 'PUT', body: dados }),
   desativar: (id: string) => http<Cliente>(`/clientes/${id}`, { method: 'DELETE' }),
   reativar: (id: string) => http<Cliente>(`/clientes/${id}/reativar`, { method: 'POST' }),
+  enviarFoto: (id: string, arquivo: File, aoProgredir?: (pct: number) => void) => upload<Cliente>(`/clientes/${id}/foto`, arquivo, aoProgredir),
+  removerFoto: (id: string) => http<Cliente>(`/clientes/${id}/foto`, { method: 'DELETE' }),
 
   salvarEndereco: (clienteId: string, dados: unknown, id?: string) =>
     id

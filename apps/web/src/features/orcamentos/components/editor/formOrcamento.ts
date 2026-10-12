@@ -1,4 +1,4 @@
-import type { OrcamentoDetalhe, OrcamentoInput, ProdutoCatalogo, SolicitacaoItem } from '@onprint/shared'
+import { nomeCliente, type OrcamentoDetalhe, type OrcamentoInput, type ProdutoCatalogo, type SolicitacaoItem } from '@onprint/shared'
 import type { OpcaoBusca } from '@/components/shared/SearchSelect'
 import { decimalParaInput } from '@/lib/mascaras'
 
@@ -95,7 +95,7 @@ export function formDoOrcamento(o?: OrcamentoDetalhe, cliente?: OpcaoBusca | nul
     }
   }
   return {
-    cliente: { id: o.cliente.id, rotulo: o.cliente.nome },
+    cliente: { id: o.cliente.id, rotulo: nomeCliente(o.cliente) },
     validade: o.validade.slice(0, 10),
     desconto: decimalParaInput(o.desconto),
     acrescimo: decimalParaInput(o.acrescimo),

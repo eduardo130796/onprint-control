@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { adicionarDias, diaDaSemana, formatarDataSimples, hojeISO, type OrdemProducao } from '@onprint/shared'
+import { adicionarDias, diaDaSemana, formatarDataSimples, hojeISO, nomeCliente, type OrdemProducao } from '@onprint/shared'
 import { useStatusConfig } from '@/hooks/useStatusConfig'
 import { cn } from '@/lib/utils'
 
@@ -67,7 +67,7 @@ export function GanttSimples({ ops, inicio, onSelecionar }: GanttProps) {
               return (
                 <div key={op.id} className="grid items-center py-0.5" style={grade}>
                   <span className="truncate pr-2" title={`${op.numero} · ${op.item.descricao}`}>
-                    <span className="font-mono">{op.numero.slice(-4)}</span> {op.pedido.cliente.nome}
+                    <span className="font-mono">{op.numero.slice(-4)}</span> {nomeCliente(op.pedido.cliente)}
                   </span>
                   {visivel ? (
                     <button

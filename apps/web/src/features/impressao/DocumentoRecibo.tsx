@@ -1,7 +1,7 @@
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { formatarCpfCnpj, formatarDataSimples, formatarMoeda, valorPorExtenso, type EmpresaConfig, type PedidoDetalhe, type RecebimentosPedido } from '@onprint/shared'
 import { TabelaPdf } from './PecasPdf'
-import { dadosEmpresa } from './pdfComum'
+import { dadosEmpresa, nomesClientePdf } from './pdfComum'
 import { COR, MARGEM, base } from './tema'
 
 const s = StyleSheet.create({
@@ -32,6 +32,7 @@ interface Props {
 
 function Via({ p, recebimentos: r, empresa, logo, rotulo }: Props & { rotulo: string }) {
   const e = dadosEmpresa(empresa)
+  const cliente = nomesClientePdf(p.cliente)
   const total = r.pagamentos.reduce((soma, x) => soma + Number(x.valor), 0)
   const itens = p.itens.map((i) => i.descricao)
   const referente = itens.length > 3 ? `${itens.slice(0, 3).join(', ')} e outros` : itens.join(', ')
@@ -60,7 +61,9 @@ function Via({ p, recebimentos: r, empresa, logo, rotulo }: Props & { rotulo: st
       </View>
 
       <Text style={s.texto}>
+        {/* Recibo é documento: a razão social, com o fantasia entre parênteses quando é diferente */}
         Recebemos de <Text style={base.forte}>{p.cliente.nome}</Text>
+        {cliente.razaoSocial ? ` (${cliente.exibicao})` : ''}
         {r.clienteDocumento ? `, ${formatarCpfCnpj(r.clienteDocumento)},` : ''} a importância de <Text style={base.forte}>{formatarMoeda(total)}</Text>{' '}
         <Text style={[s.extenso, { color: COR.destaqueTexto }]}>({valorPorExtenso(total)})</Text>, referente {r.pagamentos.length > 1 ? 'aos pagamentos' : 'ao pagamento'} do pedido{' '}
         <Text style={base.forte}>{p.numero}</Text>: {referente}.

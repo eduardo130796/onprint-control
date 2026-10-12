@@ -9,7 +9,7 @@ import { categoriaPorCodigo } from './baixa'
 
 const incluir = {
   vendedor: { select: { id: true, nome: true } },
-  pedido: { select: { id: true, numero: true, status: true, statusFinanceiro: true, cliente: { select: { id: true, nome: true } } } },
+  pedido: { select: { id: true, numero: true, status: true, statusFinanceiro: true, cliente: { select: { id: true, nome: true, fantasia: true } } } },
 } satisfies Prisma.ComissaoInclude
 
 /** Comissões: prevista (pedido convertido) → liberada (pedido pago) → paga (lançada no financeiro). */
@@ -21,7 +21,7 @@ export function criarComissoesService(app: FastifyInstance) {
       const where: Prisma.ComissaoWhereInput = {
         ...(q.status ? { status: q.status } : {}),
         ...(q.vendedorId ? { vendedorId: q.vendedorId } : {}),
-        ...(texto ? { OR: [{ pedido: { numero: texto } }, { vendedor: { nome: texto } }, { pedido: { cliente: { nome: texto } } }] } : {}),
+        ...(texto ? { OR: [{ pedido: { numero: texto } }, { vendedor: { nome: texto } }, { pedido: { cliente: { nome: texto } } }, { pedido: { cliente: { fantasia: texto } } }] } : {}),
       }
       const pag = paginacao(q, ['createdAt', 'valor', 'liberadaEm'] as const, { campo: 'createdAt', direcao: 'desc' })
       const [total, data, porStatus] = await Promise.all([

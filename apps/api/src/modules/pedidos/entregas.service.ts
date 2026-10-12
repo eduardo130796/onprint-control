@@ -10,7 +10,7 @@ import type { ArquivosService } from '../arquivos/service'
 
 const incluir = {
   responsavel: { select: { id: true, nome: true } },
-  pedido: { select: { id: true, numero: true, status: true, vendedorId: true, cliente: { select: { id: true, nome: true } } } },
+  pedido: { select: { id: true, numero: true, status: true, vendedorId: true, cliente: { select: { id: true, nome: true, fantasia: true } } } },
 } satisfies Prisma.EntregaInclude
 
 /**
@@ -52,7 +52,7 @@ export function criarEntregasService(app: FastifyInstance, arquivos: ArquivosSer
         ...(q.de || q.ate
           ? { dataAgendada: { ...(q.de ? { gte: new Date(`${q.de}T00:00:00-03:00`) } : {}), ...(q.ate ? { lte: new Date(`${q.ate}T23:59:59-03:00`) } : {}) } }
           : {}),
-        ...(q.busca ? { OR: [{ pedido: { numero: { contains: q.busca, mode: 'insensitive' } } }, { pedido: { cliente: { nome: { contains: q.busca, mode: 'insensitive' } } } }] } : {}),
+        ...(q.busca ? { OR: [{ pedido: { numero: { contains: q.busca, mode: 'insensitive' } } }, { pedido: { cliente: { nome: { contains: q.busca, mode: 'insensitive' } } } }, { pedido: { cliente: { fantasia: { contains: q.busca, mode: 'insensitive' } } } }] } : {}),
       }
       const pag = paginacao(q, ['dataAgendada', 'createdAt'] as const, { campo: 'dataAgendada', direcao: 'asc' })
       const [total, data] = await prisma.$transaction([prisma.entrega.count({ where }), prisma.entrega.findMany({ where, ...pag, include: incluir })])

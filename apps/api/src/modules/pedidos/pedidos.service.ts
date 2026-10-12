@@ -46,7 +46,7 @@ export function criarPedidosService(app: FastifyInstance, aoCancelar: AoCancelar
         ...(q.prioridade ? { prioridade: q.prioridade } : {}),
         ...(q.clienteId ? { clienteId: q.clienteId } : {}),
         ...(q.atrasados === 'true' ? { dataPrevistaEntrega: { lt: hoje }, status: { notIn: ['pronto', 'em_entrega', 'entregue', 'cancelado'] } } : {}),
-        ...(texto ? { OR: [{ numero: texto }, { cliente: { nome: texto } }, { itens: { some: { descricao: texto } } }] } : {}),
+        ...(texto ? { OR: [{ numero: texto }, { cliente: { nome: texto } }, { cliente: { fantasia: texto } }, { itens: { some: { descricao: texto } } }] } : {}),
         // Kanban: entregues só dos últimos 7 dias, para a coluna não crescer para sempre
         ...(q.kanban === 'true' ? { NOT: { status: 'entregue', updatedAt: { lt: new Date(Date.now() - 7 * 86_400_000) } } } : {}),
       }

@@ -1,4 +1,4 @@
-import { formatarDataSimples, nomeParaSaudacao, preencherTemplate, type MensagemTemplate, type PedidoDetalhe } from '@onprint/shared'
+import { formatarDataSimples, nomeCliente, nomeParaSaudacao, preencherTemplate, type MensagemTemplate, type PedidoDetalhe } from '@onprint/shared'
 import { linkPublico } from '@/lib/empresaAtual'
 
 export function linkArte(token: string): string {
@@ -14,7 +14,7 @@ const template = (templates: MensagemTemplate[] | undefined, categoria: Mensagem
 /** Texto do WhatsApp com o link de aprovação da arte (template "Arte para aprovação"). */
 export function mensagemDaArte(pedido: PedidoDetalhe, token: string, templates: MensagemTemplate[] | undefined): string {
   return preencherTemplate(template(templates, 'arte_aprovacao') ?? PADRAO_ARTE, {
-    cliente_nome: nomeParaSaudacao(pedido.cliente.nome, pedido.clienteDocumento),
+    cliente_nome: nomeParaSaudacao(nomeCliente(pedido.cliente), pedido.clienteDocumento),
     numero_pedido: pedido.numero,
     link_aprovacao: linkArte(token),
     data_entrega: formatarDataSimples(pedido.dataPrevistaEntrega),
@@ -24,7 +24,7 @@ export function mensagemDaArte(pedido: PedidoDetalhe, token: string, templates: 
 /** Texto do WhatsApp avisando que o pedido está pronto (template "Pedido pronto"). */
 export function mensagemPedidoPronto(pedido: PedidoDetalhe, templates: MensagemTemplate[] | undefined): string {
   return preencherTemplate(template(templates, 'pedido_pronto') ?? PADRAO_PRONTO, {
-    cliente_nome: nomeParaSaudacao(pedido.cliente.nome, pedido.clienteDocumento),
+    cliente_nome: nomeParaSaudacao(nomeCliente(pedido.cliente), pedido.clienteDocumento),
     numero_pedido: pedido.numero,
     data_entrega: formatarDataSimples(pedido.dataPrevistaEntrega),
   })

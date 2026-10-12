@@ -257,6 +257,7 @@ model Arquivo {
   contasPagar         ContaPagar[]    @relation("ContaPagarAnexo")
   contasReceber       ContaReceber[]  @relation("ContaReceberAnexo")
   produtoImagens      ProdutoImagem[]
+  clientesFoto        Cliente[]       @relation("ClienteFoto")
 
   @@index([entidade, entidadeId])
   @@map("arquivos")
@@ -334,12 +335,14 @@ model Cliente {
   vendedorId    String?         @map("vendedor_id") @db.Uuid
   observacoes   String?
   tags          String[]        @default([])
+  fotoArquivoId String?         @map("foto_arquivo_id") @db.Uuid
   ativo         Boolean         @default(true)
   createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdBy     String?         @map("created_by") @db.Uuid
 
   vendedor      Usuario?               @relation("ClienteVendedor", fields: [vendedorId], references: [id], onDelete: Restrict)
+  foto          Arquivo?               @relation("ClienteFoto", fields: [fotoArquivoId], references: [id], onDelete: SetNull)
   enderecos     ClienteEndereco[]
   contatos      ClienteContato[]
   solicitacoes  SolicitacaoOrcamento[]
@@ -1856,9 +1859,18 @@ model Assinante {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nome      String
   /**
-   * Identificador curto e fixo, usado nos links públicos (/aprovar/{slug}/{token})
+   * Identificador curto, usado nos links públicos (/aprovar/{slug}/{token}) e no subdomínio da vitrine;
+   * a empresa pode trocar (Vitrine → Endereço da vitrine)
    */
   slug      String   @unique
+  /**
+   * Slugs usados antes da troca: links antigos (aprovação, vitrine, CNAME do domínio próprio) continuam valendo
+   */
+  slugsAnteriores String[]  @default([]) @map("slugs_anteriores")
+  /**
+   * Última troca do slug (limite de uma troca por dia)
+   */
+  slugAlteradoEm  DateTime? @map("slug_alterado_em") @db.Timestamptz(3)
   /**
    * Schema do PostgreSQL com os dados da empresa
    */
@@ -1884,6 +1896,7 @@ model Assinante {
   cobrancas    Cobranca[]
   cuponsUsados CupomUso[]
 
+  @@index([slugsAnteriores], type: Gin)
   @@map("assinantes")
 }
 

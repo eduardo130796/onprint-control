@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { SUBDOMINIOS_RESERVADOS as DO_CONTRATO } from '@onprint/shared'
-import { SUBDOMINIOS_RESERVADOS, dominioBaseVitrine, ehSiteGrafygo, pareceDominioProprio, slugDaVitrine } from './host'
+import { SUBDOMINIOS_RESERVADOS, dominioBaseVitrine, ehSiteGrafygo, enderecoNoSlugNovo, pareceDominioProprio, slugDaVitrine } from './host'
 
 describe('slugDaVitrine', () => {
   it('reconhece {slug}.localhost em desenvolvimento (com ou sem porta)', () => {
@@ -76,5 +76,18 @@ describe('ehSiteGrafygo', () => {
     expect(ehSiteGrafygo('app.grafygo.com.br', 'grafygo.com.br')).toBe(false)
     expect(ehSiteGrafygo('grafica-x.grafygo.com.br', 'grafygo.com.br')).toBe(false)
     expect(ehSiteGrafygo('localhost:5173', 'localhost')).toBe(false)
+  })
+})
+
+describe('enderecoNoSlugNovo', () => {
+  it('leva do subdomínio antigo ao novo, no mesmo caminho e porta', () => {
+    expect(enderecoNoSlugNovo('http://antigo.localhost:5173/produto/banner?q=1#topo', 'novo', 'localhost')).toBe('http://novo.localhost:5173/produto/banner?q=1#topo')
+    expect(enderecoNoSlugNovo('https://antigo.grafygo.com.br/', 'novo-nome', 'grafygo.com.br')).toBe('https://novo-nome.grafygo.com.br/')
+  })
+  it('não redireciona no mesmo nome, em domínio próprio nem para nome inválido', () => {
+    expect(enderecoNoSlugNovo('https://novo.grafygo.com.br/', 'novo', 'grafygo.com.br')).toBeNull()
+    expect(enderecoNoSlugNovo('https://www.suagrafica.com.br/', 'novo', 'grafygo.com.br')).toBeNull()
+    expect(enderecoNoSlugNovo('https://antigo.grafygo.com.br/', 'www', 'grafygo.com.br')).toBeNull()
+    expect(enderecoNoSlugNovo('https://antigo.grafygo.com.br/', 'a.b', 'grafygo.com.br')).toBeNull()
   })
 })

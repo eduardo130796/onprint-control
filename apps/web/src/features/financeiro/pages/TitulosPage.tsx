@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
-import { formatarDataSimples, formatarMoeda, type Titulo, type TitulosQuery } from '@onprint/shared'
+import { formatarDataSimples, formatarMoeda, nomeCliente, type Titulo, type TitulosQuery } from '@onprint/shared'
 import { titulosApi, type TipoTitulo } from '@/api/financeiro'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Can } from '@/components/shared/Can'
@@ -52,7 +52,7 @@ export function TitulosPage({ tipo }: { tipo: TipoTitulo }) {
           <div className="min-w-0">
             <p className="truncate font-medium">{t.descricao}</p>
             <p className="truncate text-xs text-texto-secundario">
-              {receber ? t.cliente?.nome : (t.fornecedor?.nome ?? 'Sem fornecedor')}
+              {receber ? t.cliente && nomeCliente(t.cliente) : (t.fornecedor?.nome ?? 'Sem fornecedor')}
               {t.categoria && ` · ${t.categoria.nome}`}
             </p>
           </div>
@@ -123,7 +123,7 @@ export function TitulosPage({ tipo }: { tipo: TipoTitulo }) {
           colunas: [
             { titulo: 'Vencimento', valor: (t) => formatarDataSimples(t.vencimento) },
             { titulo: 'Descrição', valor: (t) => t.descricao },
-            { titulo: receber ? 'Cliente' : 'Fornecedor', valor: (t) => (receber ? t.cliente?.nome : t.fornecedor?.nome) },
+            { titulo: receber ? 'Cliente' : 'Fornecedor', valor: (t) => (receber ? t.cliente && nomeCliente(t.cliente) : t.fornecedor?.nome) },
             { titulo: 'Categoria', valor: (t) => t.categoria?.nome },
             { titulo: 'Valor', valor: (t) => Number(t.valor).toFixed(2).replace('.', ',') },
             { titulo: 'Pago', valor: (t) => Number(t.valorPago).toFixed(2).replace('.', ',') },

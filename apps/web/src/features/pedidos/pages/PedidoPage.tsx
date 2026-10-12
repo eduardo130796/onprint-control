@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Ban, ChevronDown, Copy, FileDown, History, Loader2, Pencil, Printer, ReceiptText, Tags } from 'lucide-react'
 import { toast } from 'sonner'
-import { TIPO_ENTREGA_ROTULOS, formatarData, formatarDataSimples, formatarMoeda, saldoPedido } from '@onprint/shared'
+import { TIPO_ENTREGA_ROTULOS, formatarData, formatarDataSimples, formatarMoeda, nomeCliente, saldoPedido } from '@onprint/shared'
 import { pedidosApi } from '@/api/producao'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Anexos } from '@/components/shared/Anexos'
@@ -94,7 +94,7 @@ export function PedidoPage() {
             {pedido.atrasado && <SeloAtraso />}
             <SeloPrioridade prioridade={pedido.prioridade} />
             <Link to={`/clientes/${pedido.clienteId}`} className="text-marca-escuro hover:underline">
-              {pedido.cliente.nome}
+              {nomeCliente(pedido.cliente)}
             </Link>
             {pedido.orcamento && (
               <Link to={`/orcamentos/${pedido.orcamento.id}`} className="text-texto-secundario hover:underline">

@@ -3,6 +3,7 @@ import { Decimal, hojeISO } from '@onprint/shared'
 import type { TipoTitulo } from './baixa'
 
 const ref = { select: { id: true, nome: true } } as const
+const refCliente = { select: { id: true, nome: true, fantasia: true } } as const
 
 export const incluirComum = {
   formaPagamento: ref,
@@ -13,7 +14,7 @@ export const incluirComum = {
 
 export const incluirReceber = {
   ...incluirComum,
-  cliente: ref,
+  cliente: refCliente,
   pedido: { select: { id: true, numero: true, status: true } },
 } satisfies Prisma.ContaReceberInclude
 
@@ -67,7 +68,7 @@ export function whereTitulos(tipo: TipoTitulo, q: FiltroTitulos) {
       ? {
           ...(q.clienteId ? { clienteId: q.clienteId } : {}),
           ...(q.pedidoId ? { pedidoId: q.pedidoId } : {}),
-          ...(texto ? { OR: [{ descricao: texto }, { cliente: { nome: texto } }, { pedido: { numero: texto } }] } : {}),
+          ...(texto ? { OR: [{ descricao: texto }, { cliente: { nome: texto } }, { cliente: { fantasia: texto } }, { pedido: { numero: texto } }] } : {}),
         }
       : {
           ...(q.fornecedorId ? { fornecedorId: q.fornecedorId } : {}),

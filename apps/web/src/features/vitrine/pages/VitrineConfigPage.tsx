@@ -24,6 +24,7 @@ import { BannersVitrine } from '../components/BannersVitrine'
 import { CompartilharDialog } from '../components/CompartilharDialog'
 import { DominioProprio } from '../components/DominioProprio'
 import { EnderecoPublico } from '../components/EnderecoPublico'
+import { EnderecoVitrine } from '../components/EnderecoVitrine'
 import { Interruptor } from '../components/Interruptor'
 import { useVitrineConfig } from '../hooks'
 import { semProtocolo } from '../utils'
@@ -354,6 +355,7 @@ export function VitrineConfigPage() {
             <FormularioVitrine config={c} podeEditar={podeEditar} nomeEmpresa={nomeEmpresa} />
             <div className="order-first space-y-6 lg:order-none">
               <EnderecoPublico url={c.urlPublica} noAr={c.ativa && c.liberadaNoPlano} nomeEmpresa={(c.titulo || nomeEmpresa).trim()} />
+              <EnderecoVitrine podeEditar={pode('configuracoes', 'editar')} />
               <div className="grid grid-cols-2 gap-3">
                 <CartaoIndicador rotulo="Publicados" valor={c.produtosPublicados} icone={Eye} tom={c.produtosPublicados ? 'marca' : 'alerta'} link="/vitrine/produtos" compacto />
                 <CartaoIndicador rotulo="Banners" valor={`${c.banners.length}/${MAX_BANNERS_VITRINE}`} icone={Images} tom={c.banners.length ? 'marca' : 'neutro'} compacto />

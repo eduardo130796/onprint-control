@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import type { PrismaClient } from '@prisma/client'
-import { subdominioReservado } from '@onprint/shared'
+import { normalizarSlugEmpresa, subdominioReservado } from '@onprint/shared'
 import { semearEmpresa, type AdminInicial } from '../../prisma/seed/empresa'
 import { AppError } from '../core/AppError'
 import { criarAssinatura, planoPorCodigo, semearPlanos } from './assinaturas'
@@ -32,15 +32,16 @@ export interface DependenciasProvisionamento {
 
 /** "Gráfica São João Ltda." → "grafica-sao-joao-ltda" */
 export function gerarSlug(nome: string): string {
-  const slug = nome
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40)
-    .replace(/-+$/, '')
-  return slug || 'empresa'
+  return normalizarSlugEmpresa(nome) || 'empresa'
+}
+
+/** Ninguém usa o slug, nem como atual nem como anterior (os links antigos de outra empresa continuam dela) */
+export async function slugLivre(plataforma: PrismaClient, slug: string, excetoAssinanteId?: string): Promise<boolean> {
+  const dono = await plataforma.assinante.findFirst({
+    where: { OR: [{ slug }, { slugsAnteriores: { has: slug } }], ...(excetoAssinanteId ? { NOT: { id: excetoAssinanteId } } : {}) },
+    select: { id: true },
+  })
+  return !dono
 }
 
 /** O slug vira subdomínio da vitrine ({slug}.grafygo.com.br): www, app, api… ficam de fora (pula para -2). */
@@ -48,7 +49,7 @@ async function slugDisponivel(plataforma: PrismaClient, desejado: string): Promi
   for (let n = 1; n < 100; n++) {
     const slug = n === 1 ? desejado : `${desejado}-${n}`
     if (subdominioReservado(slug)) continue
-    if (!(await plataforma.assinante.findUnique({ where: { slug } }))) return slug
+    if (await slugLivre(plataforma, slug)) return slug
   }
   throw AppError.conflito('Não foi possível gerar um identificador para a empresa. Informe outro.')
 }

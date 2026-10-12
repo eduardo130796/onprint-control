@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, Textarea } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { EnderecoVitrine } from '@/features/vitrine/components/EnderecoVitrine'
 import { useAuth } from '@/hooks/useAuth'
 import { useConsultaCnpj } from '@/hooks/useConsultaCnpj'
 import { usePermission } from '@/hooks/usePermission'
@@ -228,8 +229,9 @@ export function EmpresaPage() {
       ) : (
         <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
           <EmpresaForm key={consulta.data.updatedAt} empresa={consulta.data} podeEditar={podeEditar} />
-          <div className="order-first lg:order-none">
+          <div className="order-first space-y-6 lg:order-none">
             <LogoCard empresa={consulta.data} podeEditar={podeEditar} />
+            <EnderecoVitrine podeEditar={podeEditar} />
           </div>
         </div>
       )}

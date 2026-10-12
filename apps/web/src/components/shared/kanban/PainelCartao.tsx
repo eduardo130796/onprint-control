@@ -8,6 +8,8 @@ interface PainelCartaoProps {
   onFechar: () => void
   titulo: ReactNode
   subtitulo?: ReactNode
+  /** Imagem ao lado do título (ex.: foto do cliente) */
+  imagem?: ReactNode
   /** Botões de ação rápida, logo abaixo do título */
   acoes?: ReactNode
   /** Barra fixa no pé do painel (ex.: botão principal) */
@@ -16,7 +18,7 @@ interface PainelCartaoProps {
 }
 
 /** Painel lateral (direita) aberto ao clicar num cartão do kanban: detalhes + ações rápidas. */
-export function PainelCartao({ aberto, onFechar, titulo, subtitulo, acoes, rodape, children }: PainelCartaoProps) {
+export function PainelCartao({ aberto, onFechar, titulo, subtitulo, imagem, acoes, rodape, children }: PainelCartaoProps) {
   return (
     <DialogPrimitive.Root open={aberto} onOpenChange={(v) => !v && onFechar()}>
       <DialogPrimitive.Portal>
@@ -26,6 +28,7 @@ export function PainelCartao({ aberto, onFechar, titulo, subtitulo, acoes, rodap
           className="fixed inset-y-0 right-0 z-50 flex h-full w-[30rem] max-w-[100vw] flex-col bg-card shadow-suave data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right"
         >
           <header className="flex items-start gap-3 border-b border-border px-5 pb-4 pt-5">
+            {imagem}
             <div className="min-w-0 flex-1">
               <DialogPrimitive.Title className="truncate text-lg font-semibold text-tinta">{titulo}</DialogPrimitive.Title>
               {subtitulo && <div className="mt-1 text-sm text-texto-secundario">{subtitulo}</div>}

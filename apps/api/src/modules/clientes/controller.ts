@@ -17,6 +17,8 @@ export function criarClientesController(service: ClientesService) {
       service.atualizar(id, dados, usuario(request)),
     desativar: (request: Req, id: string) => service.alterarAtivo(id, false, usuario(request)),
     reativar: (request: Req, id: string) => service.alterarAtivo(id, true, usuario(request)),
+    trocarFoto: (request: Req, id: string) => service.trocarFoto(request, id, usuario(request)),
+    removerFoto: (request: Req, id: string) => service.removerFoto(id, usuario(request)),
 
     criarEndereco: (request: Req, clienteId: string, dados: z.output<typeof enderecoSchema>) =>
       service.criarEndereco(clienteId, dados, usuario(request)),

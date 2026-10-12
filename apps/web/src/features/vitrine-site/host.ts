@@ -64,3 +64,16 @@ export function slugDaVitrine(host: string, base: string): string | null {
   if (!slug || slug.includes('.') || !SLUG.test(slug) || RESERVADOS.has(slug)) return null
   return slug
 }
+
+/**
+ * A gráfica trocou o nome do endereço: quem abriu o subdomínio antigo vai para o novo, no mesmo caminho
+ * (ex.: http://antigo.localhost:5173/produto/x?y → http://novo.localhost:5173/produto/x?y). Null se não for o caso
+ * (mesmo nome, domínio próprio ou host que não é o subdomínio antigo).
+ */
+export function enderecoNoSlugNovo(href: string, slugNovo: string, base: string): string | null {
+  const url = new URL(href)
+  const slugAberto = slugDaVitrine(url.host, base)
+  if (!slugAberto || slugAberto === slugNovo || !SLUG.test(slugNovo) || RESERVADOS.has(slugNovo)) return null
+  url.hostname = `${slugNovo}.${dominioBaseVitrine(base)}`
+  return url.toString()
+}

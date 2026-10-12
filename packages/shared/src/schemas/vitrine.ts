@@ -319,6 +319,64 @@ export function subdominioReservado(slug: string): boolean {
   return (SUBDOMINIOS_RESERVADOS as readonly string[]).includes(slug.trim().toLowerCase())
 }
 
+/** Tamanho do nome no link da vitrine ({slug}.grafygo.com.br) */
+export const SLUG_EMPRESA_MIN = 3
+export const SLUG_EMPRESA_MAX = 40
+const SLUG_EMPRESA = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+
+/**
+ * Texto livre → nome para o link: "Gráfica São João Ltda." → "grafica-sao-joao-ltda" (sem acento, minúsculo,
+ * hífen no lugar do resto, até 40 letras). `digitando` mantém o hífen do fim (a pessoa ainda vai continuar).
+ */
+export function normalizarSlugEmpresa(texto: string, { digitando = false } = {}): string {
+  const slug = texto
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+/, '')
+    .slice(0, SLUG_EMPRESA_MAX)
+  return digitando ? slug : slug.replace(/-+$/, '')
+}
+
+/** Nome escolhido para o link da vitrine (o subdomínio da empresa) */
+export const slugEmpresaSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(SLUG_EMPRESA_MIN, `Use pelo menos ${SLUG_EMPRESA_MIN} caracteres.`)
+  .max(SLUG_EMPRESA_MAX, `Use até ${SLUG_EMPRESA_MAX} caracteres.`)
+  .regex(SLUG_EMPRESA, 'Use só letras sem acento, números e hífen (sem hífen no começo, no fim ou repetido).')
+  .refine((s) => !subdominioReservado(s), 'Este nome é reservado. Escolha outro.')
+
+/** PUT /empresa/link-vitrine */
+export const linkVitrineSchema = z.object({ slug: slugEmpresaSchema })
+export type LinkVitrineInput = z.input<typeof linkVitrineSchema>
+
+/** GET /empresa/link-vitrine/disponivel?slug= */
+export interface DisponibilidadeLinkVitrine {
+  slug: string
+  disponivel: boolean
+  /** Por que não pode (formato, reservado, já usado); null quando disponível */
+  motivo: string | null
+  /** Como o endereço vai ficar */
+  url: string
+}
+
+/** GET e PUT /empresa/link-vitrine: o endereço da vitrine no subdomínio da GrafyGo */
+export interface LinkVitrine {
+  slug: string
+  /** https://{slug}.grafygo.com.br (em desenvolvimento, http://{slug}.localhost:5173) */
+  url: string
+  /** O que vem antes e depois do nome no endereço ("https://" e ".grafygo.com.br"), para o campo de edição */
+  prefixo: string
+  sufixo: string
+  /** Nomes anteriores: continuam abrindo a vitrine e os links já enviados */
+  anteriores: string[]
+  /** Uma troca por dia: a partir de quando pode trocar de novo (null = já pode) */
+  trocaLiberadaEm: string | null
+}
+
 // ─── Catálogo em PDF enviado por link ───────────────────────────────────────
 
 /** Quantos catálogos em PDF cada empresa guarda (os mais antigos saem) */

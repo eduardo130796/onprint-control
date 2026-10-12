@@ -163,7 +163,7 @@ export type VariavelTemplate = (typeof VARIAVEIS_TEMPLATE)[number]
 
 // ─── Arquivos ───────────────────────────────────────────────────────────────
 
-export const CATEGORIAS_ARQUIVO = ['arte', 'anexo', 'comprovante', 'logo', 'imagem_produto', 'banner_vitrine', 'catalogo_vitrine'] as const
+export const CATEGORIAS_ARQUIVO = ['arte', 'anexo', 'comprovante', 'logo', 'imagem_produto', 'banner_vitrine', 'catalogo_vitrine', 'foto_cliente'] as const
 export type CategoriaArquivo = (typeof CATEGORIAS_ARQUIVO)[number]
 
 /** Entidades que podem ter arquivos vinculados, e o módulo de permissão de cada uma. */
@@ -184,6 +184,9 @@ export const EXTENSOES_PERMITIDAS = [
   'pdf', 'ai', 'cdr', 'psd', 'eps', 'svg', 'png', 'jpg', 'jpeg', 'tif', 'tiff', 'zip',
 ] as const
 export const EXTENSOES_IMAGEM = ['png', 'jpg', 'jpeg', 'svg'] as const
+/** Foto/imagem do cliente: só bitmap (vira miniatura no servidor), até 5 MB */
+export const EXTENSOES_FOTO_CLIENTE = ['png', 'jpg', 'jpeg'] as const
+export const TAMANHO_MAX_FOTO_CLIENTE_MB = 5
 
 export const MODULO_ROTULOS: Record<Modulo, string> = {
   dashboard: 'Dashboard',

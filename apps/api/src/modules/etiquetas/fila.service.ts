@@ -1,6 +1,6 @@
 import { Prisma, type PrismaClient } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
-import type { EtiquetaFilaItem } from '@onprint/shared'
+import { nomeCliente, type EtiquetaFilaItem } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 
 type Cliente = PrismaClient | Prisma.TransactionClient
@@ -34,7 +34,7 @@ export function criarFilaEtiquetasService(app: FastifyInstance) {
         take: 500,
         include: {
           ordemProducao: { select: { numero: true, quantidade: true, etapaAtual: true, pedidoItem: { select: { descricao: true } } } },
-          pedido: { select: { numero: true, cliente: { select: { nome: true } } } },
+          pedido: { select: { numero: true, cliente: { select: { nome: true, fantasia: true } } } },
         },
       })
       return linhas.map((l) => ({
@@ -44,7 +44,7 @@ export function criarFilaEtiquetasService(app: FastifyInstance) {
         criadaEm: l.criadaEm.toISOString(),
         automatica: l.automatica,
         op: { numero: l.ordemProducao.numero, quantidade: l.ordemProducao.quantidade.toString(), etapaAtual: l.ordemProducao.etapaAtual },
-        pedido: { numero: l.pedido.numero, cliente: l.pedido.cliente.nome },
+        pedido: { numero: l.pedido.numero, cliente: nomeCliente(l.pedido.cliente) },
         item: l.ordemProducao.pedidoItem.descricao,
       }))
     },

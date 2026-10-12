@@ -1,11 +1,19 @@
 import type { Prisma } from '@prisma/client'
-import type { FastifyInstance } from 'fastify'
-import { somenteDigitos, type clienteSchema, type clientesQuerySchema } from '@onprint/shared'
+import type { FastifyInstance, FastifyRequest } from 'fastify'
+import {
+  EXTENSOES_FOTO_CLIENTE,
+  TAMANHO_MAX_FOTO_CLIENTE_MB,
+  somenteDigitos,
+  type clienteSchema,
+  type clientesQuerySchema,
+} from '@onprint/shared'
 import type { z } from 'zod'
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
 import { filtroAtivo, paginacao, paginado } from '../../core/paginacao'
 import { comConflitoAmigavel } from '../../core/prisma-erros'
+import { criarArquivosService } from '../arquivos/service'
+import { urlMiniaturaLogada } from '../vitrine/imagens'
 import { criarSubcadastrosCliente } from './subcadastros'
 
 type Dados = z.output<typeof clienteSchema>
@@ -35,7 +43,13 @@ function filtroBusca(busca?: string): Prisma.ClienteWhereInput {
 }
 
 export function criarClientesService(app: FastifyInstance) {
-  const { prisma } = app
+  const { prisma, storage } = app
+  const arquivos = criarArquivosService(app)
+
+  /** Miniatura da foto (WebP 480 px, link assinado): a lista carrega só imagens pequenas e sem pedir URL uma a uma */
+  function comFoto<T extends { fotoArquivoId: string | null }>(cliente: T) {
+    return { ...cliente, fotoUrl: cliente.fotoArquivoId ? urlMiniaturaLogada(storage, cliente.fotoArquivoId) : null }
+  }
 
   async function validarVendedor(vendedorId: string | null | undefined) {
     if (!vendedorId) return
@@ -62,7 +76,7 @@ export function criarClientesService(app: FastifyInstance) {
         prisma.cliente.count({ where }),
         prisma.cliente.findMany({ where, ...pag, include: incluirVendedor }),
       ])
-      return paginado(data, total, q)
+      return paginado(data.map(comFoto), total, q)
     },
 
     async obter(id: string) {
@@ -75,7 +89,7 @@ export function criarClientesService(app: FastifyInstance) {
         },
       })
       if (!cliente) throw AppError.naoEncontrado('Cliente não encontrado.')
-      return cliente
+      return comFoto(cliente)
     },
 
     async criar(dados: Dados, usuarioId: string) {
@@ -85,7 +99,7 @@ export function criarClientesService(app: FastifyInstance) {
           prisma.$transaction(async (tx) => {
             const cliente = await tx.cliente.create({ data: { ...dados, createdBy: usuarioId }, include: incluirVendedor })
             await registrarAuditoria(tx, { tabela: 'clientes', registroId: cliente.id, acao: 'criar', depois: cliente, usuarioId })
-            return cliente
+            return comFoto(cliente)
           }),
         CONFLITOS,
       )
@@ -99,7 +113,7 @@ export function criarClientesService(app: FastifyInstance) {
           prisma.$transaction(async (tx) => {
             const cliente = await tx.cliente.update({ where: { id }, data: dados, include: incluirVendedor })
             await registrarAuditoria(tx, { tabela: 'clientes', registroId: id, acao: 'editar', antes, depois: cliente, usuarioId })
-            return cliente
+            return comFoto(cliente)
           }),
         CONFLITOS,
       )
@@ -118,8 +132,32 @@ export function criarClientesService(app: FastifyInstance) {
           depois: cliente,
           usuarioId,
         })
+        return comFoto(cliente)
+      })
+    },
+
+    /** Foto/imagem do cliente (PNG ou JPG, até 5 MB): troca a atual, que é apagada. */
+    async trocarFoto(request: FastifyRequest, id: string, usuarioId: string) {
+      const antes = await obterBase(id)
+      const arquivo = await arquivos.receberUpload(
+        request,
+        { entidade: 'cliente', entidadeId: id, categoria: 'foto_cliente', extensoes: EXTENSOES_FOTO_CLIENTE, tamanhoMaxMb: TAMANHO_MAX_FOTO_CLIENTE_MB },
+        usuarioId,
+      )
+      const cliente = await prisma.$transaction(async (tx) => {
+        const cliente = await tx.cliente.update({ where: { id }, data: { fotoArquivoId: arquivo.id }, include: incluirVendedor })
+        await registrarAuditoria(tx, { tabela: 'clientes', registroId: id, acao: 'editar', antes, depois: cliente, usuarioId })
         return cliente
       })
+      if (antes.fotoArquivoId) await arquivos.remover(antes.fotoArquivoId, usuarioId)
+      return comFoto(cliente)
+    },
+
+    async removerFoto(id: string, usuarioId: string) {
+      const antes = await obterBase(id)
+      // Apagar o arquivo limpa o campo do cliente (e as miniaturas geradas)
+      if (antes.fotoArquivoId) await arquivos.remover(antes.fotoArquivoId, usuarioId)
+      return comFoto(await prisma.cliente.findUniqueOrThrow({ where: { id }, include: incluirVendedor }))
     },
 
     ...criarSubcadastrosCliente(prisma, obterBase),

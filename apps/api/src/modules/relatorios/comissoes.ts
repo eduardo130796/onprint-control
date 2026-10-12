@@ -9,7 +9,7 @@ export async function relatorioComissoes({ prisma, de, ate }: Contexto, visao: s
 
   if (visao === 'detalhe') {
     const linhas = await prisma.$queryRaw<Record<string, unknown>[]>(Prisma.sql`
-      SELECT p.numero AS pedido, cl.nome AS cliente, u.nome AS vendedor, c.base, c.percentual, c.valor,
+      SELECT p.numero AS pedido, COALESCE(NULLIF(cl.fantasia, ''), cl.nome) AS cliente, u.nome AS vendedor, c.base, c.percentual, c.valor,
              CASE c.status WHEN 'prevista' THEN 'Prevista' WHEN 'liberada' THEN 'Liberada' ELSE 'Paga' END AS situacao,
              (c.liberada_em AT TIME ZONE 'America/Sao_Paulo')::date AS liberada_em, (c.paga_em AT TIME ZONE 'America/Sao_Paulo')::date AS paga_em
       FROM comissoes c JOIN pedidos p ON p.id = c.pedido_id JOIN clientes cl ON cl.id = p.cliente_id JOIN usuarios u ON u.id = c.vendedor_id

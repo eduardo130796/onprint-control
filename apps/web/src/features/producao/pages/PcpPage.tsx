@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, Clock, Cpu, Factory } from 'lucide-react'
-import { formatarDataSimples, type OrdemProducao } from '@onprint/shared'
+import { formatarDataSimples, nomeCliente, type OrdemProducao } from '@onprint/shared'
 import { pcpApi } from '@/api/producao'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -116,7 +116,7 @@ export function PcpPage() {
                     {op.numero}
                   </Link>
                   <span className="min-w-0 flex-1 truncate">
-                    {op.pedido.cliente.nome} · {op.item.descricao}
+                    {nomeCliente(op.pedido.cliente)} · {op.item.descricao}
                   </span>
                   <StatusBadge entidade="producao" codigo={op.etapaAtual} />
                   <SeloPrioridade prioridade={op.prioridade} />

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
-import { formatarData, formatarMoeda, hojeISO, type Comissao, type StatusComissao } from '@onprint/shared'
+import { formatarData, formatarMoeda, hojeISO, nomeCliente, type Comissao, type StatusComissao } from '@onprint/shared'
 import { financeiroApi } from '@/api/financeiro'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Can } from '@/components/shared/Can'
@@ -125,7 +125,7 @@ export function ComissoesPage() {
             <Link to={`/pedidos/${c.pedido.id}?aba=financeiro`} className="font-mono text-xs font-semibold text-tinta hover:underline">
               {c.pedido.numero}
             </Link>
-            <p className="truncate text-xs text-texto-secundario">{c.pedido.cliente.nome}</p>
+            <p className="truncate text-xs text-texto-secundario">{nomeCliente(c.pedido.cliente)}</p>
           </div>
         ),
       },

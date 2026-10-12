@@ -8,12 +8,14 @@ import {
   SITUACOES_CLIENTE,
   formatarCpfCnpj,
   formatarTelefone,
+  nomeCliente,
   type Cliente,
   type SituacaoCliente,
 } from '@onprint/shared'
 import { clientesApi } from '@/api/cadastros'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { AcaoIcone } from '@/components/shared/AcaoIcone'
+import { AvatarCliente } from '@/components/shared/AvatarCliente'
 import { Can } from '@/components/shared/Can'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { buscarTodasPaginas } from '@/lib/paginacao'
@@ -52,9 +54,10 @@ export function ClientesPage() {
         header: 'Cliente',
         meta: { ordenavel: 'nome' },
         cell: ({ row: { original: c } }) => (
-          <div className="min-w-0">
-            <p className="truncate font-medium text-texto">{c.nome}</p>
-            {c.fantasia && <p className="truncate text-xs text-texto-secundario">{c.fantasia}</p>}
+          // Fora do cadastro o cliente aparece pelo nome fantasia (a busca encontra também pela razão social)
+          <div className="flex min-w-0 items-center gap-3">
+            <AvatarCliente cliente={c} tamanho="sm" />
+            <p className="truncate font-medium text-texto">{nomeCliente(c)}</p>
           </div>
         ),
       },
@@ -163,7 +166,7 @@ export function ClientesPage() {
               clientesApi.listar({ ...lista.params, page, pageSize, situacao: lista.filtros.situacao as SituacaoCliente | undefined, ativo: lista.filtros.ativo as FiltroAtivo }),
             ),
           colunas: [
-            { titulo: 'Nome', valor: (c) => c.nome },
+            { titulo: 'Nome / razão social', valor: (c) => c.nome },
             { titulo: 'Fantasia', valor: (c) => c.fantasia },
             { titulo: 'CPF/CNPJ', valor: (c) => formatarCpfCnpj(c.cpfCnpj) },
             { titulo: 'WhatsApp', valor: (c) => formatarTelefone(c.whatsapp) },

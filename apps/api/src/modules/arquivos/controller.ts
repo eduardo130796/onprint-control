@@ -59,6 +59,7 @@ export function criarArquivosController(app: FastifyInstance, service: ArquivosS
       if (query.entidade === 'empresa' || !service.categoriaValida(query.categoria) || query.categoria === 'logo') {
         throw AppError.regraNegocio('Use a tela de Dados da empresa para enviar o logo.')
       }
+      if (query.categoria === 'foto_cliente') throw AppError.regraNegocio('Envie a foto pelo cadastro do cliente.')
       await verificarAcesso(request, query, true)
       return service.receberUpload(
         request,

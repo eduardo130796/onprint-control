@@ -9,7 +9,7 @@ import { variantesDominio } from '../modules/vitrine/regras'
 export interface RegistroEmpresas {
   /** Empresa ativa pelo id (com cache curto); null se não existe ou foi desativada. */
   porId(id: string | undefined): Promise<EmpresaAtual | null>
-  /** Empresa ativa pelo slug dos links públicos. */
+  /** Empresa ativa pelo slug dos links públicos (o atual ou um anterior; `slug` do resultado é sempre o atual). */
   porSlug(slug: string): Promise<EmpresaAtual | null>
   /** Domínio próprio da vitrine (com ou sem "www."), verificado ou não */
   porDominio(host: string): Promise<EmpresaAtual | null>
@@ -88,7 +88,9 @@ export const prismaPlugin = fp(async (app) => {
   async function buscar(chave: string, where: { id: string } | { slug: string } | { dominioVitrine: string }) {
     const guardado = cache.get(chave)
     if (guardado && guardado.expira > Date.now()) return guardado.empresa
-    const a = await plataforma.assinante.findUnique({ where, include: comAssinatura })
+    let a = await plataforma.assinante.findUnique({ where, include: comAssinatura })
+    // Slug trocado: o nome antigo continua levando à empresa (links já enviados, vitrine, CNAME do domínio próprio)
+    if (!a && 'slug' in where) a = await plataforma.assinante.findFirst({ where: { slugsAnteriores: { has: where.slug } }, include: comAssinatura })
     const empresa = a?.ativo ? paraContexto(a) : null
     cache.delete(chave)
     if (empresa && CACHE_MS > 0) {

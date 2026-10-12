@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { BookOpen, ExternalLink, FilePlus2, MessageCircle } from 'lucide-react'
-import { formatarCpfCnpj, formatarDataSimples, formatarMoeda, formatarTelefone, type Cliente } from '@onprint/shared'
+import { formatarCpfCnpj, formatarDataSimples, formatarMoeda, formatarTelefone, nomeCliente, type Cliente } from '@onprint/shared'
 import { titulosApi } from '@/api/financeiro'
 import { pedidosApi } from '@/api/producao'
+import { AvatarCliente } from '@/components/shared/AvatarCliente'
 import { EstadoErro } from '@/components/shared/EstadoErro'
 import { AcaoPainel, DadoPainel, PainelCartao } from '@/components/shared/kanban/PainelCartao'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -54,10 +55,12 @@ export function PainelCliente({ cliente: resumo, onFechar }: { cliente: Cliente;
     <PainelCartao
       aberto
       onFechar={onFechar}
-      titulo={c.nome}
+      imagem={<AvatarCliente cliente={c} />}
+      titulo={nomeCliente(c)}
       subtitulo={
         <span className="flex flex-wrap items-center gap-2">
-          {c.fantasia && <span>{c.fantasia}</span>}
+          {/* Razão social só como dado legal, junto do CNPJ */}
+          {c.fantasia?.trim() && c.cpfCnpj && <span className="min-w-0 truncate">{c.nome}</span>}
           {c.cpfCnpj && <span className="font-mono text-xs">{formatarCpfCnpj(c.cpfCnpj)}</span>}
           <StatusBadge entidade="cliente" codigo={c.situacao} className="text-[0.6875rem]" />
         </span>

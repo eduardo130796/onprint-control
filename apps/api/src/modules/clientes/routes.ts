@@ -33,6 +33,14 @@ export const clientesRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post('/:id/reativar', { ...pode('editar'), schema: { tags, summary: 'Reativa cliente', params: idParamSchema } }, (req) =>
     c.reativar(req, req.params.id),
   )
+  app.post(
+    '/:id/foto',
+    { ...pode('editar'), schema: { tags, summary: 'Envia a foto/imagem do cliente (multipart, PNG/JPG até 5 MB)', params: idParamSchema, consumes: ['multipart/form-data'] } },
+    (req) => c.trocarFoto(req, req.params.id),
+  )
+  app.delete('/:id/foto', { ...pode('editar'), schema: { tags, summary: 'Remove a foto do cliente', params: idParamSchema } }, (req) =>
+    c.removerFoto(req, req.params.id),
+  )
 
   // Endereços
   app.post(

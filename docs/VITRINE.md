@@ -14,6 +14,10 @@ assinatura (`modulosExtras`).
 ## 1. Endereço: subdomínio por gráfica
 
 - Site em `https://{slug}.{DOMINIO_VITRINE}` (ex.: `vitrine-cupom.grafygo.com.br`). `slug` = `plataforma.Assinante.slug`.
+- **Endereço editável:** a gráfica troca o slug em Vitrine → Configurar (ou Configurações → Empresa), no máximo uma
+  vez por dia (voltar ao anterior é sempre permitido). Os slugs antigos ficam em `Assinante.slugsAnteriores` (até 10)
+  e continuam valendo: links de aprovação, API pública, `vitrine-permitida` (domínio próprio com CNAME antigo) e o
+  subdomínio antigo, que redireciona para o novo. Nenhuma outra empresa pode usar um slug antigo de outra.
 - Subdomínios reservados (nunca são vitrine): `www`, `app`, `api`, `admin`, `plataforma`, `painel`, `mail`, `smtp`,
   `ftp`, `status`, `blog`, `ajuda`, `suporte`, `docs`, `cdn`, `static`, `assets`. A criação de slug passa a recusá-los.
 - **Desenvolvimento:** `http://{slug}.localhost:5173` (o Chrome resolve `*.localhost` para 127.0.0.1). O Vite aceita

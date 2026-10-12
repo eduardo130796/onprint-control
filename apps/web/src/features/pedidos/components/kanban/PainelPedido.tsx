@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CircleDollarSign, ExternalLink, Factory, ImageOff, Pencil, Printer, ReceiptText, Tags, User, Wallet } from 'lucide-react'
-import { TIPO_ENTREGA_ROTULOS, formatarDataSimples, formatarMoeda, saldoPedido, type Pedido } from '@onprint/shared'
+import { TIPO_ENTREGA_ROTULOS, formatarDataSimples, formatarMoeda, nomeCliente, saldoPedido, type Pedido } from '@onprint/shared'
 import { EstadoErro } from '@/components/shared/EstadoErro'
 import { AcaoPainel, DadoPainel, PainelCartao } from '@/components/shared/kanban/PainelCartao'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -40,7 +40,7 @@ export function PainelPedido({ pedido: resumo, onFechar }: { pedido: Pedido; onF
       <PainelCartao
         aberto
         onFechar={onFechar}
-        titulo={`${resumo.numero} · ${resumo.cliente.nome}`}
+        titulo={`${resumo.numero} · ${nomeCliente(resumo.cliente)}`}
         subtitulo={
           <span className="flex flex-wrap items-center gap-2">
             <StatusBadge entidade="pedido" codigo={resumo.status} />

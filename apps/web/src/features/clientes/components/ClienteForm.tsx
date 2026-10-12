@@ -1,22 +1,25 @@
 import { useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, MapPin, Save, X } from 'lucide-react'
+import { Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   ORIGENS_CLIENTE,
   ORIGEM_ROTULOS,
   SITUACOES_CLIENTE,
   clienteSchema,
-  formatarCep,
+  enderecoSchema,
   type Cliente,
   type ClienteDados,
   type ClienteInput,
+  type DadosCnpj,
+  type EnderecoInput,
 } from '@onprint/shared'
 import { clientesApi } from '@/api/cadastros'
 import { AvisoReceita, type ConsultaReceita } from '@/components/shared/AvisoReceita'
 import { BotaoBuscarCnpj } from '@/components/shared/BotaoBuscarCnpj'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
+import { CamposEndereco } from '@/components/shared/CamposEndereco'
 import { CpfCnpjInput, MoneyInput, PhoneInput } from '@/components/shared/inputs'
 import { useStatusConfig } from '@/hooks/useStatusConfig'
 import { TagsInput } from '@/components/shared/TagsInput'
@@ -26,7 +29,7 @@ import { Select, Textarea } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
 import { useConsultaCnpj } from '@/hooks/useConsultaCnpj'
 import { usePermission } from '@/hooks/usePermission'
-import { enderecoPrincipalDaReceita, type EnderecoReceita } from '@/lib/consultas'
+import { candidatosEndereco } from '@/lib/consultas'
 import { decimalParaInput, mascaraCpfCnpj, mascaraTelefone } from '@/lib/mascaras'
 import { useMutacaoClientes, useVendedores } from '../hooks'
 
@@ -49,25 +52,10 @@ function valoresIniciais(c?: Cliente): ClienteInput {
   }
 }
 
-function PreviaEndereco({ endereco, onDescartar }: { endereco: EnderecoReceita; onDescartar: () => void }) {
-  const rua = [endereco.logradouro, endereco.numero, endereco.complemento].filter(Boolean).join(', ')
-  const cidade = [endereco.bairro, `${endereco.cidade}/${endereco.uf}`].filter(Boolean).join(' · ')
-  return (
-    <div className="flex flex-wrap items-start gap-3 rounded-2xl border border-dashed border-marca/60 bg-marca-suave/40 p-4 text-sm md:col-span-6">
-      <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-marca-escuro" aria-hidden />
-      {/* No celular o texto ocupa a linha toda e o "Descartar" desce */}
-      <div className="min-w-0 flex-1 basis-56">
-        <p className="font-medium text-tinta">Endereço encontrado na Receita (será salvo como principal)</p>
-        <p className="mt-1 break-words text-tinta">{rua}</p>
-        <p className="text-texto-secundario">{cidade}</p>
-        {endereco.cep && <p className="text-texto-secundario">CEP {formatarCep(endereco.cep)}</p>}
-      </div>
-      <Button type="button" variant="ghost" size="sm" className="ml-auto shrink-0" onClick={onDescartar}>
-        <X /> Descartar
-      </Button>
-    </div>
-  )
-}
+const ENDERECO_VAZIO: EnderecoInput = { tipo: 'principal', cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '', referencia: '' }
+
+/** O bloco de endereço foi usado (o CEP sozinho, sem rua, ainda conta: a validação pede o resto) */
+const enderecoUsado = (e: EnderecoInput) => [e.cep, e.logradouro, e.numero, e.complemento, e.bairro, e.cidade].some((v) => String(v ?? '').trim() !== '')
 
 interface ClienteFormProps {
   cliente?: Cliente
@@ -85,16 +73,18 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
   const { errors, isDirty } = form.formState
   const tipo = form.watch('tipoPessoa')
 
-  // Cliente novo (ou ainda sem endereço): o endereço da Receita fica guardado e vira o principal depois de salvar
-  const [enderecoReceita, setEnderecoReceita] = useState<EnderecoReceita | null>(null)
+  // Cliente novo (ou ainda sem endereço): endereço principal editável aqui mesmo, digitado ou vindo da Receita
+  const comEndereco = !cliente || cliente.enderecos.length === 0
+  const formEndereco = useForm<EnderecoInput>({ resolver: zodResolver(enderecoSchema), defaultValues: ENDERECO_VAZIO })
+  const [enderecoDaReceita, setEnderecoDaReceita] = useState(false)
   const [daReceita, setDaReceita] = useState<ConsultaReceita | null>(null)
-  // Endereço da Receita salvo junto, antes de a lista de clientes ser recarregada
-  const salvar = useMutacaoClientes(async (dados: ClienteDados) => {
+  // Endereço salvo junto, antes de a lista de clientes ser recarregada
+  const salvar = useMutacaoClientes(async ({ dados, endereco }: { dados: ClienteDados; endereco: EnderecoInput | null }) => {
     const salvo = await (cliente ? clientesApi.atualizar(cliente.id, dados) : clientesApi.criar(dados))
     let enderecoFalhou = false
-    if (enderecoReceita) {
+    if (endereco) {
       try {
-        await clientesApi.salvarEndereco(salvo.id, enderecoReceita)
+        await clientesApi.salvarEndereco(salvo.id, endereco)
       } catch {
         enderecoFalhou = true
       }
@@ -110,18 +100,29 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
     },
     aoPreencher: (dados, preenchidos) => setDaReceita({ dados, preenchidos }),
     aoReceberEndereco: (e) => {
-      if (cliente && cliente.enderecos.length > 0) return false
-      const endereco = enderecoPrincipalDaReceita(e)
-      setEnderecoReceita(endereco)
-      return Boolean(endereco)
+      if (!comEndereco) return false
+      // Só com o bloco vazio (nunca mistura com o que a pessoa já digitou)
+      const preencher = candidatosEndereco({ endereco: e } as DadosCnpj, formEndereco.getValues())
+      for (const c of preencher) formEndereco.setValue(c.campo as keyof EnderecoInput, c.valor, { shouldDirty: true })
+      if (preencher.length) setEnderecoDaReceita(true)
+      return preencher.length > 0
     },
   })
 
   const onSubmit = form.handleSubmit(async (dados) => {
+    let endereco: EnderecoInput | null = null
+    if (comEndereco && enderecoUsado(formEndereco.getValues())) {
+      if (!(await formEndereco.trigger())) {
+        toast.error('Confira o endereço', { description: 'Complete rua, cidade e UF, ou apague o endereço para cadastrar depois.' })
+        return
+      }
+      endereco = formEndereco.getValues()
+    }
     try {
-      const { salvo, enderecoFalhou } = await salvar.mutateAsync(dados)
+      const { salvo, enderecoFalhou } = await salvar.mutateAsync({ dados, endereco })
       if (enderecoFalhou) toast.warning('Cliente salvo, mas o endereço não.', { description: 'Adicione o endereço na aba Endereços.' })
-      setEnderecoReceita(null)
+      formEndereco.reset(ENDERECO_VAZIO)
+      setEnderecoDaReceita(false)
       setDaReceita(null)
       form.reset(valoresIniciais(salvo))
       toast.success(cliente ? 'Cliente atualizado.' : 'Cliente cadastrado.')
@@ -175,9 +176,24 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
               </CampoFormulario>
             </div>
             {daReceita && <AvisoReceita consulta={daReceita} onFechar={() => setDaReceita(null)} className="md:col-span-6" />}
-            {enderecoReceita && <PreviaEndereco endereco={enderecoReceita} onDescartar={() => setEnderecoReceita(null)} />}
           </CardContent>
         </Card>
+
+        {comEndereco && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Endereço principal</CardTitle>
+              <p className="text-sm text-texto-secundario">
+                {enderecoDaReceita
+                  ? 'Veio da Receita Federal: confira e ajuste antes de salvar.'
+                  : 'Opcional. Digite o CEP para buscar a rua; outros endereços (entrega, cobrança) ficam na aba Endereços.'}
+              </p>
+            </CardHeader>
+            <CardContent>
+              <CamposEndereco prefixo="cli-end" register={formEndereco.register} errors={formEndereco.formState.errors} setValue={formEndereco.setValue} />
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
@@ -254,7 +270,7 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
 
         {podeSalvar && (
           <div className="flex justify-end">
-            <Button type="submit" disabled={salvar.isPending || (Boolean(cliente) && !isDirty && !enderecoReceita)}>
+            <Button type="submit" disabled={salvar.isPending || (Boolean(cliente) && !isDirty && !formEndereco.formState.isDirty)}>
               {salvar.isPending ? <Loader2 className="animate-spin" /> : <Save />}
               {cliente ? 'Salvar alterações' : 'Cadastrar cliente'}
             </Button>

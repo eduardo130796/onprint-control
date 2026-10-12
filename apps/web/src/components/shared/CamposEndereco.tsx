@@ -58,7 +58,7 @@ export function CamposEndereco({ prefixo, register, errors, setValue }: CamposEn
         </CampoFormulario>
       </div>
       <div className="md:col-span-7">
-        <CampoFormulario id={id('logradouro')} rotulo="Logradouro">
+        <CampoFormulario id={id('logradouro')} rotulo="Logradouro" erro={erro(errors, 'logradouro')}>
           <Input id={id('logradouro')} {...register('logradouro')} />
         </CampoFormulario>
       </div>
@@ -78,7 +78,7 @@ export function CamposEndereco({ prefixo, register, errors, setValue }: CamposEn
         </CampoFormulario>
       </div>
       <div className="md:col-span-4">
-        <CampoFormulario id={id('cidade')} rotulo="Cidade">
+        <CampoFormulario id={id('cidade')} rotulo="Cidade" erro={erro(errors, 'cidade')}>
           <Input id={id('cidade')} {...register('cidade')} />
         </CampoFormulario>
       </div>

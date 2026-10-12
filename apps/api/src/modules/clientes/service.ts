@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify'
 import {
   EXTENSOES_FOTO_CLIENTE,
   TAMANHO_MAX_FOTO_CLIENTE_MB,
+  nomeCliente,
   somenteDigitos,
   type clienteSchema,
   type clientesQuerySchema,
@@ -57,6 +58,29 @@ export function criarClientesService(app: FastifyInstance) {
     if (!vendedor?.ativo) throw AppError.regraNegocio('Vendedor inválido ou desativado.')
   }
 
+  /**
+   * Outro cliente (ativo ou desativado) já usa o CPF/CNPJ ou o WhatsApp: diz quem é e o que fazer.
+   * Desativar não apaga, então o documento continua ocupado até o cadastro ser reativado.
+   */
+  async function conferirDuplicado(dados: { cpfCnpj?: string | null; whatsapp?: string | null }, excetoId?: string) {
+    const ou: Prisma.ClienteWhereInput[] = []
+    if (dados.cpfCnpj) ou.push({ cpfCnpj: dados.cpfCnpj })
+    if (dados.whatsapp) ou.push({ whatsapp: dados.whatsapp })
+    if (!ou.length) return
+    const outro = await prisma.cliente.findFirst({
+      where: { OR: ou, ...(excetoId ? { id: { not: excetoId } } : {}) },
+      select: { id: true, nome: true, fantasia: true, ativo: true, cpfCnpj: true },
+    })
+    if (!outro) return
+    const campo = dados.cpfCnpj && outro.cpfCnpj === dados.cpfCnpj ? 'cpfCnpj' : 'whatsapp'
+    const rotulo = campo === 'cpfCnpj' ? 'CPF/CNPJ' : 'WhatsApp'
+    const nome = nomeCliente(outro)
+    throw AppError.conflito(
+      outro.ativo ? `Já existe um cliente com este ${rotulo}: ${nome}.` : `Este ${rotulo} é de ${nome}, um cliente desativado. Reative o cadastro em vez de criar outro.`,
+      { campo, clienteId: outro.id, nome, ativo: outro.ativo },
+    )
+  }
+
   async function obterBase(id: string) {
     const cliente = await prisma.cliente.findUnique({ where: { id } })
     if (!cliente) throw AppError.naoEncontrado('Cliente não encontrado.')
@@ -92,8 +116,16 @@ export function criarClientesService(app: FastifyInstance) {
       return comFoto(cliente)
     },
 
+    /** Cliente com este CPF/CNPJ (ativo ou não): o cadastro avisa antes de duplicar */
+    async porDocumento(documento: string) {
+      const cpfCnpj = somenteDigitos(documento)
+      if (cpfCnpj.length !== 11 && cpfCnpj.length !== 14) return null
+      return prisma.cliente.findUnique({ where: { cpfCnpj }, select: { id: true, nome: true, fantasia: true, ativo: true } })
+    },
+
     async criar(dados: Dados, usuarioId: string) {
       await validarVendedor(dados.vendedorId)
+      await conferirDuplicado(dados)
       return comConflitoAmigavel(
         () =>
           prisma.$transaction(async (tx) => {
@@ -108,6 +140,7 @@ export function criarClientesService(app: FastifyInstance) {
     async atualizar(id: string, dados: Dados, usuarioId: string) {
       const antes = await obterBase(id)
       await validarVendedor(dados.vendedorId)
+      await conferirDuplicado(dados, id)
       return comConflitoAmigavel(
         () =>
           prisma.$transaction(async (tx) => {

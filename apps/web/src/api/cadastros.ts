@@ -16,6 +16,8 @@ import { http, qs, upload } from './http'
 export const clientesApi = {
   listar: (q: ClientesQuery) => http<Paginado<Cliente>>(`/clientes${qs(q)}`),
   obter: (id: string) => http<ClienteDetalhe>(`/clientes/${id}`),
+  porDocumento: (documento: string) =>
+    http<{ id: string; nome: string; fantasia: string | null; ativo: boolean } | null>(`/clientes/documento/${encodeURIComponent(documento)}`),
   criar: (dados: unknown) => http<Cliente>('/clientes', { method: 'POST', body: dados }),
   atualizar: (id: string, dados: unknown) => http<Cliente>(`/clientes/${id}`, { method: 'PUT', body: dados }),
   desativar: (id: string) => http<Cliente>(`/clientes/${id}`, { method: 'DELETE' }),

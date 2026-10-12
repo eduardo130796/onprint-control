@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, Save } from 'lucide-react'
@@ -14,9 +15,12 @@ import {
   type ClienteInput,
   type DadosCnpj,
   type EnderecoInput,
+  cnpjValido,
+  cpfValido,
   somenteDigitos,
 } from '@onprint/shared'
 import { clientesApi } from '@/api/cadastros'
+import { ErroApi } from '@/api/http'
 import { AvisoReceita, type ConsultaReceita } from '@/components/shared/AvisoReceita'
 import { BotaoBuscarCnpj } from '@/components/shared/BotaoBuscarCnpj'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
@@ -33,6 +37,7 @@ import { usePermission } from '@/hooks/usePermission'
 import { candidatosEndereco } from '@/lib/consultas'
 import { decimalParaInput, mascaraCpfCnpj, mascaraTelefone } from '@/lib/mascaras'
 import { useMutacaoClientes, useVendedores } from '../hooks'
+import { ClienteJaExiste, type ClienteExistente } from './ClienteJaExiste'
 
 function valoresIniciais(c?: Cliente): ClienteInput {
   return {
@@ -79,6 +84,19 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
     const certo = documento.length === 14 ? 'PJ' : documento.length === 11 ? 'PF' : null
     if (certo && form.getValues('tipoPessoa') !== certo) form.setValue('tipoPessoa', certo, { shouldDirty: true })
   }, [documento, form])
+  // Cliente novo: o documento já é de alguém (talvez desativado)? Avisa antes de a pessoa preencher o resto
+  const documentoCompleto = (documento.length === 11 && cpfValido(documento)) || (documento.length === 14 && cnpjValido(documento))
+  const jaCadastrado = useQuery({
+    queryKey: ['clientes', 'documento', documento],
+    queryFn: () => clientesApi.porDocumento(documento),
+    enabled: !cliente && documentoCompleto,
+    staleTime: 30_000,
+  })
+  // Conflito devolvido ao salvar (CPF/CNPJ ou WhatsApp de outro cliente)
+  const [conflito, setConflito] = useState<ClienteExistente | null>(null)
+  useEffect(() => setConflito(null), [documento])
+  const existente: ClienteExistente | null =
+    conflito ?? (!cliente && documentoCompleto && jaCadastrado.data ? { ...jaCadastrado.data, nome: jaCadastrado.data.fantasia || jaCadastrado.data.nome } : null)
   // Empresa sem pessoas de contato: "Falar com" vira o contato principal (aba Contatos)
   const comFalarCom = tipo === 'PJ' && (!cliente || cliente.contatos.length === 0)
   const [falarCom, setFalarCom] = useState('')
@@ -148,6 +166,8 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
       toast.success(cliente ? 'Cliente atualizado.' : 'Cliente cadastrado.')
       onSalvo(salvo)
     } catch (e) {
+      const d = e instanceof ErroApi && e.status === 409 ? (e.details as Partial<ClienteExistente> & { clienteId?: string } | undefined) : undefined
+      if (d?.clienteId && d.nome) setConflito({ id: d.clienteId, nome: d.nome, ativo: Boolean(d.ativo), campo: d.campo })
       toast.error((e as Error).message)
     }
   })
@@ -196,6 +216,7 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
                 <Input {...campo('fantasia')} {...form.register('fantasia')} />
               </CampoFormulario>
             </div>
+            {existente && <ClienteJaExiste existente={existente} />}
             {daReceita && <AvisoReceita consulta={daReceita} onFechar={() => setDaReceita(null)} className="md:col-span-6" />}
           </CardContent>
         </Card>

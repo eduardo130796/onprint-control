@@ -12,6 +12,7 @@ export function criarClientesController(service: ClientesService) {
   return {
     listar: (query: z.output<typeof clientesQuerySchema>) => service.listar(query),
     obter: (id: string) => service.obter(id),
+    porDocumento: (documento: string) => service.porDocumento(documento),
     criar: (request: Req, dados: z.output<typeof clienteSchema>) => service.criar(dados, usuario(request)),
     atualizar: (request: Req, id: string, dados: z.output<typeof clienteSchema>) =>
       service.atualizar(id, dados, usuario(request)),

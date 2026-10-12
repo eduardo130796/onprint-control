@@ -16,6 +16,11 @@ export const clientesRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get('/', { ...pode('visualizar'), schema: { tags, summary: 'Lista clientes', querystring: clientesQuerySchema } }, (req) =>
     c.listar(req.query),
   )
+  app.get(
+    '/documento/:documento',
+    { ...pode('visualizar'), schema: { tags, summary: 'Cliente com este CPF/CNPJ, ativo ou desativado (null se não houver)', params: z.object({ documento: z.string().max(20) }) } },
+    (req) => c.porDocumento(req.params.documento),
+  )
   app.get('/:id', { ...pode('visualizar'), schema: { tags, summary: 'Ficha do cliente', params: idParamSchema } }, (req) =>
     c.obter(req.params.id),
   )

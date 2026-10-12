@@ -3,6 +3,7 @@ import {
   formatarDataSimples,
   formatarMoeda,
   hojeISO,
+  nomeParaSaudacao,
   preencherTemplate,
   type MensagemTemplate,
   type OrcamentoDetalhe,
@@ -20,7 +21,7 @@ const PADRAO =
 export function mensagemDoOrcamento(o: OrcamentoDetalhe, templates: MensagemTemplate[] | undefined): string {
   const template = templates?.find((t) => t.categoria === 'orcamento_enviado' && t.ativo)
   return preencherTemplate(template?.conteudo ?? PADRAO, {
-    cliente_nome: o.cliente.nome.split(' ')[0] ?? o.cliente.nome,
+    cliente_nome: nomeParaSaudacao(o.cliente.nome, o.cliente.cpfCnpj),
     numero_orcamento: o.numero,
     link_aprovacao: linkAprovacao(o.tokenPublico),
     valor_total: formatarMoeda(o.total),

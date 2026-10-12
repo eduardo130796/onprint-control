@@ -43,7 +43,7 @@ export function TitulosPage({ tipo }: { tipo: TipoTitulo }) {
         id: 'vencimento',
         header: 'Vencimento',
         meta: { ordenavel: 'vencimento' },
-        cell: ({ row: { original: t } }) => <span className={cn(t.atrasado && 'font-medium text-coral-escuro')}>{formatarDataSimples(t.vencimento)}</span>,
+        cell: ({ row: { original: t } }) => <span className={cn('whitespace-nowrap', t.atrasado && 'font-medium text-coral-escuro')}>{formatarDataSimples(t.vencimento)}</span>,
       },
       {
         id: 'descricao',
@@ -58,8 +58,8 @@ export function TitulosPage({ tipo }: { tipo: TipoTitulo }) {
           </div>
         ),
       },
-      { id: 'valor', header: 'Valor', meta: { ordenavel: 'valor', className: 'text-right' }, cell: ({ row }) => formatarMoeda(row.original.valor) },
-      { id: 'saldo', header: 'Saldo', meta: { className: 'text-right' }, cell: ({ row }) => <span className="font-semibold">{formatarMoeda(row.original.saldo)}</span> },
+      { id: 'valor', header: 'Valor', meta: { ordenavel: 'valor', className: 'text-right' }, cell: ({ row }) => <span className="whitespace-nowrap">{formatarMoeda(row.original.valor)}</span> },
+      { id: 'saldo', header: 'Saldo', meta: { className: 'text-right' }, cell: ({ row }) => <span className="whitespace-nowrap font-semibold">{formatarMoeda(row.original.saldo)}</span> },
       { id: 'status', header: 'Situação', cell: ({ row }) => <StatusBadge entidade="conta" codigo={row.original.status} /> },
     ],
     [receber],

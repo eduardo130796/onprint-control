@@ -179,7 +179,7 @@ export function OrcamentosKanbanPage() {
           onSubmit={(e) => void confirmarPendente(e)}
         >
           {pendente.acao === 'aprovar' ? (
-            <Input autoFocus value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Quem aprovou (ex.: João, pelo WhatsApp)" aria-label="Quem aprovou" />
+            <Input autoFocus value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Nome de quem aprovou (ex.: João Pereira)" aria-label="Quem aprovou" />
           ) : (
             <Textarea autoFocus rows={3} value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Motivo da recusa (ex.: preço, prazo, fechou com concorrente)" aria-label="Motivo" />
           )}

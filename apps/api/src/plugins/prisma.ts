@@ -59,7 +59,9 @@ export const prismaPlugin = fp(async (app) => {
   // Empresa + assinatura ficam em cache por pouco tempo: pagamento ou bloqueio valem em segundos
   const CACHE_MS = CACHE_EMPRESAS_SEGUNDOS * 1000
   const log: ('warn' | 'error')[] = NODE_ENV === 'development' ? ['warn', 'error'] : ['error']
-  const plataforma = new PrismaClient({ log, datasourceUrl: urlDoSchema(DATABASE_URL, SCHEMA_PLATAFORMA, 5) })
+  // Transações com folga: o padrão do Prisma (5 s) derrubava salvamentos legítimos com o servidor ocupado
+  const transactionOptions = { maxWait: 10_000, timeout: 30_000 }
+  const plataforma = new PrismaClient({ log, transactionOptions, datasourceUrl: urlDoSchema(DATABASE_URL, SCHEMA_PLATAFORMA, 5) })
 
   // Pools por schema em ordem de uso (Map mantém a ordem de inserção): o mais antigo sai primeiro
   const clientes = new Map<string, PrismaClient>()
@@ -68,7 +70,7 @@ export const prismaPlugin = fp(async (app) => {
     if (cliente) {
       clientes.delete(schema)
     } else {
-      cliente = new PrismaClient({ log, datasourceUrl: urlDoSchema(DATABASE_URL, schema, DB_CONEXOES_POR_EMPRESA) })
+      cliente = new PrismaClient({ log, transactionOptions, datasourceUrl: urlDoSchema(DATABASE_URL, schema, DB_CONEXOES_POR_EMPRESA) })
     }
     clientes.set(schema, cliente)
     if (clientes.size > DB_MAX_EMPRESAS_ABERTAS) {

@@ -18,9 +18,20 @@ export function formatarMoeda(valor: number | string | null | undefined): string
   return moeda.format(Number(valor ?? 0)).replace(/\s/g, ' ')
 }
 
-/** dd/mm/aaaa no fuso America/Sao_Paulo */
+/** Data pura (coluna @db.Date): "aaaa-mm-dd" ou meia-noite UTC exata, como a API serializa vencimentos e pagamentos */
+function diaPuro(data: string | Date): string | null {
+  const iso = typeof data === 'string' ? data : Number.isNaN(data.getTime()) ? '' : data.toISOString()
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:T00:00:00(?:\.000)?(?:Z|\+00:00))?$/.exec(iso)
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : null
+}
+
+/**
+ * dd/mm/aaaa no fuso America/Sao_Paulo. Datas puras saem como estão: convertidas para o fuso,
+ * "11/10 00:00 UTC" viraria 10/10 (o pagamento aparecia um dia antes).
+ */
 export function formatarData(data: string | Date | null | undefined): string {
-  return data ? dataBR.format(paraData(data)) : '—'
+  if (!data) return '—'
+  return diaPuro(data) ?? dataBR.format(paraData(data))
 }
 
 /** dd/mm/aaaa hh:mm no fuso America/Sao_Paulo */
@@ -71,4 +82,20 @@ export function formatarDataSimples(data: string | null | undefined): string {
   if (!data) return '-'
   const [a, m, d] = data.slice(0, 10).split('-')
   return `${d}/${m}/${a}`
+}
+
+const SUFIXO_EMPRESA = /[\s,.-]+(ltda|me|epp|eireli|mei|s\/?\.?a\.?|sa|s\.a)\.?$/i
+const PALAVRA_EMPRESA = /\b(ltda|eireli|epp|s\/a|s\.a\.?|mei|me)\b\.?/i
+
+/**
+ * Como cumprimentar o cliente nas mensagens ("Olá, {{cliente_nome}}!"): pessoa pelo primeiro nome,
+ * empresa (CNPJ ou "Ltda", "ME", "S/A"…) pelo nome sem o sufixo, e não "Olá, Pet!".
+ */
+export function nomeParaSaudacao(nome: string, documento?: string | null): string {
+  const limpo = nome.trim().replace(/\s+/g, ' ')
+  const empresa = somenteDigitos(documento ?? '').length === 14 || PALAVRA_EMPRESA.test(limpo)
+  if (!empresa) return limpo.split(' ')[0] || limpo
+  let semSufixo = limpo
+  while (SUFIXO_EMPRESA.test(semSufixo)) semSufixo = semSufixo.replace(SUFIXO_EMPRESA, '')
+  return semSufixo.trim() || limpo
 }

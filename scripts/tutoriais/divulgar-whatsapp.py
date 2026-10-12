@@ -1,7 +1,7 @@
 """Tutorial "Divulgar no WhatsApp (imagem, mensagem e catálogo em PDF)" (vídeo + capturas).
 Uso: python scripts/tutoriais/divulgar-whatsapp.py
 
-Não abre o WhatsApp: para na mensagem pronta. Gera um catálogo em PDF (fica guardado para o link curto).
+Não abre o WhatsApp: para na mensagem pronta. Gera um catálogo em PDF (fica guardado para o link do catálogo).
 """
 import datetime
 import os
@@ -224,7 +224,7 @@ with GravadorPaciente('divulgar-whatsapp', rota_inicial='/vitrine/produtos') as 
         baixar.wait_for(timeout=180_000)
     g.pausa(1)
     lado = baixar.locator('xpath=..')
-    g.legenda('Pronto! Baixe o PDF ou copie o link curto do catálogo', 5, segundos=1.2)
+    g.legenda('Pronto! Baixe o PDF ou copie o link do catálogo', 5, segundos=1.2)
     g.destacar(lado)
     g.pausa(1.6)
     g.foto(5, lado)

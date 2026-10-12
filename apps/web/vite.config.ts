@@ -53,9 +53,12 @@ export default defineConfig({
       // Tempo real (Socket.IO) passa pelo mesmo endereço do front
       '/socket.io': { target: apiAlvo, ws: true, changeOrigin: true },
     },
-    // Volume do Windows/macOS não propaga eventos de arquivo para o container: usa polling (1 s)
+    // Volume do Windows/macOS não propaga eventos de arquivo para o container: usa polling (1 s). Fotos e vídeos
+    // dos tutoriais ficam de fora (não mudam durante o desenvolvimento e o polling deles custava CPU)
     watch:
-      process.env.CHOKIDAR_USEPOLLING === 'true' ? { usePolling: true, interval: 1000 } : undefined,
+      process.env.CHOKIDAR_USEPOLLING === 'true'
+        ? { usePolling: true, interval: 1000, binaryInterval: 5000, ignored: ['**/public/ajuda/**', '**/coverage/**', '**/dist/**'] }
+        : undefined,
   },
   build: {
     rollupOptions: {

@@ -7,6 +7,7 @@ import {
   formatarMoeda,
   formatarTelefone,
   iniciais,
+  nomeParaSaudacao,
 } from './format'
 
 describe('format', () => {
@@ -19,6 +20,11 @@ describe('format', () => {
     // 02:00 UTC ainda é o dia anterior em São Paulo (UTC-3)
     expect(formatarData('2026-03-10T02:00:00Z')).toBe('09/03/2026')
     expect(formatarData(null)).toBe('—')
+    // Datas puras (vencimento, pagamento) não mudam de dia com o fuso
+    expect(formatarData('2026-10-11T00:00:00.000Z')).toBe('11/10/2026')
+    expect(formatarData('2026-10-11')).toBe('11/10/2026')
+    expect(formatarData(new Date('2026-10-11T00:00:00Z'))).toBe('11/10/2026')
+    expect(formatarData('2026-10-11T00:00:00.123Z')).toBe('10/10/2026')
   })
 
   it('formata documentos, telefone e CEP', () => {
@@ -37,5 +43,20 @@ describe('formatarDataSimples', () => {
   it('não desloca o dia pelo fuso', () => {
     expect(formatarDataSimples('2026-10-06T00:00:00.000Z')).toBe('06/10/2026')
     expect(formatarDataSimples('2026-10-06')).toBe('06/10/2026')
+  })
+})
+
+describe('nomeParaSaudacao', () => {
+  it('pessoa: primeiro nome', () => {
+    expect(nomeParaSaudacao('Maria da Silva')).toBe('Maria')
+    expect(nomeParaSaudacao('  João  ')).toBe('João')
+    expect(nomeParaSaudacao('Fernanda Lima', '123.456.789-09')).toBe('Fernanda')
+  })
+  it('empresa: nome sem o sufixo jurídico', () => {
+    expect(nomeParaSaudacao('Pet Feliz Banho e Tosa Ltda')).toBe('Pet Feliz Banho e Tosa')
+    expect(nomeParaSaudacao('Padaria Pão Quente - ME')).toBe('Padaria Pão Quente')
+    expect(nomeParaSaudacao('Construtora Alfa S/A')).toBe('Construtora Alfa')
+    expect(nomeParaSaudacao('Mercado Bom Preço', '12.345.678/0001-90')).toBe('Mercado Bom Preço')
+    expect(nomeParaSaudacao('Ltda')).toBe('Ltda')
   })
 })

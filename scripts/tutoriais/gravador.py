@@ -92,6 +92,19 @@ class Gravador:
     # ─── ciclo de vida ──────────────────────────────────────────────────────
     def __enter__(self) -> 'Gravador':
         self.saida.mkdir(parents=True, exist_ok=True)
+        # Uma gravação por tutorial: duas ao mesmo tempo escreveriam o mesmo video.mp4
+        self._trava = self.saida / '.gravando'
+        try:
+            os.close(os.open(self._trava, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+        except FileExistsError:
+            raise SystemExit(f'Já há uma gravação de "{self.slug}" em andamento (apague {self._trava} se não houver).')
+        try:
+            return self._abrir()
+        except BaseException:
+            self._trava.unlink(missing_ok=True)
+            raise
+
+    def _abrir(self) -> 'Gravador':
         self._pw = sync_playwright().start()
         self._browser = self._pw.chromium.launch()
         hoje = datetime.date.today()
@@ -100,7 +113,8 @@ class Gravador:
         # Login fora da gravação; a sessão vai para o contexto gravado
         login = self._browser.new_context(**base)
         p = login.new_page()
-        p.goto(URL + '/login')
+        p.goto(URL + '/login', timeout=180_000)
+        p.wait_for_selector('input[type=email]', timeout=180_000)
         p.fill('input[type=email]', EMAIL)
         p.fill('input[type=password]', SENHA)
         p.click('button[type=submit]')
@@ -126,9 +140,12 @@ class Gravador:
         self._ctx.close()
         self._browser.close()
         self._pw.stop()
-        if erro is None and caminho_video:
-            self._converter(Path(caminho_video))
-        shutil.rmtree(self.tmp, ignore_errors=True)
+        try:
+            if erro is None and caminho_video:
+                self._converter(Path(caminho_video))
+        finally:
+            shutil.rmtree(self.tmp, ignore_errors=True)
+            self._trava.unlink(missing_ok=True)
         return False
 
     # ─── ações ──────────────────────────────────────────────────────────────
@@ -138,6 +155,11 @@ class Gravador:
     def ir(self, rota: str, espera: float = 1.2):
         self.pg.goto(URL + rota)
         self.pg.wait_for_load_state('networkidle')
+        # Com o servidor lento, o networkidle chega antes do sistema montar: espera sair o "Carregando…"
+        try:
+            self.pg.wait_for_function("() => !document.body.innerText.includes('Carregando')", timeout=120_000)
+        except Exception:
+            pass
         # Telas com esqueleto de carregamento: espera os dados aparecerem
         try:
             self.pg.locator('[class*="animate-pulse"]').first.wait_for(state='detached', timeout=45_000)
@@ -207,9 +229,11 @@ class Gravador:
         cmd = [
             'docker', 'run', '--rm', '-v', f'{webm.parent}:/entrada', '-v', f'{self.saida}:/saida',
             'linuxserver/ffmpeg:latest', '-y', '-loglevel', 'error', '-ss', f'{self._corte:.2f}', '-i', f'/entrada/{webm.name}',
-            '-c:v', 'libx264', '-preset', 'slow', '-crf', '28', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', '/saida/video.mp4',
+            '-c:v', 'libx264', '-preset', 'slow', '-crf', '28', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', '/saida/.video-novo.mp4',
         ]
         subprocess.run(cmd, check=True, env={**os.environ, 'MSYS_NO_PATHCONV': '1'})
+        # Só substitui o vídeo publicado quando o novo ficou pronto (uma falha no meio não deixa um mp4 quebrado)
+        os.replace(self.saida / '.video-novo.mp4', mp4)
         # Capa: a primeira captura do tutorial (ou um quadro do vídeo)
         capa = self.saida / 'capa.webp'
         if self.fotos:

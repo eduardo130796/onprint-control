@@ -163,9 +163,24 @@ export function criarAuthService(app: FastifyInstance) {
   /**
    * Rotação: só uma requisição consegue revogar a sessão (update condicional), as demais recebem 401.
    * A sessão rotacionada guarda o instante da troca em expiraEm (= updatedAt): é assim que se distingue
-   * de logout/troca de senha. Token já rotacionado usado de novo depois da carência = sinal de roubo:
-   * todas as sessões do usuário são encerradas.
+   * de logout/troca de senha. Token já rotacionado usado de novo depois da carência, com a sessão seguinte
+   * já em uso = sinal de roubo: todas as sessões do usuário são encerradas.
    */
+  /**
+   * A sessão criada na troca deste token já foi usada? Se não foi, quem reaproveita o token antigo é o próprio
+   * navegador que perdeu a resposta da renovação (rede caiu, servidor lento): basta recusar, sem derrubar
+   * as outras sessões. Se já foi, alguém seguiu com a sessão nova enquanto outro usa a antiga: sinal de roubo.
+   */
+  async function sucessoraJaUsada(sessao: { usuarioId: string; expiraEm: Date; userAgent: string | null }) {
+    const troca = sessao.expiraEm.getTime()
+    const sucessora = await prisma.sessao.findFirst({
+      where: { usuarioId: sessao.usuarioId, userAgent: sessao.userAgent, createdAt: { gte: new Date(troca - 1000), lte: new Date(troca + CARENCIA_REUSO_MS) } },
+      orderBy: { createdAt: 'asc' },
+      select: { revogada: true },
+    })
+    return !sucessora || sucessora.revogada
+  }
+
   async function renovarNaEmpresa(refreshToken: string, meta: MetaRequisicao): Promise<ResultadoAutenticacao> {
     const hash = hashRefreshToken(refreshToken, config.JWT_REFRESH_SECRET)
     const sessao = await prisma.sessao.findUnique({ where: { refreshTokenHash: hash } })
@@ -191,7 +206,7 @@ export function criarAuthService(app: FastifyInstance) {
     })
     if (r.count !== 1) {
       const rotacionada = sessao.revogada && Math.abs(sessao.expiraEm.getTime() - sessao.updatedAt.getTime()) < 1000
-      if (rotacionada && agora.getTime() - sessao.expiraEm.getTime() > CARENCIA_REUSO_MS) {
+      if (rotacionada && agora.getTime() - sessao.expiraEm.getTime() > CARENCIA_REUSO_MS && (await sucessoraJaUsada(sessao))) {
         await prisma.sessao.updateMany({ where: { usuarioId: sessao.usuarioId, revogada: false }, data: { revogada: true } })
         app.log.warn({ usuarioId: sessao.usuarioId, empresaId: contextoEmpresa.exigir().id, ip: meta.ip }, 'Refresh token reutilizado: sessões do usuário encerradas')
       }

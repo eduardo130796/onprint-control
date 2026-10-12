@@ -23,11 +23,11 @@ export function PedidoGerado({ pedido }: { pedido: PedidoResumo }) {
           <p className="mb-1 font-medium">Contas a receber</p>
           <ul className="space-y-1">
             {pedido.contasReceber.map((c) => (
-              <li key={c.id} className="flex items-center justify-between gap-2">
-                <span className="text-texto-secundario">
+              <li key={c.id} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                <span className="whitespace-nowrap text-texto-secundario">
                   {c.parcela}/{c.totalParcelas} · vence {formatarDataSimples(c.vencimento)}
                 </span>
-                <span className="flex items-center gap-2">
+                <span className="ml-auto flex items-center gap-2 whitespace-nowrap">
                   {formatarMoeda(c.valor)}
                   <StatusBadge entidade="conta" codigo={c.status} />
                 </span>

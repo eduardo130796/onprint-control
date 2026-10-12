@@ -1,4 +1,4 @@
-import { capitalizarNome, cnpjValido, somenteDigitos, type DadosCnpj, type EnderecoCep } from '@onprint/shared'
+import { capitalizarEmpresa, capitalizarNome, cnpjValido, somenteDigitos, type DadosCnpj, type EnderecoCep } from '@onprint/shared'
 
 /**
  * Consulta de CEP (BrasilAPI → ViaCEP) e CNPJ (BrasilAPI → CNPJ.ws pública).
@@ -100,16 +100,32 @@ function juntarLogradouro(tipo: string, nome: string) {
 }
 
 /** BrasilAPI /cnpj/v1 (dados da Receita, tudo em maiúsculas). Razão social e fantasia ficam como a Receita registra. */
+/** "MICRO EMPRESA" → "Micro empresa"; "DEMAIS" e "NÃO INFORMADO" não dizem nada e ficam de fora */
+function porteLegivel(porte: string) {
+  return /^(demais|n[aã]o informado)$/i.test(porte) ? '' : capitalizarNome(porte).replace(/^(\p{L})(.*)$/u, (_, a: string, b: string) => a + b.toLowerCase())
+}
+
+/** Só os dados extras que vieram preenchidos (o tipo os declara opcionais) */
+function extras(campos: Pick<DadosCnpj, 'telefone2' | 'atividade' | 'porte' | 'abertura'>) {
+  return Object.fromEntries(Object.entries(campos).filter(([, v]) => v)) as Partial<DadosCnpj>
+}
+
 export function cnpjDaBrasilApi(d: Record<string, unknown>): DadosCnpj {
   const situacao = texto(d.descricao_situacao_cadastral).toUpperCase()
   return {
     cnpj: somenteDigitos(texto(d.cnpj)),
-    razaoSocial: texto(d.razao_social),
-    nomeFantasia: texto(d.nome_fantasia),
+    razaoSocial: capitalizarEmpresa(texto(d.razao_social)),
+    nomeFantasia: capitalizarEmpresa(texto(d.nome_fantasia)),
     situacao,
     ativa: situacao === 'ATIVA',
     email: texto(d.email).toLowerCase(),
     telefone: somenteDigitos(texto(d.ddd_telefone_1)),
+    ...extras({
+      telefone2: somenteDigitos(texto(d.ddd_telefone_2)),
+      atividade: texto(d.cnae_fiscal_descricao),
+      porte: porteLegivel(texto(d.porte)),
+      abertura: texto(d.data_inicio_atividade).slice(0, 10),
+    }),
     endereco: {
       cep: somenteDigitos(texto(d.cep)),
       logradouro: juntarLogradouro(texto(d.descricao_tipo_de_logradouro), texto(d.logradouro)),
@@ -134,6 +150,10 @@ interface EstabelecimentoCnpjWs {
   cep?: string | null
   ddd1?: string | null
   telefone1?: string | null
+  ddd2?: string | null
+  telefone2?: string | null
+  data_inicio_atividade?: string | null
+  atividade_principal?: { descricao?: string } | null
   email?: string | null
   cidade?: { nome?: string } | null
   estado?: { sigla?: string } | null
@@ -149,12 +169,18 @@ export function cnpjDoCnpjWs(d: Record<string, unknown>): DadosCnpj {
   const ie = e.inscricoes_estaduais?.find((i) => i.ativo && sigla(i.estado?.sigla) === uf)?.inscricao_estadual
   return {
     cnpj: somenteDigitos(texto(e.cnpj)),
-    razaoSocial: texto(d.razao_social),
-    nomeFantasia: texto(e.nome_fantasia),
+    razaoSocial: capitalizarEmpresa(texto(d.razao_social)),
+    nomeFantasia: capitalizarEmpresa(texto(e.nome_fantasia)),
     situacao,
     ativa: situacao === 'ATIVA',
     email: texto(e.email).toLowerCase(),
     telefone: somenteDigitos(`${texto(e.ddd1)}${texto(e.telefone1)}`),
+    ...extras({
+      telefone2: somenteDigitos(`${texto(e.ddd2)}${texto(e.telefone2)}`),
+      atividade: texto(e.atividade_principal?.descricao),
+      porte: porteLegivel(texto((d.porte as { descricao?: string } | undefined)?.descricao)),
+      abertura: texto(e.data_inicio_atividade).slice(0, 10),
+    }),
     endereco: {
       cep: somenteDigitos(texto(e.cep)),
       logradouro: juntarLogradouro(texto(e.tipo_logradouro), texto(e.logradouro)),

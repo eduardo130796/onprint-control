@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { capitalizarNome } from './consultas'
+import { capitalizarEmpresa, capitalizarNome } from './consultas'
 
 describe('capitalizarNome', () => {
   it('capitaliza texto em maiúsculas da Receita', () => {
@@ -17,5 +17,15 @@ describe('capitalizarNome', () => {
     expect(capitalizarNome('Av. MIX de letras')).toBe('Av. MIX de letras')
     expect(capitalizarNome(null)).toBe('')
     expect(capitalizarNome('   ')).toBe('')
+  })
+})
+
+describe('capitalizarEmpresa', () => {
+  it('letras normais, com siglas jurídicas e curtas em maiúsculas', () => {
+    expect(capitalizarEmpresa('PET FELIZ BANHO E TOSA LTDA ME')).toBe('Pet Feliz Banho e Tosa Ltda ME')
+    expect(capitalizarEmpresa('PETROLEO BRASILEIRO S A PETROBRAS')).toBe('Petroleo Brasileiro S A Petrobras')
+    expect(capitalizarEmpresa('PLACAS PVC E MDF EIRELI')).toBe('Placas PVC e MDF EIRELI')
+    expect(capitalizarEmpresa('GRAFICA XV DE NOVEMBRO S/A')).toBe('Grafica XV de Novembro S/A')
+    expect(capitalizarEmpresa('Já Capitalizado Ltda')).toBe('Já Capitalizado Ltda')
   })
 })

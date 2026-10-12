@@ -19,16 +19,30 @@ export interface MapaCamposCnpj {
   nomeFantasia?: string
   email?: string
   telefone?: string
+  /** Recebe o celular da Receita (quando houver) */
+  whatsapp?: string
   ie?: string
+}
+
+/** Celular: DDD + 9 dígitos começando com 9 */
+const ehCelular = (t: string) => t.length === 11 && t[2] === '9'
+
+/** Telefones da Receita separados em fixo e celular (sem fixo, o celular serve de telefone também) */
+export function telefonesDaReceita(d: Pick<DadosCnpj, 'telefone' | 'telefone2'>) {
+  const lista = [d.telefone, d.telefone2 ?? ''].filter(Boolean)
+  const celular = lista.find(ehCelular) ?? ''
+  return { fixo: lista.find((t) => !ehCelular(t)) ?? celular, celular }
 }
 
 /** Dados do CNPJ → candidatos ao preenchimento (com máscara, como o usuário digitaria). */
 export function candidatosCnpj(d: DadosCnpj, mapa: MapaCamposCnpj): CampoPreenchido[] {
+  const tel = telefonesDaReceita(d)
   const lista: (CampoPreenchido | null)[] = [
     { campo: mapa.razaoSocial, rotulo: 'razão social', valor: d.razaoSocial },
     mapa.nomeFantasia ? { campo: mapa.nomeFantasia, rotulo: 'nome fantasia', valor: d.nomeFantasia } : null,
     mapa.email ? { campo: mapa.email, rotulo: 'e-mail', valor: d.email } : null,
-    mapa.telefone ? { campo: mapa.telefone, rotulo: 'telefone', valor: mascaraTelefone(d.telefone) } : null,
+    mapa.telefone ? { campo: mapa.telefone, rotulo: 'telefone', valor: mascaraTelefone(mapa.whatsapp ? tel.fixo : d.telefone || tel.celular) } : null,
+    mapa.whatsapp ? { campo: mapa.whatsapp, rotulo: 'WhatsApp', valor: mascaraTelefone(tel.celular) } : null,
     mapa.ie ? { campo: mapa.ie, rotulo: 'inscrição estadual', valor: d.inscricaoEstadual ?? '' } : null,
   ]
   return lista.filter((c): c is CampoPreenchido => c !== null)

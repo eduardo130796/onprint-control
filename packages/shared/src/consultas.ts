@@ -22,6 +22,12 @@ export interface DadosCnpj {
   endereco: EnderecoCep & { numero: string; complemento: string }
   /** Só quando o serviço informa uma inscrição estadual ativa na UF da empresa */
   inscricaoEstadual?: string
+  /** Segundo telefone da Receita (muitas vezes o celular) */
+  telefone2?: string
+  /** Atividade principal (CNAE), porte e data de abertura (aaaa-mm-dd): só informativos, não vão para o cadastro */
+  atividade?: string
+  porte?: string
+  abertura?: string
 }
 
 const CONECTIVOS = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'di', 'du'])
@@ -44,6 +50,29 @@ export function capitalizarNome(texto: string | null | undefined): string {
       if (nucleo.length > 1 && ROMANO.test(nucleo)) return palavra.toUpperCase()
       // Primeira letra e a letra depois de apóstrofo ou hífen (D'Oeste, Guarda-Mor)
       return palavra.replace(/(^|['’-])(\p{L})/gu, (_, sep: string, letra: string) => sep + letra.toLocaleUpperCase('pt-BR'))
+    })
+    .join(' ')
+}
+
+const SIGLAS_EMPRESA = new Set(['me', 'epp', 'eireli', 'mei', 'sa', 's/a', 's.a', 's.a.', 'ltda'])
+
+/**
+ * Nome de empresa da Receita ("PET FELIZ BANHO E TOSA LTDA ME") em letras normais: "Pet Feliz Banho e Tosa Ltda ME".
+ * Siglas jurídicas, letras soltas ("S A") e siglas curtas sem vogal (PVC, MDF, TV) ficam em maiúsculas.
+ */
+export function capitalizarEmpresa(texto: string | null | undefined): string {
+  const limpo = (texto ?? '').trim().replace(/\s+/g, ' ')
+  if (!limpo || /\p{Ll}/u.test(limpo)) return limpo
+  const original = limpo.split(' ')
+  return capitalizarNome(limpo)
+    .split(' ')
+    .map((palavra, i) => {
+      const minuscula = palavra.toLocaleLowerCase('pt-BR')
+      if (minuscula === 'ltda') return 'Ltda'
+      if (SIGLAS_EMPRESA.has(minuscula)) return palavra.toUpperCase()
+      const letras = minuscula.replace(/[^\p{L}]/gu, '')
+      if ((letras.length === 1 && minuscula !== 'e') || (letras.length > 1 && letras.length <= 3 && !/[aeiouáéíóúâêôãõà]/.test(letras))) return original[i] ?? palavra
+      return palavra
     })
     .join(' ')
 }

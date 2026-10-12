@@ -14,6 +14,7 @@ import {
   type ClienteInput,
 } from '@onprint/shared'
 import { clientesApi } from '@/api/cadastros'
+import { AvisoReceita, type ConsultaReceita } from '@/components/shared/AvisoReceita'
 import { BotaoBuscarCnpj } from '@/components/shared/BotaoBuscarCnpj'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { CpfCnpjInput, MoneyInput, PhoneInput } from '@/components/shared/inputs'
@@ -83,21 +84,33 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
   })
   const { errors, isDirty } = form.formState
   const tipo = form.watch('tipoPessoa')
-  const salvar = useMutacaoClientes((dados: ClienteDados) =>
-    cliente ? clientesApi.atualizar(cliente.id, dados) : clientesApi.criar(dados),
-  )
 
-  // Cliente novo: o endereço da Receita fica guardado e vira o endereço principal depois de salvar
+  // Cliente novo (ou ainda sem endereço): o endereço da Receita fica guardado e vira o principal depois de salvar
   const [enderecoReceita, setEnderecoReceita] = useState<EnderecoReceita | null>(null)
+  const [daReceita, setDaReceita] = useState<ConsultaReceita | null>(null)
+  // Endereço da Receita salvo junto, antes de a lista de clientes ser recarregada
+  const salvar = useMutacaoClientes(async (dados: ClienteDados) => {
+    const salvo = await (cliente ? clientesApi.atualizar(cliente.id, dados) : clientesApi.criar(dados))
+    let enderecoFalhou = false
+    if (enderecoReceita) {
+      try {
+        await clientesApi.salvarEndereco(salvo.id, enderecoReceita)
+      } catch {
+        enderecoFalhou = true
+      }
+    }
+    return { salvo, enderecoFalhou }
+  })
   const consultaCnpj = useConsultaCnpj({
     form,
     campoDocumento: 'cpfCnpj',
-    campos: { razaoSocial: 'nome', nomeFantasia: 'fantasia', email: 'email', telefone: 'telefone', ie: 'ie' },
+    campos: { razaoSocial: 'nome', nomeFantasia: 'fantasia', email: 'email', telefone: 'telefone', whatsapp: 'whatsapp', ie: 'ie' },
     aoEncontrar: () => {
       if (form.getValues('tipoPessoa') !== 'PJ') form.setValue('tipoPessoa', 'PJ', { shouldDirty: true })
     },
+    aoPreencher: (dados, preenchidos) => setDaReceita({ dados, preenchidos }),
     aoReceberEndereco: (e) => {
-      if (cliente) return false
+      if (cliente && cliente.enderecos.length > 0) return false
       const endereco = enderecoPrincipalDaReceita(e)
       setEnderecoReceita(endereco)
       return Boolean(endereco)
@@ -106,14 +119,10 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
 
   const onSubmit = form.handleSubmit(async (dados) => {
     try {
-      const salvo = await salvar.mutateAsync(dados)
-      if (!cliente && enderecoReceita) {
-        try {
-          await clientesApi.salvarEndereco(salvo.id, enderecoReceita)
-        } catch {
-          toast.warning('Cliente salvo, mas o endereço não.', { description: 'Adicione o endereço na aba Endereços.' })
-        }
-      }
+      const { salvo, enderecoFalhou } = await salvar.mutateAsync(dados)
+      if (enderecoFalhou) toast.warning('Cliente salvo, mas o endereço não.', { description: 'Adicione o endereço na aba Endereços.' })
+      setEnderecoReceita(null)
+      setDaReceita(null)
       form.reset(valoresIniciais(salvo))
       toast.success(cliente ? 'Cliente atualizado.' : 'Cliente cadastrado.')
       onSalvo(salvo)
@@ -165,6 +174,7 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
                 <Input {...campo('ie')} {...form.register('ie')} />
               </CampoFormulario>
             </div>
+            {daReceita && <AvisoReceita consulta={daReceita} onFechar={() => setDaReceita(null)} className="md:col-span-6" />}
             {enderecoReceita && <PreviaEndereco endereco={enderecoReceita} onDescartar={() => setEnderecoReceita(null)} />}
           </CardContent>
         </Card>
@@ -244,7 +254,7 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
 
         {podeSalvar && (
           <div className="flex justify-end">
-            <Button type="submit" disabled={salvar.isPending || (Boolean(cliente) && !isDirty)}>
+            <Button type="submit" disabled={salvar.isPending || (Boolean(cliente) && !isDirty && !enderecoReceita)}>
               {salvar.isPending ? <Loader2 className="animate-spin" /> : <Save />}
               {cliente ? 'Salvar alterações' : 'Cadastrar cliente'}
             </Button>

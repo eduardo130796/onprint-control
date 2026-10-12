@@ -25,6 +25,14 @@ describe('preenchimento pelo CNPJ', () => {
     ])
   })
 
+  it('fixo vai para o telefone e o celular para o WhatsApp', () => {
+    const mapa = { ...MAPA, whatsapp: 'whatsapp' }
+    const valores = (d: DadosCnpj) => Object.fromEntries(candidatosCnpj(d, mapa).filter((c) => c.campo === 'telefone' || c.campo === 'whatsapp').map((c) => [c.campo, c.valor]))
+    expect(valores({ ...DADOS, telefone2: '21987654321' })).toEqual({ telefone: '(21) 2166-0000', whatsapp: '(21) 98765-4321' })
+    expect(valores({ ...DADOS, telefone: '21987654321' })).toEqual({ telefone: '(21) 98765-4321', whatsapp: '(21) 98765-4321' })
+    expect(valores(DADOS)).toEqual({ telefone: '(21) 2166-0000', whatsapp: '' })
+  })
+
   it('endereço só entra com o bloco de endereço vazio (sem misturar dois endereços)', () => {
     expect(candidatosEndereco(DADOS, { cep: '01310-100', logradouro: '' })).toEqual([])
     expect(candidatosEndereco(DADOS, { cep: '', logradouro: 'Rua X' })).toEqual([])

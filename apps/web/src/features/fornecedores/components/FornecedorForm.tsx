@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, Save } from 'lucide-react'
@@ -5,6 +6,7 @@ import { toast } from 'sonner'
 import { fornecedorSchema, type Fornecedor, type FornecedorInput } from '@onprint/shared'
 import type { z } from 'zod'
 import { fornecedoresApi } from '@/api/cadastros'
+import { AvisoReceita, type ConsultaReceita } from '@/components/shared/AvisoReceita'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { BotaoBuscarCnpj } from '@/components/shared/BotaoBuscarCnpj'
 import { CamposEndereco } from '@/components/shared/CamposEndereco'
@@ -53,11 +55,13 @@ export function FornecedorForm({ fornecedor, onSalvo }: { fornecedor?: Fornecedo
     fornecedor ? fornecedoresApi.atualizar(fornecedor.id, dados) : fornecedoresApi.criar(dados),
   )
 
+  const [daReceita, setDaReceita] = useState<ConsultaReceita | null>(null)
   const consultaCnpj = useConsultaCnpj({
     form,
     campoDocumento: 'cpfCnpj',
-    campos: { razaoSocial: 'nome', nomeFantasia: 'fantasia', email: 'email', telefone: 'telefone', ie: 'ie' },
+    campos: { razaoSocial: 'nome', nomeFantasia: 'fantasia', email: 'email', telefone: 'telefone', whatsapp: 'whatsapp', ie: 'ie' },
     enderecoNoFormulario: true,
+    aoPreencher: (dados, preenchidos) => setDaReceita({ dados, preenchidos }),
     aoEncontrar: () => {
       if (form.getValues('tipoPessoa') !== 'PJ') form.setValue('tipoPessoa', 'PJ', { shouldDirty: true })
     },
@@ -66,6 +70,7 @@ export function FornecedorForm({ fornecedor, onSalvo }: { fornecedor?: Fornecedo
   const onSubmit = form.handleSubmit(async (dados) => {
     try {
       const salvo = await salvar.mutateAsync(dados)
+      setDaReceita(null)
       form.reset(valoresIniciais(salvo))
       toast.success(fornecedor ? 'Fornecedor atualizado.' : 'Fornecedor cadastrado.')
       onSalvo(salvo)
@@ -106,6 +111,7 @@ export function FornecedorForm({ fornecedor, onSalvo }: { fornecedor?: Fornecedo
                 <CpfCnpjInput id="for-doc" aria-invalid={Boolean(errors.cpfCnpj)} {...r('cpfCnpj')} />
               </CampoFormulario>
             </div>
+            {daReceita && <AvisoReceita consulta={daReceita} onFechar={() => setDaReceita(null)} className="md:col-span-6" />}
             <div className="md:col-span-2">
               <CampoFormulario id="for-ie" rotulo="Inscrição estadual">
                 <Input id="for-ie" {...r('ie')} />

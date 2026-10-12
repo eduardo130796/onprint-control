@@ -18,21 +18,23 @@ interface OpcoesConsultaCnpj {
   aoReceberEndereco?: (endereco: DadosCnpj['endereco']) => boolean
   /** Ajustes extras antes de preencher (ex.: cliente PF vira PJ) */
   aoEncontrar?: (dados: DadosCnpj) => void
+  /** Depois de preencher: os dados e os rótulos do que entrou (para o aviso fixo no formulário) */
+  aoPreencher?: (dados: DadosCnpj, preenchidos: string[]) => void
 }
 
 /**
  * Busca os dados públicos do CNPJ e preenche só os campos vazios. Automática uma vez quando o CNPJ
  * digitado fica completo e o nome ainda está vazio; senão pelo botão "Buscar dados".
  */
-export function useConsultaCnpj({ form, campoDocumento, campos, enderecoNoFormulario, aoReceberEndereco, aoEncontrar }: OpcoesConsultaCnpj) {
+export function useConsultaCnpj({ form, campoDocumento, campos, enderecoNoFormulario, aoReceberEndereco, aoEncontrar, aoPreencher }: OpcoesConsultaCnpj) {
   const [buscando, setBuscando] = useState(false)
   const documento = somenteDigitos(String(useWatch({ control: form.control, name: campoDocumento }) ?? ''))
   const disponivel = documento.length === 14 && cnpjValido(documento)
   // O CNPJ que já veio carregado não dispara a busca automática
   const ultimoAutomatico = useRef(documento)
-  const opcoes = useRef({ form, campoDocumento, campos, enderecoNoFormulario, aoReceberEndereco, aoEncontrar })
+  const opcoes = useRef({ form, campoDocumento, campos, enderecoNoFormulario, aoReceberEndereco, aoEncontrar, aoPreencher })
   useEffect(() => {
-    opcoes.current = { form, campoDocumento, campos, enderecoNoFormulario, aoReceberEndereco, aoEncontrar }
+    opcoes.current = { form, campoDocumento, campos, enderecoNoFormulario, aoReceberEndereco, aoEncontrar, aoPreencher }
   })
 
   const buscar = useCallback(async () => {
@@ -51,8 +53,9 @@ export function useConsultaCnpj({ form, campoDocumento, campos, enderecoNoFormul
       const atuais = o.form.getValues() as Record<string, unknown>
       const preencher = [...camposVazios(atuais, candidatosCnpj(dados, o.campos)), ...(o.enderecoNoFormulario ? candidatosEndereco(dados, atuais) : [])]
       for (const c of preencher) o.form.setValue(c.campo, c.valor, { shouldDirty: true, shouldValidate: Boolean(o.form.formState.errors[c.campo]) })
-      const rotulos = preencher.map((c) => c.rotulo)
+      const rotulos = [...new Set(preencher.map((c) => c.rotulo))]
       if (o.aoReceberEndereco?.(dados.endereco)) rotulos.push('endereço')
+      o.aoPreencher?.(dados, rotulos)
       if (rotulos.length) toast.success('Dados preenchidos pela Receita Federal', { description: `Preenchido: ${listarRotulos(rotulos)}.` })
       else toast.info('Dados da Receita Federal conferidos', { description: 'Os campos já estavam preenchidos; nada foi alterado.' })
       if (!dados.ativa) toast.warning(`Situação na Receita: ${dados.situacao || 'não informada'}`, { description: 'Confira antes de fechar negócio com este CNPJ.' })

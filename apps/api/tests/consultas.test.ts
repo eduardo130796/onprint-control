@@ -92,8 +92,8 @@ describe('consultas: normalização', () => {
     const a = cnpjDaBrasilApi(BRASILAPI_CNPJ)
     expect(a).toEqual({
       cnpj: '33000167000101',
-      razaoSocial: 'PETROLEO BRASILEIRO S A PETROBRAS',
-      nomeFantasia: 'PETROBRAS - EDISE',
+      razaoSocial: 'Petroleo Brasileiro S A Petrobras',
+      nomeFantasia: 'Petrobras - Edise',
       situacao: 'ATIVA',
       ativa: true,
       email: '',
@@ -111,6 +111,17 @@ describe('consultas: normalização', () => {
     // Sem IE ativa na UF da empresa: o campo nem aparece
     const semIe = cnpjDoCnpjWs({ ...CNPJWS, estabelecimento: { ...CNPJWS.estabelecimento, inscricoes_estaduais: [] } })
     expect(semIe).not.toHaveProperty('inscricaoEstadual')
+  })
+
+  it('segundo telefone, atividade, porte e abertura (porte "DEMAIS" fica de fora)', () => {
+    const extra = { ddd_telefone_2: '21987654321', cnae_fiscal_descricao: 'Extração de petróleo e gás natural', data_inicio_atividade: '1966-09-28' }
+    expect(cnpjDaBrasilApi({ ...BRASILAPI_CNPJ, ...extra, porte: 'DEMAIS' })).toMatchObject({
+      telefone2: '21987654321',
+      atividade: 'Extração de petróleo e gás natural',
+      abertura: '1966-09-28',
+    })
+    expect(cnpjDaBrasilApi({ ...BRASILAPI_CNPJ, ...extra, porte: 'DEMAIS' })).not.toHaveProperty('porte')
+    expect(cnpjDaBrasilApi({ ...BRASILAPI_CNPJ, porte: 'MICRO EMPRESA' }).porte).toBe('Micro empresa')
   })
 })
 
@@ -174,7 +185,7 @@ describe('consultas: serviços em ordem', () => {
 
   it('CNPJ: BrasilAPI → CNPJ.ws; 404 da BrasilAPI encerra sem gastar a cota da CNPJ.ws', async () => {
     const ok = fetchFalso({ 'brasilapi.com.br': { status: 403 }, 'publica.cnpj.ws': { status: 200, corpo: CNPJWS } })
-    expect(await criarConsultas({ buscar: ok.buscar }).cnpj('33.000.167/0001-01')).toMatchObject({ razaoSocial: 'PETROLEO BRASILEIRO S A PETROBRAS', inscricaoEstadual: '81281882' })
+    expect(await criarConsultas({ buscar: ok.buscar }).cnpj('33.000.167/0001-01')).toMatchObject({ razaoSocial: 'Petroleo Brasileiro S A Petrobras', inscricaoEstadual: '81281882' })
     expect(ok.chamadas).toEqual(['https://brasilapi.com.br/api/cnpj/v1/33000167000101', 'https://publica.cnpj.ws/cnpj/33000167000101'])
 
     const naoExiste = fetchFalso({ 'brasilapi.com.br': { status: 404, corpo: { message: 'CNPJ não encontrado' } } })

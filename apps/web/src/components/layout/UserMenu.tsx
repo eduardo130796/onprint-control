@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, CreditCard, Info, KeyRound, LogOut, Monitor, Moon, Search, Sun, Type } from 'lucide-react'
+import { ChevronDown, CircleHelp, CreditCard, Info, KeyRound, LogOut, Monitor, Moon, Search, Sun, Type } from 'lucide-react'
 import { toast } from 'sonner'
 import { iniciais } from '@onprint/shared'
 import { abrirSobreSistema } from '@/app/marca'
@@ -110,6 +110,9 @@ export function UserMenu() {
         <DropdownMenuItem onSelect={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}>
           <Search /> Localizar
           <kbd className="ml-auto rounded border border-border px-1 text-[0.625rem] font-semibold text-texto-secundario">Ctrl K</kbd>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => navigate('/ajuda')}>
+          <CircleHelp /> Central de ajuda
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={abrirSobreSistema}>
           <Info /> Sobre o sistema

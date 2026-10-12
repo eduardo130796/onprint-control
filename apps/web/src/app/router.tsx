@@ -73,6 +73,8 @@ import {
   CriarContaPage,
   TermosPage,
   PrivacidadePage,
+  AjudaPage,
+  TutorialAjudaPage,
   PlataformaLoginPage,
   PlataformaLayout,
   PainelPlataformaPage,
@@ -246,6 +248,9 @@ export const router = createBrowserRouter(
         children: [
           ...rotasInternas,
           ...detalhes.map((d) => protegida(d.path, d.modulo, d.elemento)),
+          // Central de ajuda: qualquer usuário logado
+          { path: '/ajuda', element: comCarregamento(<AjudaPage />) },
+          { path: '/ajuda/:slug', element: comCarregamento(<TutorialAjudaPage />) },
           { path: '*', element: <NaoEncontradoPage /> },
         ],
       },

@@ -1,12 +1,14 @@
 import type { ReactNode } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table'
-import { ArrowDown, ArrowUp, ArrowUpDown, Inbox, Search } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Inbox, PlayCircle, Search } from 'lucide-react'
 import type { Paginado } from '@onprint/shared'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { ColunaCsv } from '@/lib/csv'
 import { cn } from '@/lib/utils'
+import { tutorialDaTela } from '@/features/ajuda/conteudo'
 import { EmptyState } from '../EmptyState'
 import { EstadoErro } from '../EstadoErro'
 import { BotaoExportarCsv } from './BotaoExportarCsv'
@@ -105,7 +107,12 @@ export function DataTable<T>(props: DataTableProps<T>) {
           ))}
         </div>
       ) : linhas.length === 0 ? (
-        <EmptyState icone={Inbox} titulo={props.vazio?.titulo ?? 'Nenhum registro encontrado'} descricao={props.vazio?.descricao} acao={props.vazio?.acao} />
+        <EmptyState
+          icone={Inbox}
+          titulo={props.vazio?.titulo ?? 'Nenhum registro encontrado'}
+          descricao={props.vazio?.descricao}
+          acao={<AcoesVazio acao={props.vazio?.acao} />}
+        />
       ) : (
         <div className={cn(carregando && 'opacity-60 transition-opacity')}>
           {/* Desktop: tabela (a partir de 1024 px) */}
@@ -181,5 +188,20 @@ export function DataTable<T>(props: DataTableProps<T>) {
         <Paginacao meta={resultado.meta} onPageChange={props.onPageChange} onPageSizeChange={props.onPageSizeChange} />
       )}
     </Card>
+  )
+}
+
+/** Lista vazia: a ação da tela e, se houver tutorial desta tela, "Ver como fazer" (vídeo e passo a passo) */
+function AcoesVazio({ acao }: { acao?: ReactNode }) {
+  const { pathname } = useLocation()
+  const t = tutorialDaTela(pathname)
+  if (!t) return acao ?? null
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-3">
+      {acao}
+      <Link to={`/ajuda/${t.slug}`} className="inline-flex items-center gap-1.5 text-sm font-medium text-marca-escuro hover:underline">
+        <PlayCircle className="h-4 w-4" aria-hidden="true" /> Ver como fazer
+      </Link>
+    </div>
   )
 }

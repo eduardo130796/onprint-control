@@ -18,6 +18,7 @@ const NAV = [
   { href: '#vitrine', rotulo: 'Vitrine online' },
   { href: '#planos', rotulo: 'Planos' },
   { href: '#duvidas', rotulo: 'Dúvidas' },
+  { href: '/ajuda', rotulo: 'Ajuda' },
 ]
 
 function Container({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -432,6 +433,11 @@ function Rodape({ dados }: { dados: PlanosPublicos | null }) {
               <a href={`${sistema}/criar-conta`} className="hover:text-slate-900 hover:underline">
                 Criar conta grátis
               </a>
+            </li>
+            <li>
+              <Link to="/ajuda" className="hover:text-slate-900 hover:underline">
+                Central de ajuda
+              </Link>
             </li>
           </ul>
         </nav>

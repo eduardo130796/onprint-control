@@ -21,6 +21,8 @@ export const StatusPage = carregar(() => import('@/features/configuracoes/pages/
 export const TemplatesPage = carregar(() => import('@/features/configuracoes/pages/TemplatesPage'), 'TemplatesPage')
 // Painel da plataforma e cadastro público
 export const CriarContaPage = carregar(() => import('@/features/plataforma/pages/CriarContaPage'), 'CriarContaPage')
+export const AjudaPage = carregar(() => import('@/features/ajuda/pages/AjudaPage'), 'AjudaPage')
+export const TutorialAjudaPage = carregar(() => import('@/features/ajuda/pages/AjudaPage'), 'TutorialAjudaPage')
 export const TermosPage = carregar(() => import('@/features/legal/PaginaLegal'), 'TermosPage')
 export const PrivacidadePage = carregar(() => import('@/features/legal/PaginaLegal'), 'PrivacidadePage')
 export const PlataformaLoginPage = carregar(() => import('@/features/plataforma/pages/PlataformaLoginPage'), 'PlataformaLoginPage')

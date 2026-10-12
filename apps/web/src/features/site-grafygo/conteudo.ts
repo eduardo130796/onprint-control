@@ -121,6 +121,11 @@ export const PERGUNTAS: { pergunta: string; resposta: string }[] = [
       'Sim, a qualquer momento, pelo próprio sistema. Ao subir de plano, os recursos liberam na hora e você paga só a diferença dos dias que faltam. Não há fidelidade nem multa para cancelar.',
   },
   {
+    pergunta: 'Vou conseguir aprender sozinho?',
+    resposta:
+      'Sim. Ao criar a conta, o painel mostra os primeiros passos, um de cada vez, e você já começa com produtos de exemplo para fazer um orçamento no primeiro minuto. Cada tela tem o botão "Como usar", com vídeo curto e passo a passo, e a central de ajuda fica aberta em grafygo.com.br/ajuda.',
+  },
+  {
     pergunta: 'Funciona no celular?',
     resposta: 'Funciona no navegador do computador, do tablet e do celular, sem instalar nada. Seus clientes aprovam orçamentos e artes pelo celular também.',
   },

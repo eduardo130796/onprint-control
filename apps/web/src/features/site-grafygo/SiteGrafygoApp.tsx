@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Navigate, RouterProvider, createBrowserRouter, useLocation } from 'react-router-dom'
 import { MARCA } from '@/app/marca'
 import { PrivacidadePage, TermosPage } from '@/features/legal/PaginaLegal'
+import { AjudaSite, TutorialSite } from './paginas/AjudaSite'
 import { InicioSite } from './paginas/InicioSite'
 import './site.css'
 
@@ -32,6 +33,8 @@ const router = createBrowserRouter([
       </>
     ),
   },
+  { path: '/ajuda', element: <AjudaSite /> },
+  { path: '/ajuda/:slug', element: <TutorialSite /> },
   { path: '/termos', element: <TermosPage voltar={voltar} /> },
   { path: '/privacidade', element: <PrivacidadePage voltar={voltar} /> },
   { path: '*', element: <Navigate to="/" replace /> },

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { BotaoAjudaTela } from '@/features/ajuda/components/BotaoAjudaTela'
 
 interface PageHeaderProps {
   titulo: string
@@ -14,7 +15,10 @@ export function PageHeader({ titulo, subtitulo, acoes }: PageHeaderProps) {
         <h1 className="font-titulo text-2xl font-extrabold tracking-tight text-tinta">{titulo}</h1>
         {subtitulo && <p className="mt-1 text-sm text-texto-secundario">{subtitulo}</p>}
       </div>
-      {acoes && <div className="flex flex-wrap gap-2">{acoes}</div>}
+      <div className="flex flex-wrap gap-2">
+        <BotaoAjudaTela />
+        {acoes}
+      </div>
     </div>
   )
 }

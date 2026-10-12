@@ -38,7 +38,7 @@ export function MinhaAssinaturaPage() {
 
   return (
     <>
-      <PageHeader titulo="Minha assinatura" subtitulo={usuario?.empresa.nome} />
+      <PageHeader titulo="Minha assinatura" subtitulo={usuario?.empresa.exibicao} />
       {consulta.isPending ? (
         <div className="space-y-4">
           <Skeleton className="h-80 w-full rounded-3xl" />

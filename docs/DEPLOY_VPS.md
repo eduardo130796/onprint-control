@@ -271,6 +271,29 @@ O script:
 
 O sistema fica fora do ar por menos de um minuto durante a troca.
 
+Se a versão nova precisar de uma variável que o seu `.env.prod` ainda não tem, o script **para antes de mexer nos containers** (o sistema antigo continua no ar), mostra o que falta e como gerar. Acrescente e rode o script de novo.
+
+### Atualização de outubro de 2026 (WhatsApp, acompanhamento do pedido, conversão automática)
+
+Para uma VPS que já estava no ar antes desta versão:
+
+1. **Acrescente ao `.env.prod`** (o container novo do WhatsApp não sobe sem a chave):
+   ```bash
+   cd ~/onprint
+   echo "EVOLUTION_API_KEY=$(openssl rand -hex 32)" >> .env.prod
+   echo "WHATSAPP_PROVEDOR=evolution" >> .env.prod
+   ```
+   Quer subir primeiro sem enviar nada de verdade? Use `WHATSAPP_PROVEDOR=log` e troque para `evolution` depois (`onprint up -d api`).
+2. **Confira a senha do banco**: ela vai na URL da Evolution, então não pode ter `@ : / ? #`. Se foi gerada com `openssl rand -hex 32` (como no passo 7), está certa.
+3. **Rode** `scripts/vps/atualizar.sh`. Além do de sempre, ele cria o banco `evolution` e sobe o container `evolution` (cerca de 1 minuto até ficar saudável). As migrations desta versão (link de acompanhamento dos pedidos, avisos do WhatsApp, mensagens formatadas, conversão automática) são aplicadas sozinhas em todas as gráficas.
+4. **Confira**:
+   ```bash
+   onprint ps                       # evolution "healthy" e api "healthy"
+   docker stats --no-stream         # evolution ~300 MB
+   ```
+   No sistema: **WhatsApp → Conectar** mostra o QR code; um pedido mostra **Link de acompanhamento**; em **Configurações → Empresa → Pedidos** a opção "criar o pedido automaticamente" vem ligada.
+5. **Avise as gráficas** do que mudou: orçamento aprovado vira pedido sozinho (dá para desligar em Configurações → Empresa → Pedidos); "Enviar pelo WhatsApp" em orçamento, arte, pedido e catálogo; avisos automáticos depois de conectar o WhatsApp (plano Completo e período de teste); link "Acompanhe seu pedido" para o cliente.
+
 ## 11. Restaurar um backup
 
 > **Atenção:** substitui os dados atuais pelos do backup.

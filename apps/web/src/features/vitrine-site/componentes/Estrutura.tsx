@@ -1,7 +1,7 @@
 import { formatarTelefone } from '@onprint/shared'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, NavLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { ClipboardList, Clock, Mail, MapPin, Phone, Search } from 'lucide-react'
+import { ClipboardList, Clock, House, LayoutGrid, Mail, MapPin, Phone, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useVitrine, useWhatsappGeral } from '../contexto'
 import { botao } from '../estilos'
@@ -21,7 +21,7 @@ export function MarcaLoja({ grande }: { grande?: boolean }) {
         src={logoUrl}
         alt={`Logo ${nome}`}
         onError={() => setFalhou(true)}
-        className={cn('w-auto shrink-0 object-contain', grande ? 'h-14 max-w-[12rem]' : 'h-9 max-w-[7.5rem] sm:h-11 sm:max-w-[10rem]')}
+        className={cn('w-auto shrink-0 rounded-lg object-contain', grande ? 'h-14 max-w-[12rem]' : 'h-10 max-w-[6.5rem] sm:h-11 sm:max-w-[10rem]')}
       />
     )
   }
@@ -64,18 +64,17 @@ function Busca({ id, className }: { id: string; className?: string }) {
         onChange={(e) => setTexto(e.target.value)}
         placeholder="Buscar produtos: banner, cartão, adesivo…"
         maxLength={80}
+        enterKeyHint="search"
         className="h-11 w-full rounded-full border border-transparent bg-slate-100 pl-11 pr-4 text-[0.9375rem] text-slate-900 transition placeholder:text-slate-500 focus:border-marca focus:bg-white focus:outline-none focus:ring-4 focus:ring-marca/15"
       />
     </form>
   )
 }
 
-function BotaoLista() {
-  const { lista } = useVitrine()
-  const n = lista.itens.length
+/** Pulsa quando entra item na lista (não ao abrir a página) */
+function usePulsoLista(n: number) {
   const [pulso, setPulso] = useState(false)
   const anterior = useRef(n)
-  // Pulsa quando entra item (não ao abrir a página)
   useEffect(() => {
     const subiu = n > anterior.current
     anterior.current = n
@@ -84,31 +83,54 @@ function BotaoLista() {
     const t = window.setTimeout(() => setPulso(false), 600)
     return () => window.clearTimeout(t)
   }, [n])
+  return pulso
+}
+
+/** Quantos itens na lista ("9+" acima de 9, para caber no selo) */
+function SeloLista({ n, className }: { n: number; className?: string }) {
+  return (
+    <span aria-hidden="true" className={cn('flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[0.6875rem] font-bold leading-none', className)}>
+      {n > 9 ? '9+' : n}
+    </span>
+  )
+}
+
+const rotuloLista = (n: number) => `Lista de orçamento, ${n} ${n === 1 ? 'item' : 'itens'}`
+
+function BotaoLista() {
+  const { lista } = useVitrine()
+  const n = lista.itens.length
+  const pulso = usePulsoLista(n)
   return (
     <Link
       to="/lista"
-      aria-label={`Lista de orçamento, ${n} ${n === 1 ? 'item' : 'itens'}`}
-      className={cn(botao.base, botao.primario, 'relative h-11 px-3.5 text-sm sm:px-5', pulso && 'animate-[vt-pulso_0.6s_ease-out]')}
+      aria-label={rotuloLista(n)}
+      className={cn(botao.base, botao.primario, 'relative h-11 gap-1.5 px-3.5 text-sm sm:gap-2 sm:px-5', pulso && 'animate-[vt-pulso_0.6s_ease-out]')}
     >
       <ClipboardList />
+      <span className="sm:hidden">Lista</span>
       <span className="hidden sm:inline">Lista de orçamento</span>
-      <span
-        className={cn(
-          'flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-bold',
-          n ? 'bg-white text-slate-900' : 'bg-white/25 text-marca-contraste max-sm:hidden',
-          'max-sm:absolute max-sm:-right-1.5 max-sm:-top-1.5 max-sm:h-5 max-sm:min-w-5 max-sm:ring-2 max-sm:ring-white',
-        )}
-      >
-        {n}
-      </span>
+      <SeloLista n={n} className={n ? 'bg-white text-slate-900' : 'bg-white/25 text-marca-contraste max-sm:hidden'} />
     </Link>
   )
 }
 
+/**
+ * Abas do pé da tela no celular: somem nas páginas que têm a própria barra de ação (produto e lista com itens),
+ * para não empilhar duas barras.
+ */
+function useBarraAbasVisivel(): boolean {
+  const { pathname } = useLocation()
+  const { lista } = useVitrine()
+  return !pathname.startsWith('/produto/') && !(pathname === '/lista' && lista.itens.length > 0)
+}
+
 export function Topo() {
   const { vitrine } = useVitrine()
-  const { titulo, slogan, logoUrl } = vitrine.empresa
+  const { titulo, slogan } = vitrine.empresa
+  const { pathname } = useLocation()
   const wa = useWhatsappGeral()
+  const abas = useBarraAbasVisivel()
   const categorias = vitrine.categorias.filter((c) => c.quantidade > 0)
   const faixa = useRolagemLateral<HTMLElement>(categorias.length)
   const chip = ({ isActive }: { isActive: boolean }) =>
@@ -118,13 +140,16 @@ export function Topo() {
     )
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl">
-        <Container className="flex h-[4.25rem] items-center gap-3 sm:gap-5 lg:h-20">
-          <Link to="/" className="flex min-w-0 items-center gap-3 rounded-lg lg:max-w-[45%] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca" aria-label={`${titulo} — início`}>
+      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
+        <Container className="flex h-[3.75rem] items-center gap-3 sm:h-[4.25rem] sm:gap-5 lg:h-20">
+          <Link
+            to="/"
+            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg sm:gap-3 lg:max-w-[45%] lg:flex-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca"
+            aria-label={`${titulo} — início`}
+          >
             <MarcaLoja />
-            {/* No celular estreito a logo basta (o nome cortado pela metade fica pior) */}
-            <span className={cn('min-w-0', logoUrl && 'max-[400px]:sr-only')}>
-              <span className="vt-titulo line-clamp-2 text-base font-extrabold leading-tight text-slate-900 sm:text-lg">{titulo}</span>
+            <span className="min-w-0">
+              <span className="vt-titulo line-clamp-1 text-[1.0625rem] font-extrabold leading-tight text-slate-900 sm:line-clamp-2 sm:text-lg">{titulo}</span>
               {slogan && <span className="hidden truncate text-xs text-slate-500 xl:block">{slogan}</span>}
             </span>
           </Link>
@@ -136,7 +161,12 @@ export function Topo() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Chamar no WhatsApp"
-                className={cn(botao.base, 'h-11 w-11 border border-slate-200 bg-white text-[#128C4B] hover:border-[#25D366] hover:bg-[#25D366]/10 xl:w-auto xl:px-4 xl:text-sm')}
+                className={cn(
+                  botao.base,
+                  'h-11 w-11 border border-slate-200 bg-white text-[#128C4B] hover:border-[#25D366] hover:bg-[#25D366]/10 xl:w-auto xl:px-4 xl:text-sm',
+                  // No celular o WhatsApp fica nas abas; nas páginas sem abas (produto, lista) ele volta para o topo
+                  abas && 'max-lg:hidden',
+                )}
               >
                 <IconeWhatsapp />
                 <span className="hidden xl:inline">WhatsApp</span>
@@ -146,10 +176,11 @@ export function Topo() {
           </div>
         </Container>
       </header>
-      <div className="border-b border-slate-200/80 bg-white">
-        <Container className="space-y-3 py-3 lg:py-0">
+      {/* Celular: a busca só no início (Produtos tem a sua); as categorias ficam no início e em Produtos */}
+      <div className={cn('border-b border-slate-200/80 bg-white', pathname !== '/' && 'max-lg:hidden')}>
+        <Container className="py-3 lg:py-0">
           <Busca id="busca-celular" className="lg:hidden" />
-          <nav ref={faixa.ref} aria-label="Categorias" className={cn('vt-sem-barra flex items-center gap-1 overflow-x-auto lg:h-12', classesFade(faixa))}>
+          <nav ref={faixa.ref} aria-label="Categorias" className={cn('vt-sem-barra hidden items-center gap-1 overflow-x-auto lg:flex lg:h-12', classesFade(faixa))}>
             <NavLink to="/" end className={chip}>
               Início
             </NavLink>
@@ -165,6 +196,51 @@ export function Topo() {
         </Container>
       </div>
     </>
+  )
+}
+
+/** Abas fixas no pé da tela do celular (como num aplicativo): início, produtos, busca, lista e WhatsApp */
+export function BarraAbas() {
+  const { lista } = useVitrine()
+  const wa = useWhatsappGeral()
+  const visivel = useBarraAbasVisivel()
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const n = lista.itens.length
+  const pulso = usePulsoLista(n)
+  if (!visivel) return null
+  const noCatalogo = pathname === '/produtos' || pathname.startsWith('/categoria/')
+  const aba = (ativa: boolean) =>
+    cn(
+      'relative flex min-h-[3.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-[0.6875rem] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-marca [&_svg]:h-[1.375rem] [&_svg]:w-[1.375rem]',
+      ativa ? 'text-marca-escuro' : 'text-slate-500 active:text-slate-900',
+    )
+  return (
+    <nav aria-label="Navegação principal" className="vt-lados fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
+      <div className="mx-auto flex max-w-lg items-stretch px-1">
+        <NavLink to="/" end className={({ isActive }) => aba(isActive)}>
+          <House aria-hidden="true" /> Início
+        </NavLink>
+        <Link to="/produtos" className={aba(noCatalogo)} aria-current={noCatalogo ? 'page' : undefined}>
+          <LayoutGrid aria-hidden="true" /> Produtos
+        </Link>
+        <button type="button" className={aba(false)} onClick={() => navigate('/produtos', { state: { buscar: true }, replace: noCatalogo })}>
+          <Search aria-hidden="true" /> Buscar
+        </button>
+        <NavLink to="/lista" className={({ isActive }) => aba(isActive)} aria-label={rotuloLista(n)}>
+          <span className={cn('relative', pulso && 'animate-[vt-pulso_0.6s_ease-out]')}>
+            <ClipboardList aria-hidden="true" />
+            {n > 0 && <SeloLista n={n} className="absolute -right-3 -top-2 bg-marca text-marca-contraste ring-2 ring-white" />}
+          </span>
+          Lista
+        </NavLink>
+        {wa && (
+          <a href={wa} target="_blank" rel="noopener noreferrer" className={cn(aba(false), 'text-[#128C4B] active:text-[#0B3B1F]')}>
+            <IconeWhatsapp aria-hidden="true" /> WhatsApp
+          </a>
+        )}
+      </div>
+    </nav>
   )
 }
 
@@ -188,7 +264,7 @@ export function RedesSociais({ className }: { className?: string }) {
             target="_blank"
             rel="noopener noreferrer"
             aria-label={rotulo}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-marca hover:text-marca-escuro focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-marca hover:text-marca-escuro focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca"
           >
             <Icone className="h-[1.125rem] w-[1.125rem]" />
           </a>
@@ -219,7 +295,7 @@ export function ListaContatos({ className }: { className?: string }) {
           <a
             href={href}
             {...(externo ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-            className="group flex items-start gap-3 rounded-lg text-slate-700 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca"
+            className="group flex min-h-11 items-start gap-3 rounded-lg text-slate-700 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca"
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-marca-suave text-marca-escuro">
               <Icone className="h-4 w-4" />
@@ -242,7 +318,7 @@ export function FeitoComGrafyGo({ className }: { className?: string }) {
       href="https://grafygo.com.br/?utm_source=vitrine&utm_medium=rodape"
       target="_blank"
       rel="noopener"
-      className={cn('group inline-flex items-center gap-2 rounded-md text-xs text-slate-500 transition hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca', className)}
+      className={cn('group inline-flex min-h-11 items-center gap-2 rounded-md text-xs text-slate-500 transition hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca', className)}
     >
       Feito com
       <img src="/marca/grafygo.png" alt="GrafyGo" className="h-6 w-auto opacity-90 transition group-hover:opacity-100" />
@@ -255,8 +331,8 @@ export function Rodape() {
   const e = vitrine.empresa
   const ano = new Date().getFullYear()
   return (
-    <footer className="mt-24 border-t border-slate-200 bg-slate-50 lg:mt-32">
-      <Container className="grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-12 lg:gap-12 lg:py-16">
+    <footer className="mt-16 border-t border-slate-200 bg-slate-50 lg:mt-32">
+      <Container className="grid gap-8 py-10 sm:grid-cols-2 sm:gap-10 sm:py-14 lg:grid-cols-12 lg:gap-12 lg:py-16">
         <div className="space-y-4 sm:col-span-2 lg:col-span-3">
           <div className="flex items-center gap-3">
             <MarcaLoja />
@@ -265,7 +341,8 @@ export function Rodape() {
           {(e.slogan || e.seoDescricao) && <p className="max-w-sm text-sm leading-relaxed text-slate-600">{e.slogan || e.seoDescricao}</p>}
           <RedesSociais />
         </div>
-        <nav aria-label="Rodapé" className="lg:col-span-2">
+        {/* No celular a navegação já está nas abas do pé da tela */}
+        <nav aria-label="Rodapé" className="max-lg:hidden lg:col-span-2">
           <h2 className="mb-4 text-sm font-bold text-slate-900">Navegação</h2>
           <ul className="space-y-2.5 text-sm text-slate-600">
             <li>
@@ -313,7 +390,7 @@ export function Rodape() {
   )
 }
 
-/** Botão flutuante do WhatsApp (sempre à mão) */
+/** Botão flutuante do WhatsApp no computador (no celular ele fica nas abas do pé da tela ou no topo) */
 export function WhatsappFlutuante() {
   const wa = useWhatsappGeral()
   if (!wa) return null
@@ -323,7 +400,7 @@ export function WhatsappFlutuante() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chamar no WhatsApp"
-      className="group fixed bottom-4 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-[#0B3B1F] shadow-[0_0.75rem_2rem_-0.5rem_rgba(37,211,102,0.65)] transition hover:-translate-y-0.5 hover:bg-[#1EBE5A] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#25D366]/40 sm:bottom-6 sm:right-6"
+      className="group fixed bottom-6 right-6 z-40 hidden h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-[#0B3B1F] shadow-[0_0.75rem_2rem_-0.5rem_rgba(37,211,102,0.65)] transition hover:-translate-y-0.5 hover:bg-[#1EBE5A] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#25D366]/40 lg:flex"
     >
       <IconeWhatsapp className="h-7 w-7" />
       <span className="pointer-events-none absolute right-full mr-3 hidden whitespace-nowrap rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white opacity-0 shadow-lg transition group-hover:opacity-100 group-focus-visible:opacity-100 lg:block">

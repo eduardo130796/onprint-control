@@ -1,6 +1,6 @@
 /** Classes compartilhadas do site (fora dos componentes, para o recarregamento rápido do Vite) */
 
-export const classeGrade = 'grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-y-10'
+export const classeGrade = 'grid grid-cols-2 gap-x-3 gap-y-6 sm:gap-x-6 sm:gap-y-8 md:grid-cols-3 lg:grid-cols-4 lg:gap-y-10'
 
 /** Link com cara de botão (as variações do site) */
 export const botao = {

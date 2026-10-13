@@ -10,9 +10,10 @@ export function mensagemInteresse(produto: string, link: string): string {
   return `Olá! Tenho interesse no ${produto.trim()}: ${link}`
 }
 
-/** Mensagem do WhatsApp depois de enviar a lista de orçamento */
-export function mensagemPedidoEnviado(numero: string): string {
-  return `Olá! Acabei de enviar pelo site o pedido de orçamento ${numero}.`
+/** Mensagem do WhatsApp depois de enviar a lista de orçamento (com os itens, um por linha, quando vierem) */
+export function mensagemPedidoEnviado(numero: string, itens: string[] = []): string {
+  const inicio = `Olá! Acabei de enviar pelo site o pedido de orçamento ${numero}.`
+  return itens.length ? `${inicio}\n\n${itens.map((t, i) => `${i + 1}. ${t}`).join('\n')}` : inicio
 }
 
 export interface DadosCompartilhar {

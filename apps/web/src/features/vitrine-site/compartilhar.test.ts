@@ -18,6 +18,12 @@ describe('mensagens do WhatsApp', () => {
   it('pedido enviado: leva o número', () => {
     expect(mensagemPedidoEnviado('SOL-0042')).toBe('Olá! Acabei de enviar pelo site o pedido de orçamento SOL-0042.')
   })
+
+  it('pedido enviado: com os itens numerados', () => {
+    expect(mensagemPedidoEnviado('SOL-0042', ['Banner em lona — 2 un. · 1,5 × 0,8 m', 'Caneca — 10 un.'])).toBe(
+      'Olá! Acabei de enviar pelo site o pedido de orçamento SOL-0042.\n\n1. Banner em lona — 2 un. · 1,5 × 0,8 m\n2. Caneca — 10 un.',
+    )
+  })
 })
 
 describe('compartilhar produto', () => {

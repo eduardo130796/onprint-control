@@ -7,7 +7,7 @@ import { aplicarTema, definirFavicon, gerarFavicon } from '@/features/aparencia/
 import { cn } from '@/lib/utils'
 import { criarVitrineApi, naoEncontrado } from './api'
 import { Container, Esqueleto, GradeEsqueleto } from './componentes/comum'
-import { FeitoComGrafyGo, Rodape, Topo, WhatsappFlutuante } from './componentes/Estrutura'
+import { BarraAbas, FeitoComGrafyGo, Rodape, Topo, WhatsappFlutuante } from './componentes/Estrutura'
 import { VitrineContexto, criarLinkWhatsapp, definirMeta, useListaOrcamento, useVitrine, type ContextoVitrine } from './contexto'
 import { botao } from './estilos'
 import { dominioBaseVitrine, enderecoNoSlugNovo } from './host'
@@ -45,7 +45,7 @@ function CarregandoSite() {
   return (
     <div role="status" aria-label="Carregando a vitrine">
       <div className="border-b border-slate-200">
-        <Container className="flex h-[4.25rem] items-center gap-4 lg:h-20">
+        <Container className="flex h-[3.75rem] items-center gap-4 sm:h-[4.25rem] lg:h-20">
           <Esqueleto className="h-11 w-11 rounded-xl" />
           <Esqueleto className="h-5 w-40" />
           <Esqueleto className="ml-auto hidden h-11 w-full max-w-xl rounded-full md:block" />
@@ -53,8 +53,8 @@ function CarregandoSite() {
         </Container>
       </div>
       <Container className="py-6">
-        <Esqueleto className="h-[22rem] rounded-[1.75rem] lg:h-[28rem]" />
-        <div className="mt-16">
+        <Esqueleto className="aspect-[3/1] rounded-2xl sm:rounded-[1.75rem]" />
+        <div className="mt-10 lg:mt-16">
           <Esqueleto className="mb-8 h-8 w-64" />
           <GradeEsqueleto />
         </div>
@@ -78,6 +78,8 @@ function Estrutura({ slug }: { slug: string }) {
     aplicarTema(e.corTema)
     const tema = TEMAS[temaOuPadrao(e.corTema)]
     definirMeta('theme-color', tema.cor)
+    // Tela inteira no celular com entalhe: as barras fixas usam env(safe-area-inset-*) (ver vitrine.css)
+    definirMeta('viewport', 'width=device-width, initial-scale=1.0, viewport-fit=cover')
     definirMeta('description', descricaoLoja(e))
     let vivo = true
     void gerarFavicon({ logoUrl: e.logoUrl, nome: e.nome, cor: tema.cor, contraste: tema.contraste }).then((url) => {
@@ -114,7 +116,8 @@ function Estrutura({ slug }: { slug: string }) {
       >
         Pular para o conteúdo
       </a>
-      <div className="flex min-h-screen flex-col bg-white text-slate-900">
+      {/* No celular sobra espaço no pé para as abas (ou a barra de ação do produto e da lista) não cobrirem nada */}
+      <div className="flex min-h-screen flex-col bg-white pb-[calc(4.5rem+env(safe-area-inset-bottom))] text-slate-900 lg:pb-0">
         <Topo />
         <main id="conteudo" className="flex-1">
           <Outlet />
@@ -122,7 +125,9 @@ function Estrutura({ slug }: { slug: string }) {
         <Rodape />
       </div>
       <WhatsappFlutuante />
-      <ScrollRestoration />
+      <BarraAbas />
+      {/* A primeira página aberta tem a chave "default" em qualquer endereço: usa o endereço para não herdar a rolagem de outra */}
+      <ScrollRestoration getKey={(l) => (l.key === 'default' ? l.pathname + l.search : l.key)} />
     </VitrineContexto.Provider>
   )
 }

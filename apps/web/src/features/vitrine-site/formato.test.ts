@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatarMetros, lerMedida, linkRede, linkWhatsapp, medidaParaCampo, paragrafos, partesPreco, textoPrazo, textoPreco } from './formato'
+import { formatarMetros, lerMedida, linkRede, linkWhatsapp, medidaParaCampo, miniatura, paragrafos, partesPreco, resumoEscolha, textoPrazo, textoPreco } from './formato'
 
 describe('preço exibido', () => {
   it('fixo: valor e unidade', () => {
@@ -64,5 +64,21 @@ describe('links', () => {
     expect(linkRede('facebook', 'https://facebook.com/cupom')).toBe('https://facebook.com/cupom')
     expect(linkRede('youtube', 'youtube.com/@cupom')).toBe('https://youtube.com/@cupom')
     expect(linkRede('instagram', '  ')).toBeNull()
+  })
+})
+
+describe('resumo das escolhas', () => {
+  it('quantidade, medidas e acabamentos', () => {
+    expect(resumoEscolha({ modoCalculo: 'm2', quantidade: 2, largura: '1.5', altura: '0.8', acabamentos: ['Ilhós', 'Bainha'] })).toBe('2 un. · 1,5 × 0,8 m · Ilhós, Bainha')
+    expect(resumoEscolha({ modoCalculo: 'metro_linear', quantidade: 1, largura: '3', altura: null })).toBe('1 un. · 3 m')
+    expect(resumoEscolha({ modoCalculo: 'milheiro', quantidade: 2000, largura: '0.09', altura: '0.05' })).toBe('2.000 un.')
+    expect(resumoEscolha({ modoCalculo: 'hora', quantidade: 3 })).toBe('3 h')
+  })
+})
+
+describe('miniatura', () => {
+  it('troca a imagem grande pela de 480 px', () => {
+    expect(miniatura('/api/v1/publico/x/vitrine/imagens/abc?w=1200')).toBe('/api/v1/publico/x/vitrine/imagens/abc?w=480')
+    expect(miniatura('/outra.png')).toBe('/outra.png')
   })
 })

@@ -3,10 +3,10 @@ import { Minus, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatarMetros } from '../formato'
 
-/** Campos do site (maiores e mais arejados que os do sistema) */
+/** Campos do site (maiores e mais arejados que os do sistema; 16px no celular para o iPhone não dar zoom ao tocar) */
 
 export const classeCampo =
-  'h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-[0.9375rem] text-slate-900 transition placeholder:text-slate-400 focus:border-marca focus:outline-none focus:ring-4 focus:ring-marca/15 aria-[invalid=true]:border-red-500 aria-[invalid=true]:focus:ring-red-500/15'
+  'h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base text-slate-900 sm:text-[0.9375rem] transition placeholder:text-slate-400 focus:border-marca focus:outline-none focus:ring-4 focus:ring-marca/15 aria-[invalid=true]:border-red-500 aria-[invalid=true]:focus:ring-red-500/15'
 
 export function Rotulo({ className, ...props }: LabelHTMLAttributes<HTMLLabelElement>) {
   return <label className={cn('mb-1.5 block text-sm font-semibold text-slate-900', className)} {...props} />
@@ -80,10 +80,10 @@ export function CampoQuantidade({
         className={cn(
           'inline-flex items-stretch overflow-hidden rounded-xl border bg-white focus-within:border-marca focus-within:ring-4 focus-within:ring-marca/15',
           erro ? 'border-red-500' : 'border-slate-300',
-          compacto ? 'h-10' : 'h-12',
+          compacto ? 'h-11' : 'h-12',
         )}
       >
-        <button type="button" className={cn(botao, compacto ? 'w-9' : 'w-12')} onClick={() => aoMudar(String(Math.max(1, n - passo)))} disabled={n <= 1} aria-label="Diminuir quantidade">
+        <button type="button" className={cn(botao, compacto ? 'w-11' : 'w-12')} onClick={() => aoMudar(String(Math.max(1, n - passo)))} disabled={n <= 1} aria-label="Diminuir quantidade">
           <Minus className="h-4 w-4" />
         </button>
         <input
@@ -93,9 +93,9 @@ export function CampoQuantidade({
           onChange={(e) => aoMudar(e.target.value.replace(/\D/g, '').slice(0, 7))}
           aria-invalid={erro ? true : undefined}
           aria-describedby={erro ? `${id}-erro` : undefined}
-          className={cn('min-w-0 border-x border-slate-200 bg-transparent text-center font-semibold text-slate-900 focus:outline-none', compacto ? 'w-14 text-sm' : 'w-20 text-base')}
+          className={cn('min-w-0 border-x border-slate-200 bg-transparent text-center font-semibold text-slate-900 focus:outline-none', compacto ? 'w-14 text-base sm:text-sm' : 'w-20 text-base')}
         />
-        <button type="button" className={cn(botao, compacto ? 'w-9' : 'w-12')} onClick={() => aoMudar(String(Math.min(1_000_000, n + passo)))} aria-label="Aumentar quantidade">
+        <button type="button" className={cn(botao, compacto ? 'w-11' : 'w-12')} onClick={() => aoMudar(String(Math.min(1_000_000, n + passo)))} aria-label="Aumentar quantidade">
           <Plus className="h-4 w-4" />
         </button>
       </div>
@@ -138,7 +138,8 @@ export function CampoMedida({
           placeholder="0,00"
           aria-invalid={erro ? true : undefined}
           aria-describedby={descricao}
-          className={cn(classeCampo, 'pr-9', compacto && 'h-10 text-sm')}
+          enterKeyHint="next"
+          className={cn(classeCampo, 'pr-9', compacto && 'h-11 sm:text-sm')}
         />
         <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400" aria-hidden="true">
           m

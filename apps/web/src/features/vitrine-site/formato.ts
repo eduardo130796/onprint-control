@@ -65,6 +65,29 @@ export function formatarMetros(valor: string | number | null | undefined): strin
   return `${Number(valor).toLocaleString('pt-BR', { maximumFractionDigits: 3 })} m`
 }
 
+/** "2 un. · 1,5 × 0,8 m · Ilhós, Bainha": resumo das escolhas de um item (lista, barra do produto, WhatsApp) */
+export function resumoEscolha(e: {
+  modoCalculo: string
+  quantidade: number
+  largura?: string | number | null
+  altura?: string | number | null
+  acabamentos?: string[]
+}): string {
+  const qtd = `${e.quantidade.toLocaleString('pt-BR')} ${e.modoCalculo === 'hora' ? 'h' : 'un.'}`
+  const n = (v: string | number) => Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 3 })
+  let medidas: string | null = null
+  if ((e.modoCalculo === 'm2' || e.modoCalculo === 'metro_linear') && e.largura) {
+    medidas = e.altura ? `${n(e.largura)} × ${n(e.altura)} m` : `${n(e.largura)} m`
+  }
+  const acabamentos = e.acabamentos?.length ? e.acabamentos.join(', ') : null
+  return [qtd, medidas, acabamentos].filter(Boolean).join(' · ')
+}
+
+/** Miniatura (480 px) de uma imagem pública grande (1200 px), para as fotos pequenas da galeria */
+export function miniatura(url: string): string {
+  return url.replace(/([?&]w=)1200(?!\d)/, (_, antes: string) => `${antes}480`)
+}
+
 /** Link do WhatsApp (wa.me) com a mensagem pronta; números brasileiros ganham o 55 */
 export function linkWhatsapp(numero: string | null | undefined, mensagem?: string | null): string | null {
   let d = somenteDigitos(numero ?? '')

@@ -197,6 +197,7 @@ export function PainelSolicitacao({ solicitacao, onFechar, onAssumir, onDescarta
           </ul>
         </section>
       )}
+      {catalogo.dialogo}
     </PainelCartao>
   )
 }

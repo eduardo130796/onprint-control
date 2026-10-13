@@ -2,6 +2,13 @@ import type { EventoWhatsapp, StatusPedido } from '@onprint/shared'
 
 /** Mesmo aviso do mesmo pedido (e da mesma arte/pagamento) dentro desta janela não é repetido */
 export const JANELA_DUPLICADO_MS = 12 * 3_600_000
+/**
+ * "Respiro": o aviso novo espera um pouco antes de sair; se outro aviso do mesmo pedido entrar na fila nesse meio
+ * tempo (pedido confirmado e logo a arte), os dois saem numa mensagem só (agrupar.ts). Cada aviso novo do pedido
+ * renova a espera, até RESPIRO_MAX_MS depois do primeiro.
+ */
+export const RESPIRO_MS = 2 * 60_000
+export const RESPIRO_MAX_MS = 10 * 60_000
 /** Intervalo entre duas mensagens da mesma empresa (com sorteio, para não parecer robô) */
 export const INTERVALO_MIN_MS = 20_000
 export const INTERVALO_MAX_MS = 40_000

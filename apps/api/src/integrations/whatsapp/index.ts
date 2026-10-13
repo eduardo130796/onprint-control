@@ -49,6 +49,16 @@ export interface ProvedorWhatsapp {
   /** Sai do WhatsApp e apaga a instância (o próximo "Conectar" começa do zero) */
   desconectar(instancia: string): Promise<void>
   enviarTexto(instancia: string, numero: string, texto: string): Promise<{ id: string | null }>
+  /** Arquivo (PDF do orçamento, recibo, catálogo) como documento, com o nome que o cliente vê */
+  enviarDocumento(instancia: string, numero: string, documento: DocumentoWhatsapp): Promise<{ id: string | null }>
+}
+
+export interface DocumentoWhatsapp {
+  conteudo: Buffer
+  nomeArquivo: string
+  mime: string
+  /** Legenda abaixo do arquivo (opcional) */
+  legenda?: string
 }
 
 /** Nome da instância na Evolution: um por empresa, sem guardar nada na plataforma. */
@@ -59,6 +69,7 @@ export class LogWhatsappProvider implements ProvedorWhatsapp {
   readonly nome = 'log' as const
   readonly simulado = true
   readonly enviadas: { instancia: string; numero: string; texto: string }[] = []
+  readonly documentos: { instancia: string; numero: string; nomeArquivo: string; mime: string; bytes: number }[] = []
 
   constructor(private readonly log?: FastifyBaseLogger) {}
 
@@ -76,6 +87,14 @@ export class LogWhatsappProvider implements ProvedorWhatsapp {
     this.enviadas.push({ instancia, numero, texto })
     if (this.enviadas.length > 200) this.enviadas.shift()
     this.log?.info({ whatsapp: { instancia, numero, texto } }, 'WhatsApp não enviado (WHATSAPP_PROVEDOR=log), registrado no log')
+    return { id: `log-${randomUUID()}` }
+  }
+
+  async enviarDocumento(instancia: string, numero: string, d: DocumentoWhatsapp) {
+    const registro = { instancia, numero, nomeArquivo: d.nomeArquivo, mime: d.mime, bytes: d.conteudo.length }
+    this.documentos.push(registro)
+    if (this.documentos.length > 50) this.documentos.shift()
+    this.log?.info({ whatsapp: registro }, 'Documento do WhatsApp não enviado (WHATSAPP_PROVEDOR=log), registrado no log')
     return { id: `log-${randomUUID()}` }
   }
 }
@@ -102,14 +121,14 @@ export class EvolutionWhatsappProvider implements ProvedorWhatsapp {
     this.base = url.replace(/\/+$/, '')
   }
 
-  private async chamar(metodo: 'GET' | 'POST' | 'DELETE', caminho: string, corpo?: unknown): Promise<{ status: number; dados: unknown }> {
+  private async chamar(metodo: 'GET' | 'POST' | 'DELETE', caminho: string, corpo?: unknown, timeoutMs = this.timeoutMs): Promise<{ status: number; dados: unknown }> {
     let resposta: Response
     try {
       resposta = await this.fetcher(`${this.base}${caminho}`, {
         method: metodo,
         headers: { apikey: this.apiKey, ...(corpo ? { 'content-type': 'application/json' } : {}) },
         body: corpo ? JSON.stringify(corpo) : undefined,
-        signal: AbortSignal.timeout(this.timeoutMs),
+        signal: AbortSignal.timeout(timeoutMs),
       })
     } catch (erro) {
       throw new ErroWhatsapp('temporario', `Evolution API fora do ar: ${(erro as Error).message}`)
@@ -182,6 +201,24 @@ export class EvolutionWhatsappProvider implements ProvedorWhatsapp {
     // POST /message/sendText/{i} { number: "5511999999999", text } → 201 { key: { remoteJid, fromMe, id }, status, ... }
     // A Evolution acerta o 9º dígito dos celulares brasileiros (confere as duas formas no WhatsApp)
     const r = await this.chamar('POST', `/message/sendText/${encodeURIComponent(instancia)}`, { number: numero, text: texto, linkPreview: true })
+    return EvolutionWhatsappProvider.resultadoDoEnvio(r)
+  }
+
+  async enviarDocumento(instancia: string, numero: string, d: DocumentoWhatsapp) {
+    // POST /message/sendMedia/{i} { number, mediatype: "document", mimetype, media (base64 sem "data:"), fileName, caption? } → 201 { key: { id } }
+    const r = await this.chamar('POST', `/message/sendMedia/${encodeURIComponent(instancia)}`, {
+      number: numero,
+      mediatype: 'document',
+      mimetype: d.mime,
+      media: d.conteudo.toString('base64'),
+      fileName: d.nomeArquivo,
+      ...(d.legenda ? { caption: d.legenda } : {}),
+    }, 60_000)
+    return EvolutionWhatsappProvider.resultadoDoEnvio(r)
+  }
+
+  /** Resposta do envio (texto ou arquivo): id da mensagem ou o erro já classificado */
+  private static resultadoDoEnvio(r: { status: number; dados: unknown }): { id: string | null } {
     if (r.status < 400) return { id: (r.dados as { key?: { id?: string } })?.key?.id ?? null }
     const detalhe = EvolutionWhatsappProvider.mensagemDeErro(r.dados)
     // Número sem WhatsApp: 400 { response: { message: [{ exists: false, jid, number }] } }

@@ -5,6 +5,7 @@ import { clientesApi } from '@/api/cadastros'
 import { SearchSelect, type OpcaoBusca } from '@/components/shared/SearchSelect'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/form-controls'
+import { EnviarWhatsappDialog, type EnvioWhatsapp as Envio } from '@/features/whatsapp/components/EnviarWhatsappDialog'
 import { cn } from '@/lib/utils'
 import { linkWhatsappEnvio, numeroValido, trocarSaudacao } from '../divulgar'
 
@@ -29,13 +30,19 @@ interface EnvioWhatsappProps {
   id: string
   dica?: string
   desabilitado?: boolean
+  /** O que é (registro do envio): produto, vitrine ou catálogo */
+  tipo: 'produto' | 'vitrine' | 'catalogo'
+  /** PDF que pode ir junto pelo diálogo (catálogo) e o texto para esse caso (com "Olá!") */
+  pdf?: Envio['pdf'] & { mensagem: string }
 }
 
 /**
- * Mensagem editável + "Enviar no WhatsApp" para um cliente do cadastro (usa o WhatsApp da ficha) ou para qualquer
- * contato (o WhatsApp pergunta a conversa). Usado em Compartilhar produto, Divulgar a vitrine e Catálogo em PDF.
+ * Mensagem editável + "Enviar no WhatsApp" para um cliente do cadastro (abre o diálogo "Enviar pelo WhatsApp":
+ * sai pela conexão da gráfica, com o PDF se houver) ou para qualquer contato (o WhatsApp pergunta a conversa).
+ * Usado em Compartilhar produto, Divulgar a vitrine e Catálogo em PDF.
  */
-export function EnvioWhatsapp({ mensagemPadrao, id, dica = 'No WhatsApp, *texto* fica em negrito. O link mostra a prévia com foto.', desabilitado }: EnvioWhatsappProps) {
+export function EnvioWhatsapp({ mensagemPadrao, id, dica = 'No WhatsApp, *texto* fica em negrito. O link mostra a prévia com foto.', desabilitado, tipo, pdf }: EnvioWhatsappProps) {
+  const [envio, setEnvio] = useState<Envio | null>(null)
   const [cliente, setCliente] = useState<OpcaoCliente | null>(null)
   const [destino, setDestino] = useState<'cliente' | 'contato'>('cliente')
   const [mensagem, setMensagem] = useState<string | null>(null)
@@ -52,8 +59,18 @@ export function EnvioWhatsapp({ mensagemPadrao, id, dica = 'No WhatsApp, *texto*
   const podeEnviar = !desabilitado && Boolean(texto.trim()) && (destino === 'contato' || (cliente && !semNumero))
 
   function enviar() {
-    const numero = destino === 'cliente' ? cliente?.numero : null
-    window.open(linkWhatsappEnvio(numero, texto), '_blank', 'noopener')
+    if (destino === 'contato' || !cliente) {
+      window.open(linkWhatsappEnvio(null, texto), '_blank', 'noopener')
+      return
+    }
+    // Cliente do cadastro: o diálogo mostra como fica e manda pela conexão da gráfica (ou abre o WhatsApp)
+    setEnvio({
+      titulo: tipo === 'produto' ? 'Enviar o produto' : tipo === 'catalogo' ? 'Enviar o catálogo' : 'Divulgar a vitrine',
+      tipo,
+      destinatario: { nome: cliente.rotulo, numero: cliente.numero, clienteId: cliente.id },
+      mensagem: (comPdf) => (comPdf && pdf ? trocarSaudacao(pdf.mensagem, cliente.rotulo, cliente.documento) : texto),
+      pdf,
+    })
   }
 
   return (
@@ -69,7 +86,7 @@ export function EnvioWhatsapp({ mensagemPadrao, id, dica = 'No WhatsApp, *texto*
             </button>
           )}
         </div>
-        <Textarea id={`${id}-msg`} rows={5} value={texto} onChange={(e) => setMensagem(e.target.value)} disabled={desabilitado} />
+        <Textarea id={`${id}-msg`} rows={8} value={texto} onChange={(e) => setMensagem(e.target.value)} disabled={desabilitado} />
         <p className="mt-1 text-xs text-texto-secundario">{dica}</p>
       </section>
 
@@ -109,6 +126,7 @@ export function EnvioWhatsapp({ mensagemPadrao, id, dica = 'No WhatsApp, *texto*
           <MessageCircle /> {destino === 'cliente' && cliente ? `Enviar para ${cliente.rotulo.split(' ')[0]}` : 'Abrir o WhatsApp'}
         </Button>
       </section>
+      <EnviarWhatsappDialog envio={envio} onFechar={() => setEnvio(null)} />
     </div>
   )
 }

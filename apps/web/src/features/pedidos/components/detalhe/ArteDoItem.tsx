@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Copy, Download, ExternalLink, FileImage, MessageSquare, Send } from 'lucide-react'
+import { CheckCircle2, Download, ExternalLink, FileImage, MessageCircle, MessageSquare, Send } from 'lucide-react'
 import { toast } from 'sonner'
-import { EXTENSOES_PERMITIDAS, formatarDataHora, type ArteVersao, type PedidoDetalhe, type PedidoItemDetalhe } from '@onprint/shared'
+import { EXTENSOES_PERMITIDAS, formatarDataHora, nomeCliente, type ArteVersao, type PedidoDetalhe, type PedidoItemDetalhe } from '@onprint/shared'
 import { arquivosApi } from '@/api/cadastros'
 import { artesApi } from '@/api/producao'
 import { Can } from '@/components/shared/Can'
@@ -11,7 +11,8 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/form-controls'
-import { messagingProvider } from '@/integrations/messaging'
+import { EnviarWhatsappDialog, type EnvioWhatsapp } from '@/features/whatsapp/components/EnviarWhatsappDialog'
+import { useAuth } from '@/hooks/useAuth'
 import { usePermissoes } from '@/hooks/usePermission'
 import { cn } from '@/lib/utils'
 import { useTemplates } from '../../hooks'
@@ -65,6 +66,8 @@ export function ArteDoItem({ pedido, item }: { pedido: PedidoDetalhe; item: Pedi
   const queryClient = useQueryClient()
   const templates = useTemplates()
   const [aprovando, setAprovando] = useState<ArteVersao | null>(null)
+  const [envio, setEnvio] = useState<EnvioWhatsapp | null>(null)
+  const { usuario } = useAuth()
   const pode = usePermissoes()
   const podeComentar = pode('artes', 'visualizar') || pode('pedidos', 'editar')
   const [atual, ...anteriores] = item.artes
@@ -90,13 +93,15 @@ export function ArteDoItem({ pedido, item }: { pedido: PedidoDetalhe; item: Pedi
     }
   }
 
-  async function copiarMensagem(arte: ArteVersao) {
-    try {
-      await messagingProvider.enviar({ destinatario: pedido.cliente.whatsapp ?? undefined, texto: mensagemDaArte(pedido, arte.tokenPublico, templates.data) })
-      toast.success('Mensagem copiada. Cole no WhatsApp do cliente.')
-    } catch {
-      toast.error('Não foi possível copiar. Copie o link manualmente.')
-    }
+  /** Link de aprovação da arte pelo diálogo "Enviar pelo WhatsApp" (tira da fila o aviso automático da mesma arte) */
+  function enviarPeloWhatsapp(arte: ArteVersao) {
+    setEnvio({
+      titulo: `Enviar a arte de ${item.descricao}`,
+      tipo: 'arte_aprovacao',
+      destinatario: { nome: nomeCliente(pedido.cliente), numero: pedido.cliente.whatsapp || pedido.cliente.telefone, clienteId: pedido.clienteId },
+      vinculo: { pedidoId: pedido.id, arteId: arte.id },
+      mensagem: () => mensagemDaArte(pedido, { token: arte.tokenPublico, item: item.descricao }, templates.data, usuario?.empresa.exibicao ?? ''),
+    })
   }
 
   return (
@@ -137,8 +142,8 @@ export function ArteDoItem({ pedido, item }: { pedido: PedidoDetalhe; item: Pedi
               )}
               {atual.status === 'enviada_cliente' && (
                 <>
-                  <Button size="sm" onClick={() => void copiarMensagem(atual)}>
-                    <Copy /> Copiar mensagem com link
+                  <Button size="sm" onClick={() => enviarPeloWhatsapp(atual)}>
+                    <MessageCircle /> Enviar pelo WhatsApp
                   </Button>
                   <Button size="sm" variant="outline" asChild>
                     <a href={linkArte(atual.tokenPublico)} target="_blank" rel="noreferrer">
@@ -196,6 +201,7 @@ export function ArteDoItem({ pedido, item }: { pedido: PedidoDetalhe; item: Pedi
         </div>
       </CardContent>
       <AprovarArteDialog arte={aprovando} onFechar={() => setAprovando(null)} />
+      <EnviarWhatsappDialog envio={envio} onFechar={() => setEnvio(null)} />
     </Card>
   )
 }

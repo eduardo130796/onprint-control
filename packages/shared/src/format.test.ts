@@ -51,6 +51,8 @@ describe('nomeParaSaudacao', () => {
   it('pessoa: primeiro nome', () => {
     expect(nomeParaSaudacao('Maria da Silva')).toBe('Maria')
     expect(nomeParaSaudacao('  João  ')).toBe('João')
+    expect(nomeParaSaudacao('MARIA DA SILVA')).toBe('Maria')
+    expect(nomeParaSaudacao('joão')).toBe('João')
     expect(nomeParaSaudacao('Fernanda Lima', '123.456.789-09')).toBe('Fernanda')
   })
   it('empresa: nome sem o sufixo jurídico', () => {

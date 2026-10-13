@@ -140,8 +140,8 @@ export function qs(params: Record<string, unknown>): string {
   return texto ? `?${texto}` : ''
 }
 
-/** Upload multipart com progresso (0–100). Renova o token uma vez se receber 401. */
-export function upload<T>(caminho: string, arquivo: File, aoProgredir?: (pct: number) => void, jaRenovou = false): Promise<T> {
+/** Upload multipart com progresso (0–100). Renova o token uma vez se receber 401. `campos` vão antes do arquivo. */
+export function upload<T>(caminho: string, arquivo: File, aoProgredir?: (pct: number) => void, jaRenovou = false, campos?: Record<string, string>): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${API_BASE}${caminho}`)
@@ -153,7 +153,7 @@ export function upload<T>(caminho: string, arquivo: File, aoProgredir?: (pct: nu
     xhr.onerror = () => reject(new ErroApi(0, 'SEM_CONEXAO', 'Falha de conexão durante o envio.'))
     xhr.onload = async () => {
       if (xhr.status === 401 && !jaRenovou && (await renovarSessao())) {
-        upload<T>(caminho, arquivo, aoProgredir, true).then(resolve, reject)
+        upload<T>(caminho, arquivo, aoProgredir, true, campos).then(resolve, reject)
         return
       }
       let corpo: unknown = null
@@ -167,6 +167,7 @@ export function upload<T>(caminho: string, arquivo: File, aoProgredir?: (pct: nu
       reject(new ErroApi(xhr.status, erro?.code ?? 'ERRO_INTERNO', erro?.message ?? 'Não foi possível enviar o arquivo.'))
     }
     const form = new FormData()
+    for (const [nome, valor] of Object.entries(campos ?? {})) form.append(nome, valor)
     form.append('arquivo', arquivo)
     xhr.send(form)
   })

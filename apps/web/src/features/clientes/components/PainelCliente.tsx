@@ -160,6 +160,7 @@ export function PainelCliente({ cliente: resumo, onFechar }: { cliente: Cliente;
           )}
         </>
       )}
+      {catalogo.dialogo}
     </PainelCartao>
   )
 }

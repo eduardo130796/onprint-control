@@ -6,8 +6,9 @@ import { toast } from 'sonner'
 import {
   CATEGORIAS_TEMPLATE,
   CATEGORIA_TEMPLATE_ROTULOS,
+  TEXTOS_PADRAO_MENSAGEM,
   VARIAVEIS_TEMPLATE,
-  preencherTemplate,
+  VARIAVEL_TEMPLATE_DESCRICOES,
   templateSchema,
   type MensagemTemplate,
   type TemplateInput,
@@ -18,22 +19,15 @@ import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { FormDialog } from '@/components/shared/FormDialog'
 import { Checkbox, Select, Textarea } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
+import { BolhaWhatsapp } from '@/features/whatsapp/components/BolhaWhatsapp'
+import { previaDoTemplate } from '@/features/whatsapp/previa'
+import { useAuth } from '@/hooks/useAuth'
 
 type Saida = z.output<typeof templateSchema>
 
-/** Valores de exemplo para a prévia da mensagem. */
-const EXEMPLO = {
-  cliente_nome: 'Maria Silva',
-  numero_orcamento: 'ORC-2026-0042',
-  numero_pedido: 'PED-2026-0017',
-  link_aprovacao: 'http://localhost:5173/aprovar/minha-empresa/abc123',
-  link_acompanhamento: 'http://localhost:5173/pedido/minha-empresa/abc123',
-  valor_total: 'R$ 1.250,00',
-  data_entrega: '15/10/2026',
-}
-
 export function TemplateDialog({ template, onFechar }: { template?: MensagemTemplate; onFechar: () => void }) {
   const queryClient = useQueryClient()
+  const { usuario } = useAuth()
   const areaTexto = useRef<HTMLTextAreaElement | null>(null)
   const form = useForm<TemplateInput, unknown, Saida>({
     resolver: zodResolver(templateSchema),
@@ -46,6 +40,8 @@ export function TemplateDialog({ template, onFechar }: { template?: MensagemTemp
   })
   const { errors } = form.formState
   const conteudo = form.watch('conteudo')
+  const categoria = form.watch('categoria')
+  const empresa = { nome: usuario?.empresa.exibicao ?? 'Sua gráfica', slug: usuario?.empresa.slug ?? 'sua-grafica', origem: window.location.origin }
   const salvar = useMutation({
     mutationFn: (d: Saida) => (template ? templatesApi.atualizar(template.id, d) : templatesApi.criar(d)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['templates'] }),
@@ -91,14 +87,15 @@ export function TemplateDialog({ template, onFechar }: { template?: MensagemTemp
       <CampoFormulario id="tp-conteudo" rotulo="Mensagem *" erro={errors.conteudo?.message}>
         <div className="mb-2 flex flex-wrap gap-1.5">
           {VARIAVEIS_TEMPLATE.map((v) => (
-            <button key={v} type="button" onClick={() => inserir(v)} className="rounded-full border border-border px-2.5 py-0.5 font-mono text-xs hover:border-marca hover:text-marca-escuro">
+            <button key={v} type="button" title={VARIAVEL_TEMPLATE_DESCRICOES[v]} onClick={() => inserir(v)} className="rounded-full border border-border px-2.5 py-0.5 font-mono text-xs hover:border-marca hover:text-marca-escuro">
               {`{{${v}}}`}
             </button>
           ))}
         </div>
         <Textarea
           id="tp-conteudo"
-          rows={6}
+          rows={12}
+          className="font-mono text-[0.8125rem]"
           {...registroConteudo}
           ref={(el) => {
             registroConteudo.ref(el)
@@ -107,10 +104,22 @@ export function TemplateDialog({ template, onFechar }: { template?: MensagemTemp
         />
       </CampoFormulario>
       <div>
-        <p className="mb-1.5 text-sm font-medium">Prévia</p>
-        <div className="whitespace-pre-wrap rounded-2xl rounded-tl-sm bg-[#DCF8C6] p-3 text-sm text-texto shadow-sm">
-          {preencherTemplate(String(conteudo ?? ''), EXEMPLO) || <span className="text-texto-secundario">A mensagem aparece aqui.</span>}
+        <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-medium">Prévia no WhatsApp (dados de exemplo)</p>
+          {categoria && String(conteudo ?? '').trim() !== TEXTOS_PADRAO_MENSAGEM[categoria] && (
+            <button
+              type="button"
+              className="rounded-lg px-2 py-1 text-xs font-medium text-marca-escuro hover:bg-marca-suave"
+              onClick={() => form.setValue('conteudo', TEXTOS_PADRAO_MENSAGEM[categoria], { shouldDirty: true })}
+            >
+              Usar o texto padrão
+            </button>
+          )}
         </div>
+        <BolhaWhatsapp texto={previaDoTemplate(categoria, String(conteudo ?? ''), empresa)} />
+        <p className="mt-1 text-xs text-texto-secundario">
+          *texto* fica em negrito. Deixe uma linha em branco entre os blocos e o link sozinho na última linha (assim aparece a prévia). Linha com variável vazia some.
+        </p>
       </div>
       <label className="flex items-center gap-2 text-sm">
         <Checkbox {...form.register('ativo')} /> Template ativo

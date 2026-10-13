@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Ban, ChevronDown, Copy, ExternalLink, FileDown, History, Link2, Loader2, MessageCircle, Pencil, Printer, ReceiptText, Tags } from 'lucide-react'
 import { toast } from 'sonner'
-import { TIPO_ENTREGA_ROTULOS, formatarData, formatarDataSimples, formatarMoeda, nomeCliente, saldoPedido } from '@onprint/shared'
+import { TIPO_ENTREGA_ROTULOS, formatarData, formatarDataSimples, formatarMoeda, nomeCliente, saldoPedido, type RecebimentosPedido } from '@onprint/shared'
 import { pedidosApi } from '@/api/producao'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Anexos } from '@/components/shared/Anexos'
@@ -20,10 +20,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useDialogoEtiquetas } from '@/features/impressao/useDialogoEtiquetas'
 import { useImpressao } from '@/features/impressao/useImpressao'
-import { linkWhatsappEnvio } from '@/features/vitrine/divulgar'
+import { EnviarWhatsappDialog, type EnvioWhatsapp } from '@/features/whatsapp/components/EnviarWhatsappDialog'
+import { useAuth } from '@/hooks/useAuth'
 import { usePermission } from '@/hooks/usePermission'
 import { linkAcompanhamento } from '@/lib/empresaAtual'
-import { messagingProvider } from '@/integrations/messaging'
 import { AbaEntrega } from '../components/detalhe/AbaEntrega'
 import { AbaFinanceiro } from '../components/detalhe/AbaFinanceiro'
 import { AbaItens } from '../components/detalhe/AbaItens'
@@ -32,7 +32,7 @@ import { ArteDoItem } from '../components/detalhe/ArteDoItem'
 import { CancelarPedidoDialog, EditarPedidoDialog } from '../components/detalhe/PedidoDialogs'
 import { ReciboDialog } from '../components/detalhe/ReciboDialog'
 import { usePedido, useTemplates } from '../hooks'
-import { mensagemAcompanhamento, mensagemPedidoPronto } from '../mensagens'
+import { mensagemAcompanhamento, mensagemPedidoPronto, mensagemRecibo } from '../mensagens'
 
 const ABAS = ['itens', 'arte', 'producao', 'financeiro', 'entrega', 'historico', 'anexos'] as const
 
@@ -53,6 +53,8 @@ export function PedidoPage() {
   const podeEditar = usePermission('pedidos', 'editar')
   const impressao = useImpressao()
   const etiquetas = useDialogoEtiquetas()
+  const { usuario } = useAuth()
+  const [envio, setEnvio] = useState<EnvioWhatsapp | null>(null)
   // ?editar=1 (atalho "Editar" do kanban) já abre o diálogo de edição
   const [dialogo, setDialogo] = useState<'editar' | 'cancelar' | 'recibo' | null>(() => (params.get('editar') === '1' && podeEditar ? 'editar' : null))
   const aba = ABAS.find((a) => a === params.get('aba')) ?? 'itens'
@@ -77,13 +79,30 @@ export function PedidoPage() {
   const encerrado = ['cancelado', 'entregue'].includes(pedido.status)
   const artesAprovadas = pedido.itens.filter((i) => i.artes[0]?.status === 'aprovada').length
 
-  async function avisarPronto() {
-    try {
-      await messagingProvider.enviar({ destinatario: pedido.cliente.whatsapp ?? undefined, texto: mensagemPedidoPronto(pedido, templates.data) })
-      toast.success('Mensagem copiada. Cole no WhatsApp do cliente.')
-    } catch {
-      toast.error('Não foi possível copiar a mensagem.')
-    }
+  const empresa = usuario?.empresa.exibicao ?? ''
+  const destinatario = { nome: nomeCliente(pedido.cliente), numero: pedido.cliente.whatsapp || pedido.cliente.telefone, clienteId: pedido.clienteId }
+
+  /** "Avisar cliente" (pronto) e o link de acompanhamento pelo diálogo "Enviar pelo WhatsApp" */
+  function enviarPeloWhatsapp(tipo: 'pedido_pronto' | 'pedido_acompanhamento') {
+    setEnvio({
+      titulo: tipo === 'pedido_pronto' ? 'Avisar que o pedido está pronto' : 'Enviar o link de acompanhamento',
+      tipo,
+      destinatario,
+      vinculo: { pedidoId: pedido.id },
+      mensagem: () => (tipo === 'pedido_pronto' ? mensagemPedidoPronto(pedido, templates.data, empresa) : mensagemAcompanhamento(pedido, templates.data, empresa)),
+    })
+  }
+
+  /** Recibo dos pagamentos escolhidos, com o PDF anexado */
+  function enviarRecibo(recebimentos: RecebimentosPedido, total: number) {
+    setEnvio({
+      titulo: `Enviar o recibo do pedido ${pedido.numero}`,
+      tipo: 'recibo',
+      destinatario,
+      vinculo: { pedidoId: pedido.id },
+      mensagem: (comPdf) => mensagemRecibo(pedido, total, empresa, comPdf),
+      pdf: { rotulo: `Recibo ${pedido.numero} - ${nomeCliente(pedido.cliente)}.pdf`, gerar: () => impressao.pdfRecibo(pedido.id, recebimentos), marcado: true },
+    })
   }
 
   /** "Acompanhe seu pedido": link público para o cliente ver o andamento sem login */
@@ -161,14 +180,14 @@ export function PedidoPage() {
                 <DropdownMenuItem onSelect={() => window.open(linkCliente, '_blank', 'noopener')}>
                   <ExternalLink /> Abrir como o cliente vê
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => window.open(linkWhatsappEnvio(pedido.cliente.whatsapp, mensagemAcompanhamento(pedido, templates.data)), '_blank', 'noopener')}>
+                <DropdownMenuItem onSelect={() => enviarPeloWhatsapp('pedido_acompanhamento')}>
                   <MessageCircle /> Enviar no WhatsApp
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             {pedido.status === 'pronto' && (
-              <Button variant="secondary" onClick={() => void avisarPronto()}>
-                <Copy /> Avisar cliente
+              <Button variant="secondary" onClick={() => enviarPeloWhatsapp('pedido_pronto')}>
+                <MessageCircle /> Avisar cliente
               </Button>
             )}
             {!encerrado && (
@@ -265,7 +284,18 @@ export function PedidoPage() {
       </Tabs>
 
       {etiquetas.dialogo}
-      {dialogo === 'recibo' && <ReciboDialog pedidoId={pedido.id} numero={pedido.numero} onFechar={() => setDialogo(null)} />}
+      {dialogo === 'recibo' && (
+        <ReciboDialog
+          pedidoId={pedido.id}
+          numero={pedido.numero}
+          onFechar={() => setDialogo(null)}
+          onWhatsapp={(recebimentos, total) => {
+            setDialogo(null)
+            enviarRecibo(recebimentos, total)
+          }}
+        />
+      )}
+      <EnviarWhatsappDialog envio={envio} onFechar={() => setEnvio(null)} />
       {dialogo === 'editar' && !encerrado && <EditarPedidoDialog pedido={pedido} onFechar={() => setDialogo(null)} />}
       {dialogo === 'cancelar' && <CancelarPedidoDialog pedido={pedido} onFechar={() => setDialogo(null)} />}
     </>

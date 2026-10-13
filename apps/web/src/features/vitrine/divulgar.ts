@@ -38,30 +38,53 @@ export const saudacao = (nome?: string | null, documento?: string | null) => {
 }
 
 /**
- * Troca a saudação do começo da mensagem pelo nome do cliente escolhido (mantém o resto, mesmo editado).
- * Sem saudação no começo, acrescenta uma.
+ * Troca a saudação do começo da mensagem pelo nome do cliente escolhido (mantém o resto, mesmo editado,
+ * com as quebras de linha). Sem saudação no começo, acrescenta uma na primeira linha.
  */
 export function trocarSaudacao(texto: string, nome?: string | null, documento?: string | null): string {
   const nova = saudacao(nome, documento)
-  const m = /^\s*(olá|oi|ola)(\s*,\s*[^!\n]*)?!\s*/i.exec(texto)
-  if (m) return `${nova} ${texto.slice(m[0].length)}`.trimEnd()
-  return texto.trim() ? `${nova} ${texto.trim()}` : nova
+  const m = /^\s*(olá|oi|ola)(\s*,\s*[^!\n]*)?!/i.exec(texto)
+  if (m) return `${nova}${texto.slice(m[0].length)}`.trimEnd()
+  return texto.trim() ? `${nova}\n\n${texto.trim()}` : nova
 }
 
-/** "Olá, Maria! Veja o produto *Banner em lona* — a partir de R$ 45,00 / m²: https://…" */
+// Mensagens no padrão do WhatsApp (ver TEXTOS_PADRAO_MENSAGEM): saudação, blocos curtos, *negrito* e um link
+// sozinho na última linha, depois de uma linha que diz o que ele abre (assim aparece a prévia com a foto).
+
+/** Produto em negrito, a linha do preço e o link do produto no fim */
 export function mensagemProduto({ nome, produto, preco, link }: { nome?: string | null; produto: string; preco: string; link: string }): string {
-  const valor = preco && preco !== 'Sob consulta' ? ` — ${preco.replace(/^A partir de/, 'a partir de')}` : ' — preço sob consulta'
-  return `${saudacao(nome)} Veja o produto *${produto}*${valor}: ${link}`
+  const valor = preco && preco !== 'Sob consulta' ? preco.replace(/^a partir de/, 'A partir de') : 'Preço sob consulta'
+  return [saudacao(nome), '', `*${produto.trim()}*`, valor, '', 'Veja fotos e detalhes aqui:', link].join('\n')
 }
 
 /** Divulgar o site inteiro ("Conheça a vitrine…") */
 export function mensagemVitrine({ nome, loja, link }: { nome?: string | null; loja: string; link: string }): string {
-  return `${saudacao(nome)} Conheça a vitrine online da *${loja}*: veja nossos produtos, monte sua lista e peça seu orçamento: ${link}`
+  return [saudacao(nome), '', `Conheça a vitrine online da *${loja}*: veja nossos produtos, monte sua lista e peça seu orçamento.`, '', 'Acesse aqui:', link].join('\n')
 }
 
-/** "Enviar catálogo" para um cliente (painel/ficha do cliente e solicitação) */
-export function mensagemCatalogo({ nome, loja, link }: { nome?: string | null; loja: string; link: string }): string {
-  return `${saudacao(nome)} Aqui está o nosso catálogo de produtos da *${loja}*. É só escolher, montar a lista e pedir o orçamento pelo site: ${link}`
+/** "Banners, Adesivos e Cartões" (até 3); com "e" no nome ("Banners e lonas"), só vírgulas */
+export function listaCategorias(nomes: string[], max = 3): string {
+  const n = [...new Set(nomes.map((c) => c.trim()).filter(Boolean))].slice(0, max)
+  if (n.length <= 1) return n[0] ?? ''
+  return n.some((c) => /\se\s/i.test(c)) ? n.join(', ') : `${n.slice(0, -1).join(', ')} e ${n[n.length - 1]}`
+}
+
+/**
+ * "Enviar catálogo" para um cliente: a chamada com a gráfica em negrito, até 3 categorias em destaque e o link
+ * da vitrine no fim. Com o catálogo em PDF anexado (envio pela conexão da gráfica), avisa que ele vai logo abaixo.
+ */
+export function mensagemCatalogo({ nome, documento, loja, link, categorias = [], comPdf = false }: { nome?: string | null; documento?: string | null; loja: string; link: string; categorias?: string[]; comPdf?: boolean }): string {
+  const destaques = listaCategorias(categorias)
+  return [
+    saudacao(nome, documento),
+    '',
+    `Conheça os produtos da *${loja}*: é só escolher, montar a lista e pedir o orçamento pelo site.`,
+    ...(destaques ? [`Destaques: ${destaques}`] : []),
+    ...(comPdf ? ['', 'O catálogo em PDF vai logo abaixo.'] : []),
+    '',
+    'Veja os produtos aqui:',
+    link,
+  ].join('\n')
 }
 
 /** Botão "Pedir pelo WhatsApp" de um produto no catálogo em PDF (mesmo padrão do site, dizendo que veio do catálogo) */
@@ -69,10 +92,9 @@ export function mensagemInteresseCatalogo({ produto, preco, link }: { produto: s
   return `Olá! Vi no catálogo e tenho interesse no *${produto.trim()}*${preco ? ` (${preco})` : ''}: ${link}`
 }
 
-/** Catálogo em PDF por link (o WhatsApp não anexa arquivo por link): o PDF e, se quiser, o site */
-export function mensagemCatalogoPdf({ nome, loja, linkPdf, site }: { nome?: string | null; loja: string; linkPdf: string; site?: string | null }): string {
-  const base = `${saudacao(nome)} Segue o catálogo da *${loja}* com nossos produtos: ${linkPdf}`
-  return site ? `${base}\n\nSe preferir, escolha pelo site e peça o orçamento por lá: ${site}` : base
+/** Catálogo em PDF por link (abrir no WhatsApp não anexa arquivo): o link do PDF no fim */
+export function mensagemCatalogoPdf({ nome, loja, linkPdf }: { nome?: string | null; loja: string; linkPdf: string }): string {
+  return [saudacao(nome), '', `Segue o catálogo da *${loja}* com os nossos produtos.`, 'Para pedir, é só responder esta mensagem.', '', 'Abra o catálogo aqui:', linkPdf].join('\n')
 }
 
 /**

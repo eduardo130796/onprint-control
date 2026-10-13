@@ -1,5 +1,15 @@
-import type { ConexaoWhatsapp, MensagemWhatsapp, Paginado, StatusMensagemWhatsapp, WhatsappConfig, WhatsappConfigInput } from '@onprint/shared'
-import { http, qs } from './http'
+import type {
+  ConexaoWhatsapp,
+  DisponibilidadeWhatsapp,
+  EnvioWhatsappInput,
+  MensagemWhatsapp,
+  Paginado,
+  ResultadoEnvioWhatsapp,
+  StatusMensagemWhatsapp,
+  WhatsappConfig,
+  WhatsappConfigInput,
+} from '@onprint/shared'
+import { http, qs, upload } from './http'
 
 export const CHAVE_WHATSAPP = ['whatsapp'] as const
 
@@ -14,4 +24,10 @@ export const whatsappApi = {
   mensagens: (q: { status?: StatusMensagemWhatsapp; page?: number; pageSize?: number }) => http<Paginado<MensagemWhatsapp>>(`/whatsapp/mensagens${qs(q)}`),
   reenviar: (id: string) => http<MensagemWhatsapp>(`/whatsapp/mensagens/${id}/reenviar`, { method: 'POST' }),
   ignorar: (id: string) => http<MensagemWhatsapp>(`/whatsapp/mensagens/${id}/ignorar`, { method: 'POST' }),
+
+  /** "Enviar pelo WhatsApp": sai pela conexão da gráfica ou o diálogo abre o WhatsApp (qualquer usuário logado) */
+  disponivel: () => http<DisponibilidadeWhatsapp>('/whatsapp/disponivel'),
+  enviar: (dados: EnvioWhatsappInput) => http<ResultadoEnvioWhatsapp>('/whatsapp/enviar', { method: 'POST', body: dados }),
+  /** Com o PDF junto (o texto sai primeiro, com o link no fim; depois o arquivo) */
+  enviarComPdf: (dados: EnvioWhatsappInput, pdf: File) => upload<ResultadoEnvioWhatsapp>('/whatsapp/enviar-com-pdf', pdf, undefined, false, { dados: JSON.stringify(dados) }),
 }

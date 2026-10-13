@@ -1,7 +1,7 @@
 /**
- * Ponto de extensão para mensagens ao cliente.
- * Hoje: CopiarMensagemProvider (copia o texto para colar manualmente no WhatsApp).
- * Futuro (Fase 9): provedor WhatsApp Cloud API / Evolution API implementando a mesma interface.
+ * Copiar um texto para colar à mão (ex.: o template em Mensagens prontas).
+ * O envio ao cliente pelo WhatsApp da gráfica (Evolution API) é o diálogo "Enviar pelo WhatsApp":
+ * features/whatsapp/components/EnviarWhatsappDialog.tsx (com wa.me e "Copiar" quando não há conexão).
  */
 export interface MensagemSaida {
   destinatario?: string

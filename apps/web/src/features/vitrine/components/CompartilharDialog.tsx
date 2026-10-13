@@ -143,7 +143,7 @@ function Conteudo({ alvo }: { alvo: AlvoCompartilhar }) {
               {!(c.ativa && c.liberadaNoPlano) && <p className="mt-1.5 text-xs text-amber-700">O site está fora do ar: quem abrir o link verá "página não encontrada".</p>}
             </section>
 
-            <EnvioWhatsapp key={mensagemPadrao} id="comp" mensagemPadrao={mensagemPadrao} />
+            <EnvioWhatsapp key={mensagemPadrao} id="comp" mensagemPadrao={mensagemPadrao} tipo={produto ? 'produto' : 'vitrine'} />
           </div>
         </div>
       )}

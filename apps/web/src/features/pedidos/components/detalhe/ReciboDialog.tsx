@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { FileDown, Loader2, Printer, ReceiptText } from 'lucide-react'
-import { formatarDataSimples, formatarMoeda, valorPorExtenso } from '@onprint/shared'
+import { FileDown, Loader2, MessageCircle, Printer, ReceiptText } from 'lucide-react'
+import { formatarDataSimples, formatarMoeda, valorPorExtenso, type RecebimentosPedido } from '@onprint/shared'
 import { pedidosApi } from '@/api/producao'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { EstadoErro } from '@/components/shared/EstadoErro'
@@ -15,7 +15,18 @@ import { useImpressao } from '@/features/impressao/useImpressao'
  * Recibo do pedido: lista os pagamentos já recebidos (sem estornos), todos marcados.
  * Desmarcando, o recibo sai só do que ficou marcado (ex.: só o sinal). Duas vias na mesma folha.
  */
-export function ReciboDialog({ pedidoId, numero, onFechar }: { pedidoId: string; numero: string; onFechar: () => void }) {
+export function ReciboDialog({
+  pedidoId,
+  numero,
+  onFechar,
+  onWhatsapp,
+}: {
+  pedidoId: string
+  numero: string
+  onFechar: () => void
+  /** "WhatsApp": manda o recibo (PDF) pelo diálogo "Enviar pelo WhatsApp" */
+  onWhatsapp?: (recebimentos: RecebimentosPedido, total: number) => void
+}) {
   const consulta = useQuery({ queryKey: ['pedidos', 'recebimentos', pedidoId], queryFn: () => pedidosApi.recebimentos(pedidoId) })
   const impressao = useImpressao()
   const [marcados, setMarcados] = useState<Set<string>>(new Set())
@@ -73,6 +84,11 @@ export function ReciboDialog({ pedidoId, numero, onFechar }: { pedidoId: string;
           <Button variant="outline" onClick={onFechar}>
             Fechar
           </Button>
+          {onWhatsapp && consulta.data && (
+            <Button variant="outline" onClick={() => onWhatsapp({ ...consulta.data, pagamentos: escolhidos }, total)} disabled={escolhidos.length === 0}>
+              <MessageCircle /> WhatsApp
+            </Button>
+          )}
           <Button variant="outline" onClick={() => gerar('baixar')} disabled={escolhidos.length === 0 || Boolean(impressao.ocupado)}>
             {impressao.ocupado === `recibo:${pedidoId}:baixar` ? <Loader2 className="animate-spin" /> : <FileDown />} Baixar PDF
           </Button>

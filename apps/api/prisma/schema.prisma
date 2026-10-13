@@ -64,6 +64,7 @@ model Usuario {
   caixaSessoesFechadas    CaixaSessao[]          @relation("CaixaSessaoFechadaPor")
   caixaMovimentos         CaixaMovimento[]       @relation("CaixaMovimentoUsuario")
   vendasPdv               VendaPdv[]             @relation("VendaPdvUsuario")
+  mensagensWhatsapp       MensagemWhatsapp[]     @relation("MensagemWhatsappUsuario")
 
   @@index([papelId])
   @@map("usuarios")
@@ -327,31 +328,45 @@ enum StatusMensagemWhatsapp {
 }
 
 /// Fila e histórico dos avisos (o envio respeita horário, intervalo entre mensagens e limite por hora)
+/// e dos envios feitos pela equipe ("Enviar pelo WhatsApp": saem na hora, já gravados como enviados)
 model MensagemWhatsapp {
   id                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  clienteId          String                 @map("cliente_id") @db.Uuid
+  /// Sem cliente: envio da equipe para outro contato (catálogo, produto)
+  clienteId          String?                @map("cliente_id") @db.Uuid
   pedidoId           String?                @map("pedido_id") @db.Uuid
+  orcamentoId        String?                @map("orcamento_id") @db.Uuid
   /// Arte ou pagamento que gerou o aviso (evita repetir o mesmo aviso)
   referenciaId       String?                @map("referencia_id")
   evento             String
+  /// Enviada pela equipe (não é aviso automático)
+  manual             Boolean                @default(false)
+  /// Quem enviou (envio da equipe)
+  usuarioId          String?                @map("usuario_id") @db.Uuid
   telefone           String
   texto              String
+  /// PDF que foi junto (orçamento, recibo, catálogo)
+  anexoNome          String?                @map("anexo_nome")
   status             StatusMensagemWhatsapp @default(pendente)
   tentativas         Int                    @default(0)
   erro               String?
-  /// Próxima tentativa depois de uma falha temporária
+  /// Próxima tentativa depois de uma falha temporária; no aviso novo, o fim do "respiro" (ver avisos.ts)
   proximaTentativaEm DateTime?              @map("proxima_tentativa_em") @db.Timestamptz(3)
   enviadaEm          DateTime?              @map("enviada_em") @db.Timestamptz(3)
+  /// Saiu dentro da mensagem deste outro aviso do mesmo pedido (uma mensagem só)
+  agrupadaComId      String?                @map("agrupada_com_id") @db.Uuid
   /// Id da mensagem no WhatsApp (key.id da Evolution)
   idExterno          String?                @map("id_externo")
   createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  pedido  Pedido? @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  cliente   Cliente?   @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  pedido    Pedido?    @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  orcamento Orcamento? @relation(fields: [orcamentoId], references: [id], onDelete: SetNull)
+  usuario   Usuario?   @relation("MensagemWhatsappUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
   @@index([pedidoId])
+  @@index([orcamentoId])
   @@index([evento, pedidoId, createdAt])
   @@map("mensagens_whatsapp")
 }
@@ -1028,6 +1043,7 @@ model Orcamento {
   solicitacao         SolicitacaoOrcamento? @relation(fields: [solicitacaoId], references: [id], onDelete: SetNull)
   pedido              Pedido?               @relation("PedidoDoOrcamento", fields: [pedidoId], references: [id], onDelete: Restrict)
   itens               OrcamentoItem[]
+  mensagensWhatsapp   MensagemWhatsapp[]
 
   @@index([status])
   @@index([clienteId])

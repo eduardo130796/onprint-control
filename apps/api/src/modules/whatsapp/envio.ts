@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify'
 import { contextoEmpresa, type EmpresaAtual } from '../../core/contexto-empresa'
+import { linkAcompanhamento } from '../../core/links'
 import { ErroWhatsapp, instanciaDaEmpresa, type ProvedorWhatsapp } from '../../integrations/whatsapp'
+import { combinarAvisos } from './agrupar'
 import { obterConfigWhatsapp, whatsappNoPlano } from './avisos'
 import { MAX_POR_HORA, MAX_TENTATIVAS, VALIDADE_PENDENTE_MS, dentroDoHorario, esperaDaTentativa, intervaloEntreEnvios } from './regras'
 
@@ -46,20 +48,34 @@ export function criarEnvioWhatsapp(app: FastifyInstance, provedor: ProvedorWhats
     const config = await obterConfigWhatsapp(prisma)
     if (config.pausado || !dentroDoHorario(agora, config.horarioInicio, config.horarioFim)) return true
     if ((proximoEnvio.get(empresa.id) ?? 0) > agora.getTime()) return true
-    const naUltimaHora = await prisma.mensagemWhatsapp.count({ where: { status: 'enviada', enviadaEm: { gte: new Date(agora.getTime() - 3_600_000) } } })
+    // Só os avisos automáticos contam (os envios da equipe saem na hora; os agrupados foram dentro de outra mensagem)
+    const naUltimaHora = await prisma.mensagemWhatsapp.count({ where: { status: 'enviada', manual: false, agrupadaComId: null, enviadaEm: { gte: new Date(agora.getTime() - 3_600_000) } } })
     if (naUltimaHora >= MAX_POR_HORA) return true
 
     const msg = await prisma.mensagemWhatsapp.findFirst({
       where: { status: 'pendente', OR: [{ proximaTentativaEm: null }, { proximaTentativaEm: { lte: agora } }] },
       orderBy: { createdAt: 'asc' },
-      include: { cliente: { select: { receberAvisosWhatsapp: true } } },
+      include: { cliente: { select: { receberAvisosWhatsapp: true } }, pedido: { select: { tokenPublico: true } } },
     })
     if (!msg) return true
     // O cliente pode ter pedido para não receber depois que o aviso entrou na fila
-    if (!msg.cliente.receberAvisosWhatsapp) {
-      await prisma.mensagemWhatsapp.update({ where: { id: msg.id }, data: { status: 'ignorada', erro: 'O cliente não quer receber avisos pelo WhatsApp.' } })
+    if (msg.cliente && !msg.cliente.receberAvisosWhatsapp) {
+      await prisma.mensagemWhatsapp.updateMany({
+        where: { status: 'pendente', clienteId: msg.clienteId, manual: false },
+        data: { status: 'ignorada', erro: 'O cliente não quer receber avisos pelo WhatsApp.' },
+      })
       return true
     }
+    // Outros avisos do mesmo pedido para o mesmo número na fila vão juntos, numa mensagem só
+    const juntos = msg.pedidoId
+      ? await prisma.mensagemWhatsapp.findMany({
+          where: { status: 'pendente', manual: false, pedidoId: msg.pedidoId, telefone: msg.telefone, id: { not: msg.id } },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, texto: true },
+        })
+      : []
+    const acompanhamento = msg.pedido ? linkAcompanhamento(msg.pedido.tokenPublico, empresa.slug) : null
+    const texto = juntos.length ? combinarAvisos([msg, ...juntos].map((m) => ({ texto: m.texto, linkDispensavel: acompanhamento }))) : msg.texto
 
     const instancia = instanciaDaEmpresa(empresa.id)
     try {
@@ -72,11 +88,19 @@ export function criarEnvioWhatsapp(app: FastifyInstance, provedor: ProvedorWhats
         // Voltou sozinha (a Evolution reconecta depois de reiniciar)
         if (!config.conectado) await prisma.whatsappConfig.update({ where: { id: config.id }, data: { conectado: true, numero: situacao.numero ?? config.numero } })
       }
-      const r = await provedor.enviarTexto(instancia, msg.telefone, msg.texto)
-      await prisma.mensagemWhatsapp.update({
-        where: { id: msg.id },
-        data: { status: 'enviada', enviadaEm: new Date(), idExterno: r.id, tentativas: { increment: 1 }, erro: null, proximaTentativaEm: null },
-      })
+      const r = await provedor.enviarTexto(instancia, msg.telefone, texto)
+      const enviadaEm = new Date()
+      await prisma.$transaction([
+        // O primeiro guarda o texto que saiu de fato (com os outros avisos dentro)
+        prisma.mensagemWhatsapp.update({
+          where: { id: msg.id },
+          data: { status: 'enviada', enviadaEm, texto, idExterno: r.id, tentativas: { increment: 1 }, erro: null, proximaTentativaEm: null },
+        }),
+        prisma.mensagemWhatsapp.updateMany({
+          where: { id: { in: juntos.map((j) => j.id) } },
+          data: { status: 'enviada', enviadaEm, idExterno: r.id, agrupadaComId: msg.id, erro: null, proximaTentativaEm: null },
+        }),
+      ])
     } catch (erro) {
       const e = erro instanceof ErroWhatsapp ? erro : new ErroWhatsapp('temporario', (erro as Error).message)
       if (e.tipo === 'desconectado') {

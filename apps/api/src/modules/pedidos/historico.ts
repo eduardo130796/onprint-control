@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@prisma/client'
-import { EVENTO_WHATSAPP_ROTULOS, formatarTelefone, type EventoHistorico, type EventoWhatsapp } from '@onprint/shared'
+import { TIPO_MENSAGEM_WHATSAPP_ROTULOS, formatarNumeroWhatsapp, type EventoHistorico, type TipoMensagemWhatsapp } from '@onprint/shared'
 
 const ROTULO_STATUS: Record<string, string> = {
   aguardando_arte: 'Aguardando arte',
@@ -26,6 +26,7 @@ export async function historicoDoPedido(prisma: PrismaClient, pedidoId: string):
       itens: { select: { artes: { select: { id: true, versao: true } } } },
       ordensProducao: { select: { id: true, numero: true } },
       entregas: { select: { id: true } },
+      orcamento: { select: { id: true } },
     },
   })
   const artes = pedido.itens.flatMap((i) => i.artes)
@@ -47,7 +48,13 @@ export async function historicoDoPedido(prisma: PrismaClient, pedidoId: string):
     }),
     prisma.opEtapaHistorico.findMany({ where: { opId: { in: [...numeroOp.keys()] } }, include: { usuario: { select: { nome: true } } }, orderBy: { createdAt: 'desc' } }),
     prisma.arteComentario.findMany({ where: { arteId: { in: idsArtes } }, orderBy: { createdAt: 'desc' } }),
-    prisma.mensagemWhatsapp.findMany({ where: { pedidoId }, orderBy: { createdAt: 'desc' }, take: 50 }),
+    prisma.mensagemWhatsapp.findMany({
+      // Também o orçamento que virou o pedido (enviado pelo WhatsApp)
+      where: { OR: [{ pedidoId }, ...(pedido.orcamento ? [{ orcamentoId: pedido.orcamento.id }] : [])] },
+      include: { usuario: { select: { nome: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    }),
   ])
   const usuarios = new Map(
     (await prisma.usuario.findMany({ where: { id: { in: auditoria.flatMap((a) => (a.usuarioId ? [a.usuarioId] : [])) } }, select: { id: true, nome: true } })).map((u) => [u.id, u.nome]),
@@ -94,10 +101,16 @@ export async function historicoDoPedido(prisma: PrismaClient, pedidoId: string):
     })
   }
   for (const m of avisos) {
-    const evento = EVENTO_WHATSAPP_ROTULOS[m.evento as EventoWhatsapp] ?? m.evento
+    const evento = TIPO_MENSAGEM_WHATSAPP_ROTULOS[m.evento as TipoMensagemWhatsapp] ?? m.evento
+    const tipo = m.manual ? 'Mensagem' : 'Aviso'
     const titulo =
-      m.status === 'enviada' ? `Aviso enviado pelo WhatsApp: ${evento}` : m.status === 'pendente' ? `Aviso na fila do WhatsApp: ${evento}` : `Aviso pelo WhatsApp não enviado: ${evento}`
-    eventos.push({ id: m.id, quando: (m.enviadaEm ?? m.createdAt).toISOString(), usuario: null, tipo: 'whatsapp', titulo, detalhe: m.status === 'enviada' || m.status === 'pendente' ? `Para ${formatarTelefone(m.telefone.replace(/^55(?=\d{10,11}$)/, ''))}` : m.erro })
+      m.status === 'enviada'
+        ? `${tipo} enviad${m.manual ? 'a' : 'o'} pelo WhatsApp: ${evento}${m.agrupadaComId ? ' (junto com outro aviso)' : ''}`
+        : m.status === 'pendente'
+          ? `${tipo} na fila do WhatsApp: ${evento}`
+          : `${tipo} pelo WhatsApp não enviad${m.manual ? 'a' : 'o'}: ${evento}`
+    const para = `Para ${formatarNumeroWhatsapp(m.telefone)}${m.anexoNome ? ` · PDF: ${m.anexoNome}` : ''}`
+    eventos.push({ id: m.id, quando: (m.enviadaEm ?? m.createdAt).toISOString(), usuario: m.usuario?.nome ?? null, tipo: 'whatsapp', titulo, detalhe: m.status === 'enviada' || m.status === 'pendente' ? para : m.erro })
   }
   return eventos.sort((a, b) => b.quando.localeCompare(a.quando))
 }

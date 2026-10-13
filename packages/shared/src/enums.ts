@@ -160,19 +160,49 @@ export const CATEGORIA_TEMPLATE_ROTULOS: Record<CategoriaTemplate, string> = {
   boas_vindas: 'Boas-vindas',
 }
 
-/** Variáveis aceitas nos templates de mensagem: {{variavel}} */
+/**
+ * Variáveis aceitas nos templates de mensagem: {{variavel}}. Na mensagem do WhatsApp, a linha cuja variável
+ * ficou vazia some quando não sobra texto, quando termina em ":" ou fica com o negrito vazio (preencherMensagem).
+ */
 export const VARIAVEIS_TEMPLATE = [
   'cliente_nome',
   'numero_orcamento',
+  'itens_orcamento',
+  'validade',
+  'prazo_producao',
   'numero_pedido',
+  'descricao_item',
+  'proximo_passo',
+  'forma_entrega',
   'link_aprovacao',
   'link_acompanhamento',
   'valor_total',
   'valor_pago',
+  'valor_em_aberto',
   'data_entrega',
   'empresa_nome',
 ] as const
 export type VariavelTemplate = (typeof VARIAVEIS_TEMPLATE)[number]
+
+/** O que cada variável traz (chips do editor de templates) */
+export const VARIAVEL_TEMPLATE_DESCRICOES: Record<VariavelTemplate, string> = {
+  cliente_nome: 'Nome para a saudação (primeiro nome ou nome da empresa)',
+  numero_orcamento: 'Número do orçamento',
+  itens_orcamento: 'Itens do orçamento em lista (• 2× Banner 2,0 × 1,0 m — R$ 130,00)',
+  validade: 'Validade do orçamento',
+  prazo_producao: 'Prazo de produção do orçamento (ex.: 5 dias úteis)',
+  numero_pedido: 'Número do pedido',
+  descricao_item: 'Item do pedido da arte',
+  proximo_passo: 'O que acontece agora (arte para aprovar ou produção)',
+  forma_entrega: 'Retirada ou entrega do pedido pronto',
+  link_aprovacao: 'Link para ver e aprovar (orçamento ou arte)',
+  link_acompanhamento: 'Link "Acompanhe seu pedido"',
+  valor_total: 'Valor total',
+  valor_pago: 'Valor do pagamento recebido',
+  valor_em_aberto: 'Valor que falta pagar do pedido',
+  data_entrega: 'Previsão de entrega',
+  empresa_nome: 'Nome da gráfica (assinatura)',
+}
 
 // ─── Arquivos ───────────────────────────────────────────────────────────────
 

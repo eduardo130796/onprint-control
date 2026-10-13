@@ -122,6 +122,7 @@ export function ClienteFichaPage() {
           <Anexos entidade="cliente" entidadeId={cliente.id} modulo="clientes" />
         </TabsContent>
       </Tabs>
+      {catalogo.dialogo}
     </>
   )
 }

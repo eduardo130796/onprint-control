@@ -10,7 +10,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useEmpresa } from '@/features/configuracoes/hooks'
 import { cn } from '@/lib/utils'
 import { baixarBlob, compartilharArquivo, podeCompartilharArquivo } from '../compartilhar'
-import { agruparPorCategoria, mensagemCatalogoPdf, nomeNoSite, textoPrecoProduto } from '../divulgar'
+import { agruparPorCategoria, mensagemCatalogo, mensagemCatalogoPdf, nomeNoSite, textoPrecoProduto } from '../divulgar'
+import { categoriasEmDestaque } from '../useEnviarCatalogo'
 import { useProdutosVitrine, useVitrineConfig } from '../hooks'
 import { semProtocolo } from '../utils'
 import { EnvioWhatsapp } from './EnvioWhatsapp'
@@ -176,8 +177,10 @@ function Conteudo() {
           </div>
           <EnvioWhatsapp
             id="catalogo"
-            mensagemPadrao={mensagemCatalogoPdf({ loja, linkPdf: gerado.link ?? c.urlPublica, site: gerado.link ? c.urlPublica : null })}
-            dica="Quem recebe toca no link e o catálogo abre no celular, sem baixar nada."
+            tipo="catalogo"
+            mensagemPadrao={gerado.link ? mensagemCatalogoPdf({ loja, linkPdf: gerado.link }) : mensagemCatalogo({ loja, link: c.urlPublica, categorias: categoriasEmDestaque(publicados) })}
+            dica="Quem recebe toca no link e o catálogo abre no celular, sem baixar nada. Para um cliente, o PDF pode ir anexado."
+            pdf={{ rotulo: gerado.nome, gerar: async () => gerado, marcado: true, mensagem: mensagemCatalogo({ loja, link: c.urlPublica, categorias: categoriasEmDestaque(publicados), comPdf: true }) }}
           />
         </div>
       </>

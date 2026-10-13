@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
 import type { z } from 'zod'
-import { CODIGOS_ERRO, type ConexaoWhatsapp, type EventoWhatsapp, type MensagemWhatsapp, type WhatsappConfig, type mensagensWhatsappQuerySchema, type whatsappConfigSchema } from '@onprint/shared'
+import { CODIGOS_ERRO, type ConexaoWhatsapp, type DisponibilidadeWhatsapp, type EventoWhatsapp, type MensagemWhatsapp, type TipoMensagemWhatsapp, type WhatsappConfig, type mensagensWhatsappQuerySchema, type whatsappConfigSchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
 import { contextoEmpresa } from '../../core/contexto-empresa'
@@ -11,24 +11,31 @@ import { obterConfigWhatsapp, whatsappNoPlano } from './avisos'
 
 type Config = Awaited<ReturnType<typeof obterConfigWhatsapp>>
 
-const incluirMensagem = {
+export const incluirMensagem = {
   cliente: { select: { id: true, nome: true, fantasia: true } },
   pedido: { select: { id: true, numero: true } },
+  orcamento: { select: { id: true, numero: true } },
+  usuario: { select: { id: true, nome: true } },
 } satisfies Prisma.MensagemWhatsappInclude
 
-function formatarMensagem(m: Prisma.MensagemWhatsappGetPayload<{ include: typeof incluirMensagem }>): MensagemWhatsapp {
+export function formatarMensagem(m: Prisma.MensagemWhatsappGetPayload<{ include: typeof incluirMensagem }>): MensagemWhatsapp {
   return {
     id: m.id,
-    evento: m.evento as EventoWhatsapp,
+    evento: m.evento as TipoMensagemWhatsapp,
+    manual: m.manual,
     telefone: m.telefone,
     texto: m.texto,
     status: m.status,
     tentativas: m.tentativas,
     erro: m.erro,
+    anexoNome: m.anexoNome,
+    agrupadaComId: m.agrupadaComId,
     enviadaEm: m.enviadaEm?.toISOString() ?? null,
     createdAt: m.createdAt.toISOString(),
     cliente: m.cliente,
     pedido: m.pedido,
+    orcamento: m.orcamento,
+    usuario: m.usuario,
   }
 }
 
@@ -80,6 +87,20 @@ export function criarWhatsappService(app: FastifyInstance) {
   return {
     async obter() {
       return resumo(await obterConfigWhatsapp(prisma))
+    },
+
+    /** O diálogo "Enviar pelo WhatsApp" manda pela conexão ou abre o WhatsApp (último estado conhecido, sem chamar a Evolution) */
+    async disponivel(): Promise<DisponibilidadeWhatsapp> {
+      const config = await obterConfigWhatsapp(prisma)
+      const teste = provedor().simulado
+      const motivo = !whatsappNoPlano(contextoEmpresa.atual())
+        ? 'O WhatsApp não faz parte do seu plano.'
+        : config.pausado
+          ? 'Os envios pelo WhatsApp estão pausados (tela WhatsApp).'
+          : !teste && !config.conectado
+            ? 'O WhatsApp da gráfica não está conectado.'
+            : null
+      return { conectado: !motivo, motivo, numero: teste ? null : config.numero, teste }
     },
 
     async salvar(dados: z.output<typeof whatsappConfigSchema>, usuarioId: string) {

@@ -40,8 +40,16 @@ export function useImpressao() {
     }
   }
 
+  /** Só gera o PDF (ex.: anexar no "Enviar pelo WhatsApp"); o erro sobe para quem chamou */
+  async function gerar(f: (g: Gerador, empresa: EmpresaConfig) => Promise<{ blob: Blob; nome: string }>) {
+    const [g, empresa] = await Promise.all([import('./gerar'), queryClient.fetchQuery({ queryKey: CHAVE_EMPRESA, queryFn: empresaApi.obter, staleTime: 5 * 60 * 1000 })])
+    return f(g, empresa)
+  }
+
   return {
     ocupado,
+    pdfOrcamento: (o: OrcamentoDetalhe) => gerar((g, e) => g.pdfOrcamento(o, e)),
+    pdfRecibo: (pedidoId: string, recebimentos: RecebimentosPedido) => gerar(async (g, e) => g.pdfRecibo(await pedidosApi.obter(pedidoId), recebimentos, e)),
     orcamento: (o: OrcamentoDetalhe | string, modo: ModoImpressao) =>
       rodar(`orcamento:${typeof o === 'string' ? o : o.id}:${modo}`, modo, async (g, e) => g.pdfOrcamento(typeof o === 'string' ? await orcamentosApi.obter(o) : o, e)),
     pedido: (id: string, modo: ModoImpressao) =>

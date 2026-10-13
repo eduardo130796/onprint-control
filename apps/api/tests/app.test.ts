@@ -133,6 +133,54 @@ describe('API — multiempresa', () => {
   })
 })
 
+describe('API — "Enviar pelo WhatsApp" (validação antes de tocar no banco)', () => {
+  const valido = { tipo: 'catalogo', telefone: '(11) 98888-7777', texto: 'Olá!' }
+
+  it('exige login', async () => {
+    expect((await app.inject({ method: 'POST', url: '/api/v1/whatsapp/enviar', payload: valido })).statusCode).toBe(401)
+    expect((await app.inject({ method: 'GET', url: '/api/v1/whatsapp/disponivel' })).statusCode).toBe(401)
+    expect((await app.inject({ method: 'POST', url: '/api/v1/whatsapp/enviar-com-pdf' })).statusCode).toBe(401)
+  })
+
+  it('número sem DDD, texto vazio e tipo desconhecido: 400 com os campos', async () => {
+    const res = await app.inject({ method: 'POST', url: '/api/v1/whatsapp/enviar', headers: bearer(false), payload: { ...valido, telefone: '98888-7777', texto: ' ' } })
+    expect(res.statusCode).toBe(400)
+    const campos = res.json().error.details.map((d: { campo: string }) => d.campo)
+    expect(campos).toEqual(expect.arrayContaining(['telefone', 'texto']))
+    const tipo = await app.inject({ method: 'POST', url: '/api/v1/whatsapp/enviar', headers: bearer(false), payload: { ...valido, tipo: 'spam' } })
+    expect(tipo.statusCode).toBe(400)
+  })
+
+  it('orçamento sem o orçamento e arte sem a arte: 400', async () => {
+    const orc = await app.inject({ method: 'POST', url: '/api/v1/whatsapp/enviar', headers: bearer(false), payload: { ...valido, tipo: 'orcamento_enviado' } })
+    expect(orc.statusCode).toBe(400)
+    expect(orc.json().error.details.map((d: { campo: string }) => d.campo)).toContain('orcamentoId')
+    const arte = await app.inject({ method: 'POST', url: '/api/v1/whatsapp/enviar', headers: bearer(false), payload: { ...valido, tipo: 'arte_aprovacao', pedidoId: '7c1b0c5e-6d43-4c1e-9b0b-1f6f2d3a4b5c' } })
+    expect(arte.json().error.details.map((d: { campo: string }) => d.campo)).toContain('arteId')
+  })
+
+  it('com PDF: o campo "dados" é validado como o JSON', async () => {
+    const limite = 'limite123'
+    const corpo = [
+      `--${limite}`,
+      'Content-Disposition: form-data; name="dados"',
+      '',
+      JSON.stringify({ ...valido, telefone: '123' }),
+      `--${limite}`,
+      'Content-Disposition: form-data; name="arquivo"; filename="catalogo.pdf"',
+      'Content-Type: application/pdf',
+      '',
+      '%PDF-1.7 teste',
+      `--${limite}--`,
+      '',
+    ].join('\r\n')
+    const res = await app.inject({ method: 'POST', url: '/api/v1/whatsapp/enviar-com-pdf', headers: { ...bearer(false), 'content-type': `multipart/form-data; boundary=${limite}` }, payload: corpo })
+    expect(res.statusCode).toBe(400)
+    expect(res.json().error.code).toBe('VALIDACAO')
+    expect(res.json().error.details.map((d: { campo: string }) => d.campo)).toContain('telefone')
+  })
+})
+
 describe('API — assinatura', () => {
   const HOJE = '2026-10-20'
   /** Empresa e1 com assinatura no plano Essencial (sem estoque), em atraso desde a data dada. */

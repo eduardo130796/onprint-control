@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Ban, ExternalLink, Inbox, RotateCcw } from 'lucide-react'
+import { Ban, ExternalLink, FileText, Inbox, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import {
-  EVENTO_WHATSAPP_ROTULOS,
   STATUS_MENSAGEM_WHATSAPP,
   STATUS_MENSAGEM_WHATSAPP_ROTULOS,
+  TIPO_MENSAGEM_WHATSAPP_ROTULOS,
   formatarDataHora,
   linkWaMe,
   nomeCliente,
@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { BolhaWhatsapp } from './BolhaWhatsapp'
 
 const COR_STATUS: Record<StatusMensagemWhatsapp, string> = {
   pendente: 'bg-amber-100 text-amber-800',
@@ -62,7 +63,7 @@ export function MensagensCard({ podeEditar, conectado }: { podeEditar: boolean; 
   return (
     <Card>
       <CardHeader className="gap-3">
-        <CardTitle>Avisos enviados e na fila</CardTitle>
+        <CardTitle>Mensagens enviadas e na fila</CardTitle>
         <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Filtrar por situação">
           {[undefined, ...STATUS_MENSAGEM_WHATSAPP].map((s) => (
             <button
@@ -84,7 +85,7 @@ export function MensagensCard({ podeEditar, conectado }: { podeEditar: boolean; 
         ) : consulta.isError ? (
           <EstadoErro erro={consulta.error} onTentarNovamente={() => void consulta.refetch()} />
         ) : consulta.data.data.length === 0 ? (
-          <EmptyState icone={Inbox} titulo="Nenhum aviso por aqui" descricao="Os avisos aparecem quando os pedidos avançam." />
+          <EmptyState icone={Inbox} titulo="Nenhuma mensagem por aqui" descricao="Aparecem os avisos dos pedidos e o que a equipe enviar pelo WhatsApp (orçamento, arte, catálogo)." />
         ) : (
           <ul className="divide-y divide-tinta/10">
             {consulta.data.data.map((m) => (
@@ -140,7 +141,12 @@ function LinhaMensagem({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', COR_STATUS[m.status])}>{STATUS_MENSAGEM_WHATSAPP_ROTULOS[m.status]}</span>
-          <span className="text-sm font-medium text-tinta">{EVENTO_WHATSAPP_ROTULOS[m.evento] ?? m.evento}</span>
+          <span className="text-sm font-medium text-tinta">{TIPO_MENSAGEM_WHATSAPP_ROTULOS[m.evento] ?? m.evento}</span>
+          {m.orcamento && (
+            <Link to={`/orcamentos/${m.orcamento.id}`} className="text-sm text-marca-escuro hover:underline">
+              {m.orcamento.numero}
+            </Link>
+          )}
           {m.pedido && (
             <Link to={`/pedidos/${m.pedido.id}`} className="text-sm text-marca-escuro hover:underline">
               {m.pedido.numero}
@@ -148,13 +154,21 @@ function LinhaMensagem({
           )}
         </div>
         <p className="mt-0.5 text-xs text-texto-secundario">
-          {m.cliente ? nomeCliente(m.cliente) : 'Cliente'} · {formatarDataHora(m.enviadaEm ?? m.createdAt)}
+          {m.cliente ? nomeCliente(m.cliente) : 'Outro contato'} · {formatarDataHora(m.enviadaEm ?? m.createdAt)}
+          {m.manual ? ` · enviada por ${m.usuario?.nome ?? 'alguém da equipe'}` : ' · aviso automático'}
+          {m.agrupadaComId ? ' · foi junto com outro aviso do pedido' : ''}
           {m.tentativas > 1 ? ` · ${m.tentativas} tentativas` : ''}
         </p>
+        {m.anexoNome && (
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-texto-secundario">
+            <FileText className="h-3 w-3" /> {m.anexoNome}
+          </p>
+        )}
         {m.erro && <p className="mt-1 text-xs text-coral-escuro">{m.erro}</p>}
-        <button type="button" onClick={() => setAberta(!aberta)} className={cn('mt-1 block w-full text-left text-xs text-texto-secundario', !aberta && 'line-clamp-1')}>
-          <span className="whitespace-pre-wrap [overflow-wrap:anywhere]">{m.texto}</span>
+        <button type="button" onClick={() => setAberta(!aberta)} aria-expanded={aberta} className={cn('mt-1 block w-full text-left text-xs text-texto-secundario', !aberta && 'line-clamp-1')}>
+          {aberta ? <span className="font-medium text-marca-escuro">Esconder a mensagem</span> : <span className="[overflow-wrap:anywhere]">{m.texto.replace(/\s*\n+\s*/g, ' · ').replace(/\*/g, '')}</span>}
         </button>
+        {aberta && <BolhaWhatsapp texto={m.texto} anexo={m.anexoNome} className="mt-2 max-w-xl" />}
       </div>
       {podeEditar && (
         <div className="flex shrink-0 gap-1 self-end sm:self-start">

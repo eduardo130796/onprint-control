@@ -3,6 +3,7 @@ import {
   agruparPorCategoria,
   ajustarTexto,
   linkWhatsappEnvio,
+  listaCategorias,
   mensagemCatalogo,
   mensagemCatalogoPdf,
   mensagemInteresseCatalogo,
@@ -24,18 +25,46 @@ import {
 const medir = (t: string) => t.length * 10
 
 describe('mensagens', () => {
-  it('produto com e sem nome do cliente', () => {
+  /** Padrão: link sozinho na última linha, depois do rótulo */
+  const linkNoFim = (m: string, link: string) => {
+    const linhas = m.split('\n')
+    expect(linhas[linhas.length - 1]).toBe(link)
+    expect(linhas[linhas.length - 2]).toMatch(/:$/)
+    expect(m.match(/https?:\/\//g)).toHaveLength(1)
+  }
+
+  it('produto em negrito, linha do preço e o link no fim', () => {
     const link = 'https://horizonte.grafygo.com.br/produto/banner'
-    expect(mensagemProduto({ produto: 'Banner em lona', preco: 'A partir de R$ 45,00 / m²', link })).toBe(
-      `Olá! Veja o produto *Banner em lona* — a partir de R$ 45,00 / m²: ${link}`,
-    )
-    expect(mensagemProduto({ nome: 'MARIA DA SILVA', produto: 'Caneca', preco: 'R$ 35,00 / unidade', link })).toBe(`Olá, Maria! Veja o produto *Caneca* — R$ 35,00 / unidade: ${link}`)
-    expect(mensagemProduto({ produto: 'Placa', preco: 'Sob consulta', link })).toContain('— preço sob consulta: ')
+    const m = mensagemProduto({ produto: 'Banner em lona', preco: 'A partir de R$ 45,00 / m²', link })
+    expect(m).toBe(`Olá!\n\n*Banner em lona*\nA partir de R$ 45,00 / m²\n\nVeja fotos e detalhes aqui:\n${link}`)
+    linkNoFim(m, link)
+    expect(mensagemProduto({ nome: 'MARIA DA SILVA', produto: 'Caneca', preco: 'R$ 35,00 / unidade', link })).toMatch(/^Olá, Maria!\n\n\*Caneca\*\nR\$ 35,00 \/ unidade\n/)
+    expect(mensagemProduto({ produto: 'Placa', preco: 'Sob consulta', link })).toContain('\nPreço sob consulta\n')
   })
 
-  it('vitrine e catálogo levam a loja e o link', () => {
-    expect(mensagemVitrine({ loja: 'Gráfica X', link: 'https://x' })).toMatch(/^Olá! Conheça a vitrine online da \*Gráfica X\*.*: https:\/\/x$/)
-    expect(mensagemCatalogo({ nome: 'joão', loja: 'Gráfica X', link: 'https://x' })).toMatch(/^Olá, João! .*catálogo.*https:\/\/x$/)
+  it('vitrine: a loja em negrito e o link no fim', () => {
+    const m = mensagemVitrine({ loja: 'Gráfica X', link: 'https://x.y' })
+    expect(m).toMatch(/^Olá!\n\nConheça a vitrine online da \*Gráfica X\*/)
+    linkNoFim(m, 'https://x.y')
+  })
+
+  it('catálogo: chamada com a loja, até 3 categorias, o aviso do PDF e o link da vitrine no fim', () => {
+    const m = mensagemCatalogo({ nome: 'joão', loja: 'Gráfica X', link: 'https://x.y', categorias: ['Banners', 'Adesivos', 'Cartões', 'Placas'] })
+    expect(m).toBe(
+      'Olá, João!\n\nConheça os produtos da *Gráfica X*: é só escolher, montar a lista e pedir o orçamento pelo site.\nDestaques: Banners, Adesivos e Cartões\n\nVeja os produtos aqui:\nhttps://x.y',
+    )
+    linkNoFim(m, 'https://x.y')
+    const comPdf = mensagemCatalogo({ loja: 'Gráfica X', link: 'https://x.y', comPdf: true })
+    expect(comPdf).toContain('\n\nO catálogo em PDF vai logo abaixo.\n\n')
+    expect(comPdf).not.toContain('Destaques')
+    linkNoFim(comPdf, 'https://x.y')
+  })
+
+  it('categorias em lista curta', () => {
+    expect(listaCategorias([])).toBe('')
+    expect(listaCategorias(['Banners'])).toBe('Banners')
+    expect(listaCategorias(['Banners', 'Banners', 'Placas'])).toBe('Banners e Placas')
+    expect(listaCategorias(['Adesivos', 'Banners e lonas', 'Placas'])).toBe('Adesivos, Banners e lonas, Placas')
   })
 
   it('primeiro nome', () => {
@@ -43,13 +72,14 @@ describe('mensagens', () => {
     expect(primeiroNome(null)).toBe('')
   })
 
-  it('troca a saudação mantendo o resto (mesmo editado)', () => {
+  it('troca a saudação mantendo o resto (mesmo editado, com as quebras de linha)', () => {
     expect(trocarSaudacao('Olá! Veja isto: link', 'Carlos Souza')).toBe('Olá, Carlos! Veja isto: link')
     expect(trocarSaudacao('Olá, Carlos! Veja isto', 'Ana')).toBe('Olá, Ana! Veja isto')
     expect(trocarSaudacao('Olá, Carlos! Veja isto', null)).toBe('Olá! Veja isto')
     expect(trocarSaudacao('Oi! texto', 'Bia')).toBe('Olá, Bia! texto')
-    expect(trocarSaudacao('Veja isto', 'Bia')).toBe('Olá, Bia! Veja isto')
+    expect(trocarSaudacao('Veja isto', 'Bia')).toBe('Olá, Bia!\n\nVeja isto')
     expect(trocarSaudacao('Olá! Veja isto', 'Pet Feliz', '12.345.678/0001-90')).toBe('Olá, Pet Feliz! Veja isto')
+    expect(trocarSaudacao('Olá!\n\n*Banner*\n\nVeja aqui:\nhttps://x', 'Ana')).toBe('Olá, Ana!\n\n*Banner*\n\nVeja aqui:\nhttps://x')
   })
 })
 
@@ -144,13 +174,9 @@ describe('layout', () => {
 })
 
 describe('mensagem do catálogo em PDF', () => {
-  it('leva o link do PDF e, se houver, o site', () => {
-    const m = mensagemCatalogoPdf({ nome: 'ana maria', loja: 'Gráfica X', linkPdf: 'https://x.grafygo.com.br/catalogo/1', site: 'https://x.grafygo.com.br' })
-    expect(m).toMatch(/^Olá, Ana! Segue o catálogo da \*Gráfica X\* com nossos produtos: https:\/\/x\.grafygo\.com\.br\/catalogo\/1/)
-    expect(m).toContain('pelo site e peça o orçamento por lá: https://x.grafygo.com.br')
-  })
-  it('sem site, só o link do PDF', () => {
-    expect(mensagemCatalogoPdf({ loja: 'Gráfica X', linkPdf: 'https://x/c/1' })).not.toContain('site')
+  it('um link só, o do PDF, no fim', () => {
+    const m = mensagemCatalogoPdf({ nome: 'ana maria', loja: 'Gráfica X', linkPdf: 'https://x.grafygo.com.br/catalogo/1' })
+    expect(m).toBe('Olá, Ana!\n\nSegue o catálogo da *Gráfica X* com os nossos produtos.\nPara pedir, é só responder esta mensagem.\n\nAbra o catálogo aqui:\nhttps://x.grafygo.com.br/catalogo/1')
   })
 })
 

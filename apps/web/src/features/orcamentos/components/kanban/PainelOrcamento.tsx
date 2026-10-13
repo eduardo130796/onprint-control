@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { FileDown, Link2, MessageSquareText, Pencil, Printer, ShoppingCart } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { FileDown, Link2, MessageCircle, Pencil, Printer, ShoppingCart } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatarDataSimples, formatarMoeda, formatarTelefone, nomeCliente, type Orcamento } from '@onprint/shared'
 import { orcamentosApi, templatesLeituraApi } from '@/api/comercial'
@@ -11,8 +11,9 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useImpressao } from '@/features/impressao/useImpressao'
 import { usePermissoes } from '@/hooks/usePermission'
-import { messagingProvider } from '@/integrations/messaging'
-import { linkAprovacao, mensagemDoOrcamento } from '../../mensagem'
+import { EnviarWhatsappDialog, type EnvioWhatsapp } from '@/features/whatsapp/components/EnviarWhatsappDialog'
+import { useAuth } from '@/hooks/useAuth'
+import { envioDoOrcamento, linkAprovacao } from '../../mensagem'
 import { ConverterDialog } from '../editor/ConverterDialog'
 
 const metros = (v: string) => Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 3 })
@@ -20,21 +21,37 @@ const metros = (v: string) => Number(v).toLocaleString('pt-BR', { maximumFractio
 /** Painel do orçamento aberto pelo kanban: cliente, itens, totais e ações rápidas (imprimir, mensagem, link, converter). */
 export function PainelOrcamento({ orcamento: resumo, onFechar }: { orcamento: Orcamento; onFechar: () => void }) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const pode = usePermissoes()
   const impressao = useImpressao()
   const consulta = useQuery({ queryKey: ['orcamentos', 'detalhe', resumo.id], queryFn: () => orcamentosApi.obter(resumo.id) })
   const templates = useQuery({ queryKey: ['templates', 'ativos'], queryFn: templatesLeituraApi.listar, staleTime: 5 * 60 * 1000 })
   const [convertendo, setConvertendo] = useState(false)
+  const [envio, setEnvio] = useState<EnvioWhatsapp | null>(null)
+  const { usuario } = useAuth()
   const o = consulta.data
   const ir = (caminho: string) => {
     onFechar()
     navigate(caminho)
   }
 
-  async function copiarMensagem() {
+  /** "Enviar orçamento" (com o PDF); o rascunho vira "enviado" */
+  function enviarOrcamento() {
     if (!o) return
-    await messagingProvider.enviar({ texto: mensagemDoOrcamento(o, templates.data), destinatario: o.cliente.whatsapp ?? undefined })
-    toast.success('Mensagem copiada. Cole no WhatsApp do cliente.')
+    setEnvio(
+      envioDoOrcamento(o, {
+        templates: templates.data,
+        empresa: usuario?.empresa.exibicao ?? '',
+        gerarPdf: () => impressao.pdfOrcamento(o),
+        onEnviado: (via) => {
+          if (via !== 'copiado' && o.status === 'rascunho' && pode('orcamentos', 'editar'))
+            void orcamentosApi
+              .enviar(o.id)
+              .then(() => queryClient.invalidateQueries({ queryKey: ['orcamentos'] }))
+              .catch((e: Error) => toast.error(e.message))
+        },
+      }),
+    )
   }
 
   return (
@@ -54,7 +71,7 @@ export function PainelOrcamento({ orcamento: resumo, onFechar }: { orcamento: Or
             <AcaoPainel icone={Pencil} rotulo="Abrir / editar" onClick={() => ir(`/orcamentos/${resumo.id}`)} destaque />
             <AcaoPainel icone={Printer} rotulo="Imprimir" onClick={() => void impressao.orcamento(resumo.id, 'imprimir')} carregando={impressao.ocupado === `orcamento:${resumo.id}:imprimir`} />
             <AcaoPainel icone={FileDown} rotulo="Baixar PDF" onClick={() => void impressao.orcamento(resumo.id, 'baixar')} carregando={impressao.ocupado === `orcamento:${resumo.id}:baixar`} />
-            <AcaoPainel icone={MessageSquareText} rotulo="Copiar mensagem" onClick={() => void copiarMensagem()} />
+            {o && <AcaoPainel icone={MessageCircle} rotulo="Enviar orçamento" onClick={enviarOrcamento} />}
             <AcaoPainel
               icone={Link2}
               rotulo="Link de aprovação"
@@ -120,6 +137,7 @@ export function PainelOrcamento({ orcamento: resumo, onFechar }: { orcamento: Or
           }}
         />
       )}
+      <EnviarWhatsappDialog envio={envio} onFechar={() => setEnvio(null)} />
     </>
   )
 }

@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils'
 import { Interruptor } from '@/features/vitrine/components/Interruptor'
 import { previaDoEvento } from '../previa'
+import { BolhaWhatsapp } from './BolhaWhatsapp'
 
 /** Quais avisos saem, em que horário, e a pausa geral. Cada aviso mostra a prévia do texto (template da categoria). */
 export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; podeEditar: boolean }) {
@@ -47,7 +48,10 @@ export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; pod
     <Card>
       <CardHeader>
         <CardTitle>Avisos automáticos</CardTitle>
-        <CardDescription>O cliente recebe estes avisos no WhatsApp quando o pedido avança. O texto vem das mensagens prontas.</CardDescription>
+        <CardDescription>
+          O cliente recebe estes avisos no WhatsApp quando o pedido avança. O texto vem das mensagens prontas. Cada aviso espera 2 minutos na fila: avisos do
+          mesmo pedido que se encontram ali (ex.: pedido confirmado e a arte) saem numa mensagem só.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         <fieldset disabled={!podeEditar || salvar.isPending} className="space-y-5">
@@ -79,9 +83,7 @@ export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; pod
                   </div>
                   {aberto === evento && (
                     <div className="mt-3 space-y-2 sm:pl-14">
-                      <p className="whitespace-pre-wrap rounded-xl [overflow-wrap:anywhere] rounded-tl-none bg-[#dcf8c6] p-3 text-sm text-[#111b21] shadow-sm">
-                        {previaDoEvento(evento, templates.data, empresa)}
-                      </p>
+                      <BolhaWhatsapp texto={previaDoEvento(evento, templates.data, empresa)} />
                       <Link to="/configuracoes/templates" className="inline-flex items-center gap-1 text-xs font-medium text-marca-escuro hover:underline">
                         <Pencil className="h-3 w-3" /> Editar o texto em Mensagens prontas
                       </Link>

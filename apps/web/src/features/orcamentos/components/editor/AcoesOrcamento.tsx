@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle2, ChevronDown, Copy, FileDown, Link2, Loader2, MessageSquareText, Printer, RotateCcw, Save, Send, ShoppingCart, ThumbsDown, Handshake } from 'lucide-react'
+import { CheckCircle2, ChevronDown, Copy, FileDown, Link2, Loader2, MessageCircle, Printer, RotateCcw, Save, Send, ShoppingCart, ThumbsDown, Handshake } from 'lucide-react'
 import { toast } from 'sonner'
 import type { OrcamentoDetalhe } from '@onprint/shared'
 import { orcamentosApi, templatesLeituraApi } from '@/api/comercial'
@@ -13,8 +13,9 @@ import { Textarea } from '@/components/ui/form-controls'
 import { useImpressao } from '@/features/impressao/useImpressao'
 import { useMutacao } from '@/hooks/useMutacao'
 import { usePermissoes } from '@/hooks/usePermission'
-import { messagingProvider } from '@/integrations/messaging'
-import { linkAprovacao, mensagemDoOrcamento } from '../../mensagem'
+import { EnviarWhatsappDialog, type EnvioWhatsapp } from '@/features/whatsapp/components/EnviarWhatsappDialog'
+import { useAuth } from '@/hooks/useAuth'
+import { envioDoOrcamento, linkAprovacao } from '../../mensagem'
 import { ConverterDialog } from './ConverterDialog'
 
 interface AcoesProps {
@@ -35,6 +36,8 @@ export function AcoesOrcamento({ orcamento: o, editavel, alterado, salvando, onS
   const templates = useQuery({ queryKey: ['templates', 'ativos'], queryFn: templatesLeituraApi.listar, staleTime: 5 * 60 * 1000 })
   const [dialogo, setDialogo] = useState<Dialogo>(null)
   const [texto, setTexto] = useState('')
+  const [envio, setEnvio] = useState<EnvioWhatsapp | null>(null)
+  const { usuario } = useAuth()
   const acao = useMutacao(['orcamentos', 'solicitacoes'], (f: () => Promise<OrcamentoDetalhe>) => f())
 
   function executar(f: () => Promise<OrcamentoDetalhe>, sucesso: string, depois?: (r: OrcamentoDetalhe) => void) {
@@ -47,16 +50,25 @@ export function AcoesOrcamento({ orcamento: o, editavel, alterado, salvando, onS
     })
   }
 
-  async function copiarMensagem() {
-    if (!o) return
-    await messagingProvider.enviar({ texto: mensagemDoOrcamento(o, templates.data), destinatario: o.cliente.whatsapp ?? undefined })
-    toast.success('Mensagem copiada. Cole no WhatsApp do cliente.', {
-      action: o.status === 'rascunho' ? { label: 'Marcar como enviado', onClick: () => executar(() => orcamentosApi.enviar(o.id), 'Orçamento marcado como enviado.') } : undefined,
-    })
-  }
-
   const status = o?.status
   const podeEditar = pode('orcamentos', 'editar')
+
+  /** "Enviar orçamento": pela conexão da gráfica (com o PDF) ou abrindo o WhatsApp; o rascunho vira "enviado" */
+  function enviarOrcamento() {
+    if (!o) return
+    setEnvio(
+      envioDoOrcamento(o, {
+        templates: templates.data,
+        empresa: usuario?.empresa.exibicao ?? '',
+        gerarPdf: () => impressao.pdfOrcamento(o),
+        onEnviado: (via) => {
+          if (o.status !== 'rascunho' || !podeEditar) return
+          if (via !== 'copiado') executar(() => orcamentosApi.enviar(o.id), 'Orçamento marcado como enviado.')
+          else toast('Já mandou para o cliente?', { action: { label: 'Marcar como enviado', onClick: () => executar(() => orcamentosApi.enviar(o.id), 'Orçamento marcado como enviado.') } })
+        },
+      }),
+    )
+  }
   const ocupado = acao.isPending
 
   return (
@@ -68,8 +80,8 @@ export function AcoesOrcamento({ orcamento: o, editavel, alterado, salvando, onS
       )}
       {o && (
         <>
-          <Button variant="outline" onClick={() => void copiarMensagem()} disabled={alterado}>
-            <MessageSquareText /> Copiar mensagem
+          <Button variant="outline" onClick={enviarOrcamento} disabled={alterado} title={alterado ? 'Salve antes de enviar' : undefined}>
+            <MessageCircle /> Enviar orçamento
           </Button>
           <Button variant="outline" onClick={() => void impressao.orcamento(o, 'imprimir')} disabled={Boolean(impressao.ocupado) || alterado} title={alterado ? 'Salve antes de imprimir' : undefined}>
             {impressao.ocupado === `orcamento:${o.id}:imprimir` ? <Loader2 className="animate-spin" /> : <Printer />} Imprimir
@@ -160,6 +172,7 @@ export function AcoesOrcamento({ orcamento: o, editavel, alterado, salvando, onS
         </FormDialog>
       )}
       {o && dialogo === 'converter' && <ConverterDialog orcamento={o} onFechar={() => setDialogo(null)} />}
+      <EnviarWhatsappDialog envio={envio} onFechar={() => setEnvio(null)} />
     </div>
   )
 }

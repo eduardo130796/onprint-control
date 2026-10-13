@@ -1,31 +1,56 @@
 import {
-  adicionarDiasUteis,
   formatarDataSimples,
   formatarMoeda,
-  hojeISO,
+  inserirAntesDoFim,
+  listaItensMensagem,
   nomeCliente,
   nomeParaSaudacao,
-  preencherTemplate,
+  preencherMensagem,
+  textoPrazoDias,
   type MensagemTemplate,
   type OrcamentoDetalhe,
 } from '@onprint/shared'
+import type { EnvioWhatsapp } from '@/features/whatsapp/components/EnviarWhatsappDialog'
+import { textoDoTemplate } from '@/features/whatsapp/previa'
 import { linkPublico } from '@/lib/empresaAtual'
 
 export function linkAprovacao(token: string): string {
   return linkPublico('aprovar', token)
 }
 
-const PADRAO =
-  'Olá, {{cliente_nome}}! Segue o orçamento {{numero_orcamento}} no valor de {{valor_total}}.\nPara ver e aprovar: {{link_aprovacao}}'
-
-/** Texto do WhatsApp a partir do template "Orçamento enviado" (ou um texto padrão). */
-export function mensagemDoOrcamento(o: OrcamentoDetalhe, templates: MensagemTemplate[] | undefined): string {
-  const template = templates?.find((t) => t.categoria === 'orcamento_enviado' && t.ativo)
-  return preencherTemplate(template?.conteudo ?? PADRAO, {
+/**
+ * Mensagem do orçamento (template "Orçamento enviado"): itens em lista, total, prazo, validade e o link de
+ * aprovação sozinho no fim. Com o PDF anexado, avisa que ele vai logo abaixo.
+ */
+export function mensagemDoOrcamento(o: OrcamentoDetalhe, templates: MensagemTemplate[] | undefined, empresa: string, comPdf = false): string {
+  const texto = preencherMensagem(textoDoTemplate('orcamento_enviado', templates), {
     cliente_nome: nomeParaSaudacao(nomeCliente(o.cliente), o.cliente.cpfCnpj),
     numero_orcamento: o.numero,
-    link_aprovacao: linkAprovacao(o.tokenPublico),
+    itens_orcamento: listaItensMensagem(o.itens),
     valor_total: formatarMoeda(o.total),
-    data_entrega: formatarDataSimples(adicionarDiasUteis(hojeISO(), o.prazoDias)),
+    prazo_producao: textoPrazoDias(o.prazoDias),
+    validade: formatarDataSimples(o.validade),
+    link_aprovacao: linkAprovacao(o.tokenPublico),
+    empresa_nome: empresa,
   })
+  return comPdf ? inserirAntesDoFim(texto, 'O orçamento em PDF vai logo abaixo.') : texto
+}
+
+/**
+ * "Enviar orçamento" (tela do orçamento e kanban): o diálogo "Enviar pelo WhatsApp" com o texto acima, o PDF
+ * marcado para ir junto e, depois do envio, o orçamento em rascunho marcado como enviado.
+ */
+export function envioDoOrcamento(
+  o: OrcamentoDetalhe,
+  opcoes: { templates: MensagemTemplate[] | undefined; empresa: string; gerarPdf: () => Promise<{ blob: Blob; nome: string }>; onEnviado?: EnvioWhatsapp['onEnviado'] },
+): EnvioWhatsapp {
+  return {
+    titulo: `Enviar o orçamento ${o.numero}`,
+    tipo: 'orcamento_enviado',
+    destinatario: { nome: nomeCliente(o.cliente), numero: o.cliente.whatsapp || o.cliente.telefone, clienteId: o.clienteId },
+    vinculo: { orcamentoId: o.id },
+    mensagem: (comPdf) => mensagemDoOrcamento(o, opcoes.templates, opcoes.empresa, comPdf),
+    pdf: { rotulo: `${o.numero} - ${nomeCliente(o.cliente)}.pdf`, gerar: opcoes.gerarPdf, marcado: true },
+    onEnviado: opcoes.onEnviado,
+  }
 }

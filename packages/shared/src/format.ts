@@ -102,7 +102,12 @@ const PALAVRA_EMPRESA = /\b(ltda|eireli|epp|s\/a|s\.a\.?|mei|me)\b\.?/i
 export function nomeParaSaudacao(nome: string, documento?: string | null): string {
   const limpo = nome.trim().replace(/\s+/g, ' ')
   const empresa = somenteDigitos(documento ?? '').length === 14 || PALAVRA_EMPRESA.test(limpo)
-  if (!empresa) return limpo.split(' ')[0] || limpo
+  if (!empresa) {
+    const primeiro = limpo.split(' ')[0] || limpo
+    // Cadastro todo em maiúsculas (ou minúsculas): "MARIA" vira "Maria"; "McDonald" fica como está
+    const igual = primeiro === primeiro.toLocaleUpperCase('pt-BR') || primeiro === primeiro.toLocaleLowerCase('pt-BR')
+    return igual ? primeiro.charAt(0).toLocaleUpperCase('pt-BR') + primeiro.slice(1).toLocaleLowerCase('pt-BR') : primeiro
+  }
   let semSufixo = limpo
   while (SUFIXO_EMPRESA.test(semSufixo)) semSufixo = semSufixo.replace(SUFIXO_EMPRESA, '')
   return semSufixo.trim() || limpo

@@ -1,11 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
-import { TEXTOS_PADRAO_WHATSAPP, preencherMensagem } from '@onprint/shared'
+import { ANEXO_WHATSAPP_MAX_MB, TEXTOS_PADRAO_WHATSAPP, TIPOS_ENVIO_WHATSAPP, preencherMensagem, proximoPassoPedido } from '@onprint/shared'
 import { carregarEnv } from '../src/config/env'
 import { ErroWhatsapp, EvolutionWhatsappProvider, LogWhatsappProvider, criarProvedorWhatsapp, instanciaDaEmpresa } from '../src/integrations/whatsapp'
+import { combinarAvisos } from '../src/modules/whatsapp/agrupar'
+import { PERMISSOES_ENVIO, validarPdf } from '../src/modules/whatsapp/manual'
 import {
   EVENTO_DO_STATUS,
   INTERVALO_MAX_MS,
   INTERVALO_MIN_MS,
+  RESPIRO_MAX_MS,
+  RESPIRO_MS,
   dentroDoHorario,
   esperaDaTentativa,
   intervaloEntreEnvios,
@@ -74,22 +78,121 @@ describe('WhatsApp: horário de envio (Brasília, UTC-3)', () => {
   })
 })
 
+const ACOMPANHAMENTO = 'https://app.grafygo.com.br/pedido/ponto-visual/tok123'
+const ARTE = 'https://app.grafygo.com.br/arte/ponto-visual/arte456'
+const valores = {
+  cliente_nome: 'Fernanda',
+  numero_orcamento: 'ORC-2026-0042',
+  numero_pedido: 'PED-2026-0007',
+  proximo_passo: proximoPassoPedido(true),
+  descricao_item: 'Banner em lona 2,0 × 1,0 m',
+  data_entrega: '20/10/2026',
+  link_acompanhamento: ACOMPANHAMENTO,
+  link_aprovacao: ARTE,
+  empresa_nome: 'Ponto Visual',
+}
+const confirmado = preencherMensagem(TEXTOS_PADRAO_WHATSAPP.pedido_confirmado, valores)
+const arte = preencherMensagem(TEXTOS_PADRAO_WHATSAPP.arte_aprovacao, valores)
+
 describe('WhatsApp: texto dos avisos', () => {
-  it('pedido confirmado com link de acompanhamento e assinatura da gráfica', () => {
-    const texto = preencherMensagem(TEXTOS_PADRAO_WHATSAPP.pedido_confirmado, {
-      cliente_nome: 'Fernanda',
-      numero_pedido: 'PED-2026-0007',
-      data_entrega: '20/10/2026',
-      link_acompanhamento: 'https://app.grafygo.com.br/pedido/ponto-visual/tok123',
-      empresa_nome: 'Ponto Visual',
-    })
-    expect(texto).toBe(
-      'Olá, Fernanda! Seu pedido PED-2026-0007 foi confirmado. Previsão de entrega: 20/10/2026.\n' +
-        'Acompanhe o andamento por aqui: https://app.grafygo.com.br/pedido/ponto-visual/tok123\nPonto Visual',
+  it('pedido confirmado cita o orçamento, diz o próximo passo e termina no link de acompanhamento', () => {
+    expect(confirmado).toBe(
+      [
+        'Olá, Fernanda!',
+        '',
+        'Recebemos a aprovação do orçamento *ORC-2026-0042*.',
+        'Seu pedido *PED-2026-0007* está confirmado ✅',
+        '',
+        'Antes de produzir, enviamos a arte para você aprovar por aqui.',
+        'Previsão de entrega: *20/10/2026*',
+        '',
+        '— Ponto Visual',
+        '',
+        'Acompanhe o pedido aqui:',
+        ACOMPANHAMENTO,
+      ].join('\n'),
     )
   })
-  it('todo evento tem texto padrão com a saudação', () => {
-    for (const t of Object.values(TEXTOS_PADRAO_WHATSAPP)) expect(t.startsWith('Olá, {{cliente_nome}}!')).toBe(true)
+  it('todo evento tem texto padrão com a saudação e a assinatura', () => {
+    for (const t of Object.values(TEXTOS_PADRAO_WHATSAPP)) {
+      expect(t.startsWith('Olá, {{cliente_nome}}!\n\n')).toBe(true)
+      expect(t).toContain('— {{empresa_nome}}')
+    }
+  })
+  it('respiro curto antes de sair (e com teto)', () => {
+    expect(RESPIRO_MS).toBe(2 * 60_000)
+    expect(RESPIRO_MAX_MS).toBeGreaterThan(RESPIRO_MS)
+  })
+})
+
+describe('WhatsApp: avisos do mesmo pedido numa mensagem só', () => {
+  it('confirmação + arte: uma saudação, uma assinatura, um emoji e só o link da arte, no fim', () => {
+    const texto = combinarAvisos([
+      { texto: confirmado, linkDispensavel: ACOMPANHAMENTO },
+      { texto: arte, linkDispensavel: ACOMPANHAMENTO },
+    ])
+    expect(texto).toBe(
+      [
+        'Olá, Fernanda!',
+        '',
+        'Recebemos a aprovação do orçamento *ORC-2026-0042*.',
+        'Seu pedido *PED-2026-0007* está confirmado ✅',
+        '',
+        'Antes de produzir, enviamos a arte para você aprovar por aqui.',
+        'Previsão de entrega: *20/10/2026*',
+        '',
+        'A arte do pedido *PED-2026-0007* está pronta para a sua aprovação',
+        'Item: Banner em lona 2,0 × 1,0 m',
+        'Se precisar de algum ajuste, é só pedir pelo mesmo link.',
+        '',
+        '— Ponto Visual',
+        '',
+        'Veja e aprove a arte aqui:',
+        ARTE,
+      ].join('\n'),
+    )
+    expect(texto.match(/Olá/g)).toHaveLength(1)
+    expect(texto.match(/https:/g)).toHaveLength(1)
+  })
+  it('sem outro link depois, o de acompanhamento fica (a mensagem nunca perde o link)', () => {
+    const pago = preencherMensagem(TEXTOS_PADRAO_WHATSAPP.pagamento_recebido, { ...valores, valor_pago: 'R$ 50,00' })
+    const texto = combinarAvisos([
+      { texto: confirmado, linkDispensavel: ACOMPANHAMENTO },
+      { texto: pago, linkDispensavel: ACOMPANHAMENTO },
+    ])
+    expect(texto).toContain(`Acompanhe o pedido aqui:\n${ACOMPANHAMENTO}`)
+    expect(texto.match(/— Ponto Visual/g)).toHaveLength(1)
+    expect(texto.endsWith('— Ponto Visual')).toBe(true)
+    expect(texto).toContain('Recebemos o seu pagamento de *R$ 50,00* do pedido *PED-2026-0007*\n')
+  })
+  it('duas artes do mesmo pedido: os dois links de aprovação ficam', () => {
+    const outra = preencherMensagem(TEXTOS_PADRAO_WHATSAPP.arte_aprovacao, { ...valores, descricao_item: 'Adesivo', link_aprovacao: `${ARTE}-2` })
+    const texto = combinarAvisos([
+      { texto: arte, linkDispensavel: ACOMPANHAMENTO },
+      { texto: outra, linkDispensavel: ACOMPANHAMENTO },
+    ])
+    expect(texto).toContain(ARTE)
+    expect(texto.endsWith(`${ARTE}-2`)).toBe(true)
+    expect(texto.match(/Olá/g)).toHaveLength(1)
+  })
+  it('um aviso só sai como está', () => {
+    expect(combinarAvisos([{ texto: `  ${arte}\n` }])).toBe(arte)
+    expect(combinarAvisos([])).toBe('')
+  })
+})
+
+describe('WhatsApp: envio da equipe', () => {
+  const pdf = Buffer.from('%PDF-1.7\n...')
+  it('PDF conferido pelo conteúdo, com nome seguro terminando em .pdf', () => {
+    expect(validarPdf(pdf, 'ORC-2026-0042 - Maria/Silva.PDF')).toMatchObject({ nomeArquivo: 'ORC-2026-0042 - Maria Silva.pdf', mime: 'application/pdf' })
+    expect(validarPdf(pdf, '').nomeArquivo).toBe('documento.pdf')
+    expect(() => validarPdf(Buffer.from('<html>'), 'x.pdf')).toThrow(/PDF/)
+    expect(() => validarPdf(Buffer.alloc(0), 'x.pdf')).toThrow(/vazio/)
+    expect(() => validarPdf(Buffer.concat([pdf, Buffer.alloc(ANEXO_WHATSAPP_MAX_MB * 1024 * 1024)]), 'x.pdf')).toThrow(/MB/)
+  })
+  it('cada tipo de envio tem quem pode mandar', () => {
+    for (const tipo of TIPOS_ENVIO_WHATSAPP) expect(PERMISSOES_ENVIO[tipo].length).toBeGreaterThan(0)
+    expect(PERMISSOES_ENVIO.arte_aprovacao).toContainEqual(['artes', 'visualizar'])
   })
 })
 
@@ -113,6 +216,29 @@ describe('WhatsApp: Evolution API', () => {
     expect(init.method).toBe('POST')
     expect((init.headers as Record<string, string>).apikey).toBe('chave')
     expect(JSON.parse(init.body as string)).toEqual({ number: '5511988887777', text: 'Olá!', linkPreview: true })
+  })
+
+  it('envia PDF: POST /message/sendMedia/{instância} como documento em base64, com o nome do arquivo', async () => {
+    const fetcher = vi.fn(async () => respostaJson(201, { key: { id: 'DOC1' }, status: 'PENDING' }))
+    const p = new EvolutionWhatsappProvider('http://evolution:8080', 'chave', fetcher)
+    const conteudo = Buffer.from('%PDF-1.7 orçamento')
+    expect(await p.enviarDocumento(inst, '5511988887777', { conteudo, nomeArquivo: 'ORC-2026-0042.pdf', mime: 'application/pdf' })).toEqual({ id: 'DOC1' })
+    const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('http://evolution:8080/message/sendMedia/grafygo-e1')
+    expect(init.method).toBe('POST')
+    expect((init.headers as Record<string, string>).apikey).toBe('chave')
+    const corpo = JSON.parse(init.body as string)
+    expect(corpo).toEqual({ number: '5511988887777', mediatype: 'document', mimetype: 'application/pdf', media: conteudo.toString('base64'), fileName: 'ORC-2026-0042.pdf' })
+    // Sem o prefixo "data:" (a Evolution quer o base64 puro)
+    expect(Buffer.from(corpo.media, 'base64').toString()).toBe('%PDF-1.7 orçamento')
+  })
+
+  it('PDF com legenda; instância fechada no envio do PDF vira desconectado', async () => {
+    const fetcher = vi.fn(async () => respostaJson(201, { key: { id: 'D2' } }))
+    await new EvolutionWhatsappProvider('http://evo', 'k', fetcher).enviarDocumento(inst, '5511988887777', { conteudo: Buffer.from('%PDF-'), nomeArquivo: 'a.pdf', mime: 'application/pdf', legenda: 'Recibo' })
+    expect(JSON.parse((fetcher.mock.calls[0] as unknown as [string, RequestInit])[1].body as string).caption).toBe('Recibo')
+    const fechada = new EvolutionWhatsappProvider('http://evo', 'k', async () => respostaJson(404, { status: 404, response: { message: ['instance does not exist'] } }))
+    await expect(fechada.enviarDocumento(inst, '5511988887777', { conteudo: Buffer.from('%PDF-'), nomeArquivo: 'a.pdf', mime: 'application/pdf' })).rejects.toMatchObject({ tipo: 'desconectado' })
   })
 
   it('número sem WhatsApp vira numero_invalido; instância fechada vira desconectado; 500 é temporário', async () => {
@@ -179,6 +305,9 @@ describe('WhatsApp: provedor e configuração', () => {
     expect((await p.estado('x')).estado).toBe('conectado')
     expect((await p.enviarTexto('x', '5511988887777', 'oi')).id).toMatch(/^log-/)
     expect((p as LogWhatsappProvider).enviadas).toEqual([{ instancia: 'x', numero: '5511988887777', texto: 'oi' }])
+    // PDF: só registra nome, tipo e tamanho
+    expect((await p.enviarDocumento('x', '5511988887777', { conteudo: Buffer.from('%PDF-1'), nomeArquivo: 'a.pdf', mime: 'application/pdf' })).id).toMatch(/^log-/)
+    expect((p as LogWhatsappProvider).documentos).toEqual([{ instancia: 'x', numero: '5511988887777', nomeArquivo: 'a.pdf', mime: 'application/pdf', bytes: 6 }])
   })
 
   it('evolution exige URL e chave', () => {

@@ -1,7 +1,8 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import type { FastifyRequest } from 'fastify'
-import { idParamSchema, mensagensWhatsappQuerySchema, whatsappConfigSchema } from '@onprint/shared'
+import { ANEXO_WHATSAPP_MAX_MB, envioWhatsappSchema, idParamSchema, mensagensWhatsappQuerySchema, whatsappConfigSchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
+import { PERMISSOES_ENVIO, criarEnvioManual, validarPdf, type DadosEnvio } from './manual'
 import { criarWhatsappService } from './service'
 
 const tags = ['whatsapp']
@@ -34,5 +35,61 @@ export const whatsappRoutes: FastifyPluginAsyncZod = async (app) => {
   )
   app.post('/whatsapp/mensagens/:id/ignorar', { ...pode('editar'), schema: { tags, summary: 'Tira o aviso da fila', params: idParamSchema } }, (req) =>
     service.ignorar(req.params.id),
+  )
+
+  // ─── "Enviar pelo WhatsApp" da equipe (orçamento, arte, pedido, catálogo, produto) ───
+  const enviarManual = criarEnvioManual(app)
+
+  /** Basta uma das permissões do tipo (ex.: o designer manda a arte sem ter a tela WhatsApp) */
+  async function podeEnviar(req: FastifyRequest, dados: DadosEnvio) {
+    for (const [modulo, acao] of PERMISSOES_ENVIO[dados.tipo]) if (await app.temPermissao(req, modulo, acao)) return
+    throw AppError.semPermissao()
+  }
+
+  app.get('/whatsapp/disponivel', { onRequest: [app.autenticar], schema: { tags, summary: 'Se o "Enviar pelo WhatsApp" sai pela conexão da gráfica ou abre o WhatsApp' } }, () =>
+    service.disponivel(),
+  )
+  app.post(
+    '/whatsapp/enviar',
+    { onRequest: [app.autenticar], schema: { tags, summary: 'Envia agora pela conexão da gráfica e registra (respeita a pausa, não o horário)', body: envioWhatsappSchema } },
+    async (req) => {
+      await podeEnviar(req, req.body)
+      return enviarManual(req.body, null, req.user.sub)
+    },
+  )
+  app.post(
+    '/whatsapp/enviar-com-pdf',
+    {
+      onRequest: [app.autenticar],
+      schema: { tags, summary: `Como /whatsapp/enviar, com um PDF (multipart: campo "dados" com o JSON, depois o arquivo; até ${ANEXO_WHATSAPP_MAX_MB} MB)`, consumes: ['multipart/form-data'] },
+    },
+    async (req) => {
+      const parte = await req.file({ limits: { fileSize: ANEXO_WHATSAPP_MAX_MB * 1024 * 1024, files: 1 } })
+      if (!parte) throw AppError.regraNegocio('Nenhum arquivo enviado.')
+      const campo = parte.fields.dados
+      const json = campo && !Array.isArray(campo) && campo.type === 'field' ? String(campo.value) : ''
+      let bruto: unknown = null
+      try {
+        bruto = JSON.parse(json)
+      } catch {
+        // validação abaixo responde
+      }
+      const dados = envioWhatsappSchema.safeParse(bruto)
+      if (!dados.success) {
+        parte.file.resume()
+        throw new AppError(400, 'VALIDACAO', 'Dados inválidos.', dados.error.issues.map((i) => ({ campo: i.path.join('.'), mensagem: i.message })))
+      }
+      await podeEnviar(req, dados.data).catch((erro: unknown) => {
+        parte.file.resume()
+        throw erro
+      })
+      let conteudo: Buffer
+      try {
+        conteudo = await parte.toBuffer()
+      } catch {
+        throw new AppError(413, 'VALIDACAO', `O PDF passou de ${ANEXO_WHATSAPP_MAX_MB} MB.`)
+      }
+      return enviarManual(dados.data, validarPdf(conteudo, parte.filename), req.user.sub)
+    },
   )
 }

@@ -89,6 +89,7 @@ export function criarPedidosService(app: FastifyInstance, aoCancelar: AoCancelar
         await registrarAuditoria(tx, { tabela: 'pedidos', registroId: id, acao: 'editar', antes: { status: antes.status }, depois: { status }, usuarioId: ctx.usuarioId })
       })
       avisar(id, status)
+      void app.whatsapp.avisarStatusPedido(id, status)
       return obter(id, ctx)
     },
 

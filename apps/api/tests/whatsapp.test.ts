@@ -1,0 +1,189 @@
+import { describe, expect, it, vi } from 'vitest'
+import { TEXTOS_PADRAO_WHATSAPP, preencherMensagem } from '@onprint/shared'
+import { carregarEnv } from '../src/config/env'
+import { ErroWhatsapp, EvolutionWhatsappProvider, LogWhatsappProvider, criarProvedorWhatsapp, instanciaDaEmpresa } from '../src/integrations/whatsapp'
+import {
+  EVENTO_DO_STATUS,
+  INTERVALO_MAX_MS,
+  INTERVALO_MIN_MS,
+  dentroDoHorario,
+  esperaDaTentativa,
+  intervaloEntreEnvios,
+  minutosLocais,
+  motivoParaNaoAvisar,
+  proximoEnvioPermitido,
+  type SituacaoAviso,
+} from '../src/modules/whatsapp/regras'
+
+const ok: SituacaoAviso = { eventoLigado: true, simulado: false, conectou: true, clienteRecusa: false, numero: '5511988887777', duplicado: false }
+
+describe('WhatsApp: quem recebe o aviso', () => {
+  it('tudo certo: entra na fila', () => {
+    expect(motivoParaNaoAvisar(ok)).toBeNull()
+  })
+  it('evento desligado, sem conexão ou repetido: descarta sem registrar', () => {
+    expect(motivoParaNaoAvisar({ ...ok, eventoLigado: false })).toEqual({ motivo: 'Aviso desligado', registrar: false })
+    expect(motivoParaNaoAvisar({ ...ok, conectou: false })?.registrar).toBe(false)
+    expect(motivoParaNaoAvisar({ ...ok, duplicado: true })?.motivo).toBe('Aviso repetido')
+  })
+  it('modo de teste (log) não depende da conexão', () => {
+    expect(motivoParaNaoAvisar({ ...ok, conectou: false, simulado: true })).toBeNull()
+  })
+  it('cliente que recusou ou sem número: registra o motivo para a gráfica ver', () => {
+    expect(motivoParaNaoAvisar({ ...ok, clienteRecusa: true })).toEqual({ motivo: 'O cliente não quer receber avisos pelo WhatsApp.', registrar: true })
+    expect(motivoParaNaoAvisar({ ...ok, numero: null })).toEqual({ motivo: 'Cliente sem WhatsApp válido no cadastro.', registrar: true })
+  })
+  it('evento desligado vale mais que o cliente sem número (nada é registrado)', () => {
+    expect(motivoParaNaoAvisar({ ...ok, eventoLigado: false, numero: null })?.registrar).toBe(false)
+  })
+  it('só pronto, em entrega e entregue avisam pelo status', () => {
+    expect(EVENTO_DO_STATUS.pronto).toBe('pedido_pronto')
+    expect(EVENTO_DO_STATUS.em_entrega).toBe('pedido_em_entrega')
+    expect(EVENTO_DO_STATUS.entregue).toBe('pedido_entregue')
+    expect(EVENTO_DO_STATUS.em_producao).toBeUndefined()
+    expect(EVENTO_DO_STATUS.cancelado).toBeUndefined()
+  })
+})
+
+describe('WhatsApp: horário de envio (Brasília, UTC-3)', () => {
+  // 10:30 em Brasília = 13:30 UTC
+  const manha = new Date('2026-10-12T13:30:00Z')
+  it('hora local no fuso de São Paulo', () => {
+    expect(minutosLocais(manha)).toBe(10 * 60 + 30)
+    expect(minutosLocais(new Date('2026-10-12T02:15:00Z'))).toBe(23 * 60 + 15)
+  })
+  it('dentro e fora da janela (fim exclusivo)', () => {
+    expect(dentroDoHorario(manha, '08:00', '20:00')).toBe(true)
+    expect(dentroDoHorario(new Date('2026-10-12T23:00:00Z'), '08:00', '20:00')).toBe(false) // 20:00
+    expect(dentroDoHorario(new Date('2026-10-12T10:59:00Z'), '08:00', '20:00')).toBe(false) // 07:59
+  })
+  it('dentro do horário: envia agora', () => {
+    expect(proximoEnvioPermitido(manha, '08:00', '20:00')).toBe(manha)
+  })
+  it('de madrugada: espera a abertura do mesmo dia', () => {
+    expect(proximoEnvioPermitido(new Date('2026-10-12T09:00:00Z'), '08:00', '20:00').toISOString()).toBe('2026-10-12T11:00:00.000Z') // 06:00 → 08:00
+  })
+  it('depois do fim: abertura do dia seguinte', () => {
+    expect(proximoEnvioPermitido(new Date('2026-10-12T23:30:00Z'), '08:00', '20:00').toISOString()).toBe('2026-10-13T11:00:00.000Z') // 20:30 → 08:00
+  })
+  it('intervalo sorteado entre 20 e 40 s e espera crescente entre tentativas', () => {
+    expect(intervaloEntreEnvios(0)).toBe(INTERVALO_MIN_MS)
+    expect(intervaloEntreEnvios(0.999999)).toBeLessThanOrEqual(INTERVALO_MAX_MS)
+    expect(intervaloEntreEnvios(0.5)).toBe(30_000)
+    expect([1, 2, 3, 9].map(esperaDaTentativa)).toEqual([60_000, 300_000, 900_000, 900_000])
+  })
+})
+
+describe('WhatsApp: texto dos avisos', () => {
+  it('pedido confirmado com link de acompanhamento e assinatura da gráfica', () => {
+    const texto = preencherMensagem(TEXTOS_PADRAO_WHATSAPP.pedido_confirmado, {
+      cliente_nome: 'Fernanda',
+      numero_pedido: 'PED-2026-0007',
+      data_entrega: '20/10/2026',
+      link_acompanhamento: 'https://app.grafygo.com.br/pedido/ponto-visual/tok123',
+      empresa_nome: 'Ponto Visual',
+    })
+    expect(texto).toBe(
+      'Olá, Fernanda! Seu pedido PED-2026-0007 foi confirmado. Previsão de entrega: 20/10/2026.\n' +
+        'Acompanhe o andamento por aqui: https://app.grafygo.com.br/pedido/ponto-visual/tok123\nPonto Visual',
+    )
+  })
+  it('todo evento tem texto padrão com a saudação', () => {
+    for (const t of Object.values(TEXTOS_PADRAO_WHATSAPP)) expect(t.startsWith('Olá, {{cliente_nome}}!')).toBe(true)
+  })
+})
+
+function respostaJson(status: number, corpo: unknown) {
+  return new Response(JSON.stringify(corpo), { status, headers: { 'content-type': 'application/json' } })
+}
+
+describe('WhatsApp: Evolution API', () => {
+  const inst = instanciaDaEmpresa('e1')
+
+  it('nome da instância pela empresa', () => {
+    expect(inst).toBe('grafygo-e1')
+  })
+
+  it('envia texto: POST /message/sendText/{instância} com apikey, número e texto', async () => {
+    const fetcher = vi.fn(async () => respostaJson(201, { key: { id: 'ABC123', remoteJid: '5511988887777@s.whatsapp.net', fromMe: true }, status: 'PENDING' }))
+    const p = new EvolutionWhatsappProvider('http://evolution:8080/', 'chave', fetcher)
+    expect(await p.enviarTexto(inst, '5511988887777', 'Olá!')).toEqual({ id: 'ABC123' })
+    const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('http://evolution:8080/message/sendText/grafygo-e1')
+    expect(init.method).toBe('POST')
+    expect((init.headers as Record<string, string>).apikey).toBe('chave')
+    expect(JSON.parse(init.body as string)).toEqual({ number: '5511988887777', text: 'Olá!', linkPreview: true })
+  })
+
+  it('número sem WhatsApp vira numero_invalido; instância fechada vira desconectado; 500 é temporário', async () => {
+    const semZap = new EvolutionWhatsappProvider('http://evo', 'k', async () =>
+      respostaJson(400, { status: 400, error: 'Bad Request', response: { message: [{ jid: '5511988887777@s.whatsapp.net', exists: false, number: '5511988887777' }] } }),
+    )
+    await expect(semZap.enviarTexto(inst, '5511988887777', 'x')).rejects.toMatchObject({ tipo: 'numero_invalido' })
+    const fechada = new EvolutionWhatsappProvider('http://evo', 'k', async () => respostaJson(404, { status: 404, error: 'Not Found', response: { message: ['The "grafygo-e1" instance does not exist'] } }))
+    await expect(fechada.enviarTexto(inst, '5511988887777', 'x')).rejects.toMatchObject({ tipo: 'desconectado' })
+    const fora = new EvolutionWhatsappProvider('http://evo', 'k', async () => respostaJson(500, { status: 500, error: 'Internal', response: { message: 'boom' } }))
+    await expect(fora.enviarTexto(inst, '5511988887777', 'x')).rejects.toMatchObject({ tipo: 'temporario' })
+    const semRede = new EvolutionWhatsappProvider('http://evo', 'k', async () => {
+      throw new TypeError('fetch failed')
+    })
+    await expect(semRede.enviarTexto(inst, '5511988887777', 'x')).rejects.toBeInstanceOf(ErroWhatsapp)
+  })
+
+  it('conectar: instância nova é criada com o QR (Baileys)', async () => {
+    const chamadas: { url: string; metodo?: string; corpo?: unknown }[] = []
+    const fetcher = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      chamadas.push({ url: String(url), metodo: init?.method, corpo: init?.body ? JSON.parse(init.body as string) : undefined })
+      if (String(url).includes('/connectionState/')) return respostaJson(404, { status: 404, error: 'Not Found', response: { message: ['não existe'] } })
+      return respostaJson(201, { instance: { instanceName: inst, status: 'connecting' }, hash: 'tok', qrcode: { code: '2@x', base64: 'data:image/png;base64,QR', count: 1 } })
+    })
+    const p = new EvolutionWhatsappProvider('http://evo', 'k', fetcher)
+    expect(await p.conectar(inst)).toEqual({ estado: 'conectando', qrBase64: 'data:image/png;base64,QR' })
+    expect(chamadas[1]).toMatchObject({ url: 'http://evo/instance/create', metodo: 'POST', corpo: { instanceName: inst, integration: 'WHATSAPP-BAILEYS', qrcode: true } })
+  })
+
+  it('conectar: instância existente desconectada pede o QR em /instance/connect', async () => {
+    const fetcher = vi.fn(async (url: string | URL | Request) =>
+      String(url).includes('/connectionState/') ? respostaJson(200, { instance: { instanceName: inst, state: 'close' } }) : respostaJson(200, { pairingCode: null, code: '2@y', base64: 'data:image/png;base64,QR2', count: 2 }),
+    )
+    const p = new EvolutionWhatsappProvider('http://evo', 'k', fetcher)
+    expect(await p.conectar(inst)).toEqual({ estado: 'conectando', qrBase64: 'data:image/png;base64,QR2' })
+    expect(String(fetcher.mock.calls[1]![0])).toBe('http://evo/instance/connect/grafygo-e1')
+  })
+
+  it('estado conectado traz o número do ownerJid', async () => {
+    const fetcher = vi.fn(async (url: string | URL | Request) =>
+      String(url).includes('/connectionState/')
+        ? respostaJson(200, { instance: { instanceName: inst, state: 'open' } })
+        : respostaJson(200, [{ name: inst, connectionStatus: 'open', ownerJid: '5548999990000@s.whatsapp.net', profileName: 'Ponto Visual' }]),
+    )
+    const p = new EvolutionWhatsappProvider('http://evo', 'k', fetcher)
+    expect(await p.estado(inst)).toEqual({ estado: 'conectado', numero: '5548999990000', nomePerfil: 'Ponto Visual' })
+    expect(String(fetcher.mock.calls[1]![0])).toBe('http://evo/instance/fetchInstances?instanceName=grafygo-e1')
+  })
+
+  it('desconectar apaga a instância (404 = já não existia)', async () => {
+    const fetcher = vi.fn(async () => respostaJson(404, { status: 404 }))
+    await new EvolutionWhatsappProvider('http://evo', 'k', fetcher).desconectar(inst)
+    expect(fetcher.mock.calls[0]).toMatchObject(['http://evo/instance/delete/grafygo-e1', { method: 'DELETE' }])
+  })
+})
+
+describe('WhatsApp: provedor e configuração', () => {
+  const base = { NODE_ENV: 'test', DATABASE_URL: 'postgresql://u:s@db:5432/x', JWT_ACCESS_SECRET: 'segredo-1', JWT_REFRESH_SECRET: 'segredo-2' }
+
+  it('log por padrão: registra sem rede e conta como conectado', async () => {
+    const p = criarProvedorWhatsapp(carregarEnv(base))
+    expect(p).toBeInstanceOf(LogWhatsappProvider)
+    expect(p.simulado).toBe(true)
+    expect((await p.estado('x')).estado).toBe('conectado')
+    expect((await p.enviarTexto('x', '5511988887777', 'oi')).id).toMatch(/^log-/)
+    expect((p as LogWhatsappProvider).enviadas).toEqual([{ instancia: 'x', numero: '5511988887777', texto: 'oi' }])
+  })
+
+  it('evolution exige URL e chave', () => {
+    expect(() => carregarEnv({ ...base, WHATSAPP_PROVEDOR: 'evolution' })).toThrow(/EVOLUTION_URL/)
+    const p = criarProvedorWhatsapp(carregarEnv({ ...base, WHATSAPP_PROVEDOR: 'evolution', EVOLUTION_URL: 'http://evolution:8080', EVOLUTION_API_KEY: 'k' }))
+    expect(p).toBeInstanceOf(EvolutionWhatsappProvider)
+  })
+})

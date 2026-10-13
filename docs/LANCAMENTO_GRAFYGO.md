@@ -167,7 +167,7 @@ cd ~/onprint && chmod +x scripts/vps/*.sh
 ```bash
 cd ~/onprint
 cp .env.prod.example .env.prod
-openssl rand -hex 32   # rode 5 vezes: senha do banco, JWT_ACCESS, JWT_REFRESH, ASAAS_WEBHOOK_TOKEN e uma reserva
+openssl rand -hex 32   # rode 6 vezes: senha do banco, JWT_ACCESS, JWT_REFRESH, ASAAS_WEBHOOK_TOKEN, EVOLUTION_API_KEY e uma reserva
 nano .env.prod
 ```
 
@@ -212,6 +212,10 @@ ASAAS_AMBIENTE=producao
 ASAAS_WEBHOOK_TOKEN=<gerado-4>
 ASAAS_PIX_AUTOMATICO=false
 ASAAS_NF_ATIVA=false
+
+# WhatsApp das gráficas (container "evolution", só na rede interna; docs/DEPLOY_VPS.md passo 8)
+EVOLUTION_API_KEY=<gerado-5>
+WHATSAPP_PROVEDOR=evolution
 ```
 
 ```bash
@@ -249,6 +253,10 @@ Se algo não subir: `onprint logs --tail=100 api` (ou `web`). Os problemas comun
 - [ ] Saúde: `curl -s https://app.grafygo.com.br/api/v1/health` responde ok.
 - [ ] **E-mail:** no login, "Esqueci minha senha" com o seu e-mail; ele precisa chegar (veja também o spam).
 - [ ] **Webhook do Asaas** cadastrado (etapa 4). No Asaas, a fila de webhooks deve ficar sem erros.
+- [ ] **WhatsApp:** `onprint ps` mostra `evolution` como `Up (healthy)`. Na empresa principal, **WhatsApp → Conectar**
+  mostra o QR code; leia com o celular da gráfica (Aparelhos conectados → Conectar aparelho) e confira "WhatsApp
+  conectado" com o número. Teste com um cliente seu (com o seu celular no cadastro): converta um orçamento em pedido e
+  o aviso "Pedido confirmado" chega em até 1 minuto (só entre 08:00 e 20:00).
 
 ## 9. Backup
 
@@ -318,7 +326,7 @@ Antes de divulgar, faça uma compra real pequena:
 
 | Gráficas assinantes | Memória | Disco no 1º ano (uso médio) | Situação |
 |---|---|---|---|
-| até 30 | ~3 GB | ~25–40 GB | folgado |
+| até 30 | ~3 GB (+~0,3–0,5 GB do WhatsApp/Evolution) | ~25–40 GB | folgado |
 | 30 a 60 | ~4–5 GB | ~60–80 GB | ok; acompanhe o disco todo mês |
 | 60 a 120 | ~5–6 GB | passa de 100 GB | subir para **KVM 4** (16 GB, 200 GB) ou levar os arquivos para fora (abaixo) |
 | 120+ | | | KVM 8, ou banco num servidor separado e arquivos em armazenamento de objetos |

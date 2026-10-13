@@ -11,6 +11,7 @@ import { consultasRoutes } from './modules/consultas/routes'
 import { empresaRoutes } from './modules/empresa/routes'
 import { fornecedoresRoutes } from './modules/fornecedores/routes'
 import { orcamentosRoutes } from './modules/orcamentos/routes'
+import { previaPedidoRoutes } from './modules/publico/previa.routes'
 import { publicoRoutes } from './modules/publico/routes'
 import { healthRoutes } from './modules/health/routes'
 import { insumosRoutes } from './modules/insumos/routes'
@@ -32,6 +33,7 @@ import { produtosRoutes } from './modules/produtos/routes'
 import { usuariosRoutes } from './modules/usuarios/routes'
 import { vitrinePermitidaRoutes, vitrinePublicaRoutes } from './modules/vitrine/publico.routes'
 import { vitrineRoutes } from './modules/vitrine/routes'
+import { whatsappRoutes } from './modules/whatsapp/routes'
 import { authPlugin } from './plugins/auth'
 import { cronPlugin } from './plugins/cron'
 import { integracoesPlugin } from './plugins/integracoes'
@@ -42,6 +44,8 @@ import { socketPlugin } from './plugins/socket'
 import { securityPlugin } from './plugins/security'
 import { storagePlugin } from './plugins/storage'
 import { swaggerPlugin } from './plugins/swagger'
+import { whatsappPlugin } from './plugins/whatsapp'
+import { definirUrlSistema } from './core/links'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -53,6 +57,7 @@ export { API_PREFIX }
 
 /** Monta a aplicação (sem abrir porta) — usado pelo server.ts e pelos testes. */
 export async function buildApp(config: Env) {
+  definirUrlSistema(config.APP_URL)
   const app = Fastify({
     logger: {
       level: config.LOG_LEVEL,
@@ -81,6 +86,7 @@ export async function buildApp(config: Env) {
   await app.register(integracoesPlugin)
   await app.register(cronPlugin)
   await app.register(socketPlugin)
+  await app.register(whatsappPlugin)
 
   await app.register(healthRoutes)
   await app.register(
@@ -109,9 +115,11 @@ export async function buildApp(config: Env) {
       await v1.register(dashboardRoutes)
       await v1.register(relatoriosRoutes)
       await v1.register(vitrineRoutes)
+      await v1.register(whatsappRoutes)
       await v1.register(publicoRoutes, { prefix: '/publico/:empresa' })
       await v1.register(vitrinePublicaRoutes, { prefix: '/publico/:empresa/vitrine' })
       await v1.register(vitrinePermitidaRoutes, { prefix: '/publico' })
+      await v1.register(previaPedidoRoutes, { prefix: '/publico' })
       await v1.register(webhooksRoutes, { prefix: '/plataforma' })
       await v1.register(cadastroRoutes, { prefix: '/plataforma' })
       await v1.register(plataformaRoutes, { prefix: '/plataforma' })

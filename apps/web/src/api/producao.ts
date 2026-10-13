@@ -12,6 +12,7 @@ import type {
   Paginado,
   PcpResumo,
   Pedido,
+  PedidoAcompanhamento,
   PedidoDetalhe,
   PedidoItemDetalhe,
   RecebimentosPedido,
@@ -86,6 +87,13 @@ export const pcpApi = {
 
 /** Link público da arte (sem login). */
 const artePublica = (l: LinkPublico) => `/publico/${encodeURIComponent(l.empresa)}/artes/${encodeURIComponent(l.token)}`
+
+const pedidoPublico = (l: LinkPublico) => `/publico/${encodeURIComponent(l.empresa)}/pedidos/${encodeURIComponent(l.token)}`
+
+/** "Acompanhe seu pedido" (/pedido/:empresa/:token), sem login. */
+export const pedidoPublicoApi = {
+  obter: (l: LinkPublico) => http<PedidoAcompanhamento>(pedidoPublico(l), { autenticado: false }),
+}
 
 export const artePublicaApi = {
   obter: (l: LinkPublico) => http<ArtePublica>(artePublica(l), { autenticado: false }),

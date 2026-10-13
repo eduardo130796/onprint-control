@@ -1,4 +1,4 @@
-import { Banknote, Factory, FileImage, ShoppingCart, Truck, type LucideIcon } from 'lucide-react'
+import { Banknote, Factory, FileImage, MessageCircle, ShoppingCart, Truck, type LucideIcon } from 'lucide-react'
 import { formatarDataHora, type EventoHistorico } from '@onprint/shared'
 import { cn } from '@/lib/utils'
 
@@ -8,6 +8,7 @@ const ICONES: Record<EventoHistorico['tipo'], { icone: LucideIcon; cor: string }
   producao: { icone: Factory, cor: 'bg-sky-600 text-white' },
   entrega: { icone: Truck, cor: 'bg-marca text-marca-contraste' },
   financeiro: { icone: Banknote, cor: 'bg-verde text-white' },
+  whatsapp: { icone: MessageCircle, cor: 'bg-emerald-600 text-white' },
 }
 
 /** Linha do tempo vertical (mais recente primeiro). */

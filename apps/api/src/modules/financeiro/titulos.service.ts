@@ -133,6 +133,7 @@ export function criarTitulosService(app: FastifyInstance, tipo: TipoTitulo, arqu
         return res
       })
       avisar(r.efeitos)
+      if (tipo === 'receber' && r.efeitos.pedidoId) void app.whatsapp.avisar('pagamento_recebido', { pedidoId: r.efeitos.pedidoId, movimentoId: r.movimentoId, valorPago: d.valorRecebido })
       return obter(id)
     },
 
@@ -152,16 +153,19 @@ export function criarTitulosService(app: FastifyInstance, tipo: TipoTitulo, arqu
         const r = distribuirValor(titulos.map((t) => ({ id: t.id, saldo: new Decimal(t.valor.toString()).minus(t.valorPago.toString()) })), d.valorRecebido)
         if (!r.ok) throw AppError.regraNegocio(r.erro)
         let ultimo: EfeitosFinanceiros = { pedidoId, comissaoLiberadaPara: [] }
+        let movimentoId = ''
         const liberadas: string[] = []
         for (const parte of r.partes) {
           const res = await baixarTitulo(tx, { tipo, tituloId: parte.id, valorRecebido: parte.valor, juros: '0', multa: '0', desconto: '0', data: d.data, formaPagamentoId: d.formaPagamentoId, contaFinanceiraId: d.contaFinanceiraId, observacao: d.observacao, usuarioId })
           await registrarAuditoria(tx, { tabela, registroId: parte.id, acao: 'baixa', depois: { valor: parte.valor, data: d.data, movimento: res.movimentoId, valorAvulso: d.valorRecebido }, usuarioId })
           liberadas.push(...res.efeitos.comissaoLiberadaPara)
           ultimo = res.efeitos
+          movimentoId = res.movimentoId
         }
-        return { ...ultimo, comissaoLiberadaPara: liberadas, partes: r.partes.length }
+        return { ...ultimo, comissaoLiberadaPara: liberadas, partes: r.partes.length, movimentoId }
       })
       avisar(efeitos)
+      void app.whatsapp.avisar('pagamento_recebido', { pedidoId, movimentoId: efeitos.movimentoId, valorPago: d.valorRecebido })
       return { parcelasAbatidas: efeitos.partes }
     },
 

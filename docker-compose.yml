@@ -1,4 +1,6 @@
 # Ambiente de desenvolvimento: 3 containers (db, api, web).
+# WhatsApp (opcional, perfil "whatsapp"): `docker compose up -d evolution` sobe a Evolution API para ler o QR code;
+# a API só usa ela com WHATSAPP_PROVEDOR=evolution (padrão aqui: log, os avisos vão só para o log).
 # Os node_modules ficam em volumes (instalados uma vez pelo container da API e compartilhados com o web).
 name: onprint-control
 
@@ -28,6 +30,9 @@ services:
       # Volume do Windows não propaga eventos de arquivo: hot reload por polling (1 s)
       CHOKIDAR_USEPOLLING: "true"
       CHOKIDAR_INTERVAL: "1000"
+      WHATSAPP_PROVEDOR: ${WHATSAPP_PROVEDOR:-log}
+      EVOLUTION_URL: http://evolution:8080
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-dev-evolution-troque-em-producao}
     command: >
       sh -c "npm install --no-audit --no-fund &&
              npm run prisma:generate -w @onprint/api &&
@@ -75,6 +80,63 @@ services:
       api:
         condition: service_healthy
 
+  # Cria o banco "evolution" no mesmo Postgres (uma vez; nas próximas só confere)
+  evolution-db:
+    image: postgres:16-alpine
+    profiles: ["whatsapp"]
+    env_file: .env
+    command:
+      - sh
+      - -c
+      - >-
+        export PGPASSWORD="$$POSTGRES_PASSWORD";
+        psql -h db -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -tAc "SELECT 1 FROM pg_database WHERE datname = 'evolution'" | grep -q 1
+        || psql -h db -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -c "CREATE DATABASE evolution"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Evolution API (WhatsApp Web/Baileys): só na rede interna, a API fala com ela por http://evolution:8080
+  evolution:
+    image: evoapicloud/evolution-api:v2.3.7
+    profiles: ["whatsapp"]
+    environment:
+      SERVER_URL: http://evolution:8080
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:-dev-evolution-troque-em-producao}
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://${POSTGRES_USER:-onprint}:${POSTGRES_PASSWORD:-onprint}@db:5432/evolution?schema=public
+      DATABASE_CONNECTION_CLIENT_NAME: grafygo
+      # Guarda só a instância (para reconectar ao reiniciar); mensagens, contatos e conversas não
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "false"
+      DATABASE_SAVE_MESSAGE_UPDATE: "false"
+      DATABASE_SAVE_DATA_CONTACTS: "false"
+      DATABASE_SAVE_DATA_CHATS: "false"
+      DATABASE_SAVE_DATA_LABELS: "false"
+      DATABASE_SAVE_DATA_HISTORIC: "false"
+      CACHE_REDIS_ENABLED: "false"
+      CACHE_LOCAL_ENABLED: "true"
+      CONFIG_SESSION_PHONE_CLIENT: GrafyGo
+      CONFIG_SESSION_PHONE_NAME: Chrome
+      QRCODE_LIMIT: "30"
+      DEL_INSTANCE: "false"
+      LOG_LEVEL: ERROR,WARN,INFO
+      LOG_BAILEYS: error
+      LOG_COLOR: "false"
+      WEBHOOK_GLOBAL_ENABLED: "false"
+      TZ: America/Sao_Paulo
+    volumes:
+      - evolution_instances:/evolution/instances
+    depends_on:
+      evolution-db:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8080/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+
 volumes:
   pgdata:
   uploads:
@@ -82,3 +144,4 @@ volumes:
   node_modules_api:
   node_modules_web:
   node_modules_shared:
+  evolution_instances:

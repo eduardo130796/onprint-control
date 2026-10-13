@@ -3,7 +3,7 @@ import { STATUS_PEDIDO_SEM_ATRASO, hojeISO } from '@onprint/shared'
 import { incluirArte } from '../artes/artes.service'
 
 export const incluirResumo = {
-  cliente: { select: { id: true, nome: true, fantasia: true, whatsapp: true, telefone: true } },
+  cliente: { select: { id: true, nome: true, fantasia: true, whatsapp: true, telefone: true, cpfCnpj: true } },
   vendedor: { select: { id: true, nome: true } },
   orcamento: { select: { id: true, numero: true } },
   itens: { orderBy: { ordem: 'asc' }, select: { descricao: true, quantidade: true, artes: { orderBy: { versao: 'desc' }, take: 1, select: { status: true } } } },
@@ -11,7 +11,7 @@ export const incluirResumo = {
 } satisfies Prisma.PedidoInclude
 
 export const incluirDetalhe = {
-  cliente: { select: { id: true, nome: true, fantasia: true, whatsapp: true, telefone: true } },
+  cliente: { select: { id: true, nome: true, fantasia: true, whatsapp: true, telefone: true, cpfCnpj: true } },
   vendedor: { select: { id: true, nome: true } },
   orcamento: { select: { id: true, numero: true } },
   itens: {

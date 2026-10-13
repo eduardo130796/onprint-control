@@ -58,6 +58,8 @@ export interface Cliente extends Auditavel {
   vendedor: { id: string; nome: string } | null
   observacoes: string | null
   tags: string[]
+  /** Recebe os avisos automáticos do pedido pelo WhatsApp */
+  receberAvisosWhatsapp: boolean
   /** Foto/imagem do cliente (arquivo) e a miniatura dela por link assinado, para <img> */
   fotoArquivoId: string | null
   fotoUrl: string | null

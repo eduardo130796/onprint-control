@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Ban, ChevronDown, Copy, FileDown, History, Loader2, Pencil, Printer, ReceiptText, Tags } from 'lucide-react'
+import { ArrowLeft, Ban, ChevronDown, Copy, ExternalLink, FileDown, History, Link2, Loader2, MessageCircle, Pencil, Printer, ReceiptText, Tags } from 'lucide-react'
 import { toast } from 'sonner'
 import { TIPO_ENTREGA_ROTULOS, formatarData, formatarDataSimples, formatarMoeda, nomeCliente, saldoPedido } from '@onprint/shared'
 import { pedidosApi } from '@/api/producao'
@@ -20,7 +20,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useDialogoEtiquetas } from '@/features/impressao/useDialogoEtiquetas'
 import { useImpressao } from '@/features/impressao/useImpressao'
+import { linkWhatsappEnvio } from '@/features/vitrine/divulgar'
 import { usePermission } from '@/hooks/usePermission'
+import { linkAcompanhamento } from '@/lib/empresaAtual'
 import { messagingProvider } from '@/integrations/messaging'
 import { AbaEntrega } from '../components/detalhe/AbaEntrega'
 import { AbaFinanceiro } from '../components/detalhe/AbaFinanceiro'
@@ -30,7 +32,7 @@ import { ArteDoItem } from '../components/detalhe/ArteDoItem'
 import { CancelarPedidoDialog, EditarPedidoDialog } from '../components/detalhe/PedidoDialogs'
 import { ReciboDialog } from '../components/detalhe/ReciboDialog'
 import { usePedido, useTemplates } from '../hooks'
-import { mensagemPedidoPronto } from '../mensagens'
+import { mensagemAcompanhamento, mensagemPedidoPronto } from '../mensagens'
 
 const ABAS = ['itens', 'arte', 'producao', 'financeiro', 'entrega', 'historico', 'anexos'] as const
 
@@ -84,6 +86,17 @@ export function PedidoPage() {
     }
   }
 
+  /** "Acompanhe seu pedido": link público para o cliente ver o andamento sem login */
+  const linkCliente = linkAcompanhamento(pedido.tokenPublico)
+  async function copiarLinkAcompanhamento() {
+    try {
+      await navigator.clipboard.writeText(linkCliente)
+      toast.success('Link de acompanhamento copiado.')
+    } catch {
+      toast.error('Não foi possível copiar o link.')
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -132,6 +145,24 @@ export function PedidoPage() {
                 )}
                 <DropdownMenuItem onSelect={() => void impressao.pedido(pedido.id, 'baixar')}>
                   <FileDown /> Baixar PDF do pedido
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" title="Link de acompanhamento para o cliente">
+                  <Link2 /> Link de acompanhamento <ChevronDown />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => void copiarLinkAcompanhamento()}>
+                  <Copy /> Copiar link
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => window.open(linkCliente, '_blank', 'noopener')}>
+                  <ExternalLink /> Abrir como o cliente vê
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => window.open(linkWhatsappEnvio(pedido.cliente.whatsapp, mensagemAcompanhamento(pedido, templates.data)), '_blank', 'noopener')}>
+                  <MessageCircle /> Enviar no WhatsApp
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

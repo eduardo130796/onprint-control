@@ -64,6 +64,7 @@ export const OpsPage = carregar(() => import('@/features/producao/pages/OpsPage'
 export const PcpPage = carregar(() => import('@/features/producao/pages/PcpPage'), 'PcpPage')
 export const ProducaoKanbanPage = carregar(() => import('@/features/producao/pages/ProducaoKanbanPage'), 'ProducaoKanbanPage')
 export const AprovarArtePage = carregar(() => import('@/features/publico/pages/AprovarArtePage'), 'AprovarArtePage')
+export const AcompanharPedidoPage = carregar(() => import('@/features/publico/pages/AcompanharPedidoPage'), 'AcompanharPedidoPage')
 export const WhatsAppPage = carregar(() => import('@/features/whatsapp/pages/WhatsAppPage'), 'WhatsAppPage')
 export const EstoquePage = carregar(() => import('@/features/estoque/pages/EstoquePage'), 'EstoquePage')
 export const AlertasEstoquePage = carregar(() => import('@/features/estoque/pages/EstoquePage'), 'AlertasEstoquePage')

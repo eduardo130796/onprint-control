@@ -81,6 +81,15 @@ const envSchema = z.object({
   ASAAS_NF_IR: z.coerce.number().min(0).default(0),
   /** Consulta de CEP e CNPJ em serviços públicos (BrasilAPI, ViaCEP, CNPJ.ws); false = só preenchimento manual */
   CONSULTAS_EXTERNAS: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
+  /**
+   * Avisos do pedido pelo WhatsApp da gráfica: "log" só registra no log (desenvolvimento/testes, sem rede);
+   * "evolution" conecta pelo QR code na Evolution API (container da rede interna)
+   */
+  WHATSAPP_PROVEDOR: z.enum(['log', 'evolution']).default('log'),
+  /** Endereço interno da Evolution API (ex.: http://evolution:8080) */
+  EVOLUTION_URL: z.string().default(''),
+  /** Chave global da Evolution (AUTHENTICATION_API_KEY do container dela) */
+  EVOLUTION_API_KEY: z.string().default(''),
 })
 
 /** Segredos fracos ou de exemplo impedem a API de subir (fora dos testes automatizados). */
@@ -88,6 +97,9 @@ const envProducao = envSchema.superRefine((env, ctx) => {
   // Com o Asaas ligado, o webhook precisa de um token forte (senão qualquer um "confirma" pagamentos)
   if (env.ASAAS_API_KEY && env.ASAAS_WEBHOOK_TOKEN.length < 32) {
     ctx.addIssue({ code: 'custom', path: ['ASAAS_WEBHOOK_TOKEN'], message: 'com ASAAS_API_KEY, defina um token de webhook com 32+ caracteres (openssl rand -hex 32)' })
+  }
+  if (env.WHATSAPP_PROVEDOR === 'evolution' && (!env.EVOLUTION_URL || !env.EVOLUTION_API_KEY)) {
+    ctx.addIssue({ code: 'custom', path: ['EVOLUTION_URL'], message: 'com WHATSAPP_PROVEDOR=evolution, defina EVOLUTION_URL e EVOLUTION_API_KEY' })
   }
   // Segredos de JWT fracos permitem forjar tokens: valem em todo ambiente, menos nos testes automatizados
   if (env.NODE_ENV === 'test') return

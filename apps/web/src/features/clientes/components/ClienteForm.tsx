@@ -11,6 +11,7 @@ import {
   clienteSchema,
   enderecoSchema,
   type Cliente,
+  type ClienteDetalhe,
   type ClienteDados,
   type ClienteInput,
   type DadosCnpj,
@@ -30,7 +31,7 @@ import { useStatusConfig } from '@/hooks/useStatusConfig'
 import { TagsInput } from '@/components/shared/TagsInput'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Select, Textarea } from '@/components/ui/form-controls'
+import { Checkbox, Select, Textarea } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
 import { useConsultaCnpj } from '@/hooks/useConsultaCnpj'
 import { usePermission } from '@/hooks/usePermission'
@@ -55,6 +56,7 @@ function valoresIniciais(c?: Cliente): ClienteInput {
     vendedorId: c?.vendedorId ?? '',
     observacoes: c?.observacoes ?? '',
     tags: c?.tags ?? [],
+    receberAvisosWhatsapp: c?.receberAvisosWhatsapp ?? true,
   }
 }
 
@@ -64,7 +66,7 @@ const ENDERECO_VAZIO: EnderecoInput = { tipo: 'principal', cep: '', logradouro: 
 const enderecoUsado = (e: EnderecoInput) => [e.cep, e.logradouro, e.numero, e.complemento, e.bairro, e.cidade].some((v) => String(v ?? '').trim() !== '')
 
 interface ClienteFormProps {
-  cliente?: Cliente
+  cliente?: ClienteDetalhe
   onSalvo: (cliente: Cliente) => void
 }
 
@@ -258,6 +260,13 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
             <CampoFormulario id="cli-email" rotulo="E-mail" erro={errors.email?.message}>
               <Input type="email" {...campo('email')} {...form.register('email')} />
             </CampoFormulario>
+            <label className="flex items-start gap-2 text-sm md:col-span-4">
+              <Checkbox className="mt-0.5" {...form.register('receberAvisosWhatsapp')} />
+              <span>
+                Receber avisos do pedido pelo WhatsApp
+                <span className="block text-xs text-texto-secundario">Pedido confirmado, arte para aprovar, pedido pronto… (os que estiverem ligados em WhatsApp)</span>
+              </span>
+            </label>
             <CampoFormulario id="cli-origem" rotulo="Origem">
               <Select {...campo('origem')} {...form.register('origem')}>
                 <option value="">Não informada</option>

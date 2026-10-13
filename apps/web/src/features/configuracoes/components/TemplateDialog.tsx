@@ -27,6 +27,7 @@ const EXEMPLO = {
   numero_orcamento: 'ORC-2026-0042',
   numero_pedido: 'PED-2026-0017',
   link_aprovacao: 'http://localhost:5173/aprovar/minha-empresa/abc123',
+  link_acompanhamento: 'http://localhost:5173/pedido/minha-empresa/abc123',
   valor_total: 'R$ 1.250,00',
   data_entrega: '15/10/2026',
 }

@@ -158,6 +158,7 @@ Troque **todos** os valores marcados com `TROQUE`:
 | `CADASTRO_PUBLICO` | `true` deixa as gráficas criarem conta sozinhas em `/criar-conta` (teste grátis); `false` fecha |
 | `CADASTROS_POR_HORA` | teto de cadastros pela internet por hora, somando todos os IPs (padrão 30). Passou disso, o cadastro responde "tente de novo em alguns minutos" |
 | `ASAAS_*` | chave de **produção** do Asaas (`ASAAS_AMBIENTE=producao`), token do webhook e dados da NFS-e. Passo a passo no README (seção Pagamento online). O webhook aponta para `https://SEU_DOMINIO/api/v1/plataforma/webhooks/asaas` |
+| `EVOLUTION_API_KEY` e `WHATSAPP_PROVEDOR` | chave gerada (`openssl rand -hex 32`) que a API usa para falar com o container do WhatsApp (Evolution API, só na rede interna) e `evolution` para os avisos saírem de verdade (`log` desliga). Mais no passo 8 (WhatsApp) |
 | `SMTP_*` e `EMAIL_REMETENTE` | dados SMTP do seu provedor de e-mail (tabela de exemplos no README). Sem eles, convites, "esqueci a senha" e a confirmação do pedido da vitrine não chegam a ninguém. Use `EMAIL_REMETENTE="GrafyGo <nao-responda@suaempresa.com.br>"` no seu domínio (com SPF/DKIM configurados no provedor): os e-mails das gráficas saem desse endereço com o **nome da gráfica** e "Responder para" o e-mail dela (Dados da empresa) |
 
 Salve (Ctrl+O, Enter, Ctrl+X) e proteja o arquivo:
@@ -179,7 +180,7 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 docker compose -f docker-compose.prod.yml --env-file .env.prod ps
 ```
 
-O primeiro build leva alguns minutos. Os três serviços devem aparecer como `Up`, com a API `(healthy)`. Ao iniciar, a API aplica as migrations e o seed sozinha (papéis, permissões, status, formas de pagamento e o admin inicial).
+O primeiro build leva alguns minutos. `db`, `api`, `web` e `evolution` devem aparecer como `Up`, com a API `(healthy)` (o `evolution-db` só cria o banco do WhatsApp e termina como `Exited (0)`). Ao iniciar, a API aplica as migrations e o seed sozinha (papéis, permissões, status, formas de pagamento e o admin inicial).
 
 Para não repetir o comando longo, crie um atalho:
 
@@ -196,6 +197,17 @@ Abra **https://SEU_DOMINIO** no navegador. O certificado HTTPS é emitido na pri
 2. **Configurações → Empresa**: dados, logo e condições padrão.
 3. **Configurações → Usuários**: crie a equipe. Cada pessoa troca a senha provisória no primeiro login.
 4. Financeiro: confira as contas, formas de pagamento (taxas de cartão) e saldos iniciais.
+
+### WhatsApp das gráficas (avisos dos pedidos)
+
+Cada gráfica conecta o próprio número em **WhatsApp → Conectar** (QR code lido no celular, como o WhatsApp Web) e escolhe quais avisos saem: pedido confirmado, arte para aprovação, pedido pronto, saiu para entrega (ligados por padrão), pagamento recebido e entregue. O envio respeita o horário configurado (padrão 08:00–20:00), espera 20–40 s entre mensagens e no máximo 30 por hora por gráfica.
+
+- O container `evolution` ([Evolution API](https://github.com/EvolutionAPI/evolution-api) `v2.3.7`, open source) roda **sem porta publicada**: só a API fala com ele (`http://evolution:8080`, cabeçalho `apikey`). O `evolution-db` cria o banco `evolution` no mesmo Postgres na primeira subida.
+- Memória: ~300 MB com poucas gráficas conectadas (teto de 1 GB no compose). Acompanhe com `docker stats --no-stream`.
+- As sessões ficam no volume `evolution_instances` e no banco `evolution`, que **não** entram no backup diário (só o banco do sistema): perdê-los só obriga as gráficas a ler o QR de novo.
+- A senha do Postgres vai na URL da Evolution: use uma senha gerada com `openssl rand -hex 32` (sem `@ : / ? #`).
+- Para desligar o envio sem parar nada: `WHATSAPP_PROVEDOR=log` no `.env.prod` e `onprint up -d api`.
+- Conexão caiu (celular sem internet por muito tempo, WhatsApp desconectou o aparelho): os avisos esperam na fila até 48 h e os administradores da gráfica recebem a notificação "WhatsApp desconectado — leia o QR de novo".
 
 ## 9. Backup diário (banco + arquivos), com cópia fora da VPS
 

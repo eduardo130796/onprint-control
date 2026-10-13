@@ -293,6 +293,69 @@ model MensagemTemplate {
   @@map("mensagem_templates")
 }
 
+// ─── Avisos do pedido pelo WhatsApp (Evolution API, conexão por QR code) ───
+
+/// Configuração única da empresa: conexão (último estado conhecido), eventos ligados, horário e pausa.
+/// A instância na Evolution é "grafygo-{id da empresa}" (não precisa guardar).
+model WhatsappConfig {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conectado      Boolean   @default(false)
+  numero         String?
+  nomePerfil     String?   @map("nome_perfil")
+  /// Primeira leitura do QR (null = nunca conectou ou desconectou de propósito: não enfileira)
+  conectadoEm    DateTime? @map("conectado_em") @db.Timestamptz(3)
+  /// Queda da conexão (os avisos ficam na fila até ler o QR de novo)
+  desconectadoEm DateTime? @map("desconectado_em") @db.Timestamptz(3)
+  eventos        String[]  @default(["pedido_confirmado", "arte_aprovacao", "pedido_pronto", "pedido_em_entrega"])
+  /// Janela de envio no horário de Brasília
+  horarioInicio  String    @default("08:00") @map("horario_inicio")
+  horarioFim     String    @default("20:00") @map("horario_fim")
+  pausado        Boolean   @default(false)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("whatsapp_config")
+}
+
+enum StatusMensagemWhatsapp {
+  pendente
+  enviada
+  falhou
+  ignorada
+
+  @@map("status_mensagem_whatsapp")
+}
+
+/// Fila e histórico dos avisos (o envio respeita horário, intervalo entre mensagens e limite por hora)
+model MensagemWhatsapp {
+  id                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clienteId          String                 @map("cliente_id") @db.Uuid
+  pedidoId           String?                @map("pedido_id") @db.Uuid
+  /// Arte ou pagamento que gerou o aviso (evita repetir o mesmo aviso)
+  referenciaId       String?                @map("referencia_id")
+  evento             String
+  telefone           String
+  texto              String
+  status             StatusMensagemWhatsapp @default(pendente)
+  tentativas         Int                    @default(0)
+  erro               String?
+  /// Próxima tentativa depois de uma falha temporária
+  proximaTentativaEm DateTime?              @map("proxima_tentativa_em") @db.Timestamptz(3)
+  enviadaEm          DateTime?              @map("enviada_em") @db.Timestamptz(3)
+  /// Id da mensagem no WhatsApp (key.id da Evolution)
+  idExterno          String?                @map("id_externo")
+  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  pedido  Pedido? @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([pedidoId])
+  @@index([evento, pedidoId, createdAt])
+  @@map("mensagens_whatsapp")
+}
+
 // ─── 8.2 Pessoas ────────────────────────────────────────────────────────────
 
 enum TipoPessoa {
@@ -335,6 +398,8 @@ model Cliente {
   vendedorId    String?         @map("vendedor_id") @db.Uuid
   observacoes   String?
   tags          String[]        @default([])
+  /// Avisos automáticos do pedido pelo WhatsApp (opt-out)
+  receberAvisosWhatsapp Boolean @default(true) @map("receber_avisos_whatsapp")
   fotoArquivoId String?         @map("foto_arquivo_id") @db.Uuid
   ativo         Boolean         @default(true)
   createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -350,6 +415,7 @@ model Cliente {
   pedidos       Pedido[]
   contasReceber ContaReceber[]
   vendasPdv     VendaPdv[]             @relation("VendaPdvCliente")
+  mensagensWhatsapp MensagemWhatsapp[]
 
   @@index([situacao])
   @@index([vendedorId])
@@ -1050,6 +1116,8 @@ model Pedido {
   observacoesInternas   String?                @map("observacoes_internas")
   motivoCancelamento    String?                @map("motivo_cancelamento")
   canceladoEm           DateTime?              @map("cancelado_em") @db.Timestamptz(3)
+  /// Link "Acompanhe seu pedido" (/pedido/:empresa/:token), sem login
+  tokenPublico          String                 @unique @map("token_publico")
   createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdBy             String?                @map("created_by") @db.Uuid
@@ -1065,6 +1133,7 @@ model Pedido {
   ordensProducao       OrdemProducao[]
   etiquetasFila        EtiquetaFila[]
   movimentacoesEstoque EstoqueMovimentacao[] @relation("MovimentacaoPedido")
+  mensagensWhatsapp    MensagemWhatsapp[]
 
   @@index([status])
   @@index([clienteId])

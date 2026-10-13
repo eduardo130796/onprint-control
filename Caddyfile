@@ -34,6 +34,14 @@
 		Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' wss://{host}; worker-src 'self' blob:; frame-src 'self' blob: https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 	}
 
+	# Prévia do link "Acompanhe seu pedido" (/pedido/{empresa}/{token}) para os leitores de link (WhatsApp…):
+	# eles não rodam o JavaScript, então recebem da API o HTML com "Pedido PED-… · Gráfica" nas tags Open Graph
+	@previaPedido {
+		header_regexp User-Agent (?i)(WhatsApp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|Slackbot|LinkedInBot|Discordbot|Pinterest|SkypeUriPreview)
+		path /pedido/*
+	}
+	rewrite @previaPedido /api/v1/publico/pedido-og?caminho={uri}
+
 	# Uploads grandes (artes até UPLOAD_MAX_MB) vão direto para a API
 	handle /api/* {
 		reverse_proxy api:3333

@@ -229,9 +229,12 @@ export function criarPdvService(app: FastifyInstance, sessoes: SessaoService) {
           usuarioId,
         })
         await tx.caixaMovimento.create({ data: { sessaoId: sessao.id, tipo: 'recebimento', formaPagamentoId: forma.id, valor: d.valorRecebido, contaReceberId: d.contaReceberId, movimentoFinanceiroId: r.movimentoId, usuarioId } })
-        return r.efeitos
+        return { ...r.efeitos, movimentoId: r.movimentoId }
       })
-      if (efeitos.pedidoId) app.tempoReal.emitir('pedidos', 'pedido:atualizado', { id: efeitos.pedidoId })
+      if (efeitos.pedidoId) {
+        app.tempoReal.emitir('pedidos', 'pedido:atualizado', { id: efeitos.pedidoId })
+        void app.whatsapp.avisar('pagamento_recebido', { pedidoId: efeitos.pedidoId, movimentoId: efeitos.movimentoId, valorPago: d.valorRecebido })
+      }
       for (const u of efeitos.comissaoLiberadaPara) app.tempoReal.emitir(`usuario:${u}`, 'notificacao:nova', { titulo: 'Comissão liberada' })
       return sessoes.detalhe(sessao.id)
     },

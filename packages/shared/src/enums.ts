@@ -137,6 +137,11 @@ export const CATEGORIAS_TEMPLATE = [
   'orcamento_enviado',
   'arte_aprovacao',
   'pedido_pronto',
+  'pedido_acompanhamento',
+  'pedido_confirmado',
+  'pedido_em_entrega',
+  'pedido_entregue',
+  'pagamento_recebido',
   'cobranca',
   'boas_vindas',
 ] as const
@@ -146,6 +151,11 @@ export const CATEGORIA_TEMPLATE_ROTULOS: Record<CategoriaTemplate, string> = {
   orcamento_enviado: 'Orçamento enviado',
   arte_aprovacao: 'Arte para aprovação',
   pedido_pronto: 'Pedido pronto',
+  pedido_acompanhamento: 'Acompanhamento do pedido',
+  pedido_confirmado: 'Pedido confirmado',
+  pedido_em_entrega: 'Pedido saiu para entrega',
+  pedido_entregue: 'Pedido entregue',
+  pagamento_recebido: 'Pagamento recebido',
   cobranca: 'Cobrança',
   boas_vindas: 'Boas-vindas',
 }
@@ -156,8 +166,11 @@ export const VARIAVEIS_TEMPLATE = [
   'numero_orcamento',
   'numero_pedido',
   'link_aprovacao',
+  'link_acompanhamento',
   'valor_total',
+  'valor_pago',
   'data_entrega',
+  'empresa_nome',
 ] as const
 export type VariavelTemplate = (typeof VARIAVEIS_TEMPLATE)[number]
 

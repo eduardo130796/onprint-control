@@ -11,7 +11,7 @@ export interface Pedido {
   id: string
   numero: string
   clienteId: string
-  cliente: RefCliente & { whatsapp: string | null; telefone: string | null }
+  cliente: RefCliente & { whatsapp: string | null; telefone: string | null; cpfCnpj: string | null }
   vendedorId: string | null
   vendedor: Ref | null
   orcamento: { id: string; numero: string } | null
@@ -98,6 +98,8 @@ export interface Entrega {
 }
 
 export interface PedidoDetalhe extends Pedido {
+  /** Token do link "Acompanhe seu pedido" (caminhoAcompanhamento) */
+  tokenPublico: string
   itens: PedidoItemDetalhe[]
   contasReceber: ContaReceberResumo[]
   comissoes: { id: string; valor: string; percentual: string; status: string; vendedor: Ref }[]
@@ -116,7 +118,7 @@ export interface EventoHistorico {
   titulo: string
   detalhe: string | null
   usuario: string | null
-  tipo: 'pedido' | 'arte' | 'producao' | 'entrega' | 'financeiro'
+  tipo: 'pedido' | 'arte' | 'producao' | 'entrega' | 'financeiro' | 'whatsapp'
 }
 
 export interface OrdemProducao {

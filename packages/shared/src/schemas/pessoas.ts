@@ -41,6 +41,8 @@ export const clienteSchema = z
     vendedorId: uuidOpcional,
     observacoes: textoOpcional,
     tags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
+    /** Avisos automáticos do pedido pelo WhatsApp (o cliente pode pedir para não receber) */
+    receberAvisosWhatsapp: z.boolean().default(true),
   })
   .refine(documentoCompativel, erroDocumento)
   .refine((v) => Boolean(v.whatsapp || v.telefone || v.email), {

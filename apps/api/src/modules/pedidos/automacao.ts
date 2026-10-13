@@ -12,6 +12,7 @@ import {
   type StatusPedido,
 } from '@onprint/shared'
 import { registrarAuditoria } from '../../core/auditoria'
+import { linkAcompanhamento } from '../../core/links'
 
 export interface MudancaPedido {
   pedidoId: string
@@ -64,6 +65,7 @@ export async function sincronizarStatusPedido(
       cliente_nome: nomeParaSaudacao(nomeCliente(pedido.cliente), pedido.cliente.cpfCnpj),
       numero_pedido: pedido.numero,
       data_entrega: formatarDataSimples(adicionarDiasUteis(hojeISO(), 0)),
+      link_acompanhamento: linkAcompanhamento(pedido.tokenPublico),
     })
     await tx.notificacao.create({
       data: {
@@ -83,6 +85,8 @@ export function avisarMudancaPedido(app: FastifyInstance, m: MudancaPedido | nul
   const id = m?.pedidoId ?? pedidoId
   if (!id) return
   app.tempoReal.emitir('pedidos', 'pedido:atualizado', { id, status: m?.depois })
+  // Pronto (OPs concluídas) avisa o cliente pelo WhatsApp, se ligado
+  if (m) void app.whatsapp.avisarStatusPedido(id, m.depois)
   if (m?.depois === 'pronto' && m.vendedorId) {
     app.tempoReal.emitir(`usuario:${m.vendedorId}`, 'notificacao:nova', { titulo: `Pedido ${m.numero} pronto`, pedidoId: id })
   }

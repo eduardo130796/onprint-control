@@ -232,7 +232,7 @@ export const navegacao: NavModulo[] = [
       { titulo: 'Formas de pagamento', path: '/financeiro/formas-pagamento', fase: 6, novo: 'Nova forma', modulo: 'financeiro' },
       { titulo: 'Mensagens prontas', path: '/configuracoes/templates', fase: 1, novo: 'Novo template' },
       { titulo: 'Status do sistema', path: '/configuracoes/status', fase: 1 },
-      { titulo: 'Conexão do WhatsApp', path: '/configuracoes/whatsapp', fase: 9 },
+      { titulo: 'Conexão do WhatsApp', path: '/configuracoes/whatsapp', fase: 9, modulo: 'whatsapp' },
       { titulo: 'Minha assinatura', path: '/assinatura', fase: 11 },
       // Rotas antigas (as mesmas telas de Produtos → Máquinas e processos)
       { titulo: 'Máquinas', path: '/configuracoes/maquinas', fase: 2, novo: 'Nova máquina', modulo: 'produtos', menu: false, legado: true },

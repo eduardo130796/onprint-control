@@ -41,6 +41,7 @@ export function criarEntregasService(app: FastifyInstance, arquivos: ArquivosSer
       await registrarAuditoria(tx, { tabela: 'entregas', registroId: id, acao: 'editar', antes, depois, usuarioId: ctx.usuarioId })
     })
     avisar(antes.pedidoId)
+    if (statusPedido && antes.pedido.status !== 'cancelado' && antes.pedido.status !== statusPedido) void app.whatsapp.avisarStatusPedido(antes.pedidoId, statusPedido)
     return obter(id, ctx)
   }
 

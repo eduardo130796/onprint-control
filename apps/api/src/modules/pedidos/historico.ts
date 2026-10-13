@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@prisma/client'
-import type { EventoHistorico } from '@onprint/shared'
+import { EVENTO_WHATSAPP_ROTULOS, formatarTelefone, type EventoHistorico, type EventoWhatsapp } from '@onprint/shared'
 
 const ROTULO_STATUS: Record<string, string> = {
   aguardando_arte: 'Aguardando arte',
@@ -18,7 +18,7 @@ const ROTULO_STATUS: Record<string, string> = {
 }
 const rotulo = (s: unknown) => (typeof s === 'string' ? (ROTULO_STATUS[s] ?? s) : '')
 
-/** Linha do tempo do pedido: auditoria (pedido, artes, entregas) + etapas das OPs + comentários das artes. */
+/** Linha do tempo do pedido: auditoria (pedido, artes, entregas) + etapas das OPs + comentários das artes + avisos do WhatsApp. */
 export async function historicoDoPedido(prisma: PrismaClient, pedidoId: string): Promise<EventoHistorico[]> {
   const pedido = await prisma.pedido.findUniqueOrThrow({
     where: { id: pedidoId },
@@ -33,7 +33,7 @@ export async function historicoDoPedido(prisma: PrismaClient, pedidoId: string):
   const versaoDe = new Map(artes.map((a) => [a.id, a.versao]))
   const numeroOp = new Map(pedido.ordensProducao.map((o) => [o.id, o.numero]))
 
-  const [auditoria, etapas, comentarios] = await Promise.all([
+  const [auditoria, etapas, comentarios, avisos] = await Promise.all([
     prisma.auditoria.findMany({
       where: {
         OR: [
@@ -47,6 +47,7 @@ export async function historicoDoPedido(prisma: PrismaClient, pedidoId: string):
     }),
     prisma.opEtapaHistorico.findMany({ where: { opId: { in: [...numeroOp.keys()] } }, include: { usuario: { select: { nome: true } } }, orderBy: { createdAt: 'desc' } }),
     prisma.arteComentario.findMany({ where: { arteId: { in: idsArtes } }, orderBy: { createdAt: 'desc' } }),
+    prisma.mensagemWhatsapp.findMany({ where: { pedidoId }, orderBy: { createdAt: 'desc' }, take: 50 }),
   ])
   const usuarios = new Map(
     (await prisma.usuario.findMany({ where: { id: { in: auditoria.flatMap((a) => (a.usuarioId ? [a.usuarioId] : [])) } }, select: { id: true, nome: true } })).map((u) => [u.id, u.nome]),
@@ -91,6 +92,12 @@ export async function historicoDoPedido(prisma: PrismaClient, pedidoId: string):
       titulo: `Arte v${versaoDe.get(c.arteId)}: comentário ${c.origem === 'cliente' ? 'do cliente' : 'interno'}`,
       detalhe: c.texto,
     })
+  }
+  for (const m of avisos) {
+    const evento = EVENTO_WHATSAPP_ROTULOS[m.evento as EventoWhatsapp] ?? m.evento
+    const titulo =
+      m.status === 'enviada' ? `Aviso enviado pelo WhatsApp: ${evento}` : m.status === 'pendente' ? `Aviso na fila do WhatsApp: ${evento}` : `Aviso pelo WhatsApp não enviado: ${evento}`
+    eventos.push({ id: m.id, quando: (m.enviadaEm ?? m.createdAt).toISOString(), usuario: null, tipo: 'whatsapp', titulo, detalhe: m.status === 'enviada' || m.status === 'pendente' ? `Para ${formatarTelefone(m.telefone.replace(/^55(?=\d{10,11}$)/, ''))}` : m.erro })
   }
   return eventos.sort((a, b) => b.quando.localeCompare(a.quando))
 }

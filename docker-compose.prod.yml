@@ -1,6 +1,7 @@
 # Produção (VPS) — passo a passo em docs/DEPLOY_VPS.md.
 # Subir:    docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
-# Só 3 containers: db (sem porta exposta), api (só na rede interna) e web (Caddy: 80/443 + HTTPS automático).
+# Containers: db (sem porta exposta), api (só na rede interna), web (Caddy: 80/443 + HTTPS automático)
+# e evolution (WhatsApp das gráficas por QR code, só na rede interna; a API fala com ela por http://evolution:8080).
 name: onprint-control-prod
 
 x-logs: &logs
@@ -52,6 +53,9 @@ services:
     environment:
       NODE_ENV: production
       UPLOAD_DIR: /app/uploads
+      # Avisos do pedido pelo WhatsApp (EVOLUTION_API_KEY vem do .env.prod; "log" desliga o envio de verdade)
+      WHATSAPP_PROVEDOR: ${WHATSAPP_PROVEDOR:-evolution}
+      EVOLUTION_URL: http://evolution:8080
     restart: unless-stopped
     volumes:
       - uploads:/app/uploads
@@ -91,8 +95,73 @@ services:
         condition: service_healthy
     <<: *logs
 
+  # Cria o banco "evolution" no mesmo Postgres (só na primeira vez; depois só confere)
+  evolution-db:
+    image: postgres:16-alpine
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+    command:
+      - sh
+      - -c
+      - psql -tAc "SELECT 1 FROM pg_database WHERE datname = 'evolution'" | grep -q 1 || psql -c "CREATE DATABASE evolution"
+    depends_on:
+      db:
+        condition: service_healthy
+    <<: *logs
+
+  # Evolution API (open source, Baileys): uma conexão (instância) por gráfica, "grafygo-{id da empresa}".
+  # Sem porta publicada: ninguém de fora chama a Evolution, só a API. Docs: docs/DEPLOY_VPS.md (WhatsApp).
+  evolution:
+    image: evoapicloud/evolution-api:v2.3.7
+    environment:
+      SERVER_URL: http://evolution:8080
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:?defina EVOLUTION_API_KEY no .env.prod (openssl rand -hex 32)}
+      DATABASE_PROVIDER: postgresql
+      # Senha do Postgres sem caracteres especiais de URL (@ : / ? #), ou codificada
+      DATABASE_CONNECTION_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/evolution?schema=public
+      DATABASE_CONNECTION_CLIENT_NAME: grafygo
+      # Guarda só a instância (para reconectar sozinha ao reiniciar); mensagens, contatos e conversas não
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "false"
+      DATABASE_SAVE_MESSAGE_UPDATE: "false"
+      DATABASE_SAVE_DATA_CONTACTS: "false"
+      DATABASE_SAVE_DATA_CHATS: "false"
+      DATABASE_SAVE_DATA_LABELS: "false"
+      DATABASE_SAVE_DATA_HISTORIC: "false"
+      CACHE_REDIS_ENABLED: "false"
+      CACHE_LOCAL_ENABLED: "true"
+      CONFIG_SESSION_PHONE_CLIENT: GrafyGo
+      CONFIG_SESSION_PHONE_NAME: Chrome
+      QRCODE_LIMIT: "30"
+      DEL_INSTANCE: "false"
+      LOG_LEVEL: ERROR,WARN
+      LOG_BAILEYS: error
+      LOG_COLOR: "false"
+      WEBHOOK_GLOBAL_ENABLED: "false"
+      TZ: America/Sao_Paulo
+    restart: unless-stopped
+    # Teto de memória: algumas centenas de MB com poucas gráficas conectadas (acompanhe com docker stats)
+    mem_limit: 1g
+    volumes:
+      # Chaves da sessão do WhatsApp (sem Redis ficam em arquivo): perder o volume = ler o QR de novo
+      - evolution_instances:/evolution/instances
+    depends_on:
+      evolution-db:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8080/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+    <<: *logs
+
 volumes:
   pgdata:
   uploads:
   caddy_data:
   caddy_config:
+  evolution_instances:

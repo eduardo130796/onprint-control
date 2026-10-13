@@ -53,12 +53,14 @@ export function criarConversaoService(app: FastifyInstance, orcamentos: Orcament
       })
       const vendedor = o.vendedorId ? await prisma.usuario.findUnique({ where: { id: o.vendedorId } }) : null
 
-      return prisma.$transaction(async (tx) => {
+      const criado = await prisma.$transaction(async (tx) => {
         const numero = await proximoNumero(tx, 'pedido')
         const categoriaVendas = await categoriaPorCodigo(tx, 'vendas')
         const pedido = await tx.pedido.create({
           data: {
             numero,
+            // Link "Acompanhe seu pedido" (/pedido/:empresa/:token)
+            tokenPublico: gerarToken(),
             clienteId: o.clienteId,
             vendedorId: o.vendedorId,
             dataPrevistaEntrega: dataBanco(adicionarDiasUteis(hoje, prazo)),
@@ -137,6 +139,9 @@ export function criarConversaoService(app: FastifyInstance, orcamentos: Orcament
         await registrarAuditoria(tx, { tabela: 'pedidos', registroId: pedido.id, acao: 'criar', depois: { ...pedido, orcamento: o.numero, parcelas }, usuarioId: ctx.usuarioId })
         return pedido
       })
+      // "Pedido confirmado" com o link de acompanhamento pelo WhatsApp da gráfica, se ligado
+      void app.whatsapp.avisar('pedido_confirmado', { pedidoId: criado.id })
+      return criado
     },
   }
 }

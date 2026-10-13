@@ -99,7 +99,10 @@ export function criarArtesService(app: FastifyInstance, arquivos: ArquivosServic
     enviarAoCliente: async (id: string, ctx: ContextoUsuario) => {
       const arte = await obter(id)
       if (!arte.arquivoId) throw AppError.regraNegocio('Envie o arquivo da arte antes de mandar para o cliente.')
-      return mudarStatus(id, ctx, ['em_criacao', 'ajuste_solicitado'], { status: 'enviada_cliente' }, 'Esta arte não pode ser enviada agora.')
+      const enviada = await mudarStatus(id, ctx, ['em_criacao', 'ajuste_solicitado'], { status: 'enviada_cliente' }, 'Esta arte não pode ser enviada agora.')
+      // Link de aprovação pelo WhatsApp da gráfica, se ligado
+      void app.whatsapp.avisar('arte_aprovacao', { pedidoId: arte.pedidoItem.pedidoId, arteId: id })
+      return enviada
     },
 
     aprovarInterno: (id: string, nome: string, ctx: ContextoUsuario) =>

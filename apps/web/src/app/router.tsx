@@ -34,6 +34,7 @@ import {
   EstoquePage,
   MovimentacoesPage,
   NovaEntradaPage,
+  AcompanharPedidoPage,
   AprovarArtePage,
   AprovarOrcamentoPage,
   CategoriasPage,
@@ -236,6 +237,8 @@ export const router = createBrowserRouter(
   },
   { path: '/aprovar/:empresa/:token', element: comCarregamento(<AprovarOrcamentoPage />) },
   { path: '/arte/:empresa/:token', element: comCarregamento(<AprovarArtePage />) },
+  // "Acompanhe seu pedido": o cliente vê o andamento do pedido pelo link, sem login
+  { path: '/pedido/:empresa/:token', element: comCarregamento(<AcompanharPedidoPage />) },
   // Rotas protegidas
   {
     element: <ProtectedRoute />,

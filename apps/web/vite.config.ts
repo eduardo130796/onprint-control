@@ -13,6 +13,7 @@ const NAO_PAGINA = /^\/(?:api|socket\.io|assets|src|node_modules|@[a-z-]+|__[a-z
 /**
  * Prévia do link da vitrine em desenvolvimento (no servidor de produção quem faz isso é o Caddy): o leitor de
  * link (WhatsApp, Facebook…) que abre http://{slug}.localhost:5173/... recebe o HTML com as tags Open Graph da API.
+ * O mesmo vale para o link "Acompanhe seu pedido" (http://localhost:5173/pedido/{empresa}/{token}).
  */
 function previaDoLinkDaVitrine(): Plugin {
   return {
@@ -23,8 +24,12 @@ function previaDoLinkDaVitrine(): Plugin {
         const host = req.headers.host ?? ''
         const caminho = req.url ?? '/'
         const ehVitrine = /^[a-z0-9-]+\.localhost(?::\d+)?$/i.test(host)
-        if (req.method !== 'GET' || !ehVitrine || !ROBOS_PREVIA.test(req.headers['user-agent'] ?? '') || NAO_PAGINA.test(caminho.split('?')[0] ?? '')) return next()
-        const url = `${apiAlvo}/api/v1/publico/vitrine-og?host=${encodeURIComponent(host)}&caminho=${encodeURIComponent(caminho)}`
+        // Link "Acompanhe seu pedido" (/pedido/:empresa/:token) no endereço do sistema
+        const ehPedido = !ehVitrine && caminho.startsWith('/pedido/')
+        if (req.method !== 'GET' || !(ehVitrine || ehPedido) || !ROBOS_PREVIA.test(req.headers['user-agent'] ?? '') || NAO_PAGINA.test(caminho.split('?')[0] ?? '')) return next()
+        const url = ehPedido
+          ? `${apiAlvo}/api/v1/publico/pedido-og?caminho=${encodeURIComponent(caminho)}`
+          : `${apiAlvo}/api/v1/publico/vitrine-og?host=${encodeURIComponent(host)}&caminho=${encodeURIComponent(caminho)}`
         fetch(url, { headers: { 'X-Forwarded-Proto': 'http' } })
           .then(async (resposta) => {
             res.statusCode = resposta.status

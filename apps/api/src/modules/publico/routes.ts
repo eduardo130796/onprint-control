@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { aprovacaoPublicaSchema, arteAjustePublicoSchema, arteAprovacaoPublicaSchema, recusaSchema, tokenPublicoParamSchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { contextoEmpresa } from '../../core/contexto-empresa'
+import { criarAcompanhamentoService } from './acompanhamento.service'
 import { criarArtesPublicoService } from './artes.service'
 import { criarPublicoService } from './service'
 
@@ -12,6 +13,7 @@ const limite = { rateLimit: { max: 30, timeWindow: '1 minute' } }
 export const publicoRoutes: FastifyPluginAsyncZod = async (app) => {
   const service = criarPublicoService(app)
   const artes = criarArtesPublicoService(app)
+  const acompanhamento = criarAcompanhamentoService(app)
 
   // Registradas sob /publico/:empresa: o slug da empresa no link escolhe o schema
   app.addHook('onRequest', async (req) => {
@@ -53,5 +55,16 @@ export const publicoRoutes: FastifyPluginAsyncZod = async (app) => {
     '/artes/:token/ajuste',
     { config: limite, schema: { tags, summary: 'Cliente pede ajuste na arte', params: tokenPublicoParamSchema, body: arteAjustePublicoSchema } },
     (req) => artes.pedirAjuste(req.params.token, req.body.nome, req.body.comentario, req.ip),
+  )
+
+  // "Acompanhe seu pedido": o cliente vê o andamento pelo link /pedido/:token (só leitura)
+  app.get(
+    '/pedidos/:token',
+    { config: limite, schema: { tags, summary: 'Andamento do pedido pelo link de acompanhamento (sem login)', params: tokenPublicoParamSchema } },
+    async (req, reply) => {
+      // Dados do pedido do cliente: nada de cache compartilhado nem indexação
+      reply.header('Cache-Control', 'no-store').header('X-Robots-Tag', 'noindex')
+      return acompanhamento.obter(req.params.token)
+    },
   )
 }

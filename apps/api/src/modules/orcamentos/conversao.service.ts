@@ -27,7 +27,8 @@ export function criarConversaoService(app: FastifyInstance, orcamentos: Orcament
   const { prisma } = app
 
   return {
-    async converter(orcamentoId: string, dados: Dados, ctx: ContextoUsuario) {
+    /** `via`: origem gravada na auditoria (ex.: conversão automática na aprovação do cliente). */
+    async converter(orcamentoId: string, dados: Dados, ctx: ContextoUsuario, opcoes: { via?: string } = {}) {
       const o = await orcamentos.obter(orcamentoId, ctx)
       if (o.pedidoId) throw AppError.conflito('Este orçamento já foi convertido em pedido.')
       if (o.status !== 'aprovado') throw AppError.regraNegocio('Só orçamentos aprovados podem virar pedido.')
@@ -135,8 +136,17 @@ export function criarConversaoService(app: FastifyInstance, orcamentos: Orcament
         }
         // Uma OP por item, na fila do kanban de produção
         await gerarOpsDoPedido(tx, pedido.id, ctx.usuarioId)
-        await tx.orcamento.update({ where: { id: o.id }, data: { status: 'convertido', pedidoId: pedido.id } })
-        await registrarAuditoria(tx, { tabela: 'pedidos', registroId: pedido.id, acao: 'criar', depois: { ...pedido, orcamento: o.numero, parcelas }, usuarioId: ctx.usuarioId })
+        // Transição atômica: duas conversões ao mesmo tempo (clique duplo, automática + manual)
+        // não geram dois pedidos — a segunda desfaz tudo, inclusive o número do pedido
+        const { count } = await tx.orcamento.updateMany({ where: { id: o.id, status: 'aprovado', pedidoId: null }, data: { status: 'convertido', pedidoId: pedido.id } })
+        if (count !== 1) throw AppError.conflito('Este orçamento já foi convertido em pedido.')
+        await registrarAuditoria(tx, {
+          tabela: 'pedidos',
+          registroId: pedido.id,
+          acao: 'criar',
+          depois: { ...pedido, orcamento: o.numero, parcelas, ...(opcoes.via ? { via: opcoes.via } : {}) },
+          usuarioId: ctx.usuarioId,
+        })
         return pedido
       })
       // "Pedido confirmado" com o link de acompanhamento pelo WhatsApp da gráfica, se ligado

@@ -26,14 +26,15 @@ import { decimalParaInput } from '@/lib/mascaras'
 
 /** Condições do pedido: sinal + parcelas (com prévia das contas a receber), entrega e prioridade. */
 export function ConverterDialog({ orcamento, onFechar }: { orcamento: OrcamentoDetalhe; onFechar: () => void }) {
-  const empresa = useEmpresa()
-  const [sinal, setSinal] = useState(() => decimalParaInput(empresa.data?.sinalPercentual ?? 50))
-  const [parcelas, setParcelas] = useState('1')
-  const [intervalo, setIntervalo] = useState('30')
+  // Começa com as condições padrão da empresa (Configurações → Empresa → Pedidos)
+  const { data: padrao } = useEmpresa()
+  const [sinal, setSinal] = useState(() => decimalParaInput(padrao?.sinalPercentual ?? 50))
+  const [parcelas, setParcelas] = useState(() => String(padrao?.parcelasPadrao ?? 1))
+  const [intervalo, setIntervalo] = useState(() => String(padrao?.intervaloDiasPadrao ?? 30))
   const [primeiro, setPrimeiro] = useState('')
-  const [tipoEntrega, setTipoEntrega] = useState<TipoEntrega>('retirada')
-  const [prioridade, setPrioridade] = useState<Prioridade>('normal')
-  const converter = useMutacao(['orcamentos', 'clientes'], (d: unknown) => orcamentosApi.converter(orcamento.id, d))
+  const [tipoEntrega, setTipoEntrega] = useState<TipoEntrega>(() => padrao?.tipoEntregaPadrao ?? 'retirada')
+  const [prioridade, setPrioridade] = useState<Prioridade>(() => padrao?.prioridadePadrao ?? 'normal')
+  const converter = useMutacao(['orcamentos', 'clientes', 'pedidos', 'financeiro'], (d: unknown) => orcamentosApi.converter(orcamento.id, d))
 
   const previa = useMemo(() => {
     const s = Number(normalizarDecimal(sinal || '0'))

@@ -15,6 +15,8 @@ import { useMutacao } from '@/hooks/useMutacao'
 import { usePermissoes } from '@/hooks/usePermission'
 import { EnviarWhatsappDialog, type EnvioWhatsapp } from '@/features/whatsapp/components/EnviarWhatsappDialog'
 import { useAuth } from '@/hooks/useAuth'
+import { useEmpresa } from '@/features/configuracoes/hooks'
+import { avisoAprovacao } from '../../aprovacao'
 import { envioDoOrcamento, linkAprovacao } from '../../mensagem'
 import { ConverterDialog } from './ConverterDialog'
 
@@ -28,6 +30,8 @@ interface AcoesProps {
 
 type Dialogo = 'aprovar' | 'recusar' | 'converter' | null
 
+const DESCRICAO_APROVAR = 'Use quando o cliente aprovou por outro canal (WhatsApp, telefone, balcão).'
+
 /** Barra de ações do orçamento conforme o status e as permissões. */
 export function AcoesOrcamento({ orcamento: o, editavel, alterado, salvando, onSalvar }: AcoesProps) {
   const navigate = useNavigate()
@@ -38,12 +42,14 @@ export function AcoesOrcamento({ orcamento: o, editavel, alterado, salvando, onS
   const [texto, setTexto] = useState('')
   const [envio, setEnvio] = useState<EnvioWhatsapp | null>(null)
   const { usuario } = useAuth()
-  const acao = useMutacao(['orcamentos', 'solicitacoes'], (f: () => Promise<OrcamentoDetalhe>) => f())
+  const empresa = useEmpresa()
+  // Aprovar pode criar o pedido (conversão automática): pedidos e financeiro também mudam
+  const acao = useMutacao(['orcamentos', 'solicitacoes', 'pedidos', 'financeiro'], (f: () => Promise<OrcamentoDetalhe>) => f())
 
-  function executar(f: () => Promise<OrcamentoDetalhe>, sucesso: string, depois?: (r: OrcamentoDetalhe) => void) {
+  function executar(f: () => Promise<OrcamentoDetalhe>, sucesso: string | ((r: OrcamentoDetalhe) => string), depois?: (r: OrcamentoDetalhe) => void) {
     acao.mutate(f, {
       onSuccess: (r) => {
-        toast.success(sucesso)
+        toast.success(typeof sucesso === 'string' ? sucesso : sucesso(r))
         depois?.(r)
       },
       onError: (e) => toast.error(e.message),
@@ -152,13 +158,19 @@ export function AcoesOrcamento({ orcamento: o, editavel, alterado, salvando, onS
           aberto
           onAbertoChange={(v) => !v && setDialogo(null)}
           titulo={dialogo === 'aprovar' ? 'Registrar aprovação do cliente' : 'Registrar recusa'}
-          descricao={dialogo === 'aprovar' ? 'Use quando o cliente aprovou por outro canal (WhatsApp, telefone, balcão).' : undefined}
+          descricao={
+            dialogo === 'aprovar'
+              ? empresa.data?.converterAoAprovar
+                ? `${DESCRICAO_APROVAR} O pedido é criado na hora, com as condições padrão da empresa.`
+                : DESCRICAO_APROVAR
+              : undefined
+          }
           textoSalvar={dialogo === 'aprovar' ? 'Aprovar' : 'Recusar'}
           salvando={acao.isPending}
           onSubmit={(e) => {
             e.preventDefault()
             const f = dialogo === 'aprovar' ? () => orcamentosApi.aprovar(o.id, texto) : () => orcamentosApi.recusar(o.id, texto)
-            executar(f, dialogo === 'aprovar' ? 'Aprovação registrada.' : 'Recusa registrada.', () => {
+            executar(f, dialogo === 'aprovar' ? avisoAprovacao : 'Recusa registrada.', () => {
               setDialogo(null)
               setTexto('')
             })

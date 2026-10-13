@@ -19,6 +19,7 @@ import { usePermissoes } from '@/hooks/usePermission'
 import { useStatusDaEntidade } from '@/hooks/useStatusConfig'
 import { buscarTodasPaginas } from '@/lib/paginacao'
 import { AbasComercial } from '../components/AbasComercial'
+import { avisoAprovacao } from '../aprovacao'
 import { ConverterDialog } from '../components/editor/ConverterDialog'
 import { CartaoOrcamento } from '../components/kanban/CartaoOrcamento'
 import { PainelOrcamento } from '../components/kanban/PainelOrcamento'
@@ -108,9 +109,11 @@ export function OrcamentosKanbanPage() {
     if (!pendente) return
     setSalvando(true)
     try {
-      if (pendente.acao === 'aprovar') await orcamentosApi.aprovar(pendente.o.id, texto)
-      else await orcamentosApi.recusar(pendente.o.id, texto)
-      toast.success(pendente.acao === 'aprovar' ? 'Aprovação registrada.' : 'Recusa registrada.')
+      if (pendente.acao === 'aprovar') toast.success(avisoAprovacao(await orcamentosApi.aprovar(pendente.o.id, texto)))
+      else {
+        await orcamentosApi.recusar(pendente.o.id, texto)
+        toast.success('Recusa registrada.')
+      }
       fecharPendente(true)
     } catch (erro) {
       toast.error((erro as Error).message)

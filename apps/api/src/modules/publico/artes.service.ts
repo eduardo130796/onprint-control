@@ -68,7 +68,7 @@ export function criarArtesPublicoService(app: FastifyInstance) {
     })
     avisarMudancaPedido(app, mudanca.mudanca, pedidoId)
     app.tempoReal.emitir('producao', 'op:atualizada', { pedidoId })
-    for (const u of mudanca.avisar) app.tempoReal.emitir(`usuario:${u}`, 'notificacao:nova', { titulo, pedidoId })
+    for (const u of mudanca.avisar) app.tempoReal.emitir(`usuario:${u}`, 'notificacao:nova', { titulo, pedidoId, link: `/pedidos/${pedidoId}` })
     return montarVisao(token)
   }
 

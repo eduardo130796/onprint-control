@@ -3,13 +3,20 @@ import { Server } from 'socket.io'
 import { contextoEmpresa } from '../core/contexto-empresa'
 import type { AccessTokenPayload } from './auth'
 
-export type EventoTempoReal = 'op:atualizada' | 'pedido:atualizado' | 'notificacao:nova'
+export type EventoTempoReal =
+  | 'op:atualizada'
+  | 'pedido:atualizado'
+  | 'notificacao:nova'
+  // Comercial (sala "orcamentos"): formato em @onprint/shared/tempo-real
+  | 'orcamento:atualizado'
+  | 'solicitacao:nova'
+  | 'solicitacao:atualizada'
 
 declare module 'fastify' {
   interface FastifyInstance {
     tempoReal: {
-      /** Envia um evento para salas da empresa atual ("producao", "pedidos", "usuario:{id}"). */
-      emitir: (salas: string | string[], evento: EventoTempoReal, dados: Record<string, unknown>) => void
+      /** Envia um evento para salas da empresa atual ("producao", "pedidos", "orcamentos", "usuario:{id}"). */
+      emitir: (salas: string | string[], evento: EventoTempoReal, dados: object) => void
     }
   }
 }
@@ -61,6 +68,7 @@ export const socketPlugin = fp(async (app) => {
     await socket.join(sala(`usuario:${socket.data.usuarioId}`))
     if (permissoes.has('producao:visualizar') || permissoes.has('pcp:visualizar')) await socket.join(sala('producao'))
     if (permissoes.has('pedidos:visualizar')) await socket.join(sala('pedidos'))
+    if (permissoes.has('orcamentos:visualizar')) await socket.join(sala('orcamentos'))
   })
 
   // A cada minuto: token vencido, usuário desativado ou com papel trocado → desconecta

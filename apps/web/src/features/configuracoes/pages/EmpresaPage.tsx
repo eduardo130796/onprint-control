@@ -3,7 +3,17 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ImageIcon, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
-import { EXTENSOES_IMAGEM, TEMPOS_INATIVIDADE, empresaSchema, type EmpresaConfig, type EmpresaInput } from '@onprint/shared'
+import {
+  EXTENSOES_IMAGEM,
+  PRIORIDADES,
+  PRIORIDADE_ROTULOS,
+  TEMPOS_INATIVIDADE,
+  TIPOS_ENTREGA,
+  TIPO_ENTREGA_ROTULOS,
+  empresaSchema,
+  type EmpresaConfig,
+  type EmpresaInput,
+} from '@onprint/shared'
 import type { z } from 'zod'
 import { empresaApi } from '@/api/configuracoes'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -15,7 +25,7 @@ import { FileUploader } from '@/components/shared/FileUploader'
 import { CpfCnpjInput, NumberInput, PhoneInput } from '@/components/shared/inputs'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Select, Textarea } from '@/components/ui/form-controls'
+import { Checkbox, Select, Textarea } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EnderecoVitrine } from '@/features/vitrine/components/EnderecoVitrine'
@@ -51,6 +61,11 @@ function valores(e: EmpresaConfig): EmpresaInput {
     chavePix: e.chavePix ?? '',
     areaMinimaM2: decimalParaInput(e.areaMinimaM2, 3),
     inatividadeMinutos: e.inatividadeMinutos,
+    converterAoAprovar: e.converterAoAprovar,
+    parcelasPadrao: String(e.parcelasPadrao),
+    intervaloDiasPadrao: String(e.intervaloDiasPadrao),
+    tipoEntregaPadrao: e.tipoEntregaPadrao,
+    prioridadePadrao: e.prioridadePadrao,
   }
 }
 
@@ -165,20 +180,69 @@ function EmpresaForm({ empresa, podeEditar }: { empresa: EmpresaConfig; podeEdit
             <CampoFormulario id="emp-validade" rotulo="Validade do orçamento" erro={errors.validadeOrcamentoDias?.message}>
               <NumberInput id="emp-validade" casas={0} sufixo="dias" {...r('validadeOrcamentoDias')} />
             </CampoFormulario>
-            <CampoFormulario id="emp-sinal" rotulo="Sinal padrão" erro={errors.sinalPercentual?.message}>
-              <NumberInput id="emp-sinal" sufixo="%" {...r('sinalPercentual')} />
-            </CampoFormulario>
             <CampoFormulario id="emp-area" rotulo="Área mínima por peça" erro={errors.areaMinimaM2?.message}>
               <NumberInput id="emp-area" casas={3} sufixo="m²" {...r('areaMinimaM2')} />
             </CampoFormulario>
-            <CampoFormulario id="emp-pix" rotulo="Chave PIX">
-              <Input id="emp-pix" {...r('chavePix')} />
-            </CampoFormulario>
+            <div className="md:col-span-2">
+              <CampoFormulario id="emp-pix" rotulo="Chave PIX">
+                <Input id="emp-pix" {...r('chavePix')} />
+              </CampoFormulario>
+            </div>
             <div className="md:col-span-4">
               <CampoFormulario id="emp-condicoes" rotulo="Condições padrão do orçamento">
                 <Textarea id="emp-condicoes" {...r('condicoesPadrao')} />
               </CampoFormulario>
             </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Pedidos</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <label className="flex items-start gap-2 text-sm">
+              <Checkbox className="mt-0.5" {...r('converterAoAprovar')} />
+              <span>
+                Quando o cliente aprovar o orçamento, criar o pedido automaticamente
+                <span className="block text-xs text-texto-secundario">
+                  Vale para a aprovação pelo link e para “Registrar aprovação”. O pedido nasce com as condições abaixo (contas a receber, artes e produção) e o cliente
+                  recebe a confirmação pelo WhatsApp, se os avisos estiverem ligados. Desmarcado, o orçamento fica “Aprovado” e alguém converte em pedido.
+                </span>
+              </span>
+            </label>
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-5">
+              <CampoFormulario id="emp-sinal" rotulo="Sinal padrão" erro={errors.sinalPercentual?.message}>
+                <NumberInput id="emp-sinal" sufixo="%" {...r('sinalPercentual')} />
+              </CampoFormulario>
+              <CampoFormulario id="emp-parcelas" rotulo="Parcelas do saldo" erro={errors.parcelasPadrao?.message}>
+                <NumberInput id="emp-parcelas" casas={0} {...r('parcelasPadrao')} />
+              </CampoFormulario>
+              <CampoFormulario id="emp-intervalo" rotulo="A cada" erro={errors.intervaloDiasPadrao?.message}>
+                <NumberInput id="emp-intervalo" casas={0} sufixo="dias" {...r('intervaloDiasPadrao')} />
+              </CampoFormulario>
+              <CampoFormulario id="emp-entrega" rotulo="Entrega">
+                <Select id="emp-entrega" {...r('tipoEntregaPadrao')}>
+                  {TIPOS_ENTREGA.map((t) => (
+                    <option key={t} value={t}>
+                      {TIPO_ENTREGA_ROTULOS[t]}
+                    </option>
+                  ))}
+                </Select>
+              </CampoFormulario>
+              <CampoFormulario id="emp-prioridade" rotulo="Prioridade">
+                <Select id="emp-prioridade" {...r('prioridadePadrao')}>
+                  {PRIORIDADES.map((p) => (
+                    <option key={p} value={p}>
+                      {PRIORIDADE_ROTULOS[p]}
+                    </option>
+                  ))}
+                </Select>
+              </CampoFormulario>
+            </div>
+            <p className="text-xs text-texto-secundario">
+              Também são os valores iniciais de “Converter em pedido”. Na criação automática, entrega ou instalação usam o endereço principal do cliente; sem endereço
+              cadastrado, o pedido sai como retirada.
+            </p>
           </CardContent>
         </Card>
         <Card>

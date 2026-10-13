@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowLeft, CheckCircle2, Globe, Plus, XCircle } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle2, Globe, Plus, RefreshCw, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatarDataHora, formatarDataSimples, orcamentoSchema } from '@onprint/shared'
 import { clientesApi } from '@/api/cadastros'
@@ -40,8 +40,11 @@ function Editor({
   solicitacaoId,
   clienteInicial,
   doSite,
+  onAlterado,
 }: {
   orcamento?: OrcamentoComAnalise
+  /** Avisa a página se há alterações não salvas (mudança remota não reseta o formulário) */
+  onAlterado?: (alterado: boolean) => void
   solicitacaoId?: string | null
   clienteInicial?: { id: string; rotulo: string } | null
   /** Pedido do site: itens já montados com o que o cliente escolheu */
@@ -59,6 +62,12 @@ function Editor({
   // Semáforo do lucro: o salvo (GET) ou ao vivo (POST /orcamentos/analisar) para quem pode editar
   const analise = useAnaliseOrcamento(form, calculo.itens, { orcamento, alterado, podeAnalisar: editavel })
   const salvar = useMutacao(['orcamentos', 'solicitacoes'], (dados: unknown) => (orcamento ? orcamentosApi.atualizar(orcamento.id, dados) : orcamentosApi.criar(dados)))
+
+  // Salvando: a versão que chegar é a minha (não é "alterado por outra pessoa")
+  const pendente = alterado && !salvar.isPending
+  useEffect(() => {
+    onAlterado?.(pendente)
+  }, [pendente, onAlterado])
 
   // Avisa antes de sair com alterações não salvas
   useEffect(() => {
@@ -208,12 +217,47 @@ function Editor({
   )
 }
 
+/** Faixa do editor quando o orçamento mudou fora desta tela enquanto havia alterações não salvas */
+function MudouForaDaTela({ orcamento: o, onRecarregar }: { orcamento: OrcamentoComAnalise; onRecarregar: () => void }) {
+  const virouPedido = o.status === 'convertido' && o.pedido
+  const texto = virouPedido
+    ? `Este orçamento foi aprovado${o.aprovadoIp ? ' pelo cliente' : ''} e virou o pedido ${o.pedido!.numero}. Suas alterações não salvas não valem mais.`
+    : o.status === 'aprovado'
+      ? `Este orçamento foi aprovado${o.aprovadoIp ? ' pelo cliente' : ''}. Suas alterações não salvas não valem mais.`
+      : o.status === 'recusado'
+        ? 'Este orçamento foi recusado pelo cliente. Suas alterações não salvas não valem mais.'
+        : 'Este orçamento foi alterado por outra pessoa. Recarregue para ver a versão nova (suas alterações não salvas serão descartadas).'
+  return (
+    <div role="status" className="mb-4 flex flex-col gap-2 rounded-xl bg-ambar/15 p-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between dark:text-amber-200">
+      <span className="flex items-start gap-2">
+        <RefreshCw className="mt-0.5 h-4 w-4 shrink-0" /> {texto}
+      </span>
+      <span className="flex shrink-0 gap-2">
+        {virouPedido && (
+          <Button asChild size="sm">
+            <Link to={`/pedidos/${o.pedido!.id}`}>Abrir pedido</Link>
+          </Button>
+        )}
+        <Button size="sm" variant="outline" onClick={onRecarregar}>
+          Recarregar
+        </Button>
+      </span>
+    </div>
+  )
+}
+
 /** /orcamentos/novo (opcional ?solicitacao=&cliente=) e /orcamentos/:id */
 export function OrcamentoEditorPage() {
   const { id } = useParams()
   const [busca] = useSearchParams()
   const novo = !id || id === 'novo'
   const consulta = useQuery({ queryKey: ['orcamentos', 'detalhe', id], queryFn: () => orcamentosApi.obter(id!), enabled: !novo })
+  // Versão no formulário: com alterações não salvas, uma mudança de fora (cliente aprovou, colega editou)
+  // não reseta o formulário — fica a faixa avisando, e "Recarregar" troca para a versão nova
+  const [alterado, setAlterado] = useState(false)
+  const [exibido, setExibido] = useState<OrcamentoComAnalise | undefined>(consulta.data)
+  if (consulta.data && consulta.data !== exibido && (!exibido || exibido.id !== consulta.data.id || !alterado)) setExibido(consulta.data)
+  const remoto = exibido && consulta.data && consulta.data.id === exibido.id && consulta.data.updatedAt !== exibido.updatedAt ? consulta.data : null
   const clienteId = busca.get('cliente')
   const cliente = useQuery({ queryKey: ['clientes', 'detalhe', clienteId], queryFn: () => clientesApi.obter(clienteId!), enabled: novo && Boolean(clienteId) })
   // Vindo de uma solicitação com itens (pedido do site): busca os produtos para abrir o orçamento já montado
@@ -260,10 +304,20 @@ export function OrcamentoEditorPage() {
       </>
     )
   }
+  if (!exibido) return <Skeleton className="h-96 w-full" />
   return (
     <>
       {voltar}
-      <Editor key={`${consulta.data.id}-${consulta.data.updatedAt}`} orcamento={consulta.data} />
+      {remoto && (
+        <MudouForaDaTela
+          orcamento={remoto}
+          onRecarregar={() => {
+            setAlterado(false)
+            setExibido(remoto)
+          }}
+        />
+      )}
+      <Editor key={`${exibido.id}-${exibido.updatedAt}`} orcamento={exibido} onAlterado={setAlterado} />
     </>
   )
 }

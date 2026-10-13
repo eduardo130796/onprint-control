@@ -2,6 +2,7 @@ import { CODIGOS_TEMA, type CodigoTema } from '../temas'
 import { z } from 'zod'
 import { SENHA_MAX, SENHA_MIN } from './auth'
 import { CATEGORIAS_TEMPLATE, ENTIDADES_COM_STATUS_PROPRIO, ENTIDADES_STATUS } from '../enums'
+import { PRIORIDADES, TIPOS_ENTREGA } from '../enums-comercial'
 import { paginacaoQuerySchema } from './comum'
 import {
   camposEndereco,
@@ -82,6 +83,12 @@ export const empresaSchema = z.object({
     .number()
     .refine((v) => (TEMPOS_INATIVIDADE as readonly number[]).includes(v), 'Escolha um dos tempos da lista.')
     .optional(),
+  // Pedidos: orçamento aprovado vira pedido sozinho com estas condições (opcionais: quem não manda não muda)
+  converterAoAprovar: z.boolean().optional(),
+  parcelasPadrao: z.coerce.number().int('Número inteiro.').min(1, 'Mínimo 1 parcela.').max(24, 'Máximo 24 parcelas.').optional(),
+  intervaloDiasPadrao: z.coerce.number().int('Número inteiro.').min(1, 'Mínimo 1 dia.').max(120, 'Máximo 120 dias.').optional(),
+  tipoEntregaPadrao: z.enum(TIPOS_ENTREGA).optional(),
+  prioridadePadrao: z.enum(PRIORIDADES).optional(),
 })
 export type EmpresaInput = z.input<typeof empresaSchema>
 

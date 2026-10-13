@@ -56,7 +56,16 @@ export function OrcamentosPage() {
         },
       },
       { id: 'total', header: 'Total', meta: { ordenavel: 'total', className: 'text-right' }, cell: ({ row }) => <span className="font-medium">{formatarMoeda(row.original.total)}</span> },
-      { id: 'status', header: 'Status', cell: ({ row }) => <StatusBadge entidade="orcamento" codigo={row.original.status} /> },
+      {
+        id: 'status',
+        header: 'Status',
+        cell: ({ row: { original: o } }) => (
+          <div className="flex flex-col items-start gap-0.5">
+            <StatusBadge entidade="orcamento" codigo={o.status} />
+            {o.pedido && <span className="font-mono text-xs text-texto-secundario">→ {o.pedido.numero}</span>}
+          </div>
+        ),
+      },
     ],
     [hoje],
   )

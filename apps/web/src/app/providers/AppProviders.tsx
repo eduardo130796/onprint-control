@@ -4,9 +4,12 @@ import { Toaster } from 'sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AuthProvider } from '@/features/auth/components/AuthProvider'
 
+/** Ao voltar para a aba, atualiza a tela se os dados têm mais de 30 s (o tempo real cobre o resto sem bater na API à toa) */
+const ATUALIZAR_AO_VOLTAR_MS = 30_000
+
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 1, refetchOnWindowFocus: false },
+    queries: { retry: 1, refetchOnWindowFocus: (query) => Date.now() - query.state.dataUpdatedAt > ATUALIZAR_AO_VOLTAR_MS },
   },
 })
 

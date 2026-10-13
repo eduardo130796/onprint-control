@@ -121,6 +121,8 @@ export interface Orcamento extends Auditavel {
   recusadoEm: string | null
   motivoRecusa: string | null
   pedidoId: string | null
+  /** Pedido gerado na conversão (no detalhe vem o resumo completo) */
+  pedido?: { id: string; numero: string } | null
   /** Lista/kanban: quantidade de itens e os 3 primeiros ("10 × Caneca") */
   resumo?: { itens: number; principais: string[] }
 }

@@ -1,5 +1,6 @@
 import fp from 'fastify-plugin'
 import cron from 'node-cron'
+import type { EventoOrcamento } from '@onprint/shared'
 import { contextoEmpresa } from '../core/contexto-empresa'
 import { conciliarAssinaturas } from '../plataforma/cobrancas'
 import { avisosDoDia } from '../jobs/avisos-do-dia'
@@ -32,8 +33,15 @@ export const cronPlugin = fp(async (app) => {
     }
   }
 
+  /** Expira e avisa as telas de orçamentos abertas (o quadro tira os vencidos sem recarregar) */
+  async function expirar() {
+    const n = await expirarOrcamentos(app.prisma)
+    if (n) app.tempoReal.emitir('orcamentos', 'orcamento:atualizado', { acao: 'expirado', origem: 'sistema', atorId: null } satisfies EventoOrcamento)
+    return n
+  }
+
   const tarefas = [
-    cron.schedule('5 0 * * *', () => executar('expirar-orcamentos', () => expirarOrcamentos(app.prisma)), {
+    cron.schedule('5 0 * * *', () => executar('expirar-orcamentos', expirar), {
       timezone: 'America/Sao_Paulo',
     }),
     cron.schedule('10 0 * * *', () => executar('marcar-vencidas', () => marcarContasVencidas(app.prisma)), { timezone: 'America/Sao_Paulo' }),
@@ -55,7 +63,7 @@ export const cronPlugin = fp(async (app) => {
   // com muitas empresas (ou o Asaas lento) isso passaria do tempo de subida do Fastify e a API não subiria
   app.addHook('onReady', async () => {
     void (async () => {
-      await executar('expirar-orcamentos (início)', () => expirarOrcamentos(app.prisma))
+      await executar('expirar-orcamentos (início)', expirar)
       await executar('marcar-vencidas (início)', () => marcarContasVencidas(app.prisma))
       await conciliar()
     })()

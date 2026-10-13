@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify'
 import { STATUS_ORCAMENTO_ABERTOS, hojeISO, nomeCliente, type OrcamentoPublico } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
+import type { ConversaoAutomatica } from '../orcamentos/conversao-automatica'
+import { avisarOrcamento } from '../orcamentos/tempo-real'
 
 const NAO_ENCONTRADO = 'Link inválido ou orçamento não encontrado.'
 
@@ -9,7 +11,7 @@ const NAO_ENCONTRADO = 'Link inválido ou orçamento não encontrado.'
  * Aprovação de orçamento pelo cliente, sem login, pelo token do link.
  * Só devolve o necessário para o cliente decidir (nada de custos ou observações internas).
  */
-export function criarPublicoService(app: FastifyInstance) {
+export function criarPublicoService(app: FastifyInstance, automatica: ConversaoAutomatica) {
   const { prisma, storage } = app
 
   async function buscar(token: string) {
@@ -18,6 +20,7 @@ export function criarPublicoService(app: FastifyInstance) {
       include: {
         cliente: { select: { nome: true, fantasia: true } },
         vendedor: { select: { id: true, nome: true } },
+        pedido: { select: { numero: true } },
         itens: { orderBy: { ordem: 'asc' }, include: { acabamentos: { select: { nome: true } } } },
       },
     })
@@ -27,8 +30,9 @@ export function criarPublicoService(app: FastifyInstance) {
     const aberto = (STATUS_ORCAMENTO_ABERTOS as readonly string[]).includes(o.status)
     const expirado = o.validade.toISOString().slice(0, 10) < hojeISO()
     if (aberto && expirado) {
-      await prisma.orcamento.updateMany({ where: { id: o.id, status: o.status }, data: { status: 'expirado' } })
+      const { count } = await prisma.orcamento.updateMany({ where: { id: o.id, status: o.status }, data: { status: 'expirado' } })
       o.status = 'expirado'
+      if (count) avisarOrcamento(app, o, 'expirado', { origem: 'sistema', atorId: null })
     }
     return o
   }
@@ -93,14 +97,13 @@ export function criarPublicoService(app: FastifyInstance) {
             : { status: 'recusado', recusadoEm: new Date(), motivoRecusa: resposta.motivo, aprovadoIp: ip },
         })
         if (count !== 1) throw AppError.regraNegocio('Este orçamento já foi respondido.')
-        if (o.vendedor) {
+        // Na aprovação, a notificação do vendedor sai depois da conversão automática (com o pedido gerado)
+        if (o.vendedor && !resposta.aprovar) {
           await tx.notificacao.create({
             data: {
               usuarioId: o.vendedor.id,
-              titulo: resposta.aprovar ? `Orçamento ${o.numero} aprovado` : `Orçamento ${o.numero} recusado`,
-              mensagem: resposta.aprovar
-                ? `${nomeCliente(o.cliente)} aprovou pelo link (${resposta.nome}).`
-                : `${nomeCliente(o.cliente)} recusou: ${resposta.motivo}`,
+              titulo: `Orçamento ${o.numero} recusado`,
+              mensagem: `${nomeCliente(o.cliente)} recusou: ${resposta.motivo}`,
               link: `/orcamentos/${o.id}`,
             },
           })
@@ -114,6 +117,14 @@ export function criarPublicoService(app: FastifyInstance) {
           usuarioId: null,
         })
       })
+      const autoria = { origem: 'cliente' as const, atorId: null }
+      if (resposta.aprovar) {
+        // Aprovação já gravada: vira pedido (se ligado) sem nunca desfazer a aprovação
+        await automatica.aposAprovacao({ ...o, vendedorId: o.vendedor?.id ?? null }, { ...autoria, nome: resposta.nome })
+      } else {
+        if (o.vendedor) app.tempoReal.emitir(`usuario:${o.vendedor.id}`, 'notificacao:nova', { titulo: `Orçamento ${o.numero} recusado`, link: `/orcamentos/${o.id}`, toast: false })
+        avisarOrcamento(app, { ...o, status: 'recusado' }, 'recusado', autoria)
+      }
       return this.obter(token)
     },
   }

@@ -5,13 +5,16 @@ import { contextoEmpresa } from '../../core/contexto-empresa'
 import { criarAcompanhamentoService } from './acompanhamento.service'
 import { criarArtesPublicoService } from './artes.service'
 import { criarPublicoService } from './service'
+import { criarConversaoAutomatica } from '../orcamentos/conversao-automatica'
+import { criarConversaoService } from '../orcamentos/conversao.service'
+import { criarOrcamentosService } from '../orcamentos/orcamentos.service'
 
 const tags = ['publico']
 /** Rotas sem login: limite de requisições por IP para dificultar tentativa de tokens. */
 const limite = { rateLimit: { max: 30, timeWindow: '1 minute' } }
 
 export const publicoRoutes: FastifyPluginAsyncZod = async (app) => {
-  const service = criarPublicoService(app)
+  const service = criarPublicoService(app, criarConversaoAutomatica(app, criarConversaoService(app, criarOrcamentosService(app))))
   const artes = criarArtesPublicoService(app)
   const acompanhamento = criarAcompanhamentoService(app)
 

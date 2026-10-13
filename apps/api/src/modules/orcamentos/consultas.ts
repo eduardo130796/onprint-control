@@ -4,6 +4,8 @@ export const incluirResumo = {
   cliente: { select: { id: true, nome: true, fantasia: true, situacao: true, whatsapp: true, email: true, telefone: true, cpfCnpj: true } },
   vendedor: { select: { id: true, nome: true } },
   solicitacao: { select: { id: true, numero: true } },
+  // Lista/kanban: "Convertido → PED-…"
+  pedido: { select: { id: true, numero: true } },
 } satisfies Prisma.OrcamentoInclude
 
 export const incluirDetalhe = {

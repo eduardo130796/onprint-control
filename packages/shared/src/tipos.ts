@@ -14,6 +14,7 @@ import type {
   TipoEndereco,
   TipoPessoa,
 } from './enums'
+import type { Prioridade, TipoEntrega } from './enums-comercial'
 
 export interface Auditavel {
   id: string
@@ -159,6 +160,13 @@ export interface EmpresaConfig extends Auditavel {
   sinalPercentual: string
   chavePix: string | null
   areaMinimaM2: string
+  /** Orçamento aprovado vira pedido sozinho, com as condições padrão abaixo */
+  converterAoAprovar: boolean
+  /** Parcelas do saldo depois do sinal */
+  parcelasPadrao: number
+  intervaloDiasPadrao: number
+  tipoEntregaPadrao: TipoEntrega
+  prioridadePadrao: Prioridade
 }
 
 export interface StatusConfig {

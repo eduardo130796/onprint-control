@@ -172,6 +172,13 @@ model EmpresaConfig {
   horasProdutivasMes    Int      @default(0) @map("horas_produtivas_mes")
   lucroDesejadoPadrao   Decimal  @default(30) @map("lucro_desejado_padrao") @db.Decimal(5, 2)
   lucroMinimoPadrao     Decimal  @default(15) @map("lucro_minimo_padrao") @db.Decimal(5, 2)
+  /// Pedidos: orçamento aprovado (pelo link ou registrado pela equipe) vira pedido sozinho, com os padrões abaixo
+  converterAoAprovar    Boolean     @default(true) @map("converter_ao_aprovar")
+  /// Parcelas do saldo depois do sinal e o intervalo entre elas
+  parcelasPadrao        Int         @default(1) @map("parcelas_padrao")
+  intervaloDiasPadrao   Int         @default(30) @map("intervalo_dias_padrao")
+  tipoEntregaPadrao     TipoEntrega @default(retirada) @map("tipo_entrega_padrao")
+  prioridadePadrao      Prioridade  @default(normal) @map("prioridade_padrao")
   createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdBy             String?  @map("created_by") @db.Uuid

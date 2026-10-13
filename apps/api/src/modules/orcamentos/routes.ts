@@ -13,20 +13,24 @@ import {
   statusPersonalizadoSchema,
 } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
+import { contextoUsuario } from '../../core/escopo'
 import { validarStatusPersonalizado } from '../../core/status-personalizado'
 import { analiseOrcamentoSchema } from './analise'
 import { criarCatalogoService } from './catalogo.service'
 import { criarOrcamentosController } from './controller'
 import { criarConversaoService } from './conversao.service'
+import { criarConversaoAutomatica } from './conversao-automatica'
 import { criarOrcamentosService } from './orcamentos.service'
 import { criarSolicitacoesService } from './solicitacoes.service'
 
 export const orcamentosRoutes: FastifyPluginAsyncZod = async (app) => {
   const orcamentos = criarOrcamentosService(app)
+  const conversao = criarConversaoService(app, orcamentos)
   const c = criarOrcamentosController(app, {
     orcamentos,
     solicitacoes: criarSolicitacoesService(app),
-    conversao: criarConversaoService(app, orcamentos),
+    conversao,
+    automatica: criarConversaoAutomatica(app, conversao),
     catalogo: criarCatalogoService(app),
   })
   const pode = (acao: 'visualizar' | 'criar' | 'editar') => ({ onRequest: [app.exigirPermissao('orcamentos', acao)] })
@@ -117,7 +121,7 @@ export const orcamentosRoutes: FastifyPluginAsyncZod = async (app) => {
       const o = await c.obter(req, req.params.id)
       const id = await validarStatusPersonalizado(app.prisma, 'orcamento', req.body.statusPersonalizadoId, o.status)
       await app.prisma.orcamento.update({ where: { id: o.id }, data: { statusPersonalizadoId: id } })
-      return c.obter(req, req.params.id)
+      return c.coluna(req, await orcamentos.obter(o.id, await contextoUsuario(app, req, 'orcamentos')))
     },
   )
   app.post('/orcamentos/:id/duplicar', { ...pode('criar'), schema: { tags, summary: 'Duplica como novo rascunho', params: idParamSchema } }, async (req, reply) =>

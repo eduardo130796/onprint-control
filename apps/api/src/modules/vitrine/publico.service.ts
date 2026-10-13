@@ -17,6 +17,7 @@ import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
 import { contextoEmpresa } from '../../core/contexto-empresa'
 import { proximoNumero } from '../../core/numeracao'
+import { avisarSolicitacao } from '../orcamentos/tempo-real'
 import { emailPedidoRecebido } from '../../integrations/email/modelos'
 import { paginado } from '../../core/paginacao'
 import { obterImagem, urlImagemPublica } from './imagens'
@@ -270,7 +271,7 @@ export function criarVitrinePublicaService(app: FastifyInstance) {
             email,
             itens: { create: itens },
           },
-          select: { id: true, numero: true },
+          select: { id: true, numero: true, status: true },
         })
         await registrarAuditoria(tx, { tabela: 'solicitacoes_orcamento', registroId: s.id, acao: 'criar', depois: { numero: s.numero, origem: 'site', itens: itens.length, via: 'vitrine', ip }, usuarioId: null })
 
@@ -289,14 +290,16 @@ export function criarVitrinePublicaService(app: FastifyInstance) {
         })
         return { ...s, usuarios: usuarios.map((u) => u.id) }
       })
-      // Lista vazia não pode ir para o emitir (sem salas, o Socket.IO manda para todos)
+      // Lista vazia não pode ir para o emitir (sem salas, o Socket.IO manda para todos).
+      // Só atualiza o sino: o aviso flutuante ("Novo pedido pelo site") vem do solicitacao:nova
       if (solicitacao.usuarios.length) {
         app.tempoReal.emitir(
           solicitacao.usuarios.map((u) => `usuario:${u}`),
           'notificacao:nova',
-          { titulo: `Pedido pelo site: ${solicitacao.numero}` },
+          { titulo: `Pedido pelo site: ${solicitacao.numero}`, toast: false },
         )
       }
+      avisarSolicitacao(app, { ...solicitacao, cliente: { nome: dados.nome, fantasia: null } }, 'criada', { origem: 'cliente', atorId: null })
       // Confirmação para o cliente (se deixou o e-mail), em nome da gráfica: a resposta vai para o atendimento dela
       if (email) {
         const empresa = await prisma.empresaConfig.findFirst({

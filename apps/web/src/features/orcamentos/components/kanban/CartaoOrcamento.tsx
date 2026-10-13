@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { CalendarClock, CheckCircle2, ExternalLink, Link2, Phone, Printer, Send, ThumbsDown, User } from 'lucide-react'
+import { CalendarClock, CheckCircle2, ExternalLink, Link2, Phone, Printer, Send, ShoppingCart, ThumbsDown, User } from 'lucide-react'
 import { formatarDataSimples, formatarMoeda, formatarTelefone, hojeISO, nomeCliente, type Orcamento } from '@onprint/shared'
 import { BotaoCartao } from '@/components/shared/kanban/BotaoCartao'
 import { cn } from '@/lib/utils'
@@ -63,6 +63,15 @@ export function CartaoOrcamento({ o, acoes }: { o: Orcamento; acoes: AcoesCartao
           <span className="inline-flex min-w-0 items-center gap-1 text-green-800">
             <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{o.aprovadoPorNome}</span>
           </span>
+        )}
+        {o.status === 'convertido' && o.pedido && (
+          <Link
+            to={`/pedidos/${o.pedido.id}`}
+            className="inline-flex items-center gap-1 font-medium text-green-800 hover:underline dark:text-green-300"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <ShoppingCart className="h-3.5 w-3.5" /> Convertido → <span className="font-mono">{o.pedido.numero}</span>
+          </Link>
         )}
         {o.status === 'recusado' && o.motivoRecusa && (
           <span className="inline-flex min-w-0 items-center gap-1 text-coral-escuro" title={o.motivoRecusa}>

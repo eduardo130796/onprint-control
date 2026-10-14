@@ -24,7 +24,7 @@ function Progresso({ pedido }: { pedido: Pedido }) {
   if (!r) return null
   return (
     <span className="text-xs text-texto-secundario">
-      Arte {r.artesAprovadas}/{r.artes} · OP {r.opsConcluidas}/{r.ops}
+      {r.artes > 0 ? `Arte ${r.artesAprovadas}/${r.artes}` : 'Sem arte'} · OP {r.opsConcluidas}/{r.ops}
     </span>
   )
 }

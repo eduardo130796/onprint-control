@@ -7,6 +7,7 @@ export const incluirOp = {
     select: {
       id: true,
       descricao: true,
+      precisaArte: true,
       produto: { select: { id: true, nome: true } },
       artes: { orderBy: { versao: 'desc' }, take: 1, select: { status: true, miniaturaId: true, versao: true } },
     },
@@ -26,7 +27,7 @@ export function formatarOp(op: OpComRelacoes, urlArquivo?: UrlArquivo, hoje = ho
   const prazo = (op.dataFimPrevista ?? op.pedido.dataPrevistaEntrega).toISOString().slice(0, 10)
   return {
     ...resto,
-    item: { id: pedidoItem.id, descricao: pedidoItem.descricao, produto: pedidoItem.produto },
+    item: { id: pedidoItem.id, descricao: pedidoItem.descricao, produto: pedidoItem.produto, precisaArte: pedidoItem.precisaArte },
     arte: pedidoItem.artes[0]
       ? { ...pedidoItem.artes[0], miniaturaUrl: pedidoItem.artes[0].miniaturaId && urlArquivo ? urlArquivo(pedidoItem.artes[0].miniaturaId) : null }
       : null,

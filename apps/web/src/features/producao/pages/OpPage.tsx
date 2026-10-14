@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Can } from '@/components/shared/Can'
 import { EstadoErro } from '@/components/shared/EstadoErro'
 import { SeloAtraso, SeloPrioridade } from '@/components/shared/Selos'
+import { SeloSemArte } from '@/components/shared/SeloSemArte'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -134,7 +135,7 @@ export function OpPage() {
                 <ImageOff className="h-8 w-8 text-texto-secundario" />
               )}
             </div>
-            <StatusBadge entidade="arte" codigo={op.arte?.status ?? 'aguardando_arquivo'} />
+            {op.item.precisaArte ? <StatusBadge entidade="arte" codigo={op.arte?.status ?? 'aguardando_arquivo'} /> : <SeloSemArte />}
           </CardContent>
         </Card>
         <div className="space-y-4 lg:col-span-2">

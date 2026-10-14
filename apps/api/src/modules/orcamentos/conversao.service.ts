@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
-import { Decimal, adicionarDiasUteis, gerarParcelas, hojeISO, type conversaoSchema } from '@onprint/shared'
+import { Decimal, adicionarDiasUteis, gerarParcelas, hojeISO, statusArtesQueContam, statusAutomaticoPedido, type StatusPedido, type conversaoSchema } from '@onprint/shared'
 import type { z } from 'zod'
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
@@ -19,9 +19,25 @@ function enderecoEmTexto(e: { logradouro: string; numero: string | null; complem
 }
 
 /**
+ * Arte do item na conversão: o item herda do produto se precisa de arte. Precisando, nasce a arte v1
+ * "aguardando arquivo"; sem arte, nenhuma (o item não trava o pedido nem a OP).
+ */
+export function arteDoItemNaConversao(precisaArte: boolean, token: () => string) {
+  return {
+    precisaArte,
+    ...(precisaArte ? { artes: { create: { versao: 1, status: 'aguardando_arquivo' as const, tokenPublico: token() } } } : {}),
+  }
+}
+
+/** Status do pedido recém-criado: sem nenhum item que precise de arte, já nasce em produção */
+export function statusInicialDoPedido(itensPrecisamArte: boolean[]): StatusPedido {
+  return statusAutomaticoPedido({ status: 'aguardando_arte', artes: statusArtesQueContam(itensPrecisamArte.map((precisaArte) => ({ precisaArte, artes: [] }))), ops: [] })
+}
+
+/**
  * Conversão transacional do orçamento aprovado em pedido (seção 9):
  * pedido + itens, data prevista em dias úteis, cliente promovido, contas a receber
- * (sinal + parcelas), comissão prevista e artes "aguardando arquivo" por item.
+ * (sinal + parcelas), comissão prevista e artes "aguardando arquivo" por item que precisa de arte.
  */
 export function criarConversaoService(app: FastifyInstance, orcamentos: OrcamentosService) {
   const { prisma } = app
@@ -53,6 +69,10 @@ export function criarConversaoService(app: FastifyInstance, orcamentos: Orcament
         primeiroVencimento: dados.primeiroVencimento,
       })
       const vendedor = o.vendedorId ? await prisma.usuario.findUnique({ where: { id: o.vendedorId } }) : null
+      // Cada item herda do produto se o pedido espera a arte dele
+      const produtos = await prisma.produto.findMany({ where: { id: { in: o.itens.map((i) => i.produtoId) } }, select: { id: true, precisaArte: true } })
+      const precisaArte = new Map(produtos.map((p) => [p.id, p.precisaArte]))
+      const arteDe = (produtoId: string) => precisaArte.get(produtoId) ?? true
 
       const criado = await prisma.$transaction(async (tx) => {
         const numero = await proximoNumero(tx, 'pedido')
@@ -62,6 +82,7 @@ export function criarConversaoService(app: FastifyInstance, orcamentos: Orcament
             numero,
             // Link "Acompanhe seu pedido" (/pedido/:empresa/:token)
             tokenPublico: gerarToken(),
+            status: statusInicialDoPedido(o.itens.map((i) => arteDe(i.produtoId))),
             clienteId: o.clienteId,
             vendedorId: o.vendedorId,
             dataPrevistaEntrega: dataBanco(adicionarDiasUteis(hoje, prazo)),
@@ -101,8 +122,8 @@ export function criarConversaoService(app: FastifyInstance, orcamentos: Orcament
                     acabamentoId, nome, tipoCobranca, valorUnitario, base, valor, custo,
                   })),
                 },
-                // Uma arte por item, aguardando o arquivo (versões na Fase 4)
-                artes: { create: { versao: 1, status: 'aguardando_arquivo', tokenPublico: gerarToken() } },
+                // Uma arte por item que precisa de arte, aguardando o arquivo (versões na Fase 4)
+                ...arteDoItemNaConversao(arteDe(i.produtoId), gerarToken),
               })),
             },
             contasReceber: {

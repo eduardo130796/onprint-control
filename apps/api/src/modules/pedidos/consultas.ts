@@ -1,12 +1,12 @@
 import type { Prisma } from '@prisma/client'
-import { STATUS_PEDIDO_SEM_ATRASO, hojeISO } from '@onprint/shared'
+import { STATUS_PEDIDO_SEM_ATRASO, contagemArtes, hojeISO } from '@onprint/shared'
 import { incluirArte } from '../artes/artes.service'
 
 export const incluirResumo = {
   cliente: { select: { id: true, nome: true, fantasia: true, whatsapp: true, telefone: true, cpfCnpj: true } },
   vendedor: { select: { id: true, nome: true } },
   orcamento: { select: { id: true, numero: true } },
-  itens: { orderBy: { ordem: 'asc' }, select: { descricao: true, quantidade: true, artes: { orderBy: { versao: 'desc' }, take: 1, select: { status: true } } } },
+  itens: { orderBy: { ordem: 'asc' }, select: { descricao: true, quantidade: true, precisaArte: true, artes: { orderBy: { versao: 'desc' }, take: 1, select: { status: true } } } },
   ordensProducao: { where: { cancelada: false }, select: { etapaAtual: true } },
 } satisfies Prisma.PedidoInclude
 
@@ -34,16 +34,17 @@ export function atrasado(p: { status: string; dataPrevistaEntrega: Date }, hoje 
   return !(STATUS_PEDIDO_SEM_ATRASO as readonly string[]).includes(p.status) && p.dataPrevistaEntrega.toISOString().slice(0, 10) < hoje
 }
 
-/** Lista/kanban: contagem de artes aprovadas e OPs concluídas no lugar das relações completas. */
+/** Lista/kanban: contagem de artes aprovadas (só itens que precisam de arte) e OPs concluídas no lugar das relações completas. */
 export function formatarResumo(p: Resumo) {
   const { itens, ordensProducao, ...resto } = p
+  const artes = contagemArtes(itens)
   return {
     ...resto,
     atrasado: atrasado(p),
     resumo: {
       itens: itens.length,
-      artes: itens.length,
-      artesAprovadas: itens.filter((i) => i.artes[0]?.status === 'aprovada').length,
+      artes: artes.total,
+      artesAprovadas: artes.aprovadas,
       ops: ordensProducao.length,
       opsConcluidas: ordensProducao.filter((o) => o.etapaAtual === 'concluido').length,
       /** Os 3 primeiros itens ("2 × Banner 2×1 m") para o cartão do kanban */

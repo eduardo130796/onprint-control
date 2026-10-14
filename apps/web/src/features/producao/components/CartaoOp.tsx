@@ -4,6 +4,7 @@ import { formatarDataSimples, nomeCliente, type OrdemProducao } from '@onprint/s
 import { BotaoCartao } from '@/components/shared/kanban/BotaoCartao'
 import { Checkbox } from '@/components/ui/form-controls'
 import { SeloAtraso, SeloPrioridade } from '@/components/shared/Selos'
+import { SeloSemArte } from '@/components/shared/SeloSemArte'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { formatarDuracao } from '@/lib/datas'
 import { cn } from '@/lib/utils'
@@ -81,7 +82,11 @@ export function CartaoOp({ op, acoes, selecao }: { op: OrdemProducao; acoes?: Ac
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {op.atrasada && <SeloAtraso />}
           <SeloPrioridade prioridade={op.prioridade} />
-          <StatusBadge entidade="arte" codigo={op.arte?.status ?? 'aguardando_arquivo'} className="text-[0.6875rem]" />
+          {op.item.precisaArte ? (
+            <StatusBadge entidade="arte" codigo={op.arte?.status ?? 'aguardando_arquivo'} className="text-[0.6875rem]" />
+          ) : (
+            <SeloSemArte className="text-[0.6875rem]" />
+          )}
         </div>
         <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-texto-secundario">
           <span className={cn('inline-flex items-center gap-1', op.atrasada && 'font-medium text-coral-escuro')}>

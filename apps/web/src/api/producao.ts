@@ -50,6 +50,9 @@ export const artesApi = {
   /** Marca as artes do pedido como enviadas ao cliente (avisar = false quando a mensagem já saiu pelo diálogo) */
   enviarVarias: (pedidoId: string, arteIds: string[], avisar: boolean) =>
     http<{ enviadas: number }>(`/pedidos/${pedidoId}/artes/enviar`, { method: 'POST', body: { arteIds, avisar } }),
+  /** "Este item não precisa de arte" (false) ou volta a precisar (true); o status do pedido é recalculado */
+  alterarPrecisaArte: (itemId: string, precisaArte: boolean) =>
+    http<{ precisaArte: boolean }>(`/pedidos/itens/${itemId}/precisa-arte`, { method: 'PATCH', body: { precisaArte } }),
   /** "Cliente aprovou todas as artes" */
   aprovarTodas: (pedidoId: string, via: ViaAprovacaoArte) => http<{ aprovadas: number }>(`/pedidos/${pedidoId}/artes/aprovar`, { method: 'POST', body: { via } }),
   comentar: (id: string, texto: string) => http<ArteVersao>(`/artes/${id}/comentarios`, { method: 'POST', body: { texto } }),

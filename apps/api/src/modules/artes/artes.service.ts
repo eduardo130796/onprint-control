@@ -27,7 +27,7 @@ export function criarArtesService(app: FastifyInstance, arquivos: ArquivosServic
   const { prisma, storage } = app
 
   async function obter(id: string) {
-    const arte = await prisma.arte.findUnique({ where: { id }, include: { ...incluirArte, pedidoItem: { select: { id: true, pedidoId: true } } } })
+    const arte = await prisma.arte.findUnique({ where: { id }, include: { ...incluirArte, pedidoItem: { select: { id: true, pedidoId: true, precisaArte: true } } } })
     if (!arte) throw AppError.naoEncontrado('Arte não encontrada.')
     return arte
   }
@@ -36,11 +36,11 @@ export function criarArtesService(app: FastifyInstance, arquivos: ArquivosServic
     return prisma.arte.findFirst({ where: { pedidoItemId }, orderBy: { versao: 'desc' } })
   }
 
-  /** Última versão da arte de cada item do pedido */
+  /** Última versão da arte de cada item do pedido que precisa de arte (os "sem arte" ficam de fora) */
   async function ultimasDoPedido(pedidoId: string) {
     const pedido = await prisma.pedido.findUnique({
       where: { id: pedidoId },
-      select: { id: true, status: true, itens: { select: { artes: { orderBy: { versao: 'desc' }, take: 1, select: { id: true, status: true, arquivoId: true } } } } },
+      select: { id: true, status: true, itens: { where: { precisaArte: true }, select: { artes: { orderBy: { versao: 'desc' }, take: 1, select: { id: true, status: true, arquivoId: true } } } } },
     })
     if (!pedido) throw AppError.naoEncontrado('Pedido não encontrado.')
     return { pedido, artes: pedido.itens.flatMap((i) => i.artes) }
@@ -50,6 +50,7 @@ export function criarArtesService(app: FastifyInstance, arquivos: ArquivosServic
     const arte = await obter(id)
     const ultima = await ultimaVersao(arte.pedidoItemId)
     if (ultima?.id !== id) throw AppError.regraNegocio('Existe uma versão mais nova desta arte.')
+    if (!arte.pedidoItem.precisaArte) throw AppError.regraNegocio('Este item está sem arte. Marque que ele precisa de arte para aprovar ou enviar ao cliente.')
     if (!permitidos.includes(arte.status)) throw AppError.regraNegocio(mensagem)
     const usuario = await prisma.usuario.findUnique({ where: { id: ctx.usuarioId }, select: { nome: true } })
     const mudanca = await prisma.$transaction(async (tx) => {
@@ -193,6 +194,42 @@ export function criarArtesService(app: FastifyInstance, arquivos: ArquivosServic
       app.tempoReal.emitir('producao', 'op:atualizada', { pedidoId })
       await descartarAvisoDeArte(prisma, pedidoId)
       return { aprovadas: alvo.length }
+    },
+
+    /**
+     * "Este item não precisa de arte" / "Arte do cliente já pronta": o item deixa de travar o pedido e a OP.
+     * As versões que já existiam ficam guardadas (nada é apagado), só saem da regra; voltando a precisar de arte,
+     * elas voltam a valer, e um item que nunca teve arte ganha a v1 "aguardando arquivo".
+     * Recalcula o status do pedido (pode ir direto para a produção) e avisa as telas abertas.
+     */
+    async alterarPrecisaArte(pedidoItemId: string, precisaArte: boolean, ctx: ContextoUsuario) {
+      const item = await prisma.pedidoItem.findUnique({
+        where: { id: pedidoItemId },
+        select: { id: true, pedidoId: true, descricao: true, precisaArte: true, pedido: { select: { status: true } }, _count: { select: { artes: true } } },
+      })
+      if (!item) throw AppError.naoEncontrado('Item do pedido não encontrado.')
+      if (ENCERRADOS.includes(item.pedido.status)) throw AppError.regraNegocio('Pedido encerrado.')
+      if (item.precisaArte === precisaArte) return { precisaArte, pedido: null }
+      const mudanca = await prisma.$transaction(async (tx) => {
+        await tx.pedidoItem.update({ where: { id: pedidoItemId }, data: { precisaArte } })
+        if (precisaArte && item._count.artes === 0) {
+          await tx.arte.create({ data: { pedidoItemId, versao: 1, status: 'aguardando_arquivo', tokenPublico: gerarToken() } })
+        }
+        await registrarAuditoria(tx, {
+          tabela: 'pedido_itens',
+          registroId: pedidoItemId,
+          acao: 'editar',
+          antes: { precisaArte: item.precisaArte },
+          depois: { precisaArte, descricao: item.descricao },
+          usuarioId: ctx.usuarioId,
+        })
+        return sincronizarStatusPedido(tx, item.pedidoId, ctx.usuarioId)
+      })
+      avisarMudancaPedido(app, mudanca, item.pedidoId)
+      app.tempoReal.emitir('producao', 'op:atualizada', { pedidoId: item.pedidoId })
+      // A arte deste item aguardava o cliente na fila do WhatsApp: se não sobrou nenhuma, o aviso não sai
+      if (!precisaArte) await descartarAvisoDeArte(prisma, item.pedidoId)
+      return { precisaArte, pedido: mudanca }
     },
 
     async comentar(id: string, texto: string, ctx: ContextoUsuario) {

@@ -63,7 +63,8 @@ export function CartaoPedido({ pedido: p, acoes }: { pedido: Pedido; acoes: Acoe
       )}
       {r && r.ops > 0 && (
         <div className="mt-2.5 grid grid-cols-2 gap-3">
-          <Progresso rotulo="Arte aprovada" feito={r.artesAprovadas} total={r.artes} />
+          {/* Só os itens que precisam de arte; sem nenhum, o pedido não passa pela arte */}
+          {r.artes > 0 ? <Progresso rotulo="Arte aprovada" feito={r.artesAprovadas} total={r.artes} /> : <span className="self-end text-[0.6875rem] text-texto-secundario">Sem arte</span>}
           <Progresso rotulo="OPs concluídas" feito={r.opsConcluidas} total={r.ops} cor="bg-sky-500" />
         </div>
       )}

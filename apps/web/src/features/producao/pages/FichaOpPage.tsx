@@ -103,7 +103,7 @@ export function FichaOpPage() {
                 <Dado rotulo="Máquina">{op.maquina?.nome ?? '—'}</Dado>
                 <Dado rotulo="Responsável">{op.responsavel?.nome ?? '—'}</Dado>
                 <Dado rotulo="Horas previstas">{num(op.horasEstimadas)} h</Dado>
-                <Dado rotulo="Arte">{op.arte ? `versão ${op.arte.versao} · ${mapa.get(`arte:${op.arte.status}`)?.rotulo ?? op.arte.status}` : 'sem arte'}</Dado>
+                <Dado rotulo="Arte">{!op.item.precisaArte ? 'sem arte (não precisa)' : op.arte ? `versão ${op.arte.versao} · ${mapa.get(`arte:${op.arte.status}`)?.rotulo ?? op.arte.status}` : 'sem arte'}</Dado>
                 <Dado rotulo="Acabamentos" largo>
                   {op.acabamentos.join(', ') || '—'}
                 </Dado>

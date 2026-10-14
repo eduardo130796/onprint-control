@@ -205,6 +205,8 @@ export interface PedidoParaAcompanhar {
     largura: Num | null
     altura: Num | null
     total: Num
+    /** false = item sem arte: não aparece nas artes (ausente = precisa, como antes) */
+    precisaArte?: boolean
     acabamentos: { nome: string }[]
     /** Versões da arte, da mais nova para a mais antiga */
     artes: {
@@ -233,7 +235,9 @@ const valor = (n: Num) => Number(n.toString())
 const dinheiro = (n: number) => (Math.round(n * 100) / 100).toFixed(2)
 
 /** Monta a resposta pública do link de acompanhamento (whitelist: cada campo é escolhido aqui). */
-export function montarAcompanhamento(p: PedidoParaAcompanhar, x: ExtrasAcompanhamento): PedidoAcompanhamento {
+export function montarAcompanhamento(pedido: PedidoParaAcompanhar, x: ExtrasAcompanhamento): PedidoAcompanhamento {
+  // Item sem arte: as versões guardadas não aparecem para o cliente
+  const p = { ...pedido, itens: pedido.itens.map((i) => (i.precisaArte === false ? { ...i, artes: [] } : i)) }
   const ultimas = p.itens.map((i) => i.artes[0] ?? null)
   const temArte = ultimas.some(Boolean)
   // Só pede a aprovação enquanto o pedido está na etapa da arte (depois de produzir/entregar, nunca mais)

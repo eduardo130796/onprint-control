@@ -29,6 +29,7 @@ export function valoresProduto(p?: Produto): ProdutoInput {
     prazoProducaoDias: String(p?.prazoProducaoDias ?? 0),
     controlaEstoque: p?.controlaEstoque ?? false,
     estoqueMinimo: decimalParaInput(p?.estoqueMinimo ?? 0, 3),
+    precisaArte: p?.precisaArte ?? true,
     ativo: p?.ativo ?? true,
   }
 }
@@ -49,6 +50,7 @@ export const ABA_DO_CAMPO: Record<string, string> = {
   unidadeMedidaId: 'geral',
   tipo: 'geral',
   prazoProducaoDias: 'geral',
+  precisaArte: 'geral',
   modoCalculo: 'geral',
   precoVenda: 'geral',
   custo: 'geral',

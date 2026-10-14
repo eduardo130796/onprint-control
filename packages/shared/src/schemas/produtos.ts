@@ -126,6 +126,8 @@ const produtoBase = z.object({
   prazoProducaoDias: z.coerce.number().int().min(0).max(365).default(0),
   controlaEstoque: z.boolean().default(false),
   estoqueMinimo: decimal3.default('0'),
+  /** O pedido espera a arte antes de produzir; ausente = mantém (no cadastro novo, sim) */
+  precisaArte: z.boolean().optional(),
   ativo: z.boolean().default(true),
 })
 

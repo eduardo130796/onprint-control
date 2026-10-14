@@ -38,6 +38,7 @@ export function criarAcompanhamentoService(app: FastifyInstance) {
             largura: true,
             altura: true,
             total: true,
+            precisaArte: true,
             acabamentos: { select: { nome: true } },
             artes: {
               orderBy: { versao: 'desc' },

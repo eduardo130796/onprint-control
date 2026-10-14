@@ -284,6 +284,8 @@ export interface Produto extends Auditavel {
   prazoProducaoDias: number
   controlaEstoque: boolean
   estoqueMinimo: string
+  /** O pedido espera a arte deste produto antes de produzir */
+  precisaArte: boolean
   imagemArquivoId: string | null
   ativo: boolean
 }

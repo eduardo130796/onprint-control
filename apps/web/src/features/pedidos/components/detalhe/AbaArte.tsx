@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { CheckCheck, Loader2, Palette, Send } from 'lucide-react'
+import { CheckCheck, Loader2, Palette, Send, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 import { artesParaAprovarTodas, nomeCliente, type PedidoDetalhe, type StatusArte } from '@onprint/shared'
 import { artesApi } from '@/api/producao'
@@ -22,6 +22,7 @@ const PODE_IR_AO_CLIENTE: StatusArte[] = ['em_criacao', 'ajuste_solicitado', 'en
  * Aba "Arte" do pedido. A aprovação normalmente fica com a equipe ("Marcar como aprovada" em cada arte, ou
  * "Cliente aprovou todas as artes" num clique). Mandar para o cliente é uma escolha: "Enviar para o cliente" abre
  * UMA mensagem para o pedido com as artes escolhidas (texto, arquivos logo depois e um link só).
+ * Item "sem arte" fica fora da contagem, da aprovação e do envio (não trava o pedido nem a OP).
  */
 export function AbaArte({ pedido }: { pedido: PedidoDetalhe }) {
   const queryClient = useQueryClient()
@@ -31,7 +32,8 @@ export function AbaArte({ pedido }: { pedido: PedidoDetalhe }) {
   const [aprovando, setAprovando] = useState(false)
   const encerrado = ENCERRADO.includes(pedido.status)
 
-  const ultimas = pedido.itens.flatMap((item) => (item.artes[0] ? [{ item, arte: item.artes[0] }] : []))
+  const comArte = pedido.itens.filter((item) => item.precisaArte)
+  const ultimas = comArte.flatMap((item) => (item.artes[0] ? [{ item, arte: item.artes[0] }] : []))
   const prontas = ultimas.filter(({ arte }) => arte.arquivo && PODE_IR_AO_CLIENTE.includes(arte.status))
   const paraAprovarTodas = artesParaAprovarTodas(ultimas.map(({ arte }) => ({ ...arte, arquivoId: arte.arquivo?.id ?? null })))
   const aprovadas = ultimas.filter(({ arte }) => arte.status === 'aprovada').length
@@ -104,7 +106,7 @@ export function AbaArte({ pedido }: { pedido: PedidoDetalhe }) {
           <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="font-medium text-tinta">
-                {aprovadas} de {pedido.itens.length} {pedido.itens.length === 1 ? 'arte aprovada' : 'artes aprovadas'}
+                {aprovadas} de {comArte.length} {comArte.length === 1 ? 'arte aprovada' : 'artes aprovadas'}
               </p>
               <p className="text-sm text-texto-secundario">Aprove aqui mesmo. Envie ao cliente só quando ele precisar ver antes.</p>
             </div>
@@ -126,6 +128,17 @@ export function AbaArte({ pedido }: { pedido: PedidoDetalhe }) {
                 )}
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+      {pedido.itens.length > 0 && comArte.length === 0 && (
+        <Card>
+          <CardContent className="flex items-start gap-3 pt-6 text-sm">
+            <Zap className="mt-0.5 h-5 w-5 shrink-0 text-marca-escuro" />
+            <div>
+              <p className="font-medium text-tinta">Nenhum item deste pedido precisa de arte</p>
+              <p className="text-texto-secundario">O pedido segue direto para a produção, sem esperar aprovação.</p>
+            </div>
           </CardContent>
         </Card>
       )}

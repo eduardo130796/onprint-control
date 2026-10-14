@@ -637,6 +637,8 @@ model Produto {
   prazoProducaoDias     Int         @default(0) @map("prazo_producao_dias")
   controlaEstoque       Boolean     @default(false) @map("controla_estoque")
   estoqueMinimo         Decimal     @default(0) @map("estoque_minimo") @db.Decimal(12, 3)
+  /// O pedido espera a arte deste produto antes de produzir (copiado para o item na conversão)
+  precisaArte           Boolean     @default(true) @map("precisa_arte")
   /// Capa: acompanha a primeira imagem da galeria (produto_imagens)
   imagemArquivoId       String?     @map("imagem_arquivo_id") @db.Uuid
   ativo                 Boolean     @default(true)
@@ -1189,6 +1191,8 @@ model PedidoItem {
   prazoDias        Int      @default(0) @map("prazo_dias")
   ordem            Int
   observacao       String?
+  /// Sem arte (false): não trava o pedido nem a OP; as artes que já existiam ficam guardadas, fora da regra
+  precisaArte      Boolean  @default(true) @map("precisa_arte")
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 

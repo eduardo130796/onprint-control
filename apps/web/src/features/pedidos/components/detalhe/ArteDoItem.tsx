@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, ChevronDown, Download, ExternalLink, FileImage, MessageSquare, Send } from 'lucide-react'
+import { CheckCircle2, ChevronDown, Download, ExternalLink, FileImage, MessageSquare, Palette, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   EXTENSOES_PERMITIDAS,
@@ -17,6 +17,7 @@ import { arquivosApi } from '@/api/cadastros'
 import { artesApi } from '@/api/producao'
 import { Can } from '@/components/shared/Can'
 import { FileUploader } from '@/components/shared/FileUploader'
+import { SeloSemArte } from '@/components/shared/SeloSemArte'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -93,6 +94,26 @@ export function MarcarAprovada({ rotulo = 'Marcar como aprovada', onEscolher, si
   )
 }
 
+/**
+ * "Não precisa de arte ▾": o item deixa de travar o pedido e a OP. "Arte do cliente já pronta" é o mesmo, com o
+ * arquivo do cliente anexado depois (opcional). As versões que já existiam ficam guardadas.
+ */
+function SemArte({ onEscolher }: { onEscolher: (arteDoCliente: boolean) => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" variant="outline">
+          Não precisa de arte <ChevronDown />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onSelect={() => onEscolher(false)}>Este item não precisa de arte</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onEscolher(true)}>Arte do cliente já pronta (anexar arquivo opcional)</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 /** Arte de um item: versão atual (miniatura, status, aprovação, envio e comentários) e versões anteriores. */
 export function ArteDoItem({ pedido, item, onEnviar }: { pedido: PedidoDetalhe; item: PedidoItemDetalhe; onEnviar: (arteId: string) => void }) {
   const queryClient = useQueryClient()
@@ -100,6 +121,7 @@ export function ArteDoItem({ pedido, item, onEnviar }: { pedido: PedidoDetalhe; 
   const podeComentar = pode('artes', 'visualizar') || pode('pedidos', 'editar')
   const [atual, ...anteriores] = item.artes
   const encerrado = ENCERRADO.includes(pedido.status)
+  const semArte = !item.precisaArte
   const atualizar = () => queryClient.invalidateQueries({ queryKey: ['pedidos'] })
 
   async function executar(acao: () => Promise<unknown>, sucesso: string) {
@@ -125,11 +147,35 @@ export function ArteDoItem({ pedido, item, onEnviar }: { pedido: PedidoDetalhe; 
     <Card>
       <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
         <CardTitle className="text-base">{item.descricao}</CardTitle>
-        {atual && (
-          <span className="flex items-center gap-2 text-sm text-texto-secundario">
-            v{atual.versao} <StatusBadge entidade="arte" codigo={atual.status} />
-          </span>
-        )}
+        <span className="flex flex-wrap items-center gap-2 text-sm text-texto-secundario">
+          {semArte ? (
+            <SeloSemArte />
+          ) : (
+            atual && (
+              <>
+                v{atual.versao} <StatusBadge entidade="arte" codigo={atual.status} />
+              </>
+            )
+          )}
+          {!encerrado && (
+            <Can modulo="artes" acao="editar">
+              {semArte ? (
+                <Button size="sm" variant="ghost" onClick={() => void executar(() => artesApi.alterarPrecisaArte(item.id, true), 'O item voltou a precisar de arte.')}>
+                  <Palette /> Precisa de arte
+                </Button>
+              ) : (
+                <SemArte
+                  onEscolher={(arteDoCliente) =>
+                    void executar(
+                      () => artesApi.alterarPrecisaArte(item.id, false),
+                      arteDoCliente ? 'Item sem etapa de arte. Anexe o arquivo do cliente, se quiser.' : 'Item sem arte: segue direto para a produção.',
+                    )
+                  }
+                />
+              )}
+            </Can>
+          )}
+        </span>
       </CardHeader>
       <CardContent className="grid gap-5 md:grid-cols-[13.75rem_1fr]">
         <div className="space-y-2">
@@ -148,7 +194,13 @@ export function ArteDoItem({ pedido, item, onEnviar }: { pedido: PedidoDetalhe; 
         </div>
 
         <div className="space-y-4">
-          {atual && (
+          {semArte && (
+            <p className="rounded-lg bg-fundo p-3 text-sm text-texto-secundario">
+              Este item não precisa de arte: não espera aprovação e a OP segue direto para a impressão.
+              {atual?.arquivo && ' Os arquivos que já vieram ficam guardados aqui.'}
+            </p>
+          )}
+          {atual && !semArte && (
             <div className="flex flex-wrap gap-2">
               {atual.status !== 'aprovada' && atual.arquivo && !encerrado && (
                 <Can modulo="artes" acao="aprovar">
@@ -182,7 +234,13 @@ export function ArteDoItem({ pedido, item, onEnviar }: { pedido: PedidoDetalhe; 
             <Can modulo="artes" acao="editar">
               <FileUploader
                 extensoes={EXTENSOES_PERMITIDAS}
-                texto={atual?.arquivo ? `Enviar nova versão (v${atual.versao + 1})` : 'Enviar o arquivo da arte'}
+                texto={
+                  semArte
+                    ? 'Anexar o arquivo do cliente (opcional)'
+                    : atual?.arquivo
+                      ? `Enviar nova versão (v${atual.versao + 1})`
+                      : 'Enviar o arquivo da arte'
+                }
                 onEnviar={async (arquivo, progresso) => {
                   await artesApi.enviarArquivo(item.id, arquivo, progresso)
                   await atualizar()

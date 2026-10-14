@@ -75,6 +75,8 @@ export interface PedidoItemDetalhe {
   total: string
   prazoDias: number
   observacao: string | null
+  /** false = item sem arte: não trava o pedido nem a OP (artes antigas ficam guardadas) */
+  precisaArte: boolean
   produto: { id: string; codigo: string; nome: string }
   acabamentos: { id: string; nome: string; tipoCobranca: TipoCobranca; valor: string }[]
   artes: ArteVersao[]
@@ -127,7 +129,7 @@ export interface OrdemProducao {
   pedidoId: string
   pedido: { id: string; numero: string; cliente: RefCliente; dataPrevistaEntrega: string; status: StatusPedido }
   pedidoItemId: string
-  item: { id: string; descricao: string; produto: { id: string; nome: string } }
+  item: { id: string; descricao: string; produto: { id: string; nome: string }; precisaArte: boolean }
   quantidade: string
   largura: string | null
   altura: string | null

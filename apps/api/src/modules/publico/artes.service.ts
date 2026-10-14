@@ -46,6 +46,7 @@ export function criarArtesPublicoService(app: FastifyInstance) {
             largura: true,
             altura: true,
             pedido: { select: { id: true, numero: true, status: true, tokenPublico: true, vendedorId: true, cliente: { select: { nome: true, fantasia: true } } } },
+            precisaArte: true,
             artes: { orderBy: { versao: 'desc' }, take: 1, select: { id: true } },
           },
         },
@@ -99,7 +100,7 @@ export function criarArtesPublicoService(app: FastifyInstance) {
     const arte = await buscar(token)
     const ultima = arte.pedidoItem.artes[0]?.id === arte.id
     const pedido = arte.pedidoItem.pedido
-    if (!ultima || !arteAguardaCliente(pedido.status as StatusPedido, arte.status)) throw AppError.regraNegocio(NAO_AGUARDA)
+    if (!ultima || !arte.pedidoItem.precisaArte || !arteAguardaCliente(pedido.status as StatusPedido, arte.status)) throw AppError.regraNegocio(NAO_AGUARDA)
     await responderArtes(pedido, [arte], aprovar, nome, texto, ip)
     return montarVisao(token)
   }
@@ -113,7 +114,7 @@ export function criarArtesPublicoService(app: FastifyInstance) {
         numero: true,
         status: true,
         vendedorId: true,
-        itens: { select: { artes: { orderBy: { versao: 'desc' }, take: 1, select: { id: true, versao: true, status: true, designerId: true } } } },
+        itens: { where: { precisaArte: true }, select: { artes: { orderBy: { versao: 'desc' }, take: 1, select: { id: true, versao: true, status: true, designerId: true } } } },
       },
     })
     if (!pedido) throw AppError.naoEncontrado('Link inválido ou pedido não encontrado.')
@@ -134,7 +135,7 @@ export function criarArtesPublicoService(app: FastifyInstance) {
       status: arte.status,
       ultimaVersao: ultima,
       // Pedido que já seguiu para a produção (ou terminou) não pede mais a aprovação
-      podeResponder: ultima && arteAguardaCliente(pedido.status as StatusPedido, arte.status),
+      podeResponder: ultima && arte.pedidoItem.precisaArte && arteAguardaCliente(pedido.status as StatusPedido, arte.status),
       pedido: { numero: pedido.numero, cliente: nomeCliente(pedido.cliente) },
       /** Página do pedido, seção das artes (onde aprova todas de uma vez) */
       linkPedido: `${caminhoAcompanhamento(contextoEmpresa.exigir().slug, pedido.tokenPublico)}#artes`,

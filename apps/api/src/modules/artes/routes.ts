@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import type { FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { arteAprovacaoInternaSchema, arteComentarioSchema, artesEnviarSchema, idParamSchema } from '@onprint/shared'
+import { arteAprovacaoInternaSchema, arteComentarioSchema, artesEnviarSchema, idParamSchema, itemPrecisaArteSchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { contextoUsuario } from '../../core/escopo'
 import { criarArquivosService } from '../arquivos/service'
@@ -31,6 +31,14 @@ export const artesRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: { tags, summary: 'Envia o arquivo da arte (nova versão se a atual já tem arquivo)', params: z.object({ itemId: z.string().uuid() }), consumes: ['multipart/form-data'] },
     },
     async (req, reply) => reply.status(201).send(await artes.enviarArquivo(req, req.params.itemId, await ctx(req))),
+  )
+  app.patch(
+    '/pedidos/itens/:itemId/precisa-arte',
+    {
+      ...pode('editar'),
+      schema: { tags, summary: 'Item com ou sem arte (sem arte: não trava o pedido nem a OP)', params: z.object({ itemId: z.string().uuid() }), body: itemPrecisaArteSchema },
+    },
+    async (req) => artes.alterarPrecisaArte(req.params.itemId, req.body.precisaArte, await ctx(req)),
   )
   app.get('/artes/:id', { ...pode('visualizar'), schema: { tags, summary: 'Versão da arte com comentários', params: idParamSchema } }, (req) => artes.obter(req.params.id))
   app.post('/artes/:id/enviar', { ...pode('editar'), schema: { tags, summary: 'Envia a arte para aprovação do cliente', params: idParamSchema } }, async (req) =>

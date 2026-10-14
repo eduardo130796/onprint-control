@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 /** Resumo do pedido gerado pela conversão, com atalho para o pedido. */
 export function PedidoGerado({ pedido }: { pedido: PedidoResumo }) {
+  // Itens sem arte não ganham arte na conversão
   const artes = pedido.itens.flatMap((i) => i.artes)
   return (
     <Card className="border border-verde/40">
@@ -40,7 +41,7 @@ export function PedidoGerado({ pedido }: { pedido: PedidoResumo }) {
             Comissão prevista: {formatarMoeda(pedido.comissoes[0]!.valor)} ({Number(pedido.comissoes[0]!.percentual).toLocaleString('pt-BR')}%)
           </p>
         )}
-        <p className="text-texto-secundario">{artes.length} arte(s) no pedido.</p>
+        <p className="text-texto-secundario">{artes.length ? `${artes.length} arte(s) no pedido.` : 'Nenhum item precisa de arte: o pedido segue direto para a produção.'}</p>
         <Link to={`/pedidos/${pedido.id}`} className="inline-flex items-center gap-1 font-medium text-marca-escuro hover:underline">
           Abrir pedido <ArrowRight className="h-4 w-4" />
         </Link>

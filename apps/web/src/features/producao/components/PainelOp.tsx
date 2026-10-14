@@ -5,6 +5,7 @@ import { PRIORIDADE_ROTULOS, formatarDataHora, formatarDataSimples, nomeCliente,
 import { opsApi } from '@/api/producao'
 import { EstadoErro } from '@/components/shared/EstadoErro'
 import { AcaoPainel, DadoPainel, PainelCartao } from '@/components/shared/kanban/PainelCartao'
+import { SeloSemArte } from '@/components/shared/SeloSemArte'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDialogoEtiquetas } from '@/features/impressao/useDialogoEtiquetas'
@@ -70,7 +71,11 @@ export function PainelOp({ op, onFechar, onEditar }: PainelOpProps) {
         <div>
           <p className="text-base font-semibold">{op.item.descricao}</p>
           <div className="mt-1 flex flex-wrap gap-1.5">
-            <StatusBadge entidade="arte" codigo={op.arte?.status ?? 'aguardando_arquivo'} className="text-[0.6875rem]" />
+            {op.item.precisaArte ? (
+              <StatusBadge entidade="arte" codigo={op.arte?.status ?? 'aguardando_arquivo'} className="text-[0.6875rem]" />
+            ) : (
+              <SeloSemArte className="text-[0.6875rem]" />
+            )}
             {op.arte && <span className="text-xs text-texto-secundario">versão {op.arte.versao}</span>}
           </div>
         </div>

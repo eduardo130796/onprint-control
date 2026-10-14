@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Ban, ChevronDown, Copy, ExternalLink, FileDown, History, Link2, Loader2, MessageCircle, Pencil, Printer, ReceiptText, Tags } from 'lucide-react'
 import { toast } from 'sonner'
-import { TIPO_ENTREGA_ROTULOS, formatarData, formatarDataSimples, formatarMoeda, nomeCliente, saldoPedido, type RecebimentosPedido } from '@onprint/shared'
+import { TIPO_ENTREGA_ROTULOS, contagemArtes, formatarData, formatarDataSimples, formatarMoeda, nomeCliente, saldoPedido, type RecebimentosPedido } from '@onprint/shared'
 import { pedidosApi } from '@/api/producao'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Anexos } from '@/components/shared/Anexos'
@@ -77,7 +77,8 @@ export function PedidoPage() {
 
   const pedido = consulta.data
   const encerrado = ['cancelado', 'entregue'].includes(pedido.status)
-  const artesAprovadas = pedido.itens.filter((i) => i.artes[0]?.status === 'aprovada').length
+  // Só os itens que precisam de arte
+  const artes = contagemArtes(pedido.itens)
 
   const empresa = usuario?.empresa.exibicao ?? ''
   const destinatario = { nome: nomeCliente(pedido.cliente), numero: pedido.cliente.whatsapp || pedido.cliente.telefone, clienteId: pedido.clienteId }
@@ -226,9 +227,7 @@ export function PedidoPage() {
           </div>
           <div>
             <p className="text-xs text-texto-secundario">Artes aprovadas</p>
-            <p className="font-medium">
-              {artesAprovadas} de {pedido.itens.length}
-            </p>
+            <p className="font-medium">{artes.total ? `${artes.aprovadas} de ${artes.total}` : 'Sem arte'}</p>
           </div>
           <div>
             <p className="text-xs text-texto-secundario">Vendedor</p>

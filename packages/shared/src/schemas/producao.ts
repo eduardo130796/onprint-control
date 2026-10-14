@@ -104,6 +104,9 @@ export const artesEnviarSchema = z.object({
   avisar: z.boolean().default(true),
 })
 
+/** Item do pedido com ou sem arte ("Este item não precisa de arte" / "Arte do cliente já pronta") */
+export const itemPrecisaArteSchema = z.object({ precisaArte: z.boolean() })
+
 export const arteAprovacaoPublicaSchema = z.object({
   nome: z.string().trim().min(3, 'Informe seu nome completo.').max(160),
   aceite: z.literal(true, { message: 'Confirme que conferiu a arte.' }),

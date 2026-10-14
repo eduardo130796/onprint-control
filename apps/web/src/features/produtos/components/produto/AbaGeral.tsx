@@ -6,7 +6,7 @@ import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { FileUploader } from '@/components/shared/FileUploader'
 import { NumberInput } from '@/components/shared/inputs'
 import { Card, CardContent } from '@/components/ui/card'
-import { Select, Textarea } from '@/components/ui/form-controls'
+import { Checkbox, Select, Textarea } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
 import { useUrlArquivo } from '@/features/configuracoes/hooks'
 import { useCategorias, useUnidades } from '../../hooks'
@@ -109,6 +109,15 @@ export function AbaGeral({ form, produto, podeEditar }: AbaGeralProps) {
               <CampoFormulario id="pd-prazo" rotulo="Prazo de produção" erro={errors.prazoProducaoDias?.message}>
                 <NumberInput id="pd-prazo" casas={0} sufixo="dias úteis" className="pr-20" {...r('prazoProducaoDias')} />
               </CampoFormulario>
+            </div>
+            <div className="md:col-span-6">
+              <label className="flex items-start gap-2 text-sm">
+                <Checkbox className="mt-0.5" {...r('precisaArte')} />
+                <span>
+                  Precisa de arte (o pedido espera a arte antes de produzir)
+                  <span className="block text-xs text-texto-secundario">Desmarque para serviços e itens sem impressão: o pedido vai direto para a produção.</span>
+                </span>
+              </label>
             </div>
             <div className="md:col-span-6">
               <CampoFormulario id="pd-descricao" rotulo="Descrição (aparece no orçamento)">

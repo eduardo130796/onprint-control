@@ -1,8 +1,8 @@
 import type { Prisma } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
 import {
-  ETAPAS_QUE_EXIGEM_ARTE,
   hojeISO,
+  opPrecisaLiberarArte,
   type apontamentoSchema,
   type moverOpSchema,
   type opAtualizacaoSchema,
@@ -108,17 +108,15 @@ export function criarOpsService(app: FastifyInstance, aoConcluir: AoConcluirOp =
 
     /**
      * Move a OP no kanban: grava o histórico com o tempo na etapa anterior, exige arte aprovada
-     * a partir da impressão (override só com producao:aprovar, registrado na auditoria) e
+     * a partir da impressão (override só com producao:aprovar, registrado na auditoria; item sem arte não trava) e
      * atualiza o status do pedido (pode virar "pronto").
      */
     async mover(id: string, dados: z.output<typeof moverOpSchema>, ctx: ContextoUsuario) {
       const op = await obterBase(id)
       if (op.cancelada) throw AppError.regraNegocio('Esta OP foi cancelada junto com o pedido.')
       const mudouEtapa = op.etapaAtual !== dados.etapa
-      const arteAprovada = op.pedidoItem.artes[0]?.status === 'aprovada'
       // A trava vale ao ENTRAR na zona que exige arte; depois de liberada (override) a OP segue sem nova liberação
-      const jaLiberada = ETAPAS_QUE_EXIGEM_ARTE.includes(op.etapaAtual)
-      const exigeArte = mudouEtapa && ETAPAS_QUE_EXIGEM_ARTE.includes(dados.etapa) && !jaLiberada && !arteAprovada
+      const exigeArte = opPrecisaLiberarArte({ de: op.etapaAtual, para: dados.etapa, precisaArte: op.pedidoItem.precisaArte, arte: op.pedidoItem.artes[0]?.status })
       if (exigeArte && !dados.override) {
         throw AppError.regraNegocio('A arte deste item ainda não foi aprovada. A OP não pode ir para impressão.', { motivo: 'ARTE_NAO_APROVADA' })
       }

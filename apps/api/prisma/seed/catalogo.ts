@@ -145,6 +145,8 @@ export async function criarCatalogoExemplo(prisma: PrismaClient) {
     margem: '125',
     unidadeMedidaId: await un('h'),
     categoriaId: servicos.id,
+    // Serviço: o pedido não espera arte para começar
+    precisaArte: false,
   })
 
   await prisma.produtoAcabamento.createMany({

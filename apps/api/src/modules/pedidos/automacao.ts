@@ -7,8 +7,8 @@ import {
   nomeCliente,
   nomeParaSaudacao,
   preencherTemplate,
+  statusArtesQueContam,
   statusAutomaticoPedido,
-  type StatusArte,
   type StatusPedido,
 } from '@onprint/shared'
 import { registrarAuditoria } from '../../core/auditoria'
@@ -24,6 +24,7 @@ export interface MudancaPedido {
 
 /**
  * Recalcula o status do pedido pelas artes e OPs (regra em @onprint/shared/status-pedido).
+ * Só contam as artes dos itens que precisam de arte (sem nenhum, o pedido vai direto para a produção).
  * Chamar dentro da mesma transação que alterou a arte ou a OP.
  * Quando o pedido fica "pronto", gera a notificação interna com o texto do template "pedido pronto".
  */
@@ -36,16 +37,17 @@ export async function sincronizarStatusPedido(
     where: { id: pedidoId },
     include: {
       cliente: { select: { nome: true, fantasia: true, cpfCnpj: true } },
-      itens: { select: { artes: { orderBy: { versao: 'desc' }, take: 1, select: { status: true } } } },
-      ordensProducao: { where: { cancelada: false }, select: { etapaAtual: true } },
+      itens: { select: { precisaArte: true, artes: { orderBy: { versao: 'desc' }, take: 1, select: { status: true } } } },
+      ordensProducao: { where: { cancelada: false }, select: { etapaAtual: true, pedidoItem: { select: { precisaArte: true } } } },
     },
   })
   if (!pedido) return null
 
   const novo = statusAutomaticoPedido({
     status: pedido.status,
-    artes: pedido.itens.map((i) => (i.artes[0]?.status ?? 'aguardando_arquivo') as StatusArte),
+    artes: statusArtesQueContam(pedido.itens),
     ops: pedido.ordensProducao.map((o) => o.etapaAtual),
+    opsComArte: pedido.ordensProducao.filter((o) => o.pedidoItem.precisaArte).map((o) => o.etapaAtual),
   })
   if (novo === pedido.status) return null
 

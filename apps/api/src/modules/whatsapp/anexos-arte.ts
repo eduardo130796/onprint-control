@@ -34,7 +34,8 @@ const comoArquivo = (a: ArquivoLinha | null) => (a ? { id: a.id, nome: a.nomeOri
  */
 export async function artesDoPedido(prisma: PrismaClient | Prisma.TransactionClient, pedidoId: string, arteIds?: string[]): Promise<ArteDoPedido[]> {
   const itens = await prisma.pedidoItem.findMany({
-    where: { pedidoId },
+    // Item sem arte não vai para a aprovação do cliente
+    where: { pedidoId, precisaArte: true },
     orderBy: { ordem: 'asc' },
     select: {
       descricao: true,

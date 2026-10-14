@@ -4,6 +4,7 @@ import { CircleDollarSign, ExternalLink, Factory, ImageOff, Pencil, Printer, Rec
 import { TIPO_ENTREGA_ROTULOS, formatarDataSimples, formatarMoeda, nomeCliente, saldoPedido, type Pedido } from '@onprint/shared'
 import { EstadoErro } from '@/components/shared/EstadoErro'
 import { AcaoPainel, DadoPainel, PainelCartao } from '@/components/shared/kanban/PainelCartao'
+import { SeloSemArte } from '@/components/shared/SeloSemArte'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { ValorComSaldo } from '@/components/shared/ValorComSaldo'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -94,7 +95,11 @@ export function PainelPedido({ pedido: resumo, onFechar }: { pedido: Pedido; onF
                           {Number(i.quantidade).toLocaleString('pt-BR')} un{i.largura ? ` · ${metros(i.largura)} × ${metros(i.altura ?? '0')} m` : ''} · {formatarMoeda(i.total)}
                         </p>
                         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                          <StatusBadge entidade="arte" codigo={arte?.status ?? 'aguardando_arquivo'} className="text-[0.6875rem]" />
+                          {i.precisaArte ? (
+                            <StatusBadge entidade="arte" codigo={arte?.status ?? 'aguardando_arquivo'} className="text-[0.6875rem]" />
+                          ) : (
+                            <SeloSemArte className="text-[0.6875rem]" />
+                          )}
                           {i.ordensProducao
                             .filter((o) => !o.cancelada)
                             .map((o) => (

@@ -1,8 +1,18 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Download, ExternalLink, FileImage, MessageCircle, MessageSquare, Send } from 'lucide-react'
+import { CheckCircle2, ChevronDown, Download, ExternalLink, FileImage, MessageSquare, Send } from 'lucide-react'
 import { toast } from 'sonner'
-import { EXTENSOES_PERMITIDAS, formatarDataHora, nomeCliente, type ArteVersao, type PedidoDetalhe, type PedidoItemDetalhe } from '@onprint/shared'
+import {
+  EXTENSOES_PERMITIDAS,
+  VIAS_APROVACAO_ARTE,
+  VIA_APROVACAO_ARTE_ROTULOS,
+  formatarDataHora,
+  type ArteVersao,
+  type PedidoDetalhe,
+  type PedidoItemDetalhe,
+  type StatusArte,
+  type ViaAprovacaoArte,
+} from '@onprint/shared'
 import { arquivosApi } from '@/api/cadastros'
 import { artesApi } from '@/api/producao'
 import { Can } from '@/components/shared/Can'
@@ -10,16 +20,15 @@ import { FileUploader } from '@/components/shared/FileUploader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Textarea } from '@/components/ui/form-controls'
-import { EnviarWhatsappDialog, type EnvioWhatsapp } from '@/features/whatsapp/components/EnviarWhatsappDialog'
-import { useAuth } from '@/hooks/useAuth'
 import { usePermissoes } from '@/hooks/usePermission'
+import { linkAcompanhamento } from '@/lib/empresaAtual'
 import { cn } from '@/lib/utils'
-import { useTemplates } from '../../hooks'
-import { linkArte, mensagemDaArte } from '../../mensagens'
-import { AprovarArteDialog } from './AprovarArteDialog'
 
 const ENCERRADO = ['cancelado', 'entregue']
+/** Arte que pode ir (ou voltar) para o cliente: com arquivo, ainda não aprovada */
+const PODE_IR_AO_CLIENTE: StatusArte[] = ['em_criacao', 'ajuste_solicitado', 'enviada_cliente']
 
 function Comentarios({ arte, podeComentar }: { arte: ArteVersao; podeComentar: boolean }) {
   const queryClient = useQueryClient()
@@ -61,13 +70,32 @@ function Comentarios({ arte, podeComentar }: { arte: ArteVersao; podeComentar: b
   )
 }
 
-/** Arte de um item: versão atual (miniatura, status, envio, link e comentários) e versões anteriores. */
-export function ArteDoItem({ pedido, item }: { pedido: PedidoDetalhe; item: PedidoItemDetalhe }) {
+/**
+ * "Marcar como aprovada" (o caminho normal: a aprovação fica com a equipe): escolhe como o cliente aprovou
+ * (WhatsApp, pessoalmente...) ou aprovação interna. Fica a nota na conversa da arte, com quem registrou.
+ */
+export function MarcarAprovada({ rotulo = 'Marcar como aprovada', onEscolher, size = 'sm' }: { rotulo?: string; onEscolher: (via: ViaAprovacaoArte) => void; size?: 'sm' | 'default' }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size={size}>
+          <CheckCircle2 /> {rotulo} <ChevronDown />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        {VIAS_APROVACAO_ARTE.map((via) => (
+          <DropdownMenuItem key={via} onSelect={() => onEscolher(via)}>
+            {VIA_APROVACAO_ARTE_ROTULOS[via]}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** Arte de um item: versão atual (miniatura, status, aprovação, envio e comentários) e versões anteriores. */
+export function ArteDoItem({ pedido, item, onEnviar }: { pedido: PedidoDetalhe; item: PedidoItemDetalhe; onEnviar: (arteId: string) => void }) {
   const queryClient = useQueryClient()
-  const templates = useTemplates()
-  const [aprovando, setAprovando] = useState<ArteVersao | null>(null)
-  const [envio, setEnvio] = useState<EnvioWhatsapp | null>(null)
-  const { usuario } = useAuth()
   const pode = usePermissoes()
   const podeComentar = pode('artes', 'visualizar') || pode('pedidos', 'editar')
   const [atual, ...anteriores] = item.artes
@@ -91,17 +119,6 @@ export function ArteDoItem({ pedido, item }: { pedido: PedidoDetalhe; item: Pedi
     } catch (e) {
       toast.error((e as Error).message)
     }
-  }
-
-  /** Link de aprovação da arte pelo diálogo "Enviar pelo WhatsApp" (tira da fila o aviso automático da mesma arte) */
-  function enviarPeloWhatsapp(arte: ArteVersao) {
-    setEnvio({
-      titulo: `Enviar a arte de ${item.descricao}`,
-      tipo: 'arte_aprovacao',
-      destinatario: { nome: nomeCliente(pedido.cliente), numero: pedido.cliente.whatsapp || pedido.cliente.telefone, clienteId: pedido.clienteId },
-      vinculo: { pedidoId: pedido.id, arteId: arte.id },
-      mensagem: () => mensagemDaArte(pedido, { token: arte.tokenPublico, item: item.descricao }, templates.data, usuario?.empresa.exibicao ?? ''),
-    })
   }
 
   return (
@@ -133,33 +150,31 @@ export function ArteDoItem({ pedido, item }: { pedido: PedidoDetalhe; item: Pedi
         <div className="space-y-4">
           {atual && (
             <div className="flex flex-wrap gap-2">
-              {['em_criacao', 'ajuste_solicitado'].includes(atual.status) && atual.arquivo && !encerrado && (
-                <Can modulo="artes" acao="editar">
-                  <Button size="sm" onClick={() => void executar(() => artesApi.enviarAoCliente(atual.id), 'Arte marcada como enviada ao cliente.')}>
-                    <Send /> Enviar ao cliente
-                  </Button>
-                </Can>
-              )}
-              {atual.status === 'enviada_cliente' && (
-                <>
-                  <Button size="sm" onClick={() => enviarPeloWhatsapp(atual)}>
-                    <MessageCircle /> Enviar pelo WhatsApp
-                  </Button>
-                  <Button size="sm" variant="outline" asChild>
-                    <a href={linkArte(atual.tokenPublico)} target="_blank" rel="noreferrer">
-                      <ExternalLink /> Abrir link
-                    </a>
-                  </Button>
-                </>
-              )}
               {atual.status !== 'aprovada' && atual.arquivo && !encerrado && (
                 <Can modulo="artes" acao="aprovar">
-                  <Button size="sm" variant="outline" onClick={() => setAprovando(atual)}>
-                    <CheckCircle2 /> Registrar aprovação
+                  <MarcarAprovada
+                    onEscolher={(via) => void executar(() => artesApi.aprovar(atual.id, via), `Arte v${atual.versao} aprovada. ${VIA_APROVACAO_ARTE_ROTULOS[via]}.`)}
+                  />
+                </Can>
+              )}
+              {PODE_IR_AO_CLIENTE.includes(atual.status) && atual.arquivo && !encerrado && (
+                <Can modulo="artes" acao="editar">
+                  <Button size="sm" variant="outline" onClick={() => onEnviar(atual.id)}>
+                    <Send /> {atual.status === 'enviada_cliente' ? 'Reenviar para o cliente' : 'Enviar para o cliente'}
                   </Button>
                 </Can>
               )}
+              {atual.status === 'enviada_cliente' && !encerrado && (
+                <Button size="sm" variant="ghost" asChild>
+                  <a href={`${linkAcompanhamento(pedido.tokenPublico)}#artes`} target="_blank" rel="noreferrer">
+                    <ExternalLink /> Página do cliente
+                  </a>
+                </Button>
+              )}
               {atual.designer && <span className="self-center text-xs text-texto-secundario">Designer: {atual.designer.nome}</span>}
+              {atual.status === 'enviada_cliente' && !encerrado && (
+                <p className="w-full text-xs text-texto-secundario">Com o cliente. Quando ele responder APROVADO no WhatsApp, é só marcar como aprovada.</p>
+              )}
             </div>
           )}
 
@@ -200,8 +215,6 @@ export function ArteDoItem({ pedido, item }: { pedido: PedidoDetalhe; item: Pedi
           )}
         </div>
       </CardContent>
-      <AprovarArteDialog arte={aprovando} onFechar={() => setAprovando(null)} />
-      <EnviarWhatsappDialog envio={envio} onFechar={() => setEnvio(null)} />
     </Card>
   )
 }

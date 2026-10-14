@@ -1,7 +1,8 @@
-import type { PrismaClient } from '@prisma/client'
+import { Prisma, type PrismaClient } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
 import {
   TEXTOS_PADRAO_WHATSAPP,
+  valoresArtesAprovacao,
   formaEntregaPronto,
   formatarDataSimples,
   formatarMoeda,
@@ -16,6 +17,7 @@ import {
 } from '@onprint/shared'
 import { contextoEmpresa, type EmpresaAtual } from '../../core/contexto-empresa'
 import { linkAcompanhamento } from '../../core/links'
+import { anexosDasArtes, anexosJson, artesDoPedido, nomesDosAnexos } from './anexos-arte'
 import { EVENTO_DO_STATUS, JANELA_DUPLICADO_MS, RESPIRO_MAX_MS, RESPIRO_MS, motivoParaNaoAvisar } from './regras'
 
 /*
@@ -26,19 +28,22 @@ import { EVENTO_DO_STATUS, JANELA_DUPLICADO_MS, RESPIRO_MAX_MS, RESPIRO_MS, moti
  *    junto), marca o orçamento como enviado e registra em mensagens_whatsapp (evento orcamento_enviado, manual).
  *    Sem conexão, o mesmo diálogo abre o WhatsApp (wa.me) com o texto pronto.
  * 2. Aprovação — o cliente aprova pelo link; a própria página confirma, sem mensagem a mais.
- * 3. Pedido confirmado — ao virar pedido: cita o orçamento aprovado e diz o próximo passo (a arte vem para aprovar,
+ * 3. Pedido confirmado — ao virar pedido: cita o orçamento aprovado e diz o próximo passo (preparar a arte e produzir,
  *    ou a produção começa) com a previsão de entrega e o link de acompanhamento.
- * 4. Arte para aprovação, pedido pronto, saiu para entrega, pagamento recebido, entregue — avisos automáticos.
+ * 4. Arte para aprovação (só quando a equipe envia a arte ao cliente; o normal é a aprovação interna): UMA mensagem
+ *    por pedido com todas as artes que aguardam o cliente, os arquivos logo depois do texto e um link só (a página
+ *    do pedido, seção das artes, onde aprova todas). Avisos de arte do mesmo pedido na fila viram um só.
+ * 5. Pedido pronto, saiu para entrega, pagamento recebido, entregue — avisos automáticos.
  *
  * Todo aviso automático espera um "respiro" (RESPIRO_MS) na fila: avisos do mesmo pedido que se encontram ali
- * saem numa mensagem só (confirmação + link da arte; agrupar.ts). Continuam valendo os eventos ligados, o horário,
+ * saem numa mensagem só (confirmação + artes; agrupar.ts). Continuam valendo os eventos ligados, o horário,
  * a pausa, o intervalo entre mensagens, o teto por hora e o "não repetir" (JANELA_DUPLICADO_MS) — inclusive
  * contra o mesmo envio feito à mão pela equipe.
  */
 
 export interface AlvoAviso {
   pedidoId: string
-  /** Arte enviada ao cliente (link de aprovação) */
+  /** Arte enviada ao cliente (a mensagem cobre todas as artes do pedido que aguardam o cliente) */
   arteId?: string
   /** Pagamento (movimento financeiro) que gerou o aviso */
   movimentoId?: string
@@ -111,26 +116,21 @@ export function criarAvisosWhatsapp(app: FastifyInstance, aoEnfileirar: (empresa
     })
     if (motivo && !motivo.registrar) return null
 
-    let linkArte = ''
-    let item = ''
-    if (alvo.arteId) {
-      const arte = await prisma.arte.findUnique({ where: { id: alvo.arteId }, select: { tokenPublico: true, pedidoItem: { select: { descricao: true } } } })
-      if (arte) {
-        linkArte = `${app.config.APP_URL}/arte/${empresa.slug}/${arte.tokenPublico}`
-        item = arte.pedidoItem.descricao
-      }
-    }
+    // Arte: uma mensagem por pedido com todas as artes que aguardam o cliente (lista, arquivos e um link só)
+    const artes = evento === 'arte_aprovacao' ? await artesDoPedido(prisma, pedido.id) : []
+    if (evento === 'arte_aprovacao' && !artes.length) return null
+    const anexos = anexosDasArtes(artes)
+    const acompanhamento = linkAcompanhamento(pedido.tokenPublico, empresa.slug)
     const template = await prisma.mensagemTemplate.findFirst({ where: { categoria: evento, ativo: true }, orderBy: { createdAt: 'asc' } })
     const texto = preencherMensagem(template?.conteudo ?? TEXTOS_PADRAO_WHATSAPP[evento], {
       cliente_nome: nomeParaSaudacao(nomeCliente(pedido.cliente), pedido.cliente.cpfCnpj),
       numero_pedido: pedido.numero,
       numero_orcamento: pedido.orcamento?.numero ?? '',
-      descricao_item: item,
+      ...(artes.length ? valoresArtesAprovacao(artes, acompanhamento) : {}),
       proximo_passo: proximoPassoPedido(NA_ETAPA_DA_ARTE.includes(pedido.status)),
       forma_entrega: formaEntregaPronto(pedido.tipoEntrega),
       data_entrega: formatarDataSimples(pedido.dataPrevistaEntrega.toISOString()),
-      link_acompanhamento: linkAcompanhamento(pedido.tokenPublico, empresa.slug),
-      link_aprovacao: linkArte,
+      link_acompanhamento: acompanhamento,
       valor_total: formatarMoeda(pedido.total.toString()),
       valor_pago: alvo.valorPago ? formatarMoeda(alvo.valorPago) : '',
       valor_em_aberto: valorEmAberto(pedido.total.toString(), pedido.valorPago.toString()),
@@ -138,6 +138,22 @@ export function criarAvisosWhatsapp(app: FastifyInstance, aoEnfileirar: (empresa
     })
     const agora = Date.now()
     const fimDoRespiro = new Date(agora + RESPIRO_MS)
+    if (!motivo && evento === 'arte_aprovacao') {
+      // Já há aviso de arte deste pedido esperando na fila: vira este (com todas as artes), nunca dois
+      const naFila = await prisma.mensagemWhatsapp.findFirst({
+        where: { evento, pedidoId: pedido.id, status: 'pendente', manual: false, tentativas: 0 },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      })
+      if (naFila) {
+        await prisma.mensagemWhatsapp.update({
+          where: { id: naFila.id },
+          data: { texto, telefone: numero!, anexos: anexosJson(anexos) ?? Prisma.DbNull, anexoNome: nomesDosAnexos(anexos), proximaTentativaEm: fimDoRespiro },
+        })
+        aoEnfileirar(empresa.id)
+        return naFila.id
+      }
+    }
     const criada = await prisma.mensagemWhatsapp.create({
       data: {
         clienteId: pedido.cliente.id,
@@ -146,6 +162,8 @@ export function criarAvisosWhatsapp(app: FastifyInstance, aoEnfileirar: (empresa
         evento,
         telefone: numero ?? pedido.cliente.whatsapp ?? pedido.cliente.telefone ?? '',
         texto,
+        anexos: anexosJson(anexos),
+        anexoNome: nomesDosAnexos(anexos),
         status: motivo ? 'ignorada' : 'pendente',
         erro: motivo?.motivo ?? null,
         proximaTentativaEm: motivo ? null : fimDoRespiro,

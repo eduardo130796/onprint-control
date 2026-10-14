@@ -353,6 +353,8 @@ model MensagemWhatsapp {
   texto              String
   /// PDF que foi junto (orçamento, recibo, catálogo)
   anexoNome          String?                @map("anexo_nome")
+  /// Arquivos das artes que vão logo depois do texto: [{ arquivoId, nome, mime, tamanho, legenda }]
+  anexos             Json?
   status             StatusMensagemWhatsapp @default(pendente)
   tentativas         Int                    @default(0)
   erro               String?

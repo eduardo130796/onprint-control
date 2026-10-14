@@ -3,6 +3,7 @@ import { contextoEmpresa, type EmpresaAtual } from '../../core/contexto-empresa'
 import { linkAcompanhamento } from '../../core/links'
 import { ErroWhatsapp, instanciaDaEmpresa, type ProvedorWhatsapp } from '../../integrations/whatsapp'
 import { combinarAvisos } from './agrupar'
+import { anexosJson, enviarAnexos, lerAnexos, nomesDosAnexos } from './anexos-arte'
 import { obterConfigWhatsapp, whatsappNoPlano } from './avisos'
 import { MAX_POR_HORA, MAX_TENTATIVAS, VALIDADE_PENDENTE_MS, dentroDoHorario, esperaDaTentativa, intervaloEntreEnvios } from './regras'
 
@@ -71,7 +72,7 @@ export function criarEnvioWhatsapp(app: FastifyInstance, provedor: ProvedorWhats
       ? await prisma.mensagemWhatsapp.findMany({
           where: { status: 'pendente', manual: false, pedidoId: msg.pedidoId, telefone: msg.telefone, id: { not: msg.id } },
           orderBy: { createdAt: 'asc' },
-          select: { id: true, texto: true },
+          select: { id: true, texto: true, anexos: true },
         })
       : []
     const acompanhamento = msg.pedido ? linkAcompanhamento(msg.pedido.tokenPublico, empresa.slug) : null
@@ -89,12 +90,24 @@ export function criarEnvioWhatsapp(app: FastifyInstance, provedor: ProvedorWhats
         if (!config.conectado) await prisma.whatsappConfig.update({ where: { id: config.id }, data: { conectado: true, numero: situacao.numero ?? config.numero } })
       }
       const r = await provedor.enviarTexto(instancia, msg.telefone, texto)
+      // Arquivos das artes logo depois do texto (os dos avisos juntos também, sem repetir)
+      const anexos = [msg, ...juntos].flatMap((m) => lerAnexos(m.anexos)).filter((a, i, l) => l.findIndex((b) => b.arquivoId === a.arquivoId) === i)
+      const avisoAnexos = anexos.length ? await enviarAnexos(app, provedor, instancia, msg.telefone, anexos) : null
       const enviadaEm = new Date()
       await prisma.$transaction([
-        // O primeiro guarda o texto que saiu de fato (com os outros avisos dentro)
+        // O primeiro guarda o texto que saiu de fato (com os outros avisos dentro) e os arquivos que foram
         prisma.mensagemWhatsapp.update({
           where: { id: msg.id },
-          data: { status: 'enviada', enviadaEm, texto, idExterno: r.id, tentativas: { increment: 1 }, erro: null, proximaTentativaEm: null },
+          data: {
+            status: 'enviada',
+            enviadaEm,
+            texto,
+            idExterno: r.id,
+            tentativas: { increment: 1 },
+            erro: avisoAnexos,
+            proximaTentativaEm: null,
+            ...(juntos.length && anexos.length ? { anexos: anexosJson(anexos), anexoNome: nomesDosAnexos(anexos) } : {}),
+          },
         }),
         prisma.mensagemWhatsapp.updateMany({
           where: { id: { in: juntos.map((j) => j.id) } },

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Download, History, Loader2, Palette, PencilLine } from 'lucide-react'
+import { CheckCircle2, Download, History, Loader2, Package, Palette, PencilLine } from 'lucide-react'
 import { formatarDataHora, type ArtePublica } from '@onprint/shared'
 import type { LinkPublico } from '@/api/comercial'
 import { artePublicaApi } from '@/api/producao'
@@ -106,6 +106,13 @@ function Situacao({ arte }: { arte: ArtePublica }) {
       </div>
     )
   }
+  if (arte.status === 'enviada_cliente' && !arte.podeResponder) {
+    return (
+      <div className="flex items-center gap-3 rounded-2xl bg-verde/10 p-4 text-green-800">
+        <CheckCircle2 className="h-6 w-6 shrink-0" /> <p>Este pedido já seguiu para a produção. Não é preciso aprovar mais nada.</p>
+      </div>
+    )
+  }
   if (arte.status === 'ajuste_solicitado') {
     return (
       <div className="flex items-center gap-3 rounded-2xl bg-sky-50 p-4 text-sky-800">
@@ -149,13 +156,21 @@ export function AprovarArtePage() {
                   {a.item.largura && ` · ${metros(a.item.largura)} × ${metros(a.item.altura)} m`}
                 </p>
               </div>
-              {a.arquivo && (
+              <div className="flex flex-wrap gap-2">
+                {a.arquivo && (
+                  <Button variant="outline" asChild>
+                    <a href={a.arquivo.url} target="_blank" rel="noreferrer">
+                      <Download /> Baixar arquivo
+                    </a>
+                  </Button>
+                )}
+                {/* Página do pedido: todas as artes juntas e "Aprovar todas" */}
                 <Button variant="outline" asChild>
-                  <a href={a.arquivo.url} target="_blank" rel="noreferrer">
-                    <Download /> Baixar arquivo
+                  <a href={a.linkPedido}>
+                    <Package /> Ver o pedido
                   </a>
                 </Button>
-              )}
+              </div>
             </div>
             <Situacao arte={a} />
             <Visualizacao arte={a} />

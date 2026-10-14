@@ -14,6 +14,7 @@ import {
 import { AppError } from '../../core/AppError'
 import { contextoEmpresa } from '../../core/contexto-empresa'
 import { ErroWhatsapp, instanciaDaEmpresa, type DocumentoWhatsapp } from '../../integrations/whatsapp'
+import { anexosEscolhidos, anexosJson, enviarAnexos, nomesDosAnexos } from './anexos-arte'
 import { obterConfigWhatsapp, whatsappNoPlano } from './avisos'
 import { formatarMensagem, incluirMensagem } from './service'
 
@@ -53,7 +54,7 @@ export function validarPdf(conteudo: Buffer, nome: string): DocumentoWhatsapp {
 /**
  * "Enviar pelo WhatsApp" da equipe: sai na hora pela conexão da gráfica (respeita a pausa, não o horário dos avisos),
  * fica registrado em mensagens_whatsapp (manual) e tira da fila o mesmo aviso automático, se estiver esperando.
- * Primeiro o texto (com o link no fim, que mostra a prévia), depois o PDF.
+ * Primeiro o texto (com o link no fim, que mostra a prévia), depois o PDF ou os arquivos das artes (até 6).
  */
 export function criarEnvioManual(app: FastifyInstance) {
   const { prisma } = app
@@ -79,6 +80,8 @@ export function criarEnvioManual(app: FastifyInstance) {
     const provedor = app.whatsapp.provedor
     if (!provedor.simulado && !config.conectado) throw AppError.regraNegocio('O WhatsApp da gráfica não está conectado. Use "Abrir no WhatsApp" ou conecte pelo QR code.')
     const { clienteId } = await vinculos(d)
+    // Artes: os arquivos (já no servidor) vão logo depois do texto, dentro do limite
+    const anexosArte = d.pedidoId && d.arquivoIds?.length ? await anexosEscolhidos(prisma, d.pedidoId, d.arquivoIds) : []
     const numero = normalizarNumeroWhatsapp(d.telefone)!
     const instancia = instanciaDaEmpresa(empresa.id)
     const base = {
@@ -91,7 +94,8 @@ export function criarEnvioManual(app: FastifyInstance) {
       usuarioId,
       telefone: numero,
       texto: d.texto,
-      anexoNome: anexo?.nomeArquivo ?? null,
+      anexoNome: anexo?.nomeArquivo ?? nomesDosAnexos(anexosArte),
+      anexos: anexosJson(anexosArte),
     }
 
     let idExterno: string | null
@@ -115,6 +119,7 @@ export function criarEnvioManual(app: FastifyInstance) {
         app.log.warn({ err: erro, empresa: empresa.slug }, 'PDF do WhatsApp não enviado')
       }
     }
+    if (anexosArte.length) aviso = await enviarAnexos(app, provedor, instancia, numero, anexosArte)
 
     const criada = await prisma.mensagemWhatsapp.create({
       data: { ...base, status: 'enviada', enviadaEm: new Date(), idExterno, tentativas: 1, erro: aviso },

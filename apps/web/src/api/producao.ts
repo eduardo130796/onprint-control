@@ -18,6 +18,7 @@ import type {
   RecebimentosPedido,
   PedidosQuery,
   StatusPedido,
+  ViaAprovacaoArte,
 } from '@onprint/shared'
 import { http, qs, upload } from './http'
 import type { LinkPublico } from './comercial'
@@ -44,7 +45,13 @@ export const artesApi = {
   enviarArquivo: (itemId: string, arquivo: File, aoProgredir?: (pct: number) => void) =>
     upload<ArteVersao>(`/pedidos/itens/${itemId}/artes`, arquivo, aoProgredir),
   enviarAoCliente: (id: string) => http<ArteVersao>(`/artes/${id}/enviar`, { method: 'POST' }),
-  aprovar: (id: string, nome: string) => http<ArteVersao>(`/artes/${id}/aprovar`, { method: 'POST', body: { nome } }),
+  /** Aprovação registrada pela equipe: como o cliente aprovou (WhatsApp, pessoalmente...) ou interna */
+  aprovar: (id: string, via: ViaAprovacaoArte, nome?: string) => http<ArteVersao>(`/artes/${id}/aprovar`, { method: 'POST', body: { via, nome } }),
+  /** Marca as artes do pedido como enviadas ao cliente (avisar = false quando a mensagem já saiu pelo diálogo) */
+  enviarVarias: (pedidoId: string, arteIds: string[], avisar: boolean) =>
+    http<{ enviadas: number }>(`/pedidos/${pedidoId}/artes/enviar`, { method: 'POST', body: { arteIds, avisar } }),
+  /** "Cliente aprovou todas as artes" */
+  aprovarTodas: (pedidoId: string, via: ViaAprovacaoArte) => http<{ aprovadas: number }>(`/pedidos/${pedidoId}/artes/aprovar`, { method: 'POST', body: { via } }),
   comentar: (id: string, texto: string) => http<ArteVersao>(`/artes/${id}/comentarios`, { method: 'POST', body: { texto } }),
 }
 
@@ -93,6 +100,11 @@ const pedidoPublico = (l: LinkPublico) => `/publico/${encodeURIComponent(l.empre
 /** "Acompanhe seu pedido" (/pedido/:empresa/:token), sem login. */
 export const pedidoPublicoApi = {
   obter: (l: LinkPublico) => http<PedidoAcompanhamento>(pedidoPublico(l), { autenticado: false }),
+  /** Aprova as artes que aguardam o cliente (todas, ou só as escolhidas); devolve o pedido atualizado */
+  aprovarArtes: (l: LinkPublico, nome: string, arteIds?: string[]) =>
+    http<PedidoAcompanhamento>(`${pedidoPublico(l)}/artes/aprovar`, { method: 'POST', body: { nome, aceite: true, arteIds }, autenticado: false }),
+  pedirAjusteArte: (l: LinkPublico, arteId: string, nome: string, comentario: string) =>
+    http<PedidoAcompanhamento>(`${pedidoPublico(l)}/artes/${encodeURIComponent(arteId)}/ajuste`, { method: 'POST', body: { nome, comentario }, autenticado: false }),
 }
 
 export const artePublicaApi = {

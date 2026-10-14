@@ -151,12 +151,17 @@ describe('API — "Enviar pelo WhatsApp" (validação antes de tocar no banco)',
     expect(tipo.statusCode).toBe(400)
   })
 
-  it('orçamento sem o orçamento e arte sem a arte: 400', async () => {
+  it('orçamento sem o orçamento, arte sem o pedido e arquivos fora da arte: 400', async () => {
     const orc = await app.inject({ method: 'POST', url: '/api/v1/whatsapp/enviar', headers: bearer(false), payload: { ...valido, tipo: 'orcamento_enviado' } })
     expect(orc.statusCode).toBe(400)
     expect(orc.json().error.details.map((d: { campo: string }) => d.campo)).toContain('orcamentoId')
-    const arte = await app.inject({ method: 'POST', url: '/api/v1/whatsapp/enviar', headers: bearer(false), payload: { ...valido, tipo: 'arte_aprovacao', pedidoId: '7c1b0c5e-6d43-4c1e-9b0b-1f6f2d3a4b5c' } })
-    expect(arte.json().error.details.map((d: { campo: string }) => d.campo)).toContain('arteId')
+    // A mensagem da arte é do pedido (todas as artes juntas)
+    const arte = await app.inject({ method: 'POST', url: '/api/v1/whatsapp/enviar', headers: bearer(false), payload: { ...valido, tipo: 'arte_aprovacao' } })
+    expect(arte.statusCode).toBe(400)
+    expect(arte.json().error.details.map((d: { campo: string }) => d.campo)).toContain('pedidoId')
+    const arquivos = await app.inject({ method: 'POST', url: '/api/v1/whatsapp/enviar', headers: bearer(false), payload: { ...valido, arquivoIds: ['7c1b0c5e-6d43-4c1e-9b0b-1f6f2d3a4b5c'] } })
+    expect(arquivos.statusCode).toBe(400)
+    expect(arquivos.json().error.details.map((d: { campo: string }) => d.campo)).toContain('arquivoIds')
   })
 
   it('com PDF: o campo "dados" é validado como o JSON', async () => {

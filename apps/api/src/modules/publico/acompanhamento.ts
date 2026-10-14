@@ -1,6 +1,9 @@
 import {
+  STATUS_PEDIDO_NA_ARTE,
   STATUS_PEDIDO_SEM_ATRASO,
   TIPO_ENTREGA_ROTULOS,
+  arteAguardaCliente,
+  mostrarAprovacaoArte,
   nomeCliente,
   nomeParaSaudacao,
   type CodigoEtapaAcompanhamento,
@@ -179,6 +182,9 @@ export const ARTE_ROTULO_CLIENTE: Record<StatusArte, string> = {
 
 type Num = { toString(): string }
 
+/** Arquivos que o navegador do cliente abre direto (imagem ou PDF) */
+const VISUALIZAVEIS = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf']
+
 /** Pedido como vem do banco (include do service): campos internos chegam aqui e não podem sair. */
 export interface PedidoParaAcompanhar {
   numero: string
@@ -201,7 +207,15 @@ export interface PedidoParaAcompanhar {
     total: Num
     acabamentos: { nome: string }[]
     /** Versões da arte, da mais nova para a mais antiga */
-    artes: { id: string; versao: number; status: StatusArte; tokenPublico: string; miniaturaId: string | null }[]
+    artes: {
+      id: string
+      versao: number
+      status: StatusArte
+      tokenPublico: string
+      miniaturaId: string | null
+      comentarioCliente?: string | null
+      arquivo?: { id: string; nomeOriginal: string; mime: string } | null
+    }[]
   }[]
   contasReceber: { parcela: number; totalParcelas: number; descricao: string; valor: Num; valorPago: Num; vencimento: Date; status: string; pagoEm: Date | null }[]
   entregas: { dataAgendada: Date | null; dataRealizada: Date | null; status: string; createdAt: Date }[]
@@ -222,7 +236,9 @@ const dinheiro = (n: number) => (Math.round(n * 100) / 100).toFixed(2)
 export function montarAcompanhamento(p: PedidoParaAcompanhar, x: ExtrasAcompanhamento): PedidoAcompanhamento {
   const ultimas = p.itens.map((i) => i.artes[0] ?? null)
   const temArte = ultimas.some(Boolean)
-  const arteAguardando = ultimas.some((a) => a?.status === 'enviada_cliente')
+  // Só pede a aprovação enquanto o pedido está na etapa da arte (depois de produzir/entregar, nunca mais)
+  const arteAguardando = mostrarAprovacaoArte(p.status, ultimas.map((a) => a?.status))
+  const passouDaArte = !STATUS_PEDIDO_NA_ARTE.includes(p.status) && p.status !== 'cancelado'
 
   // Última entrada em cada status e o status de antes do cancelamento (auditoria do pedido)
   const entradas: Partial<Record<StatusPedido, Date>> = {}
@@ -278,7 +294,7 @@ export function montarAcompanhamento(p: PedidoParaAcompanhar, x: ExtrasAcompanha
     empresa: x.empresa,
     itens: p.itens.map((i) => {
       const a = i.artes[0]
-      const aguardando = a?.status === 'enviada_cliente'
+      const aguardando = arteAguardaCliente(p.status, a?.status)
       return {
         descricao: i.descricao,
         quantidade: i.quantidade.toString(),
@@ -288,16 +304,23 @@ export function montarAcompanhamento(p: PedidoParaAcompanhar, x: ExtrasAcompanha
         total: i.total.toString(),
         arte: a
           ? {
+              id: a.id,
               versao: a.versao,
               status: a.status,
-              rotulo: ARTE_ROTULO_CLIENTE[a.status],
-              aguardandoAprovacao: aguardando && !cancelado,
-              linkAprovacao: aguardando && !cancelado ? `/arte/${x.slug}/${a.tokenPublico}` : null,
+              // Pedido que já seguiu para a produção: a arte foi liberada (nada mais "aguardando sua aprovação")
+              rotulo: passouDaArte ? ARTE_ROTULO_CLIENTE.aprovada : ARTE_ROTULO_CLIENTE[a.status],
+              aguardandoAprovacao: aguardando,
+              linkAprovacao: aguardando ? `/arte/${x.slug}/${a.tokenPublico}` : null,
               miniaturaUrl: a.miniaturaId ? x.urlArquivo(a.miniaturaId) : null,
+              arquivo: a.arquivo
+                ? { nome: a.arquivo.nomeOriginal, mime: a.arquivo.mime, url: x.urlArquivo(a.arquivo.id), visualizavel: VISUALIZAVEIS.includes(a.arquivo.mime) }
+                : null,
+              ajustePedido: a.status === 'ajuste_solicitado' && !passouDaArte ? (a.comentarioCliente ?? null) : null,
             }
           : null,
       }
     }),
+    aprovacaoArte: { mostrar: arteAguardando, pendentes: ultimas.filter((a) => arteAguardaCliente(p.status, a?.status)).length },
     financeiro: {
       total: dinheiro(total),
       pago: dinheiro(pago),

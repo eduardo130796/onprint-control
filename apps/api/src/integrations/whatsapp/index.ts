@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { FastifyBaseLogger } from 'fastify'
-import type { EstadoConexaoWhatsapp } from '@onprint/shared'
+import { vaiComoImagem, type EstadoConexaoWhatsapp } from '@onprint/shared'
 import type { Env } from '../../config/env'
 
 /**
@@ -49,7 +49,7 @@ export interface ProvedorWhatsapp {
   /** Sai do WhatsApp e apaga a instância (o próximo "Conectar" começa do zero) */
   desconectar(instancia: string): Promise<void>
   enviarTexto(instancia: string, numero: string, texto: string): Promise<{ id: string | null }>
-  /** Arquivo (PDF do orçamento, recibo, catálogo) como documento, com o nome que o cliente vê */
+  /** Arquivo com o nome que o cliente vê: imagem (JPEG/PNG/WebP, aparece na conversa) ou documento (PDF do orçamento, recibo, arte) */
   enviarDocumento(instancia: string, numero: string, documento: DocumentoWhatsapp): Promise<{ id: string | null }>
 }
 
@@ -205,10 +205,11 @@ export class EvolutionWhatsappProvider implements ProvedorWhatsapp {
   }
 
   async enviarDocumento(instancia: string, numero: string, d: DocumentoWhatsapp) {
-    // POST /message/sendMedia/{i} { number, mediatype: "document", mimetype, media (base64 sem "data:"), fileName, caption? } → 201 { key: { id } }
+    // POST /message/sendMedia/{i} { number, mediatype: "image" | "document", mimetype, media (base64 sem "data:"), fileName, caption? } → 201 { key: { id } }
+    // JPEG/PNG/WebP vão como imagem (aparecem na conversa); PDF e o resto, como documento
     const r = await this.chamar('POST', `/message/sendMedia/${encodeURIComponent(instancia)}`, {
       number: numero,
-      mediatype: 'document',
+      mediatype: vaiComoImagem(d.mime) ? 'image' : 'document',
       mimetype: d.mime,
       media: d.conteudo.toString('base64'),
       fileName: d.nomeArquivo,

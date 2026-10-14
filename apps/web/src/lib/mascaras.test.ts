@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decimalParaInput, mascaraCep, mascaraCpfCnpj, mascaraMoeda, mascaraTelefone } from './mascaras'
+import { decimalParaCampo, decimalParaInput, mascaraCep, mascaraCpfCnpj, mascaraMoeda, mascaraTelefone } from './mascaras'
 import { gerarCsv } from './csv'
 
 describe('máscaras', () => {
@@ -24,6 +24,29 @@ describe('máscaras', () => {
     expect(mascaraMoeda('123456')).toBe('1.234,56')
     expect(mascaraMoeda('')).toBe('0,00')
     expect(decimalParaInput('1500.5')).toBe('1.500,50')
+  })
+
+  it('moeda com valores ≥ 1.000 e ≥ 10.000', () => {
+    expect(mascaraMoeda('900')).toBe('9,00')
+    expect(mascaraMoeda('140000')).toBe('1.400,00')
+    expect(mascaraMoeda('1400000')).toBe('14.000,00')
+    expect(mascaraMoeda(14000)).toBe('14.000,00')
+    expect(decimalParaInput('14000.00')).toBe('14.000,00')
+    expect(decimalParaInput('14000')).toBe('14.000,00')
+    expect(decimalParaInput(9)).toBe('9,00')
+  })
+
+  it('decimal da API para campo numérico: sem milhar e sem zeros sobrando', () => {
+    expect(decimalParaCampo('1000.000')).toBe('1000')
+    expect(decimalParaCampo('1000')).toBe('1000')
+    expect(decimalParaCampo('10000.000')).toBe('10000')
+    expect(decimalParaCampo('1500')).toBe('1500')
+    expect(decimalParaCampo('1234.5')).toBe('1234,5')
+    expect(decimalParaCampo('2.500')).toBe('2,5')
+    expect(decimalParaCampo('0.125')).toBe('0,125')
+    expect(decimalParaCampo('10')).toBe('10')
+    expect(decimalParaCampo(null)).toBe('')
+    expect(decimalParaCampo('')).toBe('')
   })
 })
 

@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { inserirAntesDoFim, linhaItemMensagem, listaItensMensagem, textoPrazoDias, valorEmAberto } from './mensagens'
+import { inserirAntesDoFim, linhaItemMensagem, listaArtesMensagem, listaItensMensagem, textoPrazoDias, valorEmAberto, valoresArtesAprovacao } from './mensagens'
 import {
+  ANEXOS_ARTE_MAX,
   TEXTOS_PADRAO_MENSAGEM,
+  arquivoVisivelDaArte,
+  escolherAnexosArte,
+  vaiComoImagem,
   TEXTOS_PADRAO_WHATSAPP,
   envioWhatsappSchema,
   formatarNumeroWhatsapp,
@@ -143,8 +147,15 @@ describe('envio pela equipe', () => {
     expect(envioWhatsappSchema.safeParse({ ...base, tipo: 'orcamento_enviado' }).success).toBe(false)
     expect(envioWhatsappSchema.safeParse({ ...base, tipo: 'orcamento_enviado', orcamentoId: id }).success).toBe(true)
     expect(envioWhatsappSchema.safeParse({ ...base, tipo: 'pedido_pronto' }).success).toBe(false)
-    expect(envioWhatsappSchema.safeParse({ ...base, tipo: 'arte_aprovacao', pedidoId: id }).success).toBe(false)
-    expect(envioWhatsappSchema.safeParse({ ...base, tipo: 'arte_aprovacao', pedidoId: id, arteId: id }).success).toBe(true)
+    // Arte: a mensagem é do pedido (todas as artes), não de uma arte
+    expect(envioWhatsappSchema.safeParse({ ...base, tipo: 'arte_aprovacao' }).success).toBe(false)
+    expect(envioWhatsappSchema.safeParse({ ...base, tipo: 'arte_aprovacao', pedidoId: id }).success).toBe(true)
+  })
+  it('arquivos das artes: só na mensagem de arte do pedido e até 6', () => {
+    const arte = { ...base, tipo: 'arte_aprovacao', pedidoId: id } as const
+    expect(envioWhatsappSchema.safeParse({ ...arte, arquivoIds: [id, id] }).success).toBe(true)
+    expect(envioWhatsappSchema.safeParse({ ...arte, arquivoIds: Array(7).fill(id) }).success).toBe(false)
+    expect(envioWhatsappSchema.safeParse({ ...base, arquivoIds: [id] }).success).toBe(false)
   })
   it('número para mostrar', () => {
     expect(formatarNumeroWhatsapp('5511988887777')).toBe('(11) 98888-7777')
@@ -160,5 +171,74 @@ describe('configuração do WhatsApp', () => {
   })
   it('link wa.me com o texto codificado', () => {
     expect(linkWaMe('5511988887777', 'Olá & até')).toBe('https://wa.me/5511988887777?text=Ol%C3%A1%20%26%20at%C3%A9')
+  })
+})
+
+describe('arte para aprovação: uma mensagem por pedido', () => {
+  const link = 'https://app.grafygo.com.br/pedido/ponto-visual/tok123'
+  const artes = [
+    { descricao: 'Banner em lona 2,0 × 1,0 m', versao: 2 },
+    { descricao: 'Cartão de visita 4x4', versao: 1 },
+  ]
+  const texto = preencherMensagem(TEXTOS_PADRAO_MENSAGEM.arte_aprovacao, {
+    cliente_nome: 'Fernanda',
+    numero_pedido: 'PED-2026-0007',
+    empresa_nome: 'Ponto Visual',
+    ...valoresArtesAprovacao(artes, link),
+  })
+  it('lista as artes, pede APROVADO por aqui e termina num link só (a seção das artes do pedido)', () => {
+    expect(texto).toBe(
+      [
+        'Olá, Fernanda!',
+        '',
+        'Segue a arte do pedido *PED-2026-0007* para a sua aprovação 🎨',
+        '• Banner em lona 2,0 × 1,0 m — v2',
+        '• Cartão de visita 4x4 — v1',
+        '',
+        'Confira textos, cores e medidas.',
+        'Responda *APROVADO* aqui mesmo ou peça o ajuste que precisar.',
+        '',
+        '— Ponto Visual',
+        '',
+        'Se preferir, veja e aprove pelo link:',
+        `${link}#artes`,
+      ].join('\n'),
+    )
+    expect(texto.match(/https?:/g)).toHaveLength(1)
+    expect(texto.split('\n').pop()).toBe(`${link}#artes`)
+  })
+  it('lista e link', () => {
+    expect(listaArtesMensagem([{ descricao: ' Adesivo ', versao: 3 }])).toBe('• Adesivo — v3')
+    expect(valoresArtesAprovacao(artes, `${link}#outro`).link_aprovacao).toBe(`${link}#artes`)
+    expect(valoresArtesAprovacao(artes, link).descricao_item).toBe('Banner em lona 2,0 × 1,0 m, Cartão de visita 4x4')
+  })
+  it('template antigo com {{descricao_item}} e {{link_aprovacao}} continua funcionando', () => {
+    const antigo = preencherMensagem('Item: {{descricao_item}}\nAprove: {{link_aprovacao}}', valoresArtesAprovacao(artes, link))
+    expect(antigo).toBe(`Item: Banner em lona 2,0 × 1,0 m, Cartão de visita 4x4\nAprove: ${link}#artes`)
+  })
+})
+
+describe('arquivos das artes na mensagem', () => {
+  const arq = (id: string, mime: string, mb: number) => ({ id, nome: id, mime, tamanho: mb * 1024 * 1024 })
+  it('imagem vai como imagem; PDF como documento', () => {
+    expect(vaiComoImagem('image/png')).toBe(true)
+    expect(vaiComoImagem('image/jpeg')).toBe(true)
+    expect(vaiComoImagem('application/pdf')).toBe(false)
+  })
+  it('CDR/AI/PSD vão pela miniatura; sem ela, só pelo link', () => {
+    const mini = arq('mini', 'image/jpeg', 0.1)
+    expect(arquivoVisivelDaArte({ arquivo: arq('a', 'application/pdf', 1), miniatura: mini })?.id).toBe('a')
+    expect(arquivoVisivelDaArte({ arquivo: arq('a', 'application/postscript', 1), miniatura: mini })?.id).toBe('mini')
+    expect(arquivoVisivelDaArte({ arquivo: arq('a', 'application/x-cdr', 1), miniatura: null })).toBeNull()
+  })
+  it('até 6 arquivos e 15 MB no total, na ordem; o resto fica pelo link', () => {
+    const muitos = Array.from({ length: 8 }, (_, i) => arq(String(i), 'image/png', 1))
+    const { anexos, ficaram } = escolherAnexosArte(muitos)
+    expect(anexos.map((a) => a.id)).toEqual(['0', '1', '2', '3', '4', '5'])
+    expect(ficaram).toHaveLength(2)
+    expect(ANEXOS_ARTE_MAX).toBe(6)
+    const grandes = escolherAnexosArte([arq('a', 'application/pdf', 10), arq('b', 'application/pdf', 8), arq('c', 'image/png', 2)])
+    expect(grandes.anexos.map((a) => a.id)).toEqual(['a', 'c'])
+    expect(grandes.ficaram.map((a) => a.id)).toEqual(['b'])
   })
 })

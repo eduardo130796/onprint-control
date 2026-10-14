@@ -28,7 +28,7 @@ import { AbaEntrega } from '../components/detalhe/AbaEntrega'
 import { AbaFinanceiro } from '../components/detalhe/AbaFinanceiro'
 import { AbaItens } from '../components/detalhe/AbaItens'
 import { AbaProducao } from '../components/detalhe/AbaProducao'
-import { ArteDoItem } from '../components/detalhe/ArteDoItem'
+import { AbaArte } from '../components/detalhe/AbaArte'
 import { CancelarPedidoDialog, EditarPedidoDialog } from '../components/detalhe/PedidoDialogs'
 import { ReciboDialog } from '../components/detalhe/ReciboDialog'
 import { usePedido, useTemplates } from '../hooks'
@@ -259,10 +259,8 @@ export function PedidoPage() {
         <TabsContent value="itens">
           <AbaItens pedido={pedido} />
         </TabsContent>
-        <TabsContent value="arte" className="space-y-4">
-          {pedido.itens.map((item) => (
-            <ArteDoItem key={item.id} pedido={pedido} item={item} />
-          ))}
+        <TabsContent value="arte">
+          <AbaArte pedido={pedido} />
         </TabsContent>
         <TabsContent value="producao">
           <AbaProducao pedido={pedido} />

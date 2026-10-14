@@ -27,3 +27,18 @@ describe('statusAutomaticoPedido', () => {
     }
   })
 })
+
+describe('statusAutomaticoPedido: aprovação da arte pelo cliente é opcional', () => {
+  it('arte em criação (não enviada ao cliente) nunca deixa o pedido "em aprovação"', () => {
+    expect(statusAutomaticoPedido({ status: 'aguardando_arte', artes: ['em_criacao', 'em_criacao'], ops: ['fila', 'fila'] })).toBe('aguardando_arte')
+  })
+  it('aprovação interna (sem passar pelo cliente) leva direto para a produção', () => {
+    expect(statusAutomaticoPedido({ status: 'aguardando_arte', artes: ['aprovada', 'aprovada'], ops: ['fila', 'fila'] })).toBe('em_producao')
+  })
+  it('"Cliente aprovou todas as artes": de "em aprovação" para a produção', () => {
+    expect(statusAutomaticoPedido({ status: 'arte_em_aprovacao', artes: ['aprovada', 'aprovada'], ops: [] })).toBe('em_producao')
+  })
+  it('entregue com arte ainda "enviada ao cliente" continua entregue', () => {
+    expect(statusAutomaticoPedido({ status: 'entregue', artes: ['enviada_cliente'], ops: ['concluido'] })).toBe('entregue')
+  })
+})

@@ -71,11 +71,47 @@ export type EntregasQuery = z.input<typeof entregasQuerySchema>
 
 export const arteComentarioSchema = z.object({ texto: z.string().trim().min(2, 'Escreva o comentário.').max(2000) })
 
-export const arteAprovacaoInternaSchema = z.object({ nome: z.string().trim().min(2, 'Informe quem aprovou.').max(160) })
+/** Como o cliente aprovou a arte que a equipe registra (interna = a gráfica aprovou sem enviar ao cliente) */
+export const VIAS_APROVACAO_ARTE = ['whatsapp', 'pessoalmente', 'telefone', 'email', 'interna'] as const
+export type ViaAprovacaoArte = (typeof VIAS_APROVACAO_ARTE)[number]
+
+export const VIA_APROVACAO_ARTE_ROTULOS: Record<ViaAprovacaoArte, string> = {
+  whatsapp: 'Cliente aprovou pelo WhatsApp',
+  pessoalmente: 'Cliente aprovou pessoalmente',
+  telefone: 'Cliente aprovou por telefone',
+  email: 'Cliente aprovou por e-mail',
+  interna: 'Aprovação interna (sem o cliente)',
+}
+
+/** Nota que fica na conversa da arte (o autor é quem registrou) */
+export function notaAprovacaoInterna(via: ViaAprovacaoArte, nome?: string | null): string {
+  const quem = nome?.trim() ? ` (${nome.trim()})` : ''
+  if (via === 'interna') return `Aprovada internamente pela equipe${quem}.`
+  const como = { whatsapp: 'pelo WhatsApp', pessoalmente: 'pessoalmente', telefone: 'por telefone', email: 'por e-mail' }[via]
+  return `Aprovada pelo cliente ${como}${quem}.`
+}
+
+/** Aprovação registrada pela equipe (uma arte ou todas do pedido); sem "via", o cliente aprovou pelo WhatsApp */
+export const arteAprovacaoInternaSchema = z.object({
+  via: z.enum(VIAS_APROVACAO_ARTE).default('whatsapp'),
+  /** Quem aprovou do lado do cliente (opcional) */
+  nome: z.string().trim().max(160).optional(),
+})
+
+/** Marca as artes como enviadas ao cliente (avisar = aviso automático do WhatsApp; o envio pelo diálogo manda false) */
+export const artesEnviarSchema = z.object({
+  arteIds: z.array(z.string().uuid()).min(1, 'Escolha as artes.').max(50),
+  avisar: z.boolean().default(true),
+})
 
 export const arteAprovacaoPublicaSchema = z.object({
   nome: z.string().trim().min(3, 'Informe seu nome completo.').max(160),
   aceite: z.literal(true, { message: 'Confirme que conferiu a arte.' }),
+})
+
+/** Aprovação pela página do pedido: todas as artes que aguardam o cliente, ou só as escolhidas */
+export const artesAprovacaoPublicaSchema = arteAprovacaoPublicaSchema.extend({
+  arteIds: z.array(z.string().uuid()).min(1).max(50).optional(),
 })
 
 export const arteAjustePublicoSchema = z.object({

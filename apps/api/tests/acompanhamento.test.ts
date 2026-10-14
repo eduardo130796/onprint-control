@@ -37,7 +37,7 @@ function pedido(extra: Partial<PedidoParaAcompanhar> = {}): PedidoParaAcompanhar
         total: '600.00',
         acabamentos: [{ nome: 'Ilhós' }],
         artes: [
-          { id: 'a2', versao: 2, status: 'enviada_cliente', tokenPublico: TOKEN_ARTE, miniaturaId: 'arq-mini' },
+          { id: 'a2', versao: 2, status: 'enviada_cliente', tokenPublico: TOKEN_ARTE, miniaturaId: 'arq-mini', arquivo: { id: 'arq-pdf', nomeOriginal: 'banner.pdf', mime: 'application/pdf' } },
           { id: 'a1', versao: 1, status: 'ajuste_solicitado', tokenPublico: 'tokenAntigoDaArteVersao1xx', miniaturaId: null },
         ],
       },
@@ -158,8 +158,19 @@ describe('montarAcompanhamento', () => {
       altura: '0.500',
       acabamentos: ['Ilhós'],
       total: '600.00',
-      arte: { versao: 2, status: 'enviada_cliente', rotulo: 'Aguardando sua aprovação', aguardandoAprovacao: true, linkAprovacao: `/arte/ponto-visual/${TOKEN_ARTE}`, miniaturaUrl: '/api/v1/arquivos/publico/arq-mini' },
+      arte: {
+        id: 'a2',
+        versao: 2,
+        status: 'enviada_cliente',
+        rotulo: 'Aguardando sua aprovação',
+        aguardandoAprovacao: true,
+        linkAprovacao: `/arte/ponto-visual/${TOKEN_ARTE}`,
+        miniaturaUrl: '/api/v1/arquivos/publico/arq-mini',
+        arquivo: { nome: 'banner.pdf', mime: 'application/pdf', url: '/api/v1/arquivos/publico/arq-pdf', visualizavel: true },
+        ajustePedido: null,
+      },
     })
+    expect(a.aprovacaoArte).toEqual({ mostrar: true, pendentes: 1 })
     expect(a.itens[1]!.arte).toBeNull()
     expect(a.financeiro).toEqual({
       total: '1000.00',
@@ -228,6 +239,23 @@ describe('montarAcompanhamento', () => {
     expect(a.atrasado).toBe(true)
     expect(a.financeiro.proximoVencimento).toEqual({ data: '2026-10-25', valor: '500.00', vencida: true })
     expect(a.financeiro.parcelas[1]!.vencida).toBe(true)
+  })
+
+  it('pedido que seguiu (produção, pronto, entregue) com a arte ainda "enviada": nada de pedir aprovação', () => {
+    for (const status of ['em_producao', 'pronto', 'em_entrega', 'entregue'] as const) {
+      const a = montarAcompanhamento(pedido({ status }), extras)
+      expect(a.aprovacaoArte).toEqual({ mostrar: false, pendentes: 0 })
+      expect(a.itens[0]!.arte).toMatchObject({ aguardandoAprovacao: false, linkAprovacao: null, rotulo: 'Aprovada' })
+      expect(a.etapas.find((e) => e.codigo === 'arte')?.titulo).toBe('Arte aprovada')
+    }
+  })
+
+  it('ajuste pedido aparece para o cliente enquanto a arte está em ajuste', () => {
+    const p = pedido()
+    p.itens[0]!.artes[0] = { ...p.itens[0]!.artes[0]!, status: 'ajuste_solicitado', comentarioCliente: 'Trocar o telefone' }
+    const a = montarAcompanhamento(p, extras)
+    expect(a.aprovacaoArte.mostrar).toBe(false)
+    expect(a.itens[0]!.arte).toMatchObject({ ajustePedido: 'Trocar o telefone', rotulo: 'Ajuste em andamento' })
   })
 
   it('pago por completo: quitado', () => {

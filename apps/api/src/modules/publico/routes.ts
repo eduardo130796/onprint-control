@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
-import { aprovacaoPublicaSchema, arteAjustePublicoSchema, arteAprovacaoPublicaSchema, recusaSchema, tokenPublicoParamSchema } from '@onprint/shared'
+import { z } from 'zod'
+import { aprovacaoPublicaSchema, arteAjustePublicoSchema, arteAprovacaoPublicaSchema, artesAprovacaoPublicaSchema, recusaSchema, tokenPublicoParamSchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { contextoEmpresa } from '../../core/contexto-empresa'
 import { criarAcompanhamentoService } from './acompanhamento.service'
@@ -67,6 +68,28 @@ export const publicoRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req, reply) => {
       // Dados do pedido do cliente: nada de cache compartilhado nem indexação
       reply.header('Cache-Control', 'no-store').header('X-Robots-Tag', 'noindex')
+      return acompanhamento.obter(req.params.token)
+    },
+  )
+  // Artes pela página do pedido: aprovar todas (ou as escolhidas) e pedir ajuste em uma; devolve o pedido atualizado
+  app.post(
+    '/pedidos/:token/artes/aprovar',
+    { config: limite, schema: { tags, summary: 'Cliente aprova as artes do pedido que aguardam a aprovação dele', params: tokenPublicoParamSchema, body: artesAprovacaoPublicaSchema } },
+    async (req, reply) => {
+      await artes.aprovarDoPedido(req.params.token, req.body.nome, req.body.arteIds, req.ip)
+      reply.header('Cache-Control', 'no-store')
+      return acompanhamento.obter(req.params.token)
+    },
+  )
+  app.post(
+    '/pedidos/:token/artes/:arteId/ajuste',
+    {
+      config: limite,
+      schema: { tags, summary: 'Cliente pede ajuste em uma arte do pedido', params: tokenPublicoParamSchema.extend({ arteId: z.string().uuid() }), body: arteAjustePublicoSchema },
+    },
+    async (req, reply) => {
+      await artes.pedirAjusteDoPedido(req.params.token, req.params.arteId, req.body.nome, req.body.comentario, req.ip)
+      reply.header('Cache-Control', 'no-store')
       return acompanhamento.obter(req.params.token)
     },
   )

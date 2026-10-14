@@ -1,6 +1,6 @@
 import { nomeCliente, type OrcamentoDetalhe, type OrcamentoInput, type ProdutoCatalogo, type SolicitacaoItem } from '@onprint/shared'
 import type { OpcaoBusca } from '@/components/shared/SearchSelect'
-import { decimalParaInput } from '@/lib/mascaras'
+import { decimalParaCampo, decimalParaInput } from '@/lib/mascaras'
 
 export interface ItemForm {
   /** Chave estável da linha na tela */
@@ -32,8 +32,9 @@ export interface FormOrcamento {
 let contador = 0
 export const novaChave = () => `item-${Date.now()}-${++contador}`
 
-const medida = (v: string | null) => (v ? decimalParaInput(v, 3).replace(/,?0+$/, '') : '')
-const quantidade = (v: string) => decimalParaInput(v, 3).replace(/,?0+$/, '')
+// Sem separador de milhar: "1.000" (sem vírgula) seria lido como 1 ao recalcular e ao salvar
+const medida = (v: string | null) => decimalParaCampo(v, 3)
+const quantidade = (v: string) => decimalParaCampo(v, 3)
 
 export function itemVazio(): ItemForm {
   return { chave: novaChave(), produto: null, descricao: '', quantidade: '1', largura: '', altura: '', precoUnitario: '', acabamentoIds: [], desconto: '0,00', observacao: '' }

@@ -7,16 +7,14 @@ import {
   nomeParaSaudacao,
   preencherMensagem,
   valorEmAberto,
+  valoresArtesAprovacao,
+  type ArteMensagem,
   type MensagemTemplate,
   type PedidoDetalhe,
   type VariavelTemplate,
 } from '@onprint/shared'
 import { textoDoTemplate } from '@/features/whatsapp/previa'
-import { linkAcompanhamento, linkPublico } from '@/lib/empresaAtual'
-
-export function linkArte(token: string): string {
-  return linkPublico('arte', token)
-}
+import { linkAcompanhamento } from '@/lib/empresaAtual'
 
 /** Variáveis do pedido comuns às mensagens (mesmas da API nos avisos automáticos) */
 function valoresDoPedido(pedido: PedidoDetalhe, empresa: string): Partial<Record<VariavelTemplate, string>> {
@@ -32,13 +30,13 @@ function valoresDoPedido(pedido: PedidoDetalhe, empresa: string): Partial<Record
   }
 }
 
-/** Link de aprovação da arte de um item (template "Arte para aprovação") */
-export function mensagemDaArte(pedido: PedidoDetalhe, arte: { token: string; item: string }, templates: MensagemTemplate[] | undefined, empresa: string): string {
-  return preencherMensagem(textoDoTemplate('arte_aprovacao', templates), {
-    ...valoresDoPedido(pedido, empresa),
-    descricao_item: arte.item,
-    link_aprovacao: linkArte(arte.token),
-  })
+/**
+ * "Arte para aprovação" (template de mesmo nome): UMA mensagem para o pedido com as artes escolhidas em lista e um
+ * link só, o da página do pedido na seção das artes (mesmo texto do aviso automático da API).
+ */
+export function mensagemDasArtes(pedido: PedidoDetalhe, artes: ArteMensagem[], templates: MensagemTemplate[] | undefined, empresa: string): string {
+  const valores = valoresDoPedido(pedido, empresa)
+  return preencherMensagem(textoDoTemplate('arte_aprovacao', templates), { ...valores, ...valoresArtesAprovacao(artes, valores.link_acompanhamento ?? '') })
 }
 
 /** Pedido pronto: retirada ou entrega e o que falta pagar (template "Pedido pronto") */

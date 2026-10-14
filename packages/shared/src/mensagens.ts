@@ -32,9 +32,35 @@ export function listaItensMensagem(itens: ItemMensagem[], max = 8): string {
 /** "1 dia útil", "5 dias úteis"; 0 = sem prazo (a linha some da mensagem) */
 export const textoPrazoDias = (dias: number | null | undefined) => (!dias || dias <= 0 ? '' : dias === 1 ? '1 dia útil' : `${dias} dias úteis`)
 
-/** "Pedido confirmado": o que acontece agora */
+/** "Pedido confirmado": o que acontece agora (a aprovação da arte pelo cliente é opcional: não promete o envio) */
 export function proximoPassoPedido(comArte: boolean): string {
-  return comArte ? 'Antes de produzir, enviamos a arte para você aprovar por aqui.' : 'Já vamos começar a produção.'
+  return comArte ? 'Agora preparamos a arte e, em seguida, a produção.' : 'Já vamos começar a produção.'
+}
+
+export interface ArteMensagem {
+  /** Item do pedido */
+  descricao: string
+  versao: number
+}
+
+/** Artes do pedido em lista (•), uma por item: "• Banner em lona — v2" */
+export function listaArtesMensagem(artes: ArteMensagem[]): string {
+  return artes.map((a) => `• ${a.descricao.trim()} — v${a.versao}`).join('\n')
+}
+
+/** Link das artes na página de acompanhamento (seção #artes): um link só para ver e aprovar todas */
+export const linkArtesDoPedido = (linkAcompanhamento: string) => `${linkAcompanhamento.replace(/#.*$/, '')}#artes`
+
+/**
+ * Variáveis da mensagem "Arte para aprovação" (uma por pedido, com todas as artes que aguardam o cliente):
+ * a lista das artes, os itens (templates antigos com {{descricao_item}}) e o link único para aprovar todas.
+ */
+export function valoresArtesAprovacao(artes: ArteMensagem[], linkAcompanhamento: string) {
+  return {
+    itens_arte: listaArtesMensagem(artes),
+    descricao_item: artes.map((a) => a.descricao.trim()).join(', '),
+    link_aprovacao: linkAcompanhamento ? linkArtesDoPedido(linkAcompanhamento) : '',
+  }
 }
 
 /** "Pedido pronto": retirada ou entrega */

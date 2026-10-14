@@ -1,5 +1,5 @@
 import { Fragment } from 'react'
-import { Link2 } from 'lucide-react'
+import { ImageIcon, Link2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { linkDaPrevia, trechosWhatsapp } from '../formatacao'
 
@@ -15,7 +15,28 @@ const dominio = (url: string) => {
  * Prévia da mensagem como o cliente vê no WhatsApp: bolha verde, quebras de linha, *negrito*, _itálico_,
  * links em azul e, no topo, o cartão da prévia do link (o WhatsApp mostra a do primeiro link).
  */
-export function BolhaWhatsapp({ texto, anexo, className, vazio = 'A mensagem aparece aqui.' }: { texto: string; anexo?: string | null; className?: string; vazio?: string }) {
+export interface ArquivoNaBolha {
+  nome: string
+  /** Imagem aparece na conversa (com a legenda); o resto vai como documento */
+  imagem: boolean
+  miniaturaUrl?: string | null
+  legenda?: string
+}
+
+export function BolhaWhatsapp({
+  texto,
+  anexo,
+  arquivos = [],
+  className,
+  vazio = 'A mensagem aparece aqui.',
+}: {
+  texto: string
+  anexo?: string | null
+  /** Arquivos que vão logo depois do texto (artes) */
+  arquivos?: ArquivoNaBolha[]
+  className?: string
+  vazio?: string
+}) {
   const link = linkDaPrevia(texto)
   return (
     <div className={cn('rounded-xl bg-[#efeae2] p-3 dark:bg-[#0b141a]', className)}>
@@ -57,6 +78,21 @@ export function BolhaWhatsapp({ texto, anexo, className, vazio = 'A mensagem apa
           <span className="flex h-9 w-7 shrink-0 items-center justify-center rounded bg-[#e2462f] text-[0.5625rem] font-bold text-white">PDF</span>
           <span className="min-w-0 truncate">{anexo}</span>
         </div>
+      )}
+      {arquivos.map((a, i) =>
+        a.imagem ? (
+          <div key={i} className="ml-auto mt-1.5 w-44 max-w-full rounded-xl rounded-tr-sm bg-[#d9fdd3] p-1 text-xs text-[#111b21] shadow-sm dark:bg-[#005c4b] dark:text-[#e9edef]">
+            <div className="flex h-32 items-center justify-center overflow-hidden rounded-lg bg-white/70">
+              {a.miniaturaUrl ? <img src={a.miniaturaUrl} alt="" className="h-full w-full object-cover" /> : <ImageIcon className="h-8 w-8 text-[#54656f]" />}
+            </div>
+            {a.legenda && <p className="truncate px-1 pt-1">{a.legenda}</p>}
+          </div>
+        ) : (
+          <div key={i} className="ml-auto mt-1.5 flex w-fit max-w-full items-center gap-2 rounded-xl rounded-tr-sm bg-[#d9fdd3] p-2 pr-3 text-sm text-[#111b21] shadow-sm sm:max-w-[92%] dark:bg-[#005c4b] dark:text-[#e9edef]">
+            <span className="flex h-9 w-7 shrink-0 items-center justify-center rounded bg-[#e2462f] text-[0.5625rem] font-bold text-white">PDF</span>
+            <span className="min-w-0 truncate">{a.nome}</span>
+          </div>
+        ),
       )}
     </div>
   )

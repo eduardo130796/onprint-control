@@ -41,3 +41,16 @@ export function decimalParaInput(valor: string | number | null | undefined, casa
   const n = Number(valor ?? 0)
   return n.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas })
 }
+
+/**
+ * Decimal da API para um NumberInput, sem zeros sobrando e SEM separador de milhar:
+ * "1000.000" → "1000", "2.500" → "2,5", "1234.5" → "1234,5".
+ * Não use decimalParaInput(...).replace(/,?0+$/, ''): "1000" vira "1.000", que sem vírgula
+ * é lido como 1 (ponto = decimal da API) e o total do orçamento cai 1000 vezes.
+ */
+export function decimalParaCampo(valor: string | number | null | undefined, casasMax = 3): string {
+  if (valor === null || valor === undefined || valor === '') return ''
+  const n = Number(valor)
+  if (!Number.isFinite(n)) return ''
+  return n.toLocaleString('pt-BR', { maximumFractionDigits: casasMax, useGrouping: false })
+}

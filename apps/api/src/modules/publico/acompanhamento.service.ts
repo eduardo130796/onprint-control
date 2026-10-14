@@ -39,7 +39,10 @@ export function criarAcompanhamentoService(app: FastifyInstance) {
             altura: true,
             total: true,
             acabamentos: { select: { nome: true } },
-            artes: { orderBy: { versao: 'desc' }, select: { id: true, versao: true, status: true, tokenPublico: true, miniaturaId: true } },
+            artes: {
+              orderBy: { versao: 'desc' },
+              select: { id: true, versao: true, status: true, tokenPublico: true, miniaturaId: true, comentarioCliente: true, arquivo: { select: { id: true, nomeOriginal: true, mime: true } } },
+            },
           },
         },
         contasReceber: { select: { parcela: true, totalParcelas: true, descricao: true, valor: true, valorPago: true, vencimento: true, status: true, pagoEm: true } },

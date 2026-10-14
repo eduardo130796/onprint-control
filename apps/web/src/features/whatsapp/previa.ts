@@ -1,6 +1,8 @@
 import {
   TEXTOS_PADRAO_MENSAGEM,
   caminhoAcompanhamento,
+  linkArtesDoPedido,
+  listaArtesMensagem,
   listaItensMensagem,
   preencherMensagem,
   proximoPassoPedido,
@@ -29,12 +31,17 @@ export function valoresDeExemplo(empresa: { nome: string; slug: string; origem: 
     validade: '20/10/2026',
     prazo_producao: textoPrazoDias(5),
     numero_pedido: 'PED-2026-0017',
-    descricao_item: 'Banner em lona 2,0 × 1,0 m',
+    descricao_item: 'Banner em lona 2,0 × 1,0 m, Cartão de visita 4x4',
+    itens_arte: listaArtesMensagem([
+      { descricao: 'Banner em lona 2,0 × 1,0 m', versao: 1 },
+      { descricao: 'Cartão de visita 4x4', versao: 2 },
+    ]),
     proximo_passo: proximoPassoPedido(true),
     forma_entrega: formaEntregaPronto('retirada'),
     data_entrega: '15/10/2026',
     link_acompanhamento: `${empresa.origem}${caminhoAcompanhamento(empresa.slug, 'exemplo')}`,
-    link_aprovacao: `${empresa.origem}/arte/${empresa.slug}/exemplo`,
+    // Artes: um link só, a página do pedido na seção das artes
+    link_aprovacao: linkArtesDoPedido(`${empresa.origem}${caminhoAcompanhamento(empresa.slug, 'exemplo')}`),
     valor_pago: 'R$ 150,00',
     valor_total: 'R$ 219,90',
     valor_em_aberto: 'R$ 69,90',

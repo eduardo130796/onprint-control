@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Copy, ExternalLink, FileText, Loader2, Pencil, RotateCcw, Send, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatarNumeroWhatsapp, normalizarNumeroWhatsapp, type TipoEnvioWhatsapp } from '@onprint/shared'
+import { escolherAnexosArte, formatarNumeroWhatsapp, normalizarNumeroWhatsapp, vaiComoImagem, type TipoEnvioWhatsapp } from '@onprint/shared'
 import { CHAVE_WHATSAPP, whatsappApi } from '@/api/whatsapp'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
@@ -19,12 +19,27 @@ export interface EnvioWhatsapp {
   tipo: TipoEnvioWhatsapp
   destinatario: { nome: string; numero?: string | null; clienteId?: string | null }
   /** Texto pronto; com o PDF anexado, o texto avisa que ele vai logo abaixo */
-  mensagem: (comPdf: boolean) => string
+  mensagem: (comPdf: boolean, selecionados: string[]) => string
   vinculo?: { orcamentoId?: string; pedidoId?: string; arteId?: string }
   /** PDF que pode ir junto (gerado no navegador na hora do envio) */
   pdf?: { rotulo: string; gerar: () => Promise<{ blob: Blob; nome: string }>; marcado?: boolean }
+  /**
+   * Itens escolhidos no diálogo que entram no texto e levam o arquivo (já no servidor) logo depois dele: as artes
+   * do pedido. Vão até ANEXOS_ARTE_MAX arquivos / ANEXOS_ARTE_MAX_MB; o que não couber fica pelo link.
+   */
+  selecao?: { rotulo: string; itens: ItemSelecaoEnvio[] }
   /** Depois de enviar pela conexão, abrir o WhatsApp ou copiar (ex.: marcar o orçamento como enviado) */
-  onEnviado?: (via: 'whatsapp' | 'wame' | 'copiado') => void
+  onEnviado?: (via: 'whatsapp' | 'wame' | 'copiado', selecionados: string[]) => void
+}
+
+export interface ItemSelecaoEnvio {
+  id: string
+  titulo: string
+  detalhe?: string
+  miniaturaUrl: string | null
+  /** Arquivo que vai junto (null = só pelo link) */
+  arquivo: { id: string; nome: string; mime: string; tamanho: number } | null
+  marcado: boolean
 }
 
 /**
@@ -53,7 +68,13 @@ function Conteudo({ envio, onFechar }: { envio: EnvioWhatsapp; onFechar: () => v
 
   const conectado = disponivel.data?.conectado ?? false
   const anexar = Boolean(envio.pdf) && comPdf && conectado
-  const padrao = envio.mensagem(anexar)
+  const [marcados, setMarcados] = useState<string[]>(() => envio.selecao?.itens.filter((i) => i.marcado).map((i) => i.id) ?? [])
+  const selecionados = envio.selecao ? envio.selecao.itens.filter((i) => marcados.includes(i.id)) : []
+  // Arquivos das artes só pela conexão da gráfica (o wa.me não leva arquivo), dentro do limite
+  const { anexos: arquivosJuntos } = escolherAnexosArte(conectado ? selecionados.flatMap((i) => (i.arquivo ? [i.arquivo] : [])) : [])
+  const vaiJunto = (i: ItemSelecaoEnvio) => Boolean(i.arquivo && arquivosJuntos.includes(i.arquivo))
+  const semSelecao = Boolean(envio.selecao) && selecionados.length === 0
+  const padrao = envio.mensagem(anexar, marcados)
   const texto = editado ?? padrao
   const numero = outroNumero ? normalizarNumeroWhatsapp(digitado) : numeroCadastro
   // Nome de exibição inteiro ("Pet Feliz", não "Pet"); só encurta nome muito longo para caber no botão
@@ -61,14 +82,22 @@ function Conteudo({ envio, onFechar }: { envio: EnvioWhatsapp; onFechar: () => v
   const nomeCurto = nome.length <= 22 ? nome : `${nome.slice(0, 20).trimEnd()}…`
 
   function concluir(via: 'whatsapp' | 'wame' | 'copiado') {
-    envio.onEnviado?.(via)
+    envio.onEnviado?.(via, marcados)
     onFechar()
   }
 
   async function enviar() {
     if (!numero) return toast.error('Informe um WhatsApp válido com DDD.')
     if (!texto.trim()) return toast.error('Escreva a mensagem.')
-    const dados = { tipo: envio.tipo, telefone: numero, texto, clienteId: envio.destinatario.clienteId ?? null, ...envio.vinculo }
+    if (semSelecao) return toast.error(`Escolha ${envio.selecao!.rotulo.toLowerCase()}.`)
+    const dados = {
+      tipo: envio.tipo,
+      telefone: numero,
+      texto,
+      clienteId: envio.destinatario.clienteId ?? null,
+      ...envio.vinculo,
+      ...(arquivosJuntos.length ? { arquivoIds: arquivosJuntos.map((a) => a.id) } : {}),
+    }
     try {
       let r
       if (anexar && envio.pdf) {
@@ -157,6 +186,49 @@ function Conteudo({ envio, onFechar }: { envio: EnvioWhatsapp; onFechar: () => v
           )}
         </section>
 
+        {envio.selecao && (
+          <section aria-label={envio.selecao.rotulo}>
+            <p className="mb-1.5 text-sm font-medium text-tinta">{envio.selecao.rotulo}</p>
+            <ul className="divide-y divide-border rounded-xl border border-border">
+              {envio.selecao.itens.map((i) => {
+                const marcado = marcados.includes(i.id)
+                const junto = vaiJunto(i)
+                return (
+                  <li key={i.id}>
+                    <label className="flex cursor-pointer items-center gap-3 p-2.5 text-sm">
+                      <Checkbox checked={marcado} onChange={(e) => setMarcados((m) => (e.target.checked ? [...m, i.id] : m.filter((x) => x !== i.id)))} />
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-white">
+                        {i.miniaturaUrl ? <img src={i.miniaturaUrl} alt="" className="h-full w-full object-contain" /> : <FileText className="h-5 w-5 text-texto-secundario" />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium text-tinta">{i.titulo}</span>
+                        <span className="block truncate text-xs text-texto-secundario">
+                          {[
+                            i.detalhe,
+                            !marcado
+                              ? 'Não vai nesta mensagem'
+                              : junto
+                                ? vaiComoImagem(i.arquivo!.mime)
+                                  ? 'Vai como imagem'
+                                  : 'Vai como PDF'
+                                : !conectado
+                                  ? 'Só pelo link (o wa.me não leva arquivo)'
+                                  : i.arquivo
+                                    ? 'Só pelo link (passou do limite de arquivos)'
+                                    : 'Só pelo link (formato que o celular não abre)',
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                      </span>
+                    </label>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )}
+
         <section aria-label="Mensagem">
           <div className="mb-1.5 flex items-center justify-between gap-2">
             <p className="text-sm font-medium text-tinta">Mensagem</p>
@@ -177,7 +249,11 @@ function Conteudo({ envio, onFechar }: { envio: EnvioWhatsapp; onFechar: () => v
               <p className="mt-1 text-xs text-texto-secundario">No WhatsApp, *texto* fica em negrito. Deixe o link sozinho na última linha para aparecer a prévia.</p>
             </>
           ) : (
-            <BolhaWhatsapp texto={texto} anexo={anexar ? envio.pdf?.rotulo : null} />
+            <BolhaWhatsapp
+              texto={texto}
+              anexo={anexar ? envio.pdf?.rotulo : null}
+              arquivos={selecionados.filter(vaiJunto).map((i) => ({ nome: i.arquivo!.nome, imagem: vaiComoImagem(i.arquivo!.mime), miniaturaUrl: i.miniaturaUrl, legenda: i.titulo }))}
+            />
           )}
         </section>
 
@@ -195,15 +271,15 @@ function Conteudo({ envio, onFechar }: { envio: EnvioWhatsapp; onFechar: () => v
       </div>
 
       <div className="flex flex-col-reverse gap-2 border-t border-border px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
-        <Button type="button" variant="outline" onClick={() => void copiar()} disabled={Boolean(enviando)}>
+        <Button type="button" variant="outline" onClick={() => void copiar()} disabled={Boolean(enviando) || semSelecao}>
           <Copy /> Copiar
         </Button>
         {conectado ? (
-          <Button type="button" onClick={() => void enviar()} disabled={Boolean(enviando) || !numero || disponivel.isPending}>
+          <Button type="button" onClick={() => void enviar()} disabled={Boolean(enviando) || !numero || disponivel.isPending || semSelecao}>
             {enviando ? <Loader2 className="animate-spin" /> : <Send />} {enviando === 'pdf' ? 'Gerando o PDF…' : enviando ? 'Enviando…' : `Enviar para ${nomeCurto}`}
           </Button>
         ) : (
-          <Button type="button" onClick={abrirNoWhatsapp} disabled={disponivel.isPending}>
+          <Button type="button" onClick={abrirNoWhatsapp} disabled={disponivel.isPending || semSelecao}>
             <ExternalLink /> Abrir no WhatsApp
           </Button>
         )}

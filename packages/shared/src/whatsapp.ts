@@ -25,7 +25,7 @@ export const EVENTO_WHATSAPP_ROTULOS: Record<EventoWhatsapp, string> = {
 
 export const EVENTO_WHATSAPP_DESCRICOES: Record<EventoWhatsapp, string> = {
   pedido_confirmado: 'Quando o orçamento aprovado vira pedido. Diz o próximo passo e leva o link para acompanhar o pedido.',
-  arte_aprovacao: 'Quando a arte é enviada ao cliente. Leva o link para ver e aprovar a arte.',
+  arte_aprovacao: 'Quando a arte é enviada ao cliente: uma mensagem por pedido, com as artes anexadas e um link só para aprovar todas.',
   pedido_pronto: 'Quando o pedido fica pronto para retirada ou entrega.',
   pedido_em_entrega: 'Quando o pedido sai para entrega.',
   pagamento_recebido: 'A cada pagamento do pedido registrado no financeiro ou no caixa.',
@@ -92,16 +92,20 @@ export const TEXTOS_PADRAO_MENSAGEM = {
     'Acompanhe o pedido aqui:',
     '{{link_acompanhamento}}',
   ].join('\n'),
+  // Uma mensagem por pedido: todas as artes listadas; os arquivos vão logo depois do texto (imagem ou PDF)
+  // e o link (página do pedido, seção das artes) é só para quem preferir aprovar por lá
   arte_aprovacao: [
     'Olá, {{cliente_nome}}!',
     '',
-    'A arte do pedido *{{numero_pedido}}* está pronta para a sua aprovação 🎨',
-    'Item: {{descricao_item}}',
-    'Se precisar de algum ajuste, é só pedir pelo mesmo link.',
+    'Segue a arte do pedido *{{numero_pedido}}* para a sua aprovação 🎨',
+    '{{itens_arte}}',
+    '',
+    'Confira textos, cores e medidas.',
+    'Responda *APROVADO* aqui mesmo ou peça o ajuste que precisar.',
     '',
     ASSINATURA,
     '',
-    'Veja e aprove a arte aqui:',
+    'Se preferir, veja e aprove pelo link:',
     '{{link_aprovacao}}',
   ].join('\n'),
   pedido_pronto: [
@@ -225,6 +229,46 @@ export const mensagensWhatsappQuerySchema = z.object({
 /** PDF que vai junto do envio da equipe (orçamento, recibo, catálogo) */
 export const ANEXO_WHATSAPP_MAX_MB = 10
 
+/** Arquivos das artes que vão logo depois do texto: até 6 e 15 MB no total (o resto fica pelo link) */
+export const ANEXOS_ARTE_MAX = 6
+export const ANEXOS_ARTE_MAX_MB = 15
+
+/** Imagens que o WhatsApp mostra na conversa (as outras vão como documento) */
+const MIMES_IMAGEM_WHATSAPP = ['image/jpeg', 'image/png', 'image/webp']
+export const vaiComoImagem = (mime: string) => MIMES_IMAGEM_WHATSAPP.includes(mime)
+
+export interface ArquivoArte {
+  id: string
+  nome: string
+  mime: string
+  tamanho: number
+}
+
+/**
+ * Arquivo da arte que o cliente consegue abrir no celular: a própria arte quando é imagem ou PDF; senão
+ * (CDR, AI, PSD...) a miniatura gerada no upload; sem ela, nenhum (essa arte fica só pelo link).
+ */
+export function arquivoVisivelDaArte(arte: { arquivo: ArquivoArte | null; miniatura?: ArquivoArte | null }): ArquivoArte | null {
+  const a = arte.arquivo
+  if (a && (vaiComoImagem(a.mime) || a.mime === 'application/pdf')) return a
+  return arte.miniatura ?? null
+}
+
+/** Escolhe, na ordem, os arquivos que cabem no limite (quantidade e tamanho total); os outros ficam pelo link */
+export function escolherAnexosArte<T extends { tamanho: number }>(arquivos: T[], max = ANEXOS_ARTE_MAX, maxMb = ANEXOS_ARTE_MAX_MB): { anexos: T[]; ficaram: T[] } {
+  const limite = maxMb * 1024 * 1024
+  const anexos: T[] = []
+  const ficaram: T[] = []
+  let total = 0
+  for (const a of arquivos) {
+    if (anexos.length < max && total + a.tamanho <= limite) {
+      anexos.push(a)
+      total += a.tamanho
+    } else ficaram.push(a)
+  }
+  return { anexos, ficaram }
+}
+
 const uuidOpcional = z.string().uuid().nullish()
 
 /**
@@ -245,11 +289,13 @@ export const envioWhatsappSchema = z
     pedidoId: uuidOpcional,
     /** Arte (link de aprovação) */
     arteId: uuidOpcional,
+    /** Arquivos das artes do pedido que vão logo depois do texto (o servidor busca e confere cada um) */
+    arquivoIds: z.array(z.string().uuid()).max(ANEXOS_ARTE_MAX, `Até ${ANEXOS_ARTE_MAX} arquivos por mensagem.`).optional(),
   })
   .superRefine((v, ctx) => {
     if (v.tipo === 'orcamento_enviado' && !v.orcamentoId) ctx.addIssue({ code: 'custom', path: ['orcamentoId'], message: 'Informe o orçamento.' })
     if (['arte_aprovacao', 'pedido_acompanhamento', 'pedido_pronto', 'recibo'].includes(v.tipo) && !v.pedidoId) ctx.addIssue({ code: 'custom', path: ['pedidoId'], message: 'Informe o pedido.' })
-    if (v.tipo === 'arte_aprovacao' && !v.arteId) ctx.addIssue({ code: 'custom', path: ['arteId'], message: 'Informe a arte.' })
+    if (v.arquivoIds?.length && (v.tipo !== 'arte_aprovacao' || !v.pedidoId)) ctx.addIssue({ code: 'custom', path: ['arquivoIds'], message: 'Só as artes do pedido vão como arquivo.' })
   })
 export type EnvioWhatsappInput = z.input<typeof envioWhatsappSchema>
 

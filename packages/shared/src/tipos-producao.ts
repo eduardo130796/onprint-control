@@ -199,6 +199,8 @@ export interface ArtePublica {
   ultimaVersao: boolean
   podeResponder: boolean
   pedido: { numero: string; cliente: string }
+  /** Página do pedido, seção das artes (/pedido/:empresa/:token#artes): todas as artes e "Aprovar todas" */
+  linkPedido: string
   item: { descricao: string; quantidade: string; largura: string | null; altura: string | null }
   arquivo: { nome: string; mime: string; url: string; visualizavel: boolean } | null
   miniaturaUrl: string | null

@@ -1,4 +1,5 @@
 import { normalizarDecimal, type BaseTempo, type LinhaCusto, type ProducaoComposicao, type SituacaoLucro, type TipoCobranca } from '@onprint/shared'
+import { decimalParaCampo } from '@/lib/mascaras'
 
 /**
  * Regras pequenas das telas de custo (insumos, composição, entrada de estoque): conversões entre o que a
@@ -20,10 +21,7 @@ export function paraApi(valor: string | null | undefined): string {
 
 /** Decimal da API → texto do campo, sem zeros sobrando ("3.200" → "3,2"). */
 export function paraCampo(valor: string | number | null | undefined, casasMax = 4): string {
-  if (valor === null || valor === undefined || valor === '') return ''
-  const n = Number(valor)
-  if (!Number.isFinite(n)) return ''
-  return n.toLocaleString('pt-BR', { maximumFractionDigits: casasMax, useGrouping: false })
+  return decimalParaCampo(valor, casasMax)
 }
 
 /** Número para conta rápida na tela (0 quando vazio/ inválido). */

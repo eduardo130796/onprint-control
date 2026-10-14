@@ -1,13 +1,17 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, CalendarClock, Check, CheckCircle2, Clock, MapPin, MessageCircle, Package, Palette, Store, Truck, Wallet, XCircle } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { AlertTriangle, CalendarClock, Check, CheckCircle2, Clock, FileText, Loader2, MapPin, Maximize2, MessageCircle, Package, Palette, PencilLine, Store, Truck, Wallet, XCircle } from 'lucide-react'
 import { formatarDataHora, formatarDataSimples, formatarMoeda, formatarTelefone, type PedidoAcompanhamento } from '@onprint/shared'
+import type { LinkPublico } from '@/api/comercial'
 import { pedidoPublicoApi } from '@/api/producao'
 import { Logo } from '@/components/layout/Logo'
+import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Checkbox, Textarea } from '@/components/ui/form-controls'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { aplicarTema } from '@/features/aparencia/tema'
 import { linkWhatsapp } from '@/features/vitrine-site/formato'
@@ -123,30 +127,148 @@ function Etapas({ a }: { a: PedidoAcompanhamento }) {
   )
 }
 
-/** Destaque no topo: arte esperando o cliente (o principal motivo de o pedido estar parado). */
-function ArtesPendentes({ a }: { a: PedidoAcompanhamento }) {
-  const pendentes = a.itens.filter((i) => i.arte?.linkAprovacao)
-  if (!pendentes.length) return null
+type ItemAcompanhamento = PedidoAcompanhamento['itens'][number]
+type ArteAcompanhamento = NonNullable<ItemAcompanhamento['arte']>
+
+/** Prévia da arte: a imagem (ou a miniatura do PDF/CDR); toque abre em tamanho real */
+function PreviaArte({ arte, descricao }: { arte: ArteAcompanhamento; descricao: string }) {
+  const arquivo = arte.arquivo
+  const imagem = arquivo?.visualizavel && arquivo.mime.startsWith('image/') ? arquivo.url : arte.miniaturaUrl
+  const conteudo = imagem ? (
+    <img src={imagem} alt={`Arte: ${descricao}`} className="h-full w-full object-contain" />
+  ) : (
+    <span className="flex flex-col items-center gap-1 text-texto-secundario">
+      <FileText className="h-10 w-10" />
+      <span className="text-xs font-medium">{arquivo?.mime === 'application/pdf' ? 'PDF' : 'Arquivo'}</span>
+    </span>
+  )
+  const caixa = 'flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-xl border border-border bg-white'
+  return arquivo?.visualizavel ? (
+    <a href={arquivo.url} target="_blank" rel="noreferrer" className={cn(caixa, 'group relative')} aria-label={`Abrir a arte de ${descricao} em tamanho real`}>
+      {conteudo}
+      <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-grafite/80 px-2 py-1 text-xs font-medium text-white">
+        <Maximize2 className="h-3 w-3" /> {arquivo.mime === 'application/pdf' ? 'Abrir PDF' : 'Ampliar'}
+      </span>
+    </a>
+  ) : (
+    <div className={caixa}>{conteudo}</div>
+  )
+}
+
+/**
+ * Seção "Artes" (#artes, o link da mensagem do WhatsApp): todas as artes do pedido, "Aprovar todas" num toque e
+ * "Pedir ajuste" em cada uma. Só aparece enquanto alguma arte aguarda o cliente e o pedido ainda está na etapa
+ * da arte (aprovacaoArte.mostrar): em produção, pronto, entregue ou cancelado não pede mais nada.
+ */
+function ArtesDoPedido({ a, link, onRespondido }: { a: PedidoAcompanhamento; link: LinkPublico; onRespondido: (r: PedidoAcompanhamento, aviso: string) => void }) {
+  const [nome, setNome] = useState(a.cliente.nome)
+  const [aceite, setAceite] = useState(false)
+  const [ajustando, setAjustando] = useState<string | null>(null)
+  const [comentario, setComentario] = useState('')
+  const [erro, setErro] = useState<string>()
+  const responder = useMutation({
+    mutationFn: (r: { aprovar: string[] | 'todas' } | { ajuste: string }) =>
+      'ajuste' in r ? pedidoPublicoApi.pedirAjusteArte(link, r.ajuste, nome.trim(), comentario.trim()) : pedidoPublicoApi.aprovarArtes(link, nome.trim(), r.aprovar === 'todas' ? undefined : r.aprovar),
+    onSuccess: (r, pedido) => {
+      setAjustando(null)
+      setComentario('')
+      setAceite(false)
+      onRespondido(r, 'ajuste' in pedido ? 'Recebemos o seu pedido de ajuste. Você recebe a nova versão para aprovar.' : 'Arte aprovada. Obrigado! A produção já pode começar.')
+    },
+    onError: (e) => setErro(e.message),
+  })
+  if (!a.aprovacaoArte.mostrar) return null
+  const artes = a.itens.filter((i) => i.arte && (i.arte.arquivo || i.arte.miniaturaUrl))
+  const pendentes = a.aprovacaoArte.pendentes
+  const nomeValido = nome.trim().length >= 3
+
+  function aprovar(arteIds: string[] | 'todas') {
+    setErro(undefined)
+    if (!nomeValido || !aceite) return setErro('Para aprovar, informe seu nome e marque a confirmação abaixo.')
+    responder.mutate({ aprovar: arteIds })
+  }
+
   return (
-    <div className="space-y-3 rounded-2xl border border-ambar/50 bg-ambar/10 p-4">
-      <p className="flex items-center gap-2 font-semibold text-amber-800">
-        <Palette className="h-5 w-5 shrink-0" /> {pendentes.length > 1 ? 'Há artes aguardando a sua aprovação' : 'A arte aguarda a sua aprovação'}
-      </p>
-      <p className="text-sm text-texto">A produção começa assim que você aprovar.</p>
-      {pendentes.map((i, n) => (
-        <Button key={n} asChild className="h-auto min-h-11 w-full justify-center whitespace-normal py-2 text-center">
-          <a href={i.arte!.linkAprovacao!}>
-            <CheckCircle2 /> Aprovar arte{pendentes.length > 1 ? `: ${i.descricao}` : ''}
-          </a>
+    <section id="artes" className="scroll-mt-4 space-y-4 rounded-2xl border-2 border-ambar/60 bg-card p-4 sm:p-5" aria-labelledby="titulo-artes">
+      <div>
+        <h2 id="titulo-artes" className="flex items-center gap-2 font-titulo text-xl font-bold text-tinta">
+          <Palette className="h-5 w-5 shrink-0 text-amber-700" /> {pendentes > 1 ? `Aprove as artes (${pendentes})` : 'Aprove a arte'}
+        </h2>
+        <p className="text-sm text-texto-secundario">Confira textos, cores e medidas. A produção começa assim que você aprovar.</p>
+      </div>
+
+      <ul className="space-y-4">
+        {artes.map((i) => {
+          const arte = i.arte!
+          return (
+            <li key={arte.id} className="space-y-2">
+              <PreviaArte arte={arte} descricao={i.descricao} />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-medium text-tinta">{i.descricao}</p>
+                  <p className="text-xs text-texto-secundario">
+                    Versão {arte.versao} · <span className={cn(arte.status === 'aprovada' && 'text-green-800', arte.aguardandoAprovacao && 'text-amber-800')}>{arte.rotulo}</span>
+                  </p>
+                </div>
+                {arte.aguardandoAprovacao && (
+                  <div className="flex gap-2">
+                    {pendentes > 1 && (
+                      <Button size="sm" variant="outline" disabled={responder.isPending} onClick={() => aprovar([arte.id])}>
+                        <Check /> Aprovar esta
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" disabled={responder.isPending} onClick={() => setAjustando(ajustando === arte.id ? null : arte.id)} aria-expanded={ajustando === arte.id}>
+                      <PencilLine /> Pedir ajuste
+                    </Button>
+                  </div>
+                )}
+              </div>
+              {arte.ajustePedido && <p className="rounded-lg bg-sky-50 p-2.5 text-sm text-sky-900">Ajuste pedido: “{arte.ajustePedido}”</p>}
+              {ajustando === arte.id && (
+                <div className="space-y-2 rounded-xl bg-fundo p-3">
+                  <CampoFormulario id={`ajuste-${arte.id}`} rotulo="O que precisa mudar?">
+                    <Textarea id={`ajuste-${arte.id}`} rows={3} autoFocus value={comentario} onChange={(e) => setComentario(e.target.value)} placeholder="Ex.: trocar o telefone para (11) 99999-0000" />
+                  </CampoFormulario>
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    disabled={responder.isPending || comentario.trim().length < 5 || !nomeValido}
+                    onClick={() => {
+                      setErro(undefined)
+                      responder.mutate({ ajuste: arte.id })
+                    }}
+                  >
+                    {responder.isPending && <Loader2 className="animate-spin" />} Enviar pedido de ajuste
+                  </Button>
+                  {!nomeValido && <p className="text-xs text-coral-escuro">Informe seu nome abaixo.</p>}
+                </div>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+
+      <div className="space-y-3 border-t border-border pt-4">
+        <CampoFormulario id="artes-nome" rotulo="Seu nome">
+          <Input id="artes-nome" value={nome} onChange={(e) => setNome(e.target.value)} autoComplete="name" />
+        </CampoFormulario>
+        <label className="flex items-start gap-2 text-sm">
+          <Checkbox checked={aceite} onChange={(e) => setAceite(e.target.checked)} className="mt-0.5" />
+          Conferi textos, cores, medidas e dados de contato. Autorizo a impressão.
+        </label>
+        {erro && <p className="text-sm text-coral-escuro">{erro}</p>}
+        <Button size="lg" className="h-auto min-h-12 w-full whitespace-normal" disabled={responder.isPending} onClick={() => aprovar('todas')}>
+          {responder.isPending ? <Loader2 className="animate-spin" /> : <CheckCircle2 />} {pendentes > 1 ? 'Aprovar todas as artes' : 'Aprovar a arte'}
         </Button>
-      ))}
-    </div>
+      </div>
+    </section>
   )
 }
 
 function Itens({ a }: { a: PedidoAcompanhamento }) {
   return (
-    <Card>
+    // Sem a seção das artes (nada aguardando), o link #artes da mensagem cai aqui
+    <Card id={a.aprovacaoArte.mostrar ? undefined : 'artes'} className="scroll-mt-4">
       <h2 className="px-4 pt-5 font-semibold text-tinta sm:px-6">Itens do pedido</h2>
       <ul className="divide-y divide-border">
         {a.itens.map((i, n) => (
@@ -169,13 +291,13 @@ function Itens({ a }: { a: PedidoAcompanhamento }) {
                   <span
                     className={cn(
                       'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-                      i.arte.status === 'aprovada' ? 'bg-verde/15 text-green-800' : i.arte.aguardandoAprovacao ? 'bg-ambar/15 text-amber-800' : 'bg-fundo text-texto-secundario',
+                      i.arte.rotulo === 'Aprovada' ? 'bg-verde/15 text-green-800' : i.arte.aguardandoAprovacao ? 'bg-ambar/15 text-amber-800' : 'bg-fundo text-texto-secundario',
                     )}
                   >
                     <Palette className="h-3 w-3" /> Arte: {i.arte.rotulo}
                   </span>
-                  {i.arte.linkAprovacao && (
-                    <a href={i.arte.linkAprovacao} className="text-xs font-medium text-marca-escuro underline underline-offset-2">
+                  {i.arte.aguardandoAprovacao && (
+                    <a href="#artes" className="text-xs font-medium text-marca-escuro underline underline-offset-2">
                       Ver e aprovar
                     </a>
                   )}
@@ -341,6 +463,14 @@ export function AcompanharPedidoPage() {
     staleTime: 15_000,
   })
   const a = consulta.data
+  const link = { empresa, token }
+  const queryClient = useQueryClient()
+  const [aviso, setAviso] = useState<string | null>(null)
+  // Link da mensagem (#artes): rola até as artes quando a página carrega
+  const carregou = Boolean(a)
+  useEffect(() => {
+    if (carregou && window.location.hash === '#artes') document.getElementById('artes')?.scrollIntoView({ block: 'start' })
+  }, [carregou])
   // O cliente volta do WhatsApp (ou da aprovação da arte) para a aba e vê a situação atualizada
   const { refetch, dataUpdatedAt } = consulta
   useEffect(() => {
@@ -372,7 +502,20 @@ export function AcompanharPedidoPage() {
         ) : (
           <>
             <Resumo a={a} />
-            <ArtesPendentes a={a} />
+            {aviso && (
+              <p role="status" className="flex items-center gap-3 rounded-2xl bg-verde/10 p-4 text-sm font-medium text-green-800">
+                <CheckCircle2 className="h-5 w-5 shrink-0" /> {aviso}
+              </p>
+            )}
+            <ArtesDoPedido
+              a={a}
+              link={link}
+              onRespondido={(r, texto) => {
+                queryClient.setQueryData(['publico', 'pedido', empresa, token], r)
+                setAviso(texto)
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+              }}
+            />
             <Etapas a={a} />
             <Itens a={a} />
             <EntregaInfo a={a} />

@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import type { FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { arteAprovacaoInternaSchema, arteComentarioSchema, idParamSchema } from '@onprint/shared'
+import { arteAprovacaoInternaSchema, arteComentarioSchema, artesEnviarSchema, idParamSchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { contextoUsuario } from '../../core/escopo'
 import { criarArquivosService } from '../arquivos/service'
@@ -38,8 +38,19 @@ export const artesRoutes: FastifyPluginAsyncZod = async (app) => {
   )
   app.post(
     '/artes/:id/aprovar',
-    { ...pode('aprovar'), schema: { tags, summary: 'Registra a aprovação do cliente (interna)', params: idParamSchema, body: arteAprovacaoInternaSchema } },
-    async (req) => artes.aprovarInterno(req.params.id, req.body.nome, await ctx(req)),
+    { ...pode('aprovar'), schema: { tags, summary: 'Registra a aprovação (cliente pelo WhatsApp, pessoalmente... ou interna)', params: idParamSchema, body: arteAprovacaoInternaSchema } },
+    async (req) => artes.aprovarInterno(req.params.id, req.body, await ctx(req)),
+  )
+  // Pedido inteiro: uma mensagem para o cliente com todas as artes; um clique quando o cliente aprovou todas
+  app.post(
+    '/pedidos/:id/artes/enviar',
+    { ...pode('editar'), schema: { tags, summary: 'Marca as artes escolhidas como enviadas ao cliente (avisar = aviso automático único do pedido)', params: idParamSchema, body: artesEnviarSchema } },
+    async (req) => artes.enviarVarias(req.params.id, req.body.arteIds, req.body.avisar, await ctx(req)),
+  )
+  app.post(
+    '/pedidos/:id/artes/aprovar',
+    { ...pode('aprovar'), schema: { tags, summary: 'Cliente aprovou todas as artes (com o cliente ou em criação, com arquivo)', params: idParamSchema, body: arteAprovacaoInternaSchema } },
+    async (req) => artes.aprovarTodas(req.params.id, req.body, await ctx(req)),
   )
   app.post(
     '/artes/:id/comentarios',

@@ -371,5 +371,50 @@ Já vem pronto no sistema:
 | Seed parou com "o administrador inicial não foi criado" | Instalação nova sem `ADMIN_EMAIL`/`ADMIN_SENHA_INICIAL` (ou `PLATAFORMA_ADMIN_*`), com `TROQUE` ou senha com menos de 12 caracteres. Ajuste o `.env.prod` e suba de novo |
 | Esqueceu a senha | Outro admin usa **Redefinir senha** em Configurações → Usuários |
 | Disco cheio | `docker system df`; `docker image prune -f`; confira `DIAS_RETENCAO` e o tamanho de `backups/` |
+| Orçamento reaberto com total ~1000 vezes menor (ex.: R$ 14.000 virou R$ 14) | Corrigido na versão de outubro de 2026: item com quantidade a partir de 1.000 voltava ao editor como "1.000" e era lido como 1. Veja a seção 14.1 para achar e corrigir os orçamentos afetados |
 
 > **Teste local do compose de produção** (no Windows, com Docker Desktop): crie um `.env.prod` sem `DOMINIO` e com `APP_URL=https://localhost`, pare o ambiente de desenvolvimento (`docker compose stop`) e suba com os comandos do passo 8. Abra https://localhost e aceite o certificado local. Se a pasta do projeto tiver acentos no caminho, rode `$env:COMPOSE_BAKE="false"` antes do build (limitação do Docker no Windows).
+
+### 14.1 Orçamento com total 1000 vezes menor (quantidade a partir de 1.000)
+
+**O que acontecia (até a correção de outubro de 2026):** ao reabrir um orçamento salvo, item com quantidade **inteira a partir de 1.000** (ex.: 1000 canecas, 10.000 cartões) aparecia no campo como `1.000`, e o sistema lia isso como **1**. A tela já mostrava o total errado (R$ 14.000 → R$ 14). O banco só ficava errado se alguém **salvasse de novo** esse orçamento, mesmo mudando só o desconto: aí a quantidade gravada virava 1 (ou 10, 1,5…). Orçamentos que só foram reabertos, sem salvar, estão certos no banco e voltam a aparecer certos depois da atualização. Medidas a partir de 1.000 m tinham o mesmo problema.
+
+**Como achar os afetados (só leitura, não altera nada).** A auditoria guarda o orçamento antes e depois de cada edição. Primeiro, liste as empresas e o schema de cada uma:
+
+```bash
+onprint exec db psql -U onprint -d onprint -c "SELECT nome, schema FROM plataforma.assinantes ORDER BY nome"
+```
+
+Depois abra o banco (`onprint exec db psql -U onprint -d onprint`), troque `emp_xxxxxxxxxxxx` pelo schema da empresa e cole (digite `\x` antes para ver o resultado na vertical):
+
+```sql
+SET search_path TO emp_xxxxxxxxxxxx;
+
+-- Edições de orçamento em que a quantidade (ou medida) caiu exatamente 1000 vezes
+SELECT o.numero, o.status, a.created_at AS editado_em, u.nome AS editado_por,
+       (ia->>'ordem')::int AS item, ia->>'descricao' AS descricao,
+       ia->>'quantidade' AS qtd_antes, idp->>'quantidade' AS qtd_depois,
+       ia->>'largura' AS larg_antes, idp->>'largura' AS larg_depois,
+       ia->>'altura' AS alt_antes, idp->>'altura' AS alt_depois,
+       a.antes->>'total' AS total_antes, a.depois->>'total' AS total_depois,
+       o.total AS total_hoje, p.numero AS pedido_gerado
+FROM auditoria a
+JOIN orcamentos o ON o.id::text = a.registro_id
+CROSS JOIN LATERAL jsonb_array_elements(a.antes->'itens') ia
+JOIN LATERAL jsonb_array_elements(a.depois->'itens') idp
+  ON idp->>'ordem' = ia->>'ordem' AND idp->>'produtoId' = ia->>'produtoId'
+LEFT JOIN usuarios u ON u.id = a.usuario_id
+LEFT JOIN pedidos p ON p.id = o.pedido_id
+WHERE a.tabela = 'orcamentos' AND a.acao = 'editar'
+  AND (   ((ia->>'quantidade')::numeric >= 1000 AND (idp->>'quantidade')::numeric * 1000 = (ia->>'quantidade')::numeric)
+       OR ((ia->>'largura')::numeric    >= 1000 AND (idp->>'largura')::numeric    * 1000 = (ia->>'largura')::numeric)
+       OR ((ia->>'altura')::numeric     >= 1000 AND (idp->>'altura')::numeric     * 1000 = (ia->>'altura')::numeric))
+ORDER BY a.created_at;
+```
+
+Cada linha é um item que perdeu três casas: `qtd_antes` é o valor certo, `total_antes` o total antes do erro e `total_hoje` o que está gravado agora. Nenhuma linha = nenhum orçamento da empresa foi gravado errado.
+
+**Como corrigir (depois de atualizar o sistema):**
+
+- **Orçamento ainda aberto** (rascunho, enviado, em negociação): abra no editor, digite de novo a quantidade certa (`qtd_antes`) nos itens listados, confira o total com `total_antes` e salve.
+- **Já aprovado ou com pedido gerado** (`pedido_gerado` preenchido): o pedido, as contas a receber e as OPs saíram com a quantidade errada. Confira com o cliente; o mais seguro é cancelar esse pedido e gerar de novo a partir de um orçamento corrigido (duplique o orçamento e acerte as quantidades). Não há correção automática pelo banco porque o pedido pode já ter pagamentos, produção e comissões em cima do valor errado.

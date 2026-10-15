@@ -46,7 +46,8 @@ function textoEtapa(codigo: CodigoEtapaAcompanhamento, ctx: { status: StatusPedi
     case 'arte':
       if (ctx.concluida) return { titulo: 'Arte aprovada', descricao: 'A arte foi aprovada.' }
       if (ctx.arteAguardando) return { titulo: 'Aprovação da arte', descricao: 'A arte está pronta e aguarda a sua aprovação.' }
-      return { titulo: 'Criação da arte', descricao: 'Estamos preparando a arte do seu pedido.' }
+      // Neutro: a arte pode ser do cliente (arquivo) ou criada pela gráfica; só aparece quando algum item tem arte
+      return { titulo: 'Arte', descricao: 'Estamos preparando a arte do seu pedido.' }
     case 'producao':
       return { titulo: 'Em produção', descricao: ctx.concluida ? 'Produção concluída.' : 'Seu pedido está sendo produzido.' }
     case 'pronto':
@@ -268,7 +269,13 @@ export function montarAcompanhamento(pedido: PedidoParaAcompanhar, x: ExtrasAcom
   const parcelas = contas.map((c) => {
     const quitada = c.status === 'pago'
     return {
-      rotulo: /sinal/i.test(c.descricao) ? 'Entrada (sinal)' : c.totalParcelas > 1 ? `Parcela ${c.parcela} de ${c.totalParcelas}` : 'Pagamento',
+      rotulo: /sinal/i.test(c.descricao)
+        ? 'Entrada (sinal)'
+        : /restante na retirada/i.test(c.descricao)
+          ? 'Restante (na retirada/entrega)'
+          : c.totalParcelas > 1
+            ? `Parcela ${c.parcela} de ${c.totalParcelas}`
+            : 'Pagamento',
       valor: dinheiro(valor(c.valor)),
       vencimento: dia(c.vencimento),
       pago: quitada,

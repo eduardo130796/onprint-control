@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FileDown, Link2, MessageCircle, Pencil, Printer, ShoppingCart } from 'lucide-react'
+import { FileDown, Link2, MessageCircle, MessageCircleCheck, Pencil, Printer, ShoppingCart } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatarDataSimples, formatarMoeda, formatarTelefone, nomeCliente, type Orcamento } from '@onprint/shared'
+import { formatarDataSimples, formatarMoeda, formatarTelefone, nomeCliente, resumoCondicoesPagamento, type Orcamento } from '@onprint/shared'
 import { orcamentosApi, templatesLeituraApi } from '@/api/comercial'
 import { EstadoErro } from '@/components/shared/EstadoErro'
 import { AcaoPainel, DadoPainel, PainelCartao } from '@/components/shared/kanban/PainelCartao'
@@ -13,6 +13,7 @@ import { useImpressao } from '@/features/impressao/useImpressao'
 import { usePermissoes } from '@/hooks/usePermission'
 import { EnviarWhatsappDialog, type EnvioWhatsapp } from '@/features/whatsapp/components/EnviarWhatsappDialog'
 import { useAuth } from '@/hooks/useAuth'
+import { aprovarPeloWhatsapp, avisoAprovacao, podeAprovarPeloWhatsapp } from '../../aprovacao'
 import { envioDoOrcamento, linkAprovacao } from '../../mensagem'
 import { ConverterDialog } from '../editor/ConverterDialog'
 
@@ -28,11 +29,28 @@ export function PainelOrcamento({ orcamento: resumo, onFechar }: { orcamento: Or
   const templates = useQuery({ queryKey: ['templates', 'ativos'], queryFn: templatesLeituraApi.listar, staleTime: 5 * 60 * 1000 })
   const [convertendo, setConvertendo] = useState(false)
   const [envio, setEnvio] = useState<EnvioWhatsapp | null>(null)
+  const [aprovando, setAprovando] = useState(false)
   const { usuario } = useAuth()
   const o = consulta.data
   const ir = (caminho: string) => {
     onFechar()
     navigate(caminho)
+  }
+
+  /** O cliente respondeu APROVADO na conversa: um clique (vira pedido se a empresa deixou ligado) */
+  async function aprovouNoWhatsapp() {
+    setAprovando(true)
+    try {
+      toast.success(avisoAprovacao(await aprovarPeloWhatsapp(resumo)))
+      await queryClient.invalidateQueries({ queryKey: ['orcamentos'] })
+      void queryClient.invalidateQueries({ queryKey: ['pedidos'] })
+      void queryClient.invalidateQueries({ queryKey: ['financeiro'] })
+      onFechar()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setAprovando(false)
+    }
   }
 
   /** "Enviar orçamento" (com o PDF); o rascunho vira "enviado" */
@@ -80,6 +98,9 @@ export function PainelOrcamento({ orcamento: resumo, onFechar }: { orcamento: Or
                 toast.success('Link de aprovação copiado.')
               }}
             />
+            {podeAprovarPeloWhatsapp(resumo.status) && pode('orcamentos', 'editar') && (
+              <AcaoPainel icone={MessageCircleCheck} rotulo="Aprovou no WhatsApp" onClick={() => void aprovouNoWhatsapp()} carregando={aprovando} />
+            )}
             {resumo.status === 'aprovado' && pode('pedidos', 'criar') && pode('orcamentos', 'editar') && o && (
               <AcaoPainel icone={ShoppingCart} rotulo="Converter em pedido" onClick={() => setConvertendo(true)} />
             )}
@@ -123,7 +144,10 @@ export function PainelOrcamento({ orcamento: resumo, onFechar }: { orcamento: Or
                 <div className="text-base font-semibold text-tinta">Total: {formatarMoeda(o.total)}</div>
               </dl>
             </section>
-            {o.condicoes && <DadoPainel rotulo="Condições de pagamento">{o.condicoes}</DadoPainel>}
+            <DadoPainel rotulo="Pagamento">
+              {resumoCondicoesPagamento({ total: o.total, sinalPercentual: o.sinalPercentual, parcelas: o.parcelas, intervaloDias: o.intervaloDias })}
+              {o.condicoes && <span className="block text-texto-secundario">{o.condicoes}</span>}
+            </DadoPainel>
             {o.observacoes && <DadoPainel rotulo="Observações">{o.observacoes}</DadoPainel>}
           </>
         )}

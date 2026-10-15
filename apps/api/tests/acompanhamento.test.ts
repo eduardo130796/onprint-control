@@ -89,6 +89,14 @@ describe('etapasDoPedido', () => {
     expect(etapas[0]!.situacao).toBe('atual')
   })
 
+  it('etapa da arte com nome neutro ("Arte"); aprovação interna da gráfica: concluída sem pedir nada ao cliente', () => {
+    expect(etapasDoPedido({ ...base, status: 'aguardando_arte' }).find((e) => e.codigo === 'arte')).toMatchObject({ titulo: 'Arte', situacao: 'atual' })
+    // Arte aprovada pela equipe: o pedido vai sozinho para a produção; a etapa fica concluída, sem "aguarda a sua aprovação"
+    const interna = etapasDoPedido({ ...base, status: 'em_producao', entradas: { aguardando_arte: d('2026-10-10T12:00:00Z'), em_producao: d('2026-10-11T09:00:00Z') } })
+    expect(interna.find((e) => e.codigo === 'arte')).toMatchObject({ titulo: 'Arte aprovada', situacao: 'concluida', quando: '2026-10-10T12:00:00.000Z' })
+    expect(interna.find((e) => e.situacao === 'atual')?.codigo).toBe('producao')
+  })
+
   it('em entrega: "Saiu para entrega"; instalação tem texto próprio', () => {
     expect(etapasDoPedido({ ...base, tipoEntrega: 'entrega', status: 'em_entrega' }).find((e) => e.situacao === 'atual')?.titulo).toBe('Saiu para entrega')
     expect(etapasDoPedido({ ...base, tipoEntrega: 'instalacao', status: 'pronto' }).find((e) => e.situacao === 'atual')?.titulo).toBe('Pronto para instalação')

@@ -19,7 +19,7 @@ function enderecoEmTexto(e: { logradouro: string; numero: string | null; complem
 }
 
 /**
- * Arte do item na conversão: o item herda do produto se precisa de arte. Precisando, nasce a arte v1
+ * Arte do item na conversão: o item do pedido segue o que foi decidido no item do orçamento. Precisando, nasce a arte v1
  * "aguardando arquivo"; sem arte, nenhuma (o item não trava o pedido nem a OP).
  */
 export function arteDoItemNaConversao(precisaArte: boolean, token: () => string) {
@@ -27,6 +27,23 @@ export function arteDoItemNaConversao(precisaArte: boolean, token: () => string)
     precisaArte,
     ...(precisaArte ? { artes: { create: { versao: 1, status: 'aguardando_arquivo' as const, tokenPublico: token() } } } : {}),
   }
+}
+
+/**
+ * Contas a receber do pedido: a mesma regra do resumo do orçamento (resumoCondicoesPagamento), então o pedido cobra
+ * exatamente o que a mensagem, o PDF e a página de aprovação prometeram. Parcelas = 0: o restante vence na previsão
+ * de entrega ("na retirada/entrega").
+ */
+export function contasDaConversao(total: string, dados: Pick<Dados, 'sinalPercentual' | 'parcelas' | 'intervaloDias' | 'primeiroVencimento'>, hoje: string, previsao: string) {
+  return gerarParcelas({
+    total,
+    sinalPercentual: dados.sinalPercentual,
+    parcelas: dados.parcelas,
+    intervaloDias: dados.intervaloDias,
+    hoje,
+    primeiroVencimento: dados.primeiroVencimento,
+    vencimentoNaEntrega: previsao,
+  })
 }
 
 /** Status do pedido recém-criado: sem nenhum item que precise de arte, já nasce em produção */
@@ -60,19 +77,9 @@ export function criarConversaoService(app: FastifyInstance, orcamentos: Orcament
 
       const hoje = hojeISO()
       const prazo = Math.max(0, ...o.itens.map((i) => i.prazoDias))
-      const parcelas = gerarParcelas({
-        total: o.total.toString(),
-        sinalPercentual: dados.sinalPercentual,
-        parcelas: dados.parcelas,
-        intervaloDias: dados.intervaloDias,
-        hoje,
-        primeiroVencimento: dados.primeiroVencimento,
-      })
+      const previsao = adicionarDiasUteis(hoje, prazo)
+      const parcelas = contasDaConversao(o.total.toString(), dados, hoje, previsao)
       const vendedor = o.vendedorId ? await prisma.usuario.findUnique({ where: { id: o.vendedorId } }) : null
-      // Cada item herda do produto se o pedido espera a arte dele
-      const produtos = await prisma.produto.findMany({ where: { id: { in: o.itens.map((i) => i.produtoId) } }, select: { id: true, precisaArte: true } })
-      const precisaArte = new Map(produtos.map((p) => [p.id, p.precisaArte]))
-      const arteDe = (produtoId: string) => precisaArte.get(produtoId) ?? true
 
       const criado = await prisma.$transaction(async (tx) => {
         const numero = await proximoNumero(tx, 'pedido')
@@ -82,10 +89,10 @@ export function criarConversaoService(app: FastifyInstance, orcamentos: Orcament
             numero,
             // Link "Acompanhe seu pedido" (/pedido/:empresa/:token)
             tokenPublico: gerarToken(),
-            status: statusInicialDoPedido(o.itens.map((i) => arteDe(i.produtoId))),
+            status: statusInicialDoPedido(o.itens.map((i) => i.precisaArte)),
             clienteId: o.clienteId,
             vendedorId: o.vendedorId,
-            dataPrevistaEntrega: dataBanco(adicionarDiasUteis(hoje, prazo)),
+            dataPrevistaEntrega: dataBanco(previsao),
             tipoEntrega: dados.tipoEntrega,
             enderecoEntrega,
             prioridade: dados.prioridade,
@@ -123,13 +130,13 @@ export function criarConversaoService(app: FastifyInstance, orcamentos: Orcament
                   })),
                 },
                 // Uma arte por item que precisa de arte, aguardando o arquivo (versões na Fase 4)
-                ...arteDoItemNaConversao(arteDe(i.produtoId), gerarToken),
+                ...arteDoItemNaConversao(i.precisaArte, gerarToken),
               })),
             },
             contasReceber: {
               create: parcelas.map((p) => ({
                 clienteId: o.clienteId,
-                descricao: `${numero} · ${p.tipo === 'sinal' ? 'Sinal' : `Parcela ${p.parcela}/${p.totalParcelas}`}`,
+                descricao: `${numero} · ${p.tipo === 'sinal' ? 'Sinal' : dados.parcelas === 0 ? 'Restante na retirada/entrega' : `Parcela ${p.parcela}/${p.totalParcelas}`}`,
                 parcela: p.parcela,
                 totalParcelas: p.totalParcelas,
                 valor: p.valor,

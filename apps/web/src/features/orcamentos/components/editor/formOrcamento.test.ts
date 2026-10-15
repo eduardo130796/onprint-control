@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { orcamentoSchema, type OrcamentoDetalhe, type ProdutoCatalogo, type SolicitacaoItem } from '@onprint/shared'
-import { formDoOrcamento, itensDaSolicitacao, payloadDoForm } from './formOrcamento'
+import { formDoOrcamento, itemComProduto, itemVazio, itensDaSolicitacao, payloadDoForm, resumoPagamentoDoForm } from './formOrcamento'
 import { calcularItem } from './useCalculoOrcamento'
 
 const banner = {
@@ -16,6 +16,7 @@ const banner = {
   larguraMaxima: '5.000',
   alturaMaxima: '3.000',
   prazoProducaoDias: 3,
+  precisaArte: true,
   acabamentos: [
     { acabamentoId: 'a-ilhos', obrigatorio: true, padrao: true },
     { acabamentoId: 'a-bastao', obrigatorio: false, padrao: false },
@@ -78,6 +79,7 @@ describe('reabrir orçamento salvo com valores grandes', () => {
     desconto: '0',
     acabamentos: [],
     observacao: null,
+    precisaArte: produto.id === lona.id,
     ...campos,
   })
   // Como a API devolve (Prisma Decimal): "1000", "10000", "14000"
@@ -87,6 +89,9 @@ describe('reabrir orçamento salvo com valores grandes', () => {
     desconto: '9',
     acrescimo: '1400',
     frete: '0',
+    sinalPercentual: '33.50',
+    parcelas: 12,
+    intervaloDias: 30,
     condicoes: null,
     observacoes: null,
     observacoesInternas: null,
@@ -119,5 +124,35 @@ describe('reabrir orçamento salvo com valores grandes', () => {
       ['1', '1000.5', '2.5', '14000.00', '0.00'],
     ])
     expect([enviado.desconto, enviado.acrescimo]).toEqual(['9.00', '1400.00'])
+    // Pagamento e arte por item voltam como estavam
+    expect([enviado.sinalPercentual, enviado.parcelas, enviado.intervaloDias]).toEqual(['33.5', 12, 30])
+    expect(enviado.itens.map((i) => i.precisaArte)).toEqual([false, false, true])
+  })
+})
+
+describe('pagamento do orçamento no editor', () => {
+  const padroes = { sinalPercentual: '50.00', parcelasPadrao: 2, intervaloDiasPadrao: 15, condicoesPadrao: 'Pix ou cartão.' }
+
+  it('orçamento novo começa com os padrões da empresa (e as observações de pagamento padrão)', () => {
+    const f = formDoOrcamento(undefined, null, undefined, undefined, padroes)
+    expect([f.sinalPercentual, f.parcelas, f.intervaloDias, f.condicoes]).toEqual(['50', '2', '15', 'Pix ou cartão.'])
+    const enviado = orcamentoSchema.parse({ ...payloadDoForm(f), clienteId: '0d9f8e7c-6b5a-4f3e-8d2c-1b0a9f8e7d6c', itens: [{ produtoId: '3b0e1c52-7d4a-4f6e-9b21-5a8c0d7e6f13', quantidade: '1' }] })
+    expect([enviado.sinalPercentual, enviado.parcelas, enviado.intervaloDias]).toEqual(['50', 2, 15])
+  })
+
+  it('resumo ao vivo (o mesmo texto da mensagem)', () => {
+    const plano = (sinalPercentual: string, parcelas: string, intervaloDias = '30') => ({ sinalPercentual, parcelas, intervaloDias })
+    expect(resumoPagamentoDoForm(plano('50', '1'), '900.00')).toBe('Entrada de R$ 450,00 (50%) na aprovação + 1× de R$ 450,00 em 30 dias')
+    expect(resumoPagamentoDoForm(plano('100', '3'), '900.00')).toBe('À vista na aprovação')
+    expect(resumoPagamentoDoForm(plano('0', '3'), '900.00')).toBe('Sem entrada: 3× de R$ 300,00 a cada 30 dias')
+    expect(resumoPagamentoDoForm(plano('50', '0'), '900.00')).toBe('Entrada de R$ 450,00 (50%) na aprovação + R$ 450,00 na retirada/entrega')
+    expect(resumoPagamentoDoForm(plano('33,5', '2', '15'), '1000.00')).toBe('Entrada de R$ 335,00 (33,5%) na aprovação + 2× de R$ 332,50 a cada 15 dias')
+    expect(resumoPagamentoDoForm(plano('150', '1'), '900.00')).toBeNull()
+    expect(resumoPagamentoDoForm(plano('50', '30'), '900.00')).toBeNull()
+  })
+
+  it('"Precisa de arte" do item vem do produto ao escolher (e pode ser trocado no orçamento)', () => {
+    expect(itemComProduto(itemVazio(), banner, { id: banner.id, rotulo: banner.nome }).precisaArte).toBe(true)
+    expect(itemComProduto(itemVazio(), { ...banner, precisaArte: false }, { id: banner.id, rotulo: banner.nome }).precisaArte).toBe(false)
   })
 })

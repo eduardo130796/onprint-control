@@ -34,8 +34,12 @@ export function criarOrcamentosService(app: FastifyInstance) {
     }
   }
 
-  /** Valida cliente, vendedor e validade e recalcula todos os valores. */
-  async function preparar(dados: Dados, ctx: ContextoUsuario) {
+  /**
+   * Valida cliente, vendedor e validade e recalcula todos os valores. Pagamento: ao criar, o que veio ou os padrões
+   * da empresa (o orçamento guarda o que prometeu, mesmo se a empresa mudar os padrões depois); ao salvar, o que
+   * veio ou o que já estava. Observações de pagamento: ao criar sem o campo, o padrão da empresa; vazio = nenhuma.
+   */
+  async function preparar(dados: Dados, ctx: ContextoUsuario, criando: boolean) {
     const cliente = await prisma.cliente.findUnique({ where: { id: dados.clienteId } })
     if (!cliente?.ativo) throw AppError.regraNegocio('Cliente inválido ou desativado.')
     if (cliente.situacao === 'bloqueado') throw AppError.regraNegocio('Cliente bloqueado: não é possível orçar.')
@@ -52,6 +56,11 @@ export function criarOrcamentosService(app: FastifyInstance) {
 
     const calculo = await recalcularItens(prisma, dados.itens, ctx)
     const total = totalDoOrcamento(calculo.subtotal, dados.desconto, dados.acrescimo, dados.frete)
+    const pagamento = {
+      sinalPercentual: dados.sinalPercentual ?? (criando ? (empresa?.sinalPercentual.toString() ?? '50') : undefined),
+      parcelas: dados.parcelas ?? (criando ? (empresa?.parcelasPadrao ?? 1) : undefined),
+      intervaloDias: dados.intervaloDias ?? (criando ? (empresa?.intervaloDiasPadrao ?? 30) : undefined),
+    }
     return {
       calculo,
       cabecalho: {
@@ -63,7 +72,8 @@ export function criarOrcamentosService(app: FastifyInstance) {
         observacoes: dados.observacoes ?? null,
         observacoesInternas: dados.observacoesInternas ?? null,
         vendedorId,
-        condicoes: dados.condicoes ?? empresa?.condicoesPadrao ?? null,
+        ...pagamento,
+        condicoes: dados.condicoes === undefined && criando ? (empresa?.condicoesPadrao ?? null) : (dados.condicoes ?? null),
         validade: dataBanco(validade),
         subtotal: calculo.subtotal,
         total,
@@ -130,7 +140,7 @@ export function criarOrcamentosService(app: FastifyInstance) {
     },
 
     async criar(dados: Dados, ctx: ContextoUsuario) {
-      const { calculo, cabecalho } = await preparar(dados, ctx)
+      const { calculo, cabecalho } = await preparar(dados, ctx, true)
       if (dados.solicitacaoId) {
         const s = await prisma.solicitacaoOrcamento.findUnique({ where: { id: dados.solicitacaoId } })
         if (!s || s.status === 'descartada') throw AppError.regraNegocio('Solicitação inválida ou descartada.')
@@ -157,7 +167,7 @@ export function criarOrcamentosService(app: FastifyInstance) {
     async atualizar(id: string, dados: Dados, ctx: ContextoUsuario) {
       const antes = await obter(id, ctx)
       garantirAberto(antes.status)
-      const { calculo, cabecalho } = await preparar({ ...dados, solicitacaoId: antes.solicitacaoId }, ctx)
+      const { calculo, cabecalho } = await preparar({ ...dados, solicitacaoId: antes.solicitacaoId }, ctx, false)
       return prisma.$transaction(async (tx) => {
         await tx.orcamentoItem.deleteMany({ where: { orcamentoId: id } })
         const o = await tx.orcamento.update({
@@ -176,12 +186,13 @@ export function criarOrcamentosService(app: FastifyInstance) {
     emNegociacao: (id: string, ctx: ContextoUsuario) =>
       mudarStatus(id, ctx, ['enviado'], { status: 'em_negociacao' }, 'Só orçamentos enviados podem ir para negociação.'),
 
-    aprovarInterno: (id: string, nome: string, ctx: ContextoUsuario) =>
+    /** "Registrar aprovação" ou, com canal "whatsapp", "Cliente aprovou pelo WhatsApp" (respondeu APROVADO na conversa) */
+    aprovarInterno: (id: string, nome: string, ctx: ContextoUsuario, canal?: 'whatsapp') =>
       mudarStatus(
         id,
         ctx,
         [...STATUS_ORCAMENTO_ABERTOS],
-        { status: 'aprovado', aprovadoEm: new Date(), aprovadoPorNome: `${nome} (registrado internamente)`, aprovadoIp: null },
+        { status: 'aprovado', aprovadoEm: new Date(), aprovadoPorNome: `${nome} (${canal === 'whatsapp' ? 'pelo WhatsApp, registrado pela equipe' : 'registrado internamente'})`, aprovadoIp: null },
         'Este orçamento não pode ser aprovado.',
       ),
 
@@ -223,6 +234,9 @@ export function criarOrcamentosService(app: FastifyInstance) {
           desconto: o.desconto.toString(),
           acrescimo: o.acrescimo.toString(),
           frete: o.frete.toString(),
+          sinalPercentual: o.sinalPercentual.toString(),
+          parcelas: o.parcelas,
+          intervaloDias: o.intervaloDias,
           condicoes: o.condicoes,
           observacoes: o.observacoes,
           observacoesInternas: o.observacoesInternas,
@@ -236,6 +250,7 @@ export function criarOrcamentosService(app: FastifyInstance) {
             acabamentoIds: i.acabamentos.map((a) => a.acabamentoId),
             desconto: i.desconto.toString(),
             observacao: i.observacao,
+            precisaArte: i.precisaArte,
           })),
         },
         ctx,

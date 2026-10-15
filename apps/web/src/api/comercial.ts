@@ -41,7 +41,8 @@ export const orcamentosApi = {
     http<AnaliseOrcamento>('/orcamentos/analisar', { method: 'POST', body: dados, signal }),
   enviar: (id: string) => acao(id, 'enviar'),
   negociacao: (id: string) => acao(id, 'negociacao'),
-  aprovar: (id: string, nome: string) => acao(id, 'aprovar', { nome }),
+  /** canal "whatsapp": o cliente respondeu APROVADO na conversa ("Cliente aprovou pelo WhatsApp") */
+  aprovar: (id: string, nome: string, canal?: 'whatsapp') => acao(id, 'aprovar', { nome, canal }),
   recusar: (id: string, motivo: string) => acao(id, 'recusar', { motivo }),
   reabrir: (id: string) => acao(id, 'reabrir'),
   statusPersonalizado: (id: string, statusPersonalizadoId: string | null) => acao(id, 'status-personalizado', { statusPersonalizadoId }),

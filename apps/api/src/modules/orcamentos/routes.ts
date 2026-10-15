@@ -106,7 +106,7 @@ export const orcamentosRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/orcamentos/:id/aprovar',
     { ...pode('editar'), schema: { tags, summary: 'Registra a aprovação do cliente (interna)', params: idParamSchema, body: aprovacaoInternaSchema } },
-    (req) => c.aprovar(req, req.params.id, req.body.nome),
+    (req) => c.aprovar(req, req.params.id, req.body.nome, req.body.canal),
   )
   app.post('/orcamentos/:id/recusar', { ...pode('editar'), schema: { tags, summary: 'Registra a recusa', params: idParamSchema, body: recusaSchema } }, (req) =>
     c.recusar(req, req.params.id, req.body.motivo),

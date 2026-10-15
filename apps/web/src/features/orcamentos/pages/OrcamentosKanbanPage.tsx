@@ -19,7 +19,7 @@ import { usePermissoes } from '@/hooks/usePermission'
 import { useStatusDaEntidade } from '@/hooks/useStatusConfig'
 import { buscarTodasPaginas } from '@/lib/paginacao'
 import { AbasComercial } from '../components/AbasComercial'
-import { avisoAprovacao } from '../aprovacao'
+import { aprovarPeloWhatsapp, avisoAprovacao } from '../aprovacao'
 import { ConverterDialog } from '../components/editor/ConverterDialog'
 import { CartaoOrcamento } from '../components/kanban/CartaoOrcamento'
 import { PainelOrcamento } from '../components/kanban/PainelOrcamento'
@@ -44,6 +44,7 @@ export function OrcamentosKanbanPage() {
   const [salvando, setSalvando] = useState(false)
   const [convertendo, setConvertendo] = useState<OrcamentoDetalhe | null>(null)
   const [aberto, setAberto] = useState<Orcamento | null>(null)
+  const [aprovandoId, setAprovandoId] = useState<string | null>(null)
   const aoFecharConversao = useRef<(() => void) | null>(null)
 
   const params = { kanban: 'true' as const, busca: buscaAtrasada || undefined }
@@ -122,6 +123,23 @@ export function OrcamentosKanbanPage() {
     }
   }
 
+  const podeEditar = pode('orcamentos', 'editar')
+  // "Aprovou no WhatsApp": um clique; vira pedido se a empresa deixou ligado (com o pagamento do orçamento)
+  const aprovarWhatsapp = useCallback(
+    async (o: Orcamento) => {
+      setAprovandoId(o.id)
+      try {
+        toast.success(avisoAprovacao(await aprovarPeloWhatsapp(o)))
+        await atualizar()
+      } catch (e) {
+        toast.error((e as Error).message)
+      } finally {
+        setAprovandoId(null)
+      }
+    },
+    [atualizar],
+  )
+
   const { orcamento: imprimirOrcamento, ocupado } = impressao
   const renderCartao = useCallback(
     (o: Orcamento) => (
@@ -135,12 +153,13 @@ export function OrcamentosKanbanPage() {
             toast.success('Link de aprovação copiado.')
           },
           imprimindo: ocupado === `orcamento:${o.id}:imprimir`,
+          onAprovarWhatsapp: podeEditar ? (x) => void aprovarWhatsapp(x) : undefined,
+          aprovando: aprovandoId === o.id,
         }}
       />
     ),
-    [imprimirOrcamento, ocupado],
+    [imprimirOrcamento, ocupado, podeEditar, aprovarWhatsapp, aprovandoId],
   )
-  const podeEditar = pode('orcamentos', 'editar')
   const podeArrastar = useCallback((o: Orcamento) => podeEditar && o.status !== 'convertido', [podeEditar])
 
   return (

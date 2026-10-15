@@ -114,8 +114,11 @@ export function AbaGeral({ form, produto, podeEditar }: AbaGeralProps) {
               <label className="flex items-start gap-2 text-sm">
                 <Checkbox className="mt-0.5" {...r('precisaArte')} />
                 <span>
-                  Precisa de arte (o pedido espera a arte antes de produzir)
-                  <span className="block text-xs text-texto-secundario">Desmarque para serviços e itens sem impressão: o pedido vai direto para a produção.</span>
+                  Costuma precisar de arte
+                  <span className="block text-xs text-texto-secundario">
+                    Vem marcado no item do orçamento (o vendedor decide em cada um). Item com arte: o pedido espera a arte antes de produzir; sem arte, vai direto
+                    para a produção.
+                  </span>
                 </span>
               </label>
             </div>

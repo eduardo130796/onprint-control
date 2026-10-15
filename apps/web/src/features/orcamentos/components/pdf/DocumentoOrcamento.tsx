@@ -1,5 +1,14 @@
 import { Document, Page, Text, View } from '@react-pdf/renderer'
-import { formatarCpfCnpj, formatarDataHora, formatarDataSimples, formatarMoeda, formatarTelefone, type EmpresaConfig, type OrcamentoDetalhe } from '@onprint/shared'
+import {
+  formatarCpfCnpj,
+  formatarDataHora,
+  formatarDataSimples,
+  formatarMoeda,
+  formatarTelefone,
+  resumoCondicoesPagamento,
+  type EmpresaConfig,
+  type OrcamentoDetalhe,
+} from '@onprint/shared'
 import { AssinaturaPdf, BlocoInfo, CabecalhoPdf, FaixaMarca, NotaPdf, RodapePdf, TabelaPdf, TextoPdf, TotaisPdf } from '@/features/impressao/PecasPdf'
 import { dadosEmpresa, nomesClientePdf } from '@/features/impressao/pdfComum'
 import { COR, base } from '@/features/impressao/tema'
@@ -7,7 +16,7 @@ import { linkAprovacao } from '../../mensagem'
 
 const metros = (v: string | null) => (v ? Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 3 }) : '')
 
-/** Orçamento em A4: cliente, itens, totais, condições, aprovação online e assinatura do cliente. */
+/** Orçamento em A4: cliente, itens, totais, pagamento combinado, aprovação online e assinatura do cliente. */
 export function DocumentoOrcamento({ o, empresa, logo }: { o: OrcamentoDetalhe; empresa: EmpresaConfig; logo: string | null }) {
   const contato = [formatarTelefone(o.cliente.whatsapp ?? o.cliente.telefone), o.cliente.email].filter(Boolean).join('  ·  ')
   const cliente = nomesClientePdf(o.cliente)
@@ -79,11 +88,13 @@ export function DocumentoOrcamento({ o, empresa, logo }: { o: OrcamentoDetalhe; 
         <TotaisPdf linhas={totais} total={{ rotulo: 'Total do orçamento', valor: formatarMoeda(o.total) }} />
 
         <View style={{ flexDirection: 'row', gap: 24 }}>
-          {o.condicoes ? (
-            <View style={{ flex: 1 }}>
-              <TextoPdf titulo="Condições de pagamento">{o.condicoes}</TextoPdf>
-            </View>
-          ) : null}
+          {/* O mesmo resumo da mensagem e da página de aprovação (e das contas a receber do pedido) */}
+          <View style={{ flex: 1 }}>
+            <TextoPdf titulo="Pagamento">
+              {resumoCondicoesPagamento({ total: o.total, sinalPercentual: o.sinalPercentual, parcelas: o.parcelas, intervaloDias: o.intervaloDias })}
+              {o.condicoes ? `\n${o.condicoes}` : ''}
+            </TextoPdf>
+          </View>
           {empresa.chavePix ? (
             <View style={{ flex: 1 }}>
               <TextoPdf titulo="Chave PIX">{empresa.chavePix}</TextoPdf>

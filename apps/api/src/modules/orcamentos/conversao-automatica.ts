@@ -8,12 +8,9 @@ import { avisarOrcamento, type Autoria } from './tempo-real'
 
 type DadosConversao = z.output<typeof conversaoSchema>
 
-/** Padrões da empresa (Configurações → Empresa → Pedidos) */
+/** Padrões da empresa (Configurações → Empresa → Pedidos); o pagamento vem do orçamento */
 export interface PadroesConversao {
   converterAoAprovar: boolean
-  sinalPercentual: string
-  parcelasPadrao: number
-  intervaloDiasPadrao: number
   tipoEntregaPadrao: TipoEntrega
   prioridadePadrao: Prioridade
 }
@@ -31,19 +28,30 @@ export type ResultadoConversaoAutomatica =
 
 export interface DependenciasConversao {
   padroes: () => Promise<PadroesConversao>
-  orcamento: (id: string) => Promise<{ status: string; pedidoId: string | null; clienteId: string } | null>
+  /** Com o pagamento combinado no orçamento (o mesmo que a mensagem, o PDF e a página de aprovação mostraram) */
+  orcamento: (id: string) => Promise<({ status: string; pedidoId: string | null; clienteId: string } & PlanoDoOrcamento) | null>
   /** Endereço principal do cliente (null = sem endereço cadastrado) */
   enderecoPrincipal: (clienteId: string) => Promise<string | null>
   converter: (id: string, dados: DadosConversao) => Promise<{ id: string; numero: string }>
 }
 
-/** Condições do pedido pelos padrões da empresa; entrega/instalação só com endereço do cliente (senão, retirada). */
-export function dadosDaConversaoPadrao(p: PadroesConversao, enderecoId: string | null): DadosConversao {
+/** Pagamento combinado no orçamento */
+export interface PlanoDoOrcamento {
+  sinalPercentual: { toString(): string }
+  parcelas: number
+  intervaloDias: number
+}
+
+/**
+ * Condições do pedido: o pagamento combinado no orçamento (as contas a receber batem com o que o cliente viu) e
+ * entrega/prioridade pelos padrões da empresa; entrega/instalação só com endereço do cliente (senão, retirada).
+ */
+export function dadosDaConversaoPadrao(p: PadroesConversao, plano: PlanoDoOrcamento, enderecoId: string | null): DadosConversao {
   const comEndereco = p.tipoEntregaPadrao !== 'retirada' && Boolean(enderecoId)
   return conversaoSchema.parse({
-    sinalPercentual: p.sinalPercentual,
-    parcelas: p.parcelasPadrao,
-    intervaloDias: p.intervaloDiasPadrao,
+    sinalPercentual: plano.sinalPercentual.toString(),
+    parcelas: plano.parcelas,
+    intervaloDias: plano.intervaloDias,
     tipoEntrega: comEndereco ? p.tipoEntregaPadrao : 'retirada',
     enderecoEntregaId: comEndereco ? enderecoId : null,
     prioridade: p.prioridadePadrao,
@@ -63,7 +71,7 @@ export async function converterAoAprovar(deps: DependenciasConversao, orcamentoI
     if (o.pedidoId || o.status === 'convertido') return { situacao: 'ja_convertido' }
     if (o.status !== 'aprovado') return { situacao: 'ignorado' }
     const enderecoId = padroes.tipoEntregaPadrao === 'retirada' ? null : await deps.enderecoPrincipal(o.clienteId)
-    const pedido = await deps.converter(orcamentoId, dadosDaConversaoPadrao(padroes, enderecoId))
+    const pedido = await deps.converter(orcamentoId, dadosDaConversaoPadrao(padroes, o, enderecoId))
     return { situacao: 'convertido', pedido: { id: pedido.id, numero: pedido.numero } }
   } catch (erro) {
     // Conversão ao mesmo tempo (clique duplo, conversão manual): o pedido da outra vale
@@ -84,6 +92,8 @@ interface OrcamentoAprovado {
 export interface Aprovacao extends Autoria {
   /** Nome de quem aprovou (cliente) */
   nome: string
+  /** A equipe registrou que o cliente respondeu APROVADO no WhatsApp */
+  canal?: 'whatsapp'
 }
 
 /**
@@ -113,7 +123,12 @@ export function criarConversaoAutomatica(app: FastifyInstance, conversao: Return
   return {
     async aposAprovacao(o: OrcamentoAprovado, aprovacao: Aprovacao): Promise<ResultadoConversaoAutomatica> {
       const ator = await autorDoSistema(o, aprovacao)
-      const via = aprovacao.origem === 'cliente' ? 'conversão automática · aprovação do cliente (link público)' : 'conversão automática · aprovação registrada pela equipe'
+      const via =
+        aprovacao.origem === 'cliente'
+          ? 'conversão automática · aprovação do cliente (link público)'
+          : aprovacao.canal === 'whatsapp'
+            ? 'conversão automática · cliente aprovou pelo WhatsApp (registrado pela equipe)'
+            : 'conversão automática · aprovação registrada pela equipe'
       const ctx: ContextoUsuario = { usuarioId: ator ?? '', veTodos: true, podeAprovar: true, veCustos: true }
       const resultado = await converterAoAprovar(
         {
@@ -121,14 +136,12 @@ export function criarConversaoAutomatica(app: FastifyInstance, conversao: Return
             const e = await prisma.empresaConfig.findFirst({ orderBy: { createdAt: 'asc' } })
             return {
               converterAoAprovar: e?.converterAoAprovar ?? true,
-              sinalPercentual: e?.sinalPercentual.toString() ?? '50',
-              parcelasPadrao: e?.parcelasPadrao ?? 1,
-              intervaloDiasPadrao: e?.intervaloDiasPadrao ?? 30,
               tipoEntregaPadrao: e?.tipoEntregaPadrao ?? 'retirada',
               prioridadePadrao: e?.prioridadePadrao ?? 'normal',
             }
           },
-          orcamento: (id) => prisma.orcamento.findUnique({ where: { id }, select: { status: true, pedidoId: true, clienteId: true } }),
+          orcamento: (id) =>
+            prisma.orcamento.findUnique({ where: { id }, select: { status: true, pedidoId: true, clienteId: true, sinalPercentual: true, parcelas: true, intervaloDias: true } }),
           enderecoPrincipal: async (clienteId) =>
             (await prisma.clienteEndereco.findFirst({ where: { clienteId }, orderBy: [{ tipo: 'asc' }, { createdAt: 'asc' }], select: { id: true } }))?.id ?? null,
           converter: async (id, dados) => {
@@ -157,7 +170,12 @@ export function criarConversaoAutomatica(app: FastifyInstance, conversao: Return
         } else if (o.vendedorId && o.vendedorId !== aprovacao.atorId) {
           // O vendedor fica sabendo da aprovação (o aviso flutuante vem do evento do orçamento)
           const pedido = resultado.situacao === 'convertido' ? resultado.pedido : null
-          const quem = aprovacao.origem === 'cliente' ? `${cliente} aprovou pelo link (${aprovacao.nome}).` : `Aprovação registrada pela equipe (${aprovacao.nome}).`
+          const quem =
+            aprovacao.origem === 'cliente'
+              ? `${cliente} aprovou pelo link (${aprovacao.nome}).`
+              : aprovacao.canal === 'whatsapp'
+                ? `${cliente} aprovou pelo WhatsApp (registrado pela equipe).`
+                : `Aprovação registrada pela equipe (${aprovacao.nome}).`
           await notificar(
             [o.vendedorId],
             pedido

@@ -95,11 +95,14 @@ export function criarOrcamentosController(app: FastifyInstance, s: Servicos) {
     atualizar: async (req: FastifyRequest, id: string, d: z.output<typeof orcamentoSchema>) => mudou(req, await s.orcamentos.atualizar(id, d, await ctx(req)), 'alterado'),
     enviar: async (req: FastifyRequest, id: string) => mudou(req, await s.orcamentos.marcarEnviado(id, await ctx(req)), 'enviado'),
     negociacao: async (req: FastifyRequest, id: string) => mudou(req, await s.orcamentos.emNegociacao(id, await ctx(req)), 'negociacao'),
-    /** "Registrar aprovação": grava e, se a empresa deixou ligado, já vira pedido (a aprovação vale mesmo se a conversão falhar) */
-    async aprovar(req: FastifyRequest, id: string, nome: string) {
+    /**
+     * "Registrar aprovação" (ou "Cliente aprovou pelo WhatsApp", canal "whatsapp"): grava e, se a empresa deixou ligado,
+     * já vira pedido com o pagamento do orçamento (a aprovação vale mesmo se a conversão falhar)
+     */
+    async aprovar(req: FastifyRequest, id: string, nome: string, canal?: 'whatsapp') {
       const c = await ctx(req)
-      const o = await s.orcamentos.aprovarInterno(id, nome, c)
-      await s.automatica.aposAprovacao(o, { ...daEquipe(req), nome })
+      const o = await s.orcamentos.aprovarInterno(id, nome, c, canal)
+      await s.automatica.aposAprovacao(o, { ...daEquipe(req), nome, canal })
       return detalhe(req, await s.orcamentos.obter(id, c))
     },
     recusar: async (req: FastifyRequest, id: string, motivo: string) => mudou(req, await s.orcamentos.recusar(id, motivo, await ctx(req)), 'recusado'),

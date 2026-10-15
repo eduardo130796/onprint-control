@@ -1,14 +1,18 @@
 import { Link } from 'react-router-dom'
-import { CalendarClock, CheckCircle2, ExternalLink, Link2, Phone, Printer, Send, ShoppingCart, ThumbsDown, User } from 'lucide-react'
+import { CalendarClock, CheckCircle2, ExternalLink, Link2, MessageCircleCheck, Phone, Printer, Send, ShoppingCart, ThumbsDown, User } from 'lucide-react'
 import { formatarDataSimples, formatarMoeda, formatarTelefone, hojeISO, nomeCliente, type Orcamento } from '@onprint/shared'
 import { BotaoCartao } from '@/components/shared/kanban/BotaoCartao'
 import { cn } from '@/lib/utils'
+import { podeAprovarPeloWhatsapp } from '../../aprovacao'
 
 export interface AcoesCartaoOrcamento {
   onAbrir: (o: Orcamento) => void
   onImprimir: (o: Orcamento) => void
   onCopiarLink: (o: Orcamento) => void
   imprimindo: boolean
+  /** "Aprovou no WhatsApp" (orçamento enviado; só para quem pode editar) */
+  onAprovarWhatsapp?: (o: Orcamento) => void
+  aprovando?: boolean
 }
 
 const diasDesde = (iso: string) => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000))
@@ -83,6 +87,15 @@ export function CartaoOrcamento({ o, acoes }: { o: Orcamento; acoes: AcoesCartao
         <BotaoCartao icone={ExternalLink} rotulo="Abrir" onClick={() => acoes.onAbrir(o)} />
         <BotaoCartao icone={Printer} rotulo="Imprimir" onClick={() => acoes.onImprimir(o)} carregando={acoes.imprimindo} />
         <BotaoCartao icone={Link2} rotulo="Link" onClick={() => acoes.onCopiarLink(o)} />
+        {acoes.onAprovarWhatsapp && podeAprovarPeloWhatsapp(o.status) && (
+          <BotaoCartao
+            icone={MessageCircleCheck}
+            rotulo="Aprovou no WhatsApp"
+            className="text-green-800 dark:text-green-300"
+            onClick={() => acoes.onAprovarWhatsapp?.(o)}
+            carregando={acoes.aprovando}
+          />
+        )}
       </div>
     </article>
   )

@@ -15,26 +15,25 @@ const END = '7d3c1e0a-5b2f-4c6d-9e8a-1f2b3c4d5e6f'
 
 const padroes: PadroesConversao = {
   converterAoAprovar: true,
-  sinalPercentual: '50',
-  parcelasPadrao: 2,
-  intervaloDiasPadrao: 15,
   tipoEntregaPadrao: 'retirada',
   prioridadePadrao: 'alta',
 }
+/** Pagamento combinado no orçamento (o que a mensagem prometeu) */
+const plano = { sinalPercentual: '50', parcelas: 2, intervaloDias: 15 }
 
 function deps(over: Partial<DependenciasConversao> = {}, p: Partial<PadroesConversao> = {}) {
   return {
     padroes: vi.fn(async () => ({ ...padroes, ...p })),
-    orcamento: vi.fn(async () => ({ status: 'aprovado', pedidoId: null as string | null, clienteId: 'c1' })),
+    orcamento: vi.fn(async () => ({ status: 'aprovado', pedidoId: null as string | null, clienteId: 'c1', ...plano })),
     enderecoPrincipal: vi.fn(async () => END as string | null),
     converter: vi.fn(async () => ({ id: 'p1', numero: 'PED-2026-0001' })),
     ...over,
   }
 }
 
-describe('Conversão automática: condições pelos padrões da empresa', () => {
-  it('sinal, parcelas do saldo, intervalo e prioridade da empresa; retirada sem endereço', () => {
-    expect(dadosDaConversaoPadrao(padroes, null)).toMatchObject({
+describe('Conversão automática: pagamento do orçamento, entrega e prioridade da empresa', () => {
+  it('entrada, parcelas do saldo e intervalo do orçamento; prioridade da empresa; retirada sem endereço', () => {
+    expect(dadosDaConversaoPadrao(padroes, plano, null)).toMatchObject({
       sinalPercentual: '50',
       parcelas: 2,
       intervaloDias: 15,
@@ -44,10 +43,10 @@ describe('Conversão automática: condições pelos padrões da empresa', () => 
     })
   })
   it('entrega com o endereço principal do cliente', () => {
-    expect(dadosDaConversaoPadrao({ ...padroes, tipoEntregaPadrao: 'entrega' }, END)).toMatchObject({ tipoEntrega: 'entrega', enderecoEntregaId: END })
+    expect(dadosDaConversaoPadrao({ ...padroes, tipoEntregaPadrao: 'entrega' }, plano, END)).toMatchObject({ tipoEntrega: 'entrega', enderecoEntregaId: END })
   })
   it('entrega ou instalação sem endereço cadastrado: sai como retirada (não trava a conversão)', () => {
-    expect(dadosDaConversaoPadrao({ ...padroes, tipoEntregaPadrao: 'instalacao' }, null)).toMatchObject({ tipoEntrega: 'retirada', enderecoEntregaId: null })
+    expect(dadosDaConversaoPadrao({ ...padroes, tipoEntregaPadrao: 'instalacao' }, plano, null)).toMatchObject({ tipoEntrega: 'retirada', enderecoEntregaId: null })
   })
 })
 
@@ -71,9 +70,9 @@ describe('Conversão automática: quando converte', () => {
     expect(d.converter).not.toHaveBeenCalled()
   })
   it('já convertido ou não mais aprovado: não converte de novo', async () => {
-    const convertido = deps({ orcamento: vi.fn(async () => ({ status: 'convertido', pedidoId: 'p0', clienteId: 'c1' })) })
+    const convertido = deps({ orcamento: vi.fn(async () => ({ status: 'convertido', pedidoId: 'p0', clienteId: 'c1', ...plano })) })
     expect(await converterAoAprovar(convertido, 'o1')).toEqual({ situacao: 'ja_convertido' })
-    const reaberto = deps({ orcamento: vi.fn(async () => ({ status: 'em_negociacao', pedidoId: null, clienteId: 'c1' })) })
+    const reaberto = deps({ orcamento: vi.fn(async () => ({ status: 'em_negociacao', pedidoId: null, clienteId: 'c1', ...plano })) })
     expect(await converterAoAprovar(reaberto, 'o1')).toEqual({ situacao: 'ignorado' })
     expect(convertido.converter).not.toHaveBeenCalled()
     expect(reaberto.converter).not.toHaveBeenCalled()
@@ -89,7 +88,7 @@ describe('Conversão automática: quando converte', () => {
     let pedidoId: string | null = null
     let criados = 0
     const d = deps({
-      orcamento: vi.fn(async () => ({ status: 'aprovado', pedidoId: null, clienteId: 'c1' })),
+      orcamento: vi.fn(async () => ({ status: 'aprovado', pedidoId: null, clienteId: 'c1', ...plano })),
       converter: vi.fn(async () => {
         await new Promise((r) => setTimeout(r, 5))
         if (pedidoId) throw AppError.conflito('Este orçamento já foi convertido em pedido.')
@@ -108,10 +107,10 @@ function appFalso(opcoes: { ligada?: boolean } = {}) {
   const emitir = vi.fn()
   const notificacoes: { usuarioId: string; titulo: string; link: string }[] = []
   const prisma = {
-    empresaConfig: { findFirst: vi.fn(async () => ({ converterAoAprovar: opcoes.ligada ?? true, sinalPercentual: { toString: () => '50' }, parcelasPadrao: 1, intervaloDiasPadrao: 30, tipoEntregaPadrao: 'retirada', prioridadePadrao: 'normal' })) },
+    empresaConfig: { findFirst: vi.fn(async () => ({ converterAoAprovar: opcoes.ligada ?? true, sinalPercentual: { toString: () => '30' }, parcelasPadrao: 6, intervaloDiasPadrao: 10, tipoEntregaPadrao: 'retirada', prioridadePadrao: 'normal' })) },
     orcamento: {
       findUnique: vi.fn(async (q: { select: Record<string, unknown> }) =>
-        'clienteId' in q.select ? { status: 'aprovado', pedidoId: null, clienteId: 'c1' } : { id: 'o1', numero: 'ORC-2026-0007', status: 'convertido', vendedorId: 'v1', pedidoId: 'p1', pedido: { numero: 'PED-2026-0003' } },
+        'clienteId' in q.select ? { status: 'aprovado', pedidoId: null, clienteId: 'c1', sinalPercentual: { toString: () => '50' }, parcelas: 2, intervaloDias: 30 } : { id: 'o1', numero: 'ORC-2026-0007', status: 'convertido', vendedorId: 'v1', pedidoId: 'p1', pedido: { numero: 'PED-2026-0003' } },
       ),
     },
     clienteEndereco: { findFirst: vi.fn(async () => null) },
@@ -172,6 +171,22 @@ describe('Conversão automática: depois da aprovação', () => {
     await criarConversaoAutomatica(app, { converter } as unknown as ReturnType<typeof criarConversaoService>).aposAprovacao(orcamento, { origem: 'equipe', atorId: 'v1', nome: 'João' })
     expect(converter).toHaveBeenCalledWith('o1', expect.anything(), expect.objectContaining({ usuarioId: 'v1' }), { via: expect.stringContaining('equipe') })
     expect(notificacoes).toEqual([])
+  })
+
+  it('o pedido cobra o pagamento combinado no orçamento, não os padrões atuais da empresa', async () => {
+    // Empresa hoje: 30% + 6× a cada 10 dias; o orçamento prometeu 50% + 2× a cada 30 dias
+    const { app } = appFalso()
+    const converter = vi.fn(async () => ({ id: 'p1', numero: 'PED-2026-0003' }))
+    await criarConversaoAutomatica(app, { converter } as unknown as ReturnType<typeof criarConversaoService>).aposAprovacao(orcamento, doCliente)
+    expect(converter).toHaveBeenCalledWith('o1', expect.objectContaining({ sinalPercentual: '50', parcelas: 2, intervaloDias: 30 }), expect.anything(), expect.anything())
+  })
+
+  it('"Cliente aprovou pelo WhatsApp": a auditoria e o aviso ao vendedor dizem o canal', async () => {
+    const { app, notificacoes } = appFalso()
+    const converter = vi.fn(async () => ({ id: 'p1', numero: 'PED-2026-0003' }))
+    await criarConversaoAutomatica(app, { converter } as unknown as ReturnType<typeof criarConversaoService>).aposAprovacao(orcamento, { origem: 'equipe', atorId: 'u2', nome: 'Pet Feliz', canal: 'whatsapp' })
+    expect(converter).toHaveBeenCalledWith('o1', expect.anything(), expect.objectContaining({ usuarioId: 'u2' }), { via: expect.stringContaining('aprovou pelo WhatsApp') })
+    expect(notificacoes).toEqual([expect.objectContaining({ usuarioId: 'v1', mensagem: 'Pet Feliz aprovou pelo WhatsApp (registrado pela equipe).' })])
   })
 })
 

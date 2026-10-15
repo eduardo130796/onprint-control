@@ -9,6 +9,7 @@ import {
   preencherMensagem,
   proximoPassoPedido,
   resumoPagamento,
+  resumoCondicoesPagamento,
   formaEntregaPronto,
   textoPrazoDias,
   type CategoriaTemplate,
@@ -33,6 +34,7 @@ export function valoresDeExemplo(empresa: { nome: string; slug: string; origem: 
     ]),
     validade: '20/10/2026',
     prazo_producao: textoPrazoDias(5),
+    condicoes_pagamento: resumoCondicoesPagamento({ total: 219.9, sinalPercentual: 50, parcelas: 1, intervaloDias: 30 }),
     numero_pedido: 'PED-2026-0017',
     itens_pedido: listaItensMensagem([
       { descricao: 'Banner em lona', quantidade: 2, largura: 2, altura: 1, total: 130 },

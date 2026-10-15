@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Clock, FileSearch, Loader2, MessageCircle, ThumbsDown, XCircle } from 'lucide-react'
+import { CheckCircle2, Clock, FileSearch, Loader2, MessageCircle, ThumbsDown, Wallet, XCircle } from 'lucide-react'
 import { formatarDataHora, formatarDataSimples, formatarMoeda, formatarTelefone, type OrcamentoPublico } from '@onprint/shared'
 import { publicoApi, type LinkPublico } from '@/api/comercial'
 import { Logo } from '@/components/layout/Logo'
@@ -156,14 +156,24 @@ export function AprovarOrcamentoPage() {
                 </p>
               </div>
             </Card>
-            {(o.condicoes || o.observacoes) && (
-              <Card>
-                <CardContent className="space-y-3 pt-6 text-sm">
-                  {o.condicoes && <p><strong>Condições:</strong> {o.condicoes}</p>}
-                  {o.observacoes && <p><strong>Observações:</strong> {o.observacoes}</p>}
-                </CardContent>
-              </Card>
-            )}
+            {/* Pagamento: o mesmo resumo da mensagem e do PDF (e o que o pedido vai cobrar) */}
+            <Card>
+              <CardContent className="space-y-3 pt-6 text-sm">
+                <div className="flex items-start gap-3">
+                  <Wallet className="mt-0.5 h-5 w-5 shrink-0 text-texto-secundario" />
+                  <div className="min-w-0">
+                    <p className="font-semibold text-tinta">Pagamento</p>
+                    <p>{o.pagamento}</p>
+                    {o.condicoes && <p className="mt-1 text-texto-secundario">{o.condicoes}</p>}
+                  </div>
+                </div>
+                {o.observacoes && (
+                  <p className="border-t border-border pt-3">
+                    <strong>Observações:</strong> {o.observacoes}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
             <Resposta link={link} orcamento={o} />
             {(o.empresa.whatsapp || o.empresa.telefone || o.vendedor) && (
               <p className="flex items-center justify-center gap-2 pb-8 text-sm text-texto-secundario">

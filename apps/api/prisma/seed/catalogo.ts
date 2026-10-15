@@ -85,7 +85,7 @@ export async function criarCatalogoExemplo(prisma: PrismaClient) {
   const tinta = await insumo({ nome: 'Tinta eco-solvente (galão 5 l)', unidadeMedidaId: await un('ml'), estoqueMinimo: '2000', embalagem: 'galao', embalagemConteudo: '5000', precoEmbalagem: '450.00' }, 5000)
   await insumo({ nome: 'Ilhós latão nº 0', unidadeMedidaId: await un('un'), estoqueMinimo: '500', embalagem: 'caixa', embalagemConteudo: '1000', precoEmbalagem: '60.00' }, 1000)
 
-  // Produtos e serviços
+  // Produtos e serviços (impressos personalizados costumam precisar de arte; o padrão de produto novo é sem arte)
   const banner = await produto({
     nome: 'Banner em lona 440 g',
     tipo: 'produto',
@@ -99,6 +99,7 @@ export async function criarCatalogoExemplo(prisma: PrismaClient) {
     prazoProducaoDias: 2,
     unidadeMedidaId: await un('m²'),
     categoriaId: banners.id,
+    precisaArte: true,
   })
   // Adesivo e caneca: custo montado pela composição (materiais + produção), recalculado no fim
   const adesivo = await produto({
@@ -114,6 +115,7 @@ export async function criarCatalogoExemplo(prisma: PrismaClient) {
     prazoProducaoDias: 2,
     unidadeMedidaId: await un('m²'),
     categoriaId: adesivos.id,
+    precisaArte: true,
   })
   const cartao = await produto({
     nome: 'Cartão de visita 4×4 couché 300 g',
@@ -124,6 +126,7 @@ export async function criarCatalogoExemplo(prisma: PrismaClient) {
     prazoProducaoDias: 3,
     unidadeMedidaId: await un('mil'),
     categoriaId: grafica.id,
+    precisaArte: true,
   })
   const caneca = await produto({
     nome: 'Caneca personalizada',
@@ -135,6 +138,7 @@ export async function criarCatalogoExemplo(prisma: PrismaClient) {
     prazoProducaoDias: 2,
     unidadeMedidaId: await un('un'),
     categoriaId: personalizados.id,
+    precisaArte: true,
   })
   await produto({
     nome: 'Instalação',

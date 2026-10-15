@@ -1,4 +1,4 @@
-import { nomeCliente, type OrcamentoDetalhe, type OrcamentoInput, type ProdutoCatalogo, type SolicitacaoItem } from '@onprint/shared'
+import { nomeCliente, normalizarDecimal, resumoCondicoesPagamento, type EmpresaConfig, type OrcamentoDetalhe, type OrcamentoInput, type ProdutoCatalogo, type SolicitacaoItem } from '@onprint/shared'
 import type { OpcaoBusca } from '@/components/shared/SearchSelect'
 import { decimalParaCampo, decimalParaInput } from '@/lib/mascaras'
 
@@ -15,6 +15,8 @@ export interface ItemForm {
   acabamentoIds: string[]
   desconto: string
   observacao: string
+  /** O item espera a arte antes de produzir (padrão do produto ao escolher; vai para o pedido) */
+  precisaArte: boolean
 }
 
 export interface FormOrcamento {
@@ -23,6 +25,11 @@ export interface FormOrcamento {
   desconto: string
   acrescimo: string
   frete: string
+  /** Pagamento: entrada (%), parcelas do saldo (0 = restante na retirada/entrega) e intervalo em dias */
+  sinalPercentual: string
+  parcelas: string
+  intervaloDias: string
+  /** Observações de pagamento (linha livre opcional) */
   condicoes: string
   observacoes: string
   observacoesInternas: string
@@ -35,9 +42,27 @@ export const novaChave = () => `item-${Date.now()}-${++contador}`
 // Sem separador de milhar: "1.000" (sem vírgula) seria lido como 1 ao recalcular e ao salvar
 const medida = (v: string | null) => decimalParaCampo(v, 3)
 const quantidade = (v: string) => decimalParaCampo(v, 3)
+const percentual = (v: string | number | null | undefined) => decimalParaCampo(v, 2)
+
+/** Padrões da empresa para um orçamento novo (Configurações → Empresa) */
+export type PadroesOrcamento = Pick<EmpresaConfig, 'sinalPercentual' | 'parcelasPadrao' | 'intervaloDiasPadrao' | 'condicoesPadrao'>
+
+/**
+ * Resumo do pagamento ao vivo (o mesmo texto da mensagem, do PDF e da página de aprovação);
+ * null enquanto os campos não formam um plano válido.
+ */
+export function resumoPagamentoDoForm(f: Pick<FormOrcamento, 'sinalPercentual' | 'parcelas' | 'intervaloDias'>, total: string): string | null {
+  const sinal = Number(normalizarDecimal(f.sinalPercentual || '0'))
+  const parcelas = Number(f.parcelas || '0')
+  const intervalo = Number(f.intervaloDias)
+  if (!Number.isFinite(sinal) || sinal < 0 || sinal > 100) return null
+  if (!Number.isInteger(parcelas) || parcelas < 0 || parcelas > 24) return null
+  if (sinal < 100 && parcelas > 0 && (!Number.isInteger(intervalo) || intervalo < 1 || intervalo > 120)) return null
+  return resumoCondicoesPagamento({ total, sinalPercentual: normalizarDecimal(f.sinalPercentual || '0'), parcelas, intervaloDias: intervalo || 30 })
+}
 
 export function itemVazio(): ItemForm {
-  return { chave: novaChave(), produto: null, descricao: '', quantidade: '1', largura: '', altura: '', precoUnitario: '', acabamentoIds: [], desconto: '0,00', observacao: '' }
+  return { chave: novaChave(), produto: null, descricao: '', quantidade: '1', largura: '', altura: '', precoUnitario: '', acabamentoIds: [], desconto: '0,00', observacao: '', precisaArte: false }
 }
 
 /** Ao escolher o produto: medidas padrão e acabamentos que "vêm marcados". */
@@ -51,6 +76,8 @@ export function itemComProduto(item: ItemForm, produto: ProdutoCatalogo, opcao: 
     altura: medida(produto.alturaPadrao),
     precoUnitario: '',
     acabamentoIds: produto.acabamentos.filter((a) => a.padrao || a.obrigatorio).map((a) => a.acabamentoId),
+    // A decisão é do orçamento; o produto só sugere
+    precisaArte: produto.precisaArte,
   }
 }
 
@@ -81,7 +108,13 @@ export function itensDaSolicitacao(itens: SolicitacaoItem[], produtos: ProdutoCa
   return { itens: resultado, ignorados: itens.length - resultado.length }
 }
 
-export function formDoOrcamento(o?: OrcamentoDetalhe, cliente?: OpcaoBusca | null, itensIniciais?: ItemForm[], observacoesInternas?: string): FormOrcamento {
+export function formDoOrcamento(
+  o?: OrcamentoDetalhe,
+  cliente?: OpcaoBusca | null,
+  itensIniciais?: ItemForm[],
+  observacoesInternas?: string,
+  padroes?: PadroesOrcamento | null,
+): FormOrcamento {
   if (!o) {
     return {
       cliente: cliente ?? null,
@@ -89,7 +122,11 @@ export function formDoOrcamento(o?: OrcamentoDetalhe, cliente?: OpcaoBusca | nul
       desconto: '0,00',
       acrescimo: '0,00',
       frete: '0,00',
-      condicoes: '',
+      // Pagamento já com os padrões da empresa (o vendedor ajusta por orçamento)
+      sinalPercentual: percentual(padroes?.sinalPercentual ?? 50),
+      parcelas: String(padroes?.parcelasPadrao ?? 1),
+      intervaloDias: String(padroes?.intervaloDiasPadrao ?? 30),
+      condicoes: padroes?.condicoesPadrao ?? '',
       observacoes: '',
       observacoesInternas: observacoesInternas ?? '',
       itens: itensIniciais?.length ? itensIniciais : [itemVazio()],
@@ -101,6 +138,9 @@ export function formDoOrcamento(o?: OrcamentoDetalhe, cliente?: OpcaoBusca | nul
     desconto: decimalParaInput(o.desconto),
     acrescimo: decimalParaInput(o.acrescimo),
     frete: decimalParaInput(o.frete),
+    sinalPercentual: percentual(o.sinalPercentual),
+    parcelas: String(o.parcelas),
+    intervaloDias: String(o.intervaloDias),
     condicoes: o.condicoes ?? '',
     observacoes: o.observacoes ?? '',
     observacoesInternas: o.observacoesInternas ?? '',
@@ -115,6 +155,7 @@ export function formDoOrcamento(o?: OrcamentoDetalhe, cliente?: OpcaoBusca | nul
       acabamentoIds: i.acabamentos.map((a) => a.acabamentoId),
       desconto: decimalParaInput(i.desconto),
       observacao: i.observacao ?? '',
+      precisaArte: i.precisaArte,
     })),
   }
 }
@@ -128,6 +169,9 @@ export function payloadDoForm(f: FormOrcamento, solicitacaoId?: string | null): 
     desconto: f.desconto,
     acrescimo: f.acrescimo,
     frete: f.frete,
+    sinalPercentual: f.sinalPercentual,
+    parcelas: f.parcelas,
+    intervaloDias: f.intervaloDias,
     condicoes: f.condicoes,
     observacoes: f.observacoes,
     observacoesInternas: f.observacoesInternas,
@@ -141,6 +185,7 @@ export function payloadDoForm(f: FormOrcamento, solicitacaoId?: string | null): 
       acabamentoIds: i.acabamentoIds,
       desconto: i.desconto,
       observacao: i.observacao,
+      precisaArte: i.precisaArte,
     })),
   }
 }

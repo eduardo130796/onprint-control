@@ -64,6 +64,8 @@ export interface OrcamentoItem {
   prazoDias: number
   ordem: number
   observacao: string | null
+  /** O item espera a arte antes de produzir (vai para o item do pedido na conversão) */
+  precisaArte: boolean
   precoLiberadoPor: Ref | null
   acabamentos: OrcamentoItemAcabamento[]
 }
@@ -110,6 +112,11 @@ export interface Orcamento extends Auditavel {
   frete: string
   total: string
   prazoDias: number
+  /** Pagamento combinado: entrada (%) na aprovação + parcelas do saldo a cada N dias (resumoCondicoesPagamento) */
+  sinalPercentual: string
+  parcelas: number
+  intervaloDias: number
+  /** Observações de pagamento (linha livre opcional) */
   condicoes: string | null
   observacoes: string | null
   observacoesInternas: string | null
@@ -166,6 +173,9 @@ export interface OrcamentoPublico {
   frete: string
   total: string
   prazoDias: number
+  /** Resumo do pagamento combinado (resumoCondicoesPagamento) */
+  pagamento: string
+  /** Observações de pagamento */
   condicoes: string | null
   observacoes: string | null
   aprovadoEm: string | null
@@ -186,6 +196,8 @@ export interface ProdutoCatalogo {
   larguraMaxima: string | null
   alturaMaxima: string | null
   prazoProducaoDias: number
+  /** Padrão do "Precisa de arte" do item no orçamento */
+  precisaArte: boolean
   custo?: string
   acabamentos: {
     acabamentoId: string

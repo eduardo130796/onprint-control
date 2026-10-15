@@ -6,6 +6,7 @@ import {
   nomeCliente,
   nomeParaSaudacao,
   preencherMensagem,
+  resumoCondicoesPagamento,
   textoPrazoDias,
   type MensagemTemplate,
   type OrcamentoDetalhe,
@@ -19,8 +20,9 @@ export function linkAprovacao(token: string): string {
 }
 
 /**
- * Mensagem do orçamento (template "Orçamento enviado"): itens em lista, total, prazo, validade e o link de
- * aprovação sozinho no fim. Com o PDF anexado, avisa que ele vai logo abaixo.
+ * Mensagem do orçamento (template "Orçamento enviado"): itens em lista, total, pagamento combinado, prazo, validade,
+ * "responda APROVADO" e o link de aprovação sozinho no fim. Com o PDF anexado, avisa (antes da assinatura) que ele
+ * vai logo abaixo.
  */
 export function mensagemDoOrcamento(o: OrcamentoDetalhe, templates: MensagemTemplate[] | undefined, empresa: string, comPdf = false): string {
   const texto = preencherMensagem(textoDoTemplate('orcamento_enviado', templates), {
@@ -28,6 +30,8 @@ export function mensagemDoOrcamento(o: OrcamentoDetalhe, templates: MensagemTemp
     numero_orcamento: o.numero,
     itens_orcamento: listaItensMensagem(o.itens),
     valor_total: formatarMoeda(o.total),
+    // O mesmo resumo do PDF, da página de aprovação e das contas a receber do pedido
+    condicoes_pagamento: resumoCondicoesPagamento({ total: o.total, sinalPercentual: o.sinalPercentual, parcelas: o.parcelas, intervaloDias: o.intervaloDias }),
     prazo_producao: textoPrazoDias(o.prazoDias),
     validade: formatarDataSimples(o.validade),
     link_aprovacao: linkAprovacao(o.tokenPublico),

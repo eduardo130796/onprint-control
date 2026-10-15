@@ -45,6 +45,9 @@ describe('mensagens da equipe', () => {
     total: '219.90',
     prazoDias: 5,
     validade: '2026-10-20',
+    sinalPercentual: '50.00',
+    parcelas: 2,
+    intervaloDias: 30,
     cliente: { nome: 'MARIA DA SILVA', fantasia: null, cpfCnpj: null },
     itens: [
       { descricao: 'Banner em lona', quantidade: '2', largura: '2', altura: '1', total: '130' },
@@ -52,13 +55,16 @@ describe('mensagens da equipe', () => {
     ],
   } as unknown as OrcamentoDetalhe
 
-  it('orçamento: itens em lista, total em negrito, link de aprovação sozinho no fim; com PDF avisa antes da assinatura', () => {
+  it('orçamento: itens, total, pagamento, "responda APROVADO", link de aprovação sozinho no fim; com PDF avisa antes da assinatura', () => {
     const texto = mensagemDoOrcamento(orcamento, [], 'Ponto Visual')
     expect(texto).toContain('Segue o seu orçamento *ORC-2026-0042*:\n• 2× Banner em lona 2,0 × 1,0 m — R$ 130,00\n• 1.000× Cartão de visita — R$ 89,90')
-    expect(texto).toContain('Total: *R$ 219,90*\nPrazo de produção: *5 dias úteis*\nVálido até *20/10/2026*')
-    expect(texto.endsWith('Veja os detalhes e aprove aqui:\nhttps://app.grafygo.com.br/aprovar/ponto-visual/tok')).toBe(true)
+    expect(texto).toContain(
+      'Total: *R$ 219,90*\nPagamento: Entrada de R$ 109,95 (50%) na aprovação + 1× de R$ 54,97 e 1× de R$ 54,98 a cada 30 dias\nPrazo de produção: *5 dias úteis*\nVálido até *20/10/2026*',
+    )
+    expect(texto).toContain('Válido até *20/10/2026*\n\nResponda *APROVADO* aqui mesmo ou peça o ajuste que precisar.\n\n— Ponto Visual')
+    expect(texto.endsWith('Se preferir, veja e aprove pelo link:\nhttps://app.grafygo.com.br/aprovar/ponto-visual/tok')).toBe(true)
     const comPdf = mensagemDoOrcamento(orcamento, [], 'Ponto Visual', true)
-    expect(comPdf).toContain('Válido até *20/10/2026*\n\nO orçamento em PDF vai logo abaixo.\n\n— Ponto Visual\n\n')
+    expect(comPdf).toContain('peça o ajuste que precisar.\n\nO orçamento em PDF vai logo abaixo.\n\n— Ponto Visual\n\n')
   })
 
   it('o template editado da empresa vale mais que o padrão', () => {

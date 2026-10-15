@@ -63,6 +63,15 @@ export const descartarSolicitacaoSchema = z.object({ motivo: z.string().trim().m
 
 // ─── Orçamentos ─────────────────────────────────────────────────────────────
 
+/** Entrada (% do total, na aprovação), 0–100 com até 2 casas */
+const sinalPercentual = z
+  .union([z.string(), z.number()])
+  .transform(normalizarDecimal)
+  .refine((v) => /^\d{1,3}(\.\d{1,2})?$/.test(v) && Number(v) <= 100, 'Entrada entre 0 e 100%.')
+/** Parcelas do saldo depois da entrada (0 = o restante na retirada/entrega) */
+const parcelasDoSaldo = z.coerce.number({ message: 'Parcelas inválidas.' }).int('Parcelas inválidas.').min(0, 'Parcelas entre 0 e 24.').max(24, 'Parcelas entre 0 e 24.')
+const intervaloDias = z.coerce.number({ message: 'Intervalo inválido.' }).int('Intervalo inválido.').min(1, 'Intervalo entre 1 e 120 dias.').max(120, 'Intervalo entre 1 e 120 dias.')
+
 export const orcamentoItemSchema = z.object({
   produtoId: z.string().uuid('Escolha o produto.'),
   /** Vazio = nome do produto */
@@ -75,6 +84,8 @@ export const orcamentoItemSchema = z.object({
   acabamentoIds: z.array(z.string().uuid()).max(30).default([]),
   desconto: valorMonetario.default('0'),
   observacao: textoOpcional,
+  /** O item vai esperar a arte antes de produzir? Ausente = o que o produto diz */
+  precisaArte: z.boolean().optional(),
 })
 export type OrcamentoItemInput = z.input<typeof orcamentoItemSchema>
 
@@ -87,6 +98,14 @@ export const orcamentoSchema = z.object({
   desconto: valorMonetario.default('0'),
   acrescimo: valorMonetario.default('0'),
   frete: valorMonetario.default('0'),
+  /**
+   * Pagamento combinado (resumoCondicoesPagamento): vale para a mensagem, o PDF, a página de aprovação e as contas
+   * a receber do pedido. Ausente ao criar = os padrões da empresa; ausente ao salvar = fica como estava.
+   */
+  sinalPercentual: sinalPercentual.optional(),
+  parcelas: parcelasDoSaldo.optional(),
+  intervaloDias: intervaloDias.optional(),
+  /** Observações de pagamento (linha livre opcional, ex.: "Pix, cartão ou boleto"). Ausente ao criar = o padrão da empresa */
   condicoes: textoOpcional,
   observacoes: textoOpcional,
   observacoesInternas: textoOpcional,
@@ -108,15 +127,14 @@ export const recusaSchema = z.object({ motivo: z.string().trim().min(3, 'Informe
 /** Aprovação interna (pelo vendedor, em nome do cliente). */
 export const aprovacaoInternaSchema = z.object({
   nome: z.string().trim().min(2, 'Informe quem aprovou.').max(160),
+  /** "whatsapp": o cliente respondeu APROVADO na conversa (fica no "aprovado por") */
+  canal: z.enum(['whatsapp']).optional(),
 })
 
 export const conversaoSchema = z.object({
-  sinalPercentual: z
-    .union([z.string(), z.number()])
-    .transform(normalizarDecimal)
-    .refine((v) => /^\d{1,3}(\.\d{1,2})?$/.test(v) && Number(v) <= 100, 'Sinal entre 0 e 100%.'),
-  parcelas: z.coerce.number().int().min(0).max(24).default(1),
-  intervaloDias: z.coerce.number().int().min(1).max(120).default(30),
+  sinalPercentual,
+  parcelas: parcelasDoSaldo.default(1),
+  intervaloDias: intervaloDias.default(30),
   primeiroVencimento: dataOpcional,
   tipoEntrega: z.enum(TIPOS_ENTREGA).default('retirada'),
   enderecoEntregaId: uuidOpcional,

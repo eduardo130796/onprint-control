@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle2, ChevronDown, Copy, FileDown, Link2, Loader2, MessageCircle, Printer, RotateCcw, Save, Send, ShoppingCart, ThumbsDown, Handshake } from 'lucide-react'
+import { CheckCircle2, ChevronDown, Copy, FileDown, Link2, Loader2, MessageCircle, MessageCircleCheck, Printer, RotateCcw, Save, Send, ShoppingCart, ThumbsDown, Handshake } from 'lucide-react'
 import { toast } from 'sonner'
 import type { OrcamentoDetalhe } from '@onprint/shared'
 import { orcamentosApi, templatesLeituraApi } from '@/api/comercial'
@@ -16,7 +16,7 @@ import { usePermissoes } from '@/hooks/usePermission'
 import { EnviarWhatsappDialog, type EnvioWhatsapp } from '@/features/whatsapp/components/EnviarWhatsappDialog'
 import { useAuth } from '@/hooks/useAuth'
 import { useEmpresa } from '@/features/configuracoes/hooks'
-import { avisoAprovacao } from '../../aprovacao'
+import { aprovarPeloWhatsapp, avisoAprovacao, podeAprovarPeloWhatsapp } from '../../aprovacao'
 import { envioDoOrcamento, linkAprovacao } from '../../mensagem'
 import { ConverterDialog } from './ConverterDialog'
 
@@ -95,6 +95,17 @@ export function AcoesOrcamento({ orcamento: o, editavel, alterado, salvando, onS
           <Button variant="outline" onClick={() => void impressao.orcamento(o, 'baixar')} disabled={Boolean(impressao.ocupado) || alterado}>
             {impressao.ocupado === `orcamento:${o.id}:baixar` ? <Loader2 className="animate-spin" /> : <FileDown />} PDF
           </Button>
+          {/* O cliente respondeu APROVADO na conversa: um clique (vira pedido se a empresa deixou ligado) */}
+          {podeEditar && podeAprovarPeloWhatsapp(o.status) && (
+            <Button
+              variant="secondary"
+              disabled={ocupado || alterado}
+              title={alterado ? 'Salve antes de registrar a aprovação' : 'O cliente respondeu APROVADO na conversa'}
+              onClick={() => executar(() => aprovarPeloWhatsapp(o), avisoAprovacao)}
+            >
+              <MessageCircleCheck /> Cliente aprovou pelo WhatsApp
+            </Button>
+          )}
           {status === 'aprovado' && pode('pedidos', 'criar') && podeEditar && (
             <Button variant="secondary" onClick={() => setDialogo('converter')}>
               <ShoppingCart /> Converter em pedido
@@ -161,7 +172,7 @@ export function AcoesOrcamento({ orcamento: o, editavel, alterado, salvando, onS
           descricao={
             dialogo === 'aprovar'
               ? empresa.data?.converterAoAprovar
-                ? `${DESCRICAO_APROVAR} O pedido é criado na hora, com as condições padrão da empresa.`
+                ? `${DESCRICAO_APROVAR} O pedido é criado na hora, com o pagamento combinado no orçamento.`
                 : DESCRICAO_APROVAR
               : undefined
           }

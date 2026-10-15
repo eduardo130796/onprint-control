@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowDown, ArrowUp, Copy, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowUp, Copy, Palette, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { MODO_CALCULO_SUFIXO, TIPO_COBRANCA_ROTULOS, formatarMoeda, type AnaliseLucro, type ModoCalculo } from '@onprint/shared'
 import { orcamentosApi } from '@/api/comercial'
@@ -117,7 +117,11 @@ export function ItemOrcamento({ indice, total, item, calculo, analise, analiseDe
                     checked={a.obrigatorio || item.acabamentoIds.includes(a.acabamentoId)}
                     disabled={a.obrigatorio}
                     onChange={(e) =>
-                      set({ acabamentoIds: e.target.checked ? [...item.acabamentoIds, a.acabamentoId] : item.acabamentoIds.filter((x) => x !== a.acabamentoId) })
+                      set({
+                        acabamentoIds: e.target.checked ? [...item.acabamentoIds, a.acabamentoId] : item.acabamentoIds.filter((x) => x !== a.acabamentoId),
+                        // Cobrar a criação da arte implica que o pedido espera a arte
+                        ...(e.target.checked && /\barte\b/i.test(a.acabamento.nome) ? { precisaArte: true } : {}),
+                      })
                     }
                   />
                   {a.acabamento.nome}
@@ -129,7 +133,14 @@ export function ItemOrcamento({ indice, total, item, calculo, analise, analiseDe
             </div>
           )}
 
-          <Input value={item.observacao} onChange={(e) => set({ observacao: e.target.value })} placeholder="Observação do item (opcional)" aria-label="Observação do item" />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <Input className="sm:flex-1" value={item.observacao} onChange={(e) => set({ observacao: e.target.value })} placeholder="Observação do item (opcional)" aria-label="Observação do item" />
+            {/* O pedido espera a arte deste item antes de produzir (vem do produto; decide-se aqui, por orçamento) */}
+            <label className="flex shrink-0 items-center gap-2 text-sm" title="Marcado: o pedido espera a arte deste item antes de produzir">
+              <Checkbox checked={item.precisaArte} onChange={(e) => set({ precisaArte: e.target.checked })} />
+              <Palette className="h-4 w-4 text-texto-secundario" /> Precisa de arte
+            </label>
+          </div>
         </fieldset>
       )}
 

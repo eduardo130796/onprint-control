@@ -78,7 +78,8 @@ async function statusTemplatesEmpresa(prisma: PrismaClient, nomeEmpresa: string)
   }
   if ((await prisma.mensagemTemplate.count()) === 0) await prisma.mensagemTemplate.createMany({ data: TEMPLATES_PADRAO })
   if ((await prisma.empresaConfig.count()) === 0) {
-    await prisma.empresaConfig.create({ data: { razaoSocial: nomeEmpresa, condicoesPadrao: '50% de entrada na aprovação e o restante na entrega.' } })
+    // Entrada e parcelas vêm do pagamento padrão (sinal, parcelas, intervalo); observações de pagamento ficam em branco
+    await prisma.empresaConfig.create({ data: { razaoSocial: nomeEmpresa } })
   }
 }
 

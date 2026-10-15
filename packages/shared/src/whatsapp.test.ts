@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { resumoCondicoesPagamento } from './pagamento'
 import { inserirAntesDoFim, linhaItemMensagem, listaArtesMensagem, listaItensMensagem, textoPrazoDias, valorEmAberto, valoresArtesAprovacao } from './mensagens'
 import {
   ANEXOS_ARTE_MAX,
@@ -65,7 +66,7 @@ describe('preencherMensagem', () => {
   it('variável vazia no meio da frase não apaga a linha', () => {
     expect(preencherMensagem('Olá, {{cliente_nome}}! Pedido {{numero_pedido}} ok.', { cliente_nome: 'Ana' })).toBe('Olá, Ana! Pedido  ok.')
   })
-  it('orçamento: itens em lista, total em negrito e o link de aprovação no fim', () => {
+  it('orçamento: itens em lista, total, pagamento, "responda APROVADO" e o link de aprovação no fim', () => {
     const itens = listaItensMensagem([
       { descricao: 'Banner em lona', quantidade: '2', largura: '2', altura: '1', total: '130' },
       { descricao: 'Cartão de visita', quantidade: '1000', total: '89.9' },
@@ -75,6 +76,7 @@ describe('preencherMensagem', () => {
       numero_orcamento: 'ORC-2026-0042',
       itens_orcamento: itens,
       valor_total: 'R$ 219,90',
+      condicoes_pagamento: resumoCondicoesPagamento({ total: '219.90', sinalPercentual: '50', parcelas: 1, intervaloDias: 30 }),
       prazo_producao: textoPrazoDias(5),
       validade: '20/10/2026',
       link_aprovacao: 'https://app.x/aprovar/g/t',
@@ -89,14 +91,21 @@ describe('preencherMensagem', () => {
         '• 1.000× Cartão de visita — R$ 89,90',
         '',
         'Total: *R$ 219,90*',
+        'Pagamento: Entrada de R$ 109,95 (50%) na aprovação + 1× de R$ 109,95 em 30 dias',
         'Prazo de produção: *5 dias úteis*',
         'Válido até *20/10/2026*',
         '',
+        'Responda *APROVADO* aqui mesmo ou peça o ajuste que precisar.',
+        '',
         '— Ponto Visual',
         '',
-        'Veja os detalhes e aprove aqui:',
+        'Se preferir, veja e aprove pelo link:',
         'https://app.x/aprovar/g/t',
       ].join('\n'),
+    )
+    // Com o PDF anexado, o aviso entra antes da assinatura (depois do "responda APROVADO")
+    expect(inserirAntesDoFim(texto, 'O orçamento em PDF vai logo abaixo.')).toContain(
+      'Responda *APROVADO* aqui mesmo ou peça o ajuste que precisar.\n\nO orçamento em PDF vai logo abaixo.\n\n— Ponto Visual\n\nSe preferir',
     )
   })
   it('todo texto padrão começa pela saudação, assina e tem no máximo um emoji e um link (no fim)', () => {

@@ -11,6 +11,7 @@ import {
   TIPOS_ENTREGA,
   TIPO_ENTREGA_ROTULOS,
   empresaSchema,
+  formatarMoeda,
   type EmpresaConfig,
   type EmpresaInput,
 } from '@onprint/shared'
@@ -28,6 +29,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox, Select, Textarea } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { resumoPagamentoDoForm } from '@/features/orcamentos/components/editor/formOrcamento'
 import { EnderecoVitrine } from '@/features/vitrine/components/EnderecoVitrine'
 import { useAuth } from '@/hooks/useAuth'
 import { useConsultaCnpj } from '@/hooks/useConsultaCnpj'
@@ -37,6 +39,17 @@ import { CHAVE_EMPRESA, useEmpresa, useUrlArquivo } from '../hooks'
 import { nomeExibicao } from '../marca'
 
 type Saida = z.output<typeof empresaSchema>
+
+/** Resumo ao vivo do pagamento padrão, num orçamento de exemplo de R$ 1.000,00 (o mesmo texto que o cliente vê) */
+function ExemploPagamento({ sinal, parcelas, intervalo }: { sinal: unknown; parcelas: unknown; intervalo: unknown }) {
+  const resumo = resumoPagamentoDoForm({ sinalPercentual: String(sinal ?? ''), parcelas: String(parcelas ?? ''), intervaloDias: String(intervalo ?? '') }, '1000')
+  if (!resumo) return null
+  return (
+    <p className="rounded-xl bg-marca-suave px-3 py-2 text-sm text-marca-escuro">
+      Num orçamento de {formatarMoeda(1000)}: <strong>{resumo}</strong>
+    </p>
+  )
+}
 
 function valores(e: EmpresaConfig): EmpresaInput {
   return {
@@ -188,11 +201,35 @@ function EmpresaForm({ empresa, podeEditar }: { empresa: EmpresaConfig; podeEdit
                 <Input id="emp-pix" {...r('chavePix')} />
               </CampoFormulario>
             </div>
-            <div className="md:col-span-4">
-              <CampoFormulario id="emp-condicoes" rotulo="Condições padrão do orçamento">
-                <Textarea id="emp-condicoes" {...r('condicoesPadrao')} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Pagamento padrão do orçamento</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-texto-secundario">
+              Todo orçamento novo começa com este pagamento (o vendedor ajusta em cada um). Ele vai na mensagem, no PDF e na página de aprovação, e o pedido gera
+              exatamente essas contas a receber.
+            </p>
+            <div className="grid grid-cols-3 items-end gap-3 md:max-w-xl">
+              <CampoFormulario id="emp-sinal" rotulo="Entrada" erro={errors.sinalPercentual?.message}>
+                <NumberInput id="emp-sinal" sufixo="%" {...r('sinalPercentual')} />
+              </CampoFormulario>
+              <CampoFormulario id="emp-parcelas" rotulo="Parcelas do saldo" erro={errors.parcelasPadrao?.message}>
+                <NumberInput id="emp-parcelas" casas={0} {...r('parcelasPadrao')} />
+              </CampoFormulario>
+              <CampoFormulario id="emp-intervalo" rotulo="A cada" erro={errors.intervaloDiasPadrao?.message}>
+                <NumberInput id="emp-intervalo" casas={0} sufixo="dias" {...r('intervaloDiasPadrao')} />
               </CampoFormulario>
             </div>
+            <ExemploPagamento sinal={form.watch('sinalPercentual')} parcelas={form.watch('parcelasPadrao')} intervalo={form.watch('intervaloDiasPadrao')} />
+            <CampoFormulario id="emp-condicoes" rotulo="Observações de pagamento (opcional)">
+              <Textarea id="emp-condicoes" rows={2} placeholder="Ex.: Pix, cartão ou boleto." {...r('condicoesPadrao')} />
+            </CampoFormulario>
+            <p className="-mt-2 text-xs text-texto-secundario">
+              Uma linha extra abaixo do resumo do pagamento (forma de pagamento, por exemplo). Não repita entrada e parcelas aqui: elas já saem dos campos acima.
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -205,21 +242,13 @@ function EmpresaForm({ empresa, podeEditar }: { empresa: EmpresaConfig; podeEdit
               <span>
                 Quando o cliente aprovar o orçamento, criar o pedido automaticamente
                 <span className="block text-xs text-texto-secundario">
-                  Vale para a aprovação pelo link e para “Registrar aprovação”. O pedido nasce com as condições abaixo (contas a receber, artes e produção) e o cliente
-                  recebe a confirmação pelo WhatsApp, se os avisos estiverem ligados. Desmarcado, o orçamento fica “Aprovado” e alguém converte em pedido.
+                  Vale para a aprovação pelo link, “Registrar aprovação” e “Cliente aprovou pelo WhatsApp”. O pedido nasce com o pagamento combinado no orçamento
+                  (contas a receber), as artes dos itens marcados e a produção, e o cliente recebe a confirmação pelo WhatsApp, se os avisos estiverem ligados.
+                  Desmarcado, o orçamento fica “Aprovado” e alguém converte em pedido.
                 </span>
               </span>
             </label>
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-5">
-              <CampoFormulario id="emp-sinal" rotulo="Sinal padrão" erro={errors.sinalPercentual?.message}>
-                <NumberInput id="emp-sinal" sufixo="%" {...r('sinalPercentual')} />
-              </CampoFormulario>
-              <CampoFormulario id="emp-parcelas" rotulo="Parcelas do saldo" erro={errors.parcelasPadrao?.message}>
-                <NumberInput id="emp-parcelas" casas={0} {...r('parcelasPadrao')} />
-              </CampoFormulario>
-              <CampoFormulario id="emp-intervalo" rotulo="A cada" erro={errors.intervaloDiasPadrao?.message}>
-                <NumberInput id="emp-intervalo" casas={0} sufixo="dias" {...r('intervaloDiasPadrao')} />
-              </CampoFormulario>
+            <div className="grid gap-4 sm:grid-cols-2 md:max-w-xl">
               <CampoFormulario id="emp-entrega" rotulo="Entrega">
                 <Select id="emp-entrega" {...r('tipoEntregaPadrao')}>
                   {TIPOS_ENTREGA.map((t) => (
@@ -240,8 +269,8 @@ function EmpresaForm({ empresa, podeEditar }: { empresa: EmpresaConfig; podeEdit
               </CampoFormulario>
             </div>
             <p className="text-xs text-texto-secundario">
-              Também são os valores iniciais de “Converter em pedido”. Na criação automática, entrega ou instalação usam o endereço principal do cliente; sem endereço
-              cadastrado, o pedido sai como retirada.
+              Também são os valores iniciais de “Converter em pedido” (o pagamento lá vem do orçamento). Na criação automática, entrega ou instalação usam o endereço
+              principal do cliente; sem endereço cadastrado, o pedido sai como retirada.
             </p>
           </CardContent>
         </Card>

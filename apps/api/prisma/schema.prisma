@@ -637,8 +637,8 @@ model Produto {
   prazoProducaoDias     Int         @default(0) @map("prazo_producao_dias")
   controlaEstoque       Boolean     @default(false) @map("controla_estoque")
   estoqueMinimo         Decimal     @default(0) @map("estoque_minimo") @db.Decimal(12, 3)
-  /// O pedido espera a arte deste produto antes de produzir (copiado para o item na conversão)
-  precisaArte           Boolean     @default(true) @map("precisa_arte")
+  /// Padrão do "Precisa de arte" do item no orçamento (a decisão é por item, no orçamento; novos produtos: não)
+  precisaArte           Boolean     @default(false) @map("precisa_arte")
   /// Capa: acompanha a primeira imagem da galeria (produto_imagens)
   imagemArquivoId       String?     @map("imagem_arquivo_id") @db.Uuid
   ativo                 Boolean     @default(true)
@@ -1033,6 +1033,12 @@ model Orcamento {
   total                 Decimal         @default(0) @db.Decimal(12, 2)
   custoEstimado         Decimal         @default(0) @map("custo_estimado") @db.Decimal(12, 2)
   prazoDias             Int             @default(0) @map("prazo_dias")
+  /// Pagamento combinado (mensagem, PDF, aprovação e contas a receber do pedido): entrada na aprovação +
+  /// saldo em N parcelas a cada X dias (0 = restante na retirada/entrega). Copiado dos padrões da empresa ao criar
+  sinalPercentual       Decimal         @default(50) @map("sinal_percentual") @db.Decimal(5, 2)
+  parcelas              Int             @default(1)
+  intervaloDias         Int             @default(30) @map("intervalo_dias")
+  /// Observações de pagamento (linha livre opcional)
   condicoes             String?
   observacoes           String?
   observacoesInternas   String?         @map("observacoes_internas")
@@ -1085,6 +1091,8 @@ model OrcamentoItem {
   prazoDias          Int      @default(0) @map("prazo_dias")
   ordem              Int
   observacao         String?
+  /// O item espera a arte antes de produzir (padrão do produto; decidido no orçamento e copiado para o pedido)
+  precisaArte        Boolean  @default(true) @map("precisa_arte")
   /// Quem liberou o preço abaixo do mínimo (permissão "aprovar")
   precoLiberadoPorId String?  @map("preco_liberado_por") @db.Uuid
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)

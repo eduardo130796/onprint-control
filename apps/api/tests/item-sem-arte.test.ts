@@ -6,14 +6,14 @@ import type { ArquivosService } from '../src/modules/arquivos/service'
 import type { ContextoUsuario } from '../src/core/escopo'
 import { arteDoItemNaConversao, statusInicialDoPedido } from '../src/modules/orcamentos/conversao.service'
 
-describe('Conversão: o item herda do produto se precisa de arte', () => {
-  it('produto com arte: item marcado e arte v1 "aguardando arquivo"', () => {
+describe('Conversão: o item do pedido segue o item do orçamento (precisa de arte ou não)', () => {
+  it('item com arte: item marcado e arte v1 "aguardando arquivo"', () => {
     expect(arteDoItemNaConversao(true, () => 'tok')).toEqual({
       precisaArte: true,
       artes: { create: { versao: 1, status: 'aguardando_arquivo', tokenPublico: 'tok' } },
     })
   })
-  it('produto sem arte: item sem arte e nenhuma versão criada', () => {
+  it('item sem arte: item sem arte e nenhuma versão criada', () => {
     const token = vi.fn(() => 'tok')
     expect(arteDoItemNaConversao(false, token)).toEqual({ precisaArte: false })
     expect(token).not.toHaveBeenCalled()

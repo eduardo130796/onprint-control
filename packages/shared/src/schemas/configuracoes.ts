@@ -85,7 +85,7 @@ export const empresaSchema = z.object({
     .optional(),
   // Pedidos: orçamento aprovado vira pedido sozinho com estas condições (opcionais: quem não manda não muda)
   converterAoAprovar: z.boolean().optional(),
-  parcelasPadrao: z.coerce.number().int('Número inteiro.').min(1, 'Mínimo 1 parcela.').max(24, 'Máximo 24 parcelas.').optional(),
+  parcelasPadrao: z.coerce.number().int('Número inteiro.').min(0, 'Mínimo 0 (0 = restante na retirada/entrega).').max(24, 'Máximo 24 parcelas.').optional(),
   intervaloDiasPadrao: z.coerce.number().int('Número inteiro.').min(1, 'Mínimo 1 dia.').max(120, 'Máximo 120 dias.').optional(),
   tipoEntregaPadrao: z.enum(TIPOS_ENTREGA).optional(),
   prioridadePadrao: z.enum(PRIORIDADES).optional(),

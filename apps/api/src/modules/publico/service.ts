@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { STATUS_ORCAMENTO_ABERTOS, hojeISO, nomeCliente, type OrcamentoPublico } from '@onprint/shared'
+import { STATUS_ORCAMENTO_ABERTOS, hojeISO, nomeCliente, resumoCondicoesPagamento, type OrcamentoPublico } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
 import type { ConversaoAutomatica } from '../orcamentos/conversao-automatica'
@@ -74,6 +74,8 @@ export function criarPublicoService(app: FastifyInstance, automatica: ConversaoA
         frete: o.frete.toString(),
         total: o.total.toString(),
         prazoDias: o.prazoDias,
+        // O mesmo resumo da mensagem e do PDF (e das contas a receber do pedido)
+        pagamento: resumoCondicoesPagamento({ total: o.total.toString(), sinalPercentual: o.sinalPercentual.toString(), parcelas: o.parcelas, intervaloDias: o.intervaloDias }),
         condicoes: o.condicoes,
         observacoes: o.observacoes,
         aprovadoEm: o.aprovadoEm?.toISOString() ?? null,

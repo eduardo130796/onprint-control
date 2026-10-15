@@ -29,7 +29,8 @@ export function valoresProduto(p?: Produto): ProdutoInput {
     prazoProducaoDias: String(p?.prazoProducaoDias ?? 0),
     controlaEstoque: p?.controlaEstoque ?? false,
     estoqueMinimo: decimalParaInput(p?.estoqueMinimo ?? 0, 3),
-    precisaArte: p?.precisaArte ?? true,
+    // Produto novo não pressupõe arte: a gráfica marca os que costumam precisar (e o orçamento decide por item)
+    precisaArte: p?.precisaArte ?? false,
     ativo: p?.ativo ?? true,
   }
 }

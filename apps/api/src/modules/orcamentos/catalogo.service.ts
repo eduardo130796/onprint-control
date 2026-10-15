@@ -8,6 +8,7 @@ const selecionar = {
   nome: true,
   descricao: true,
   modoCalculo: true,
+  precisaArte: true,
   precoVenda: true,
   precoMinimo: true,
   larguraPadrao: true,

@@ -27,6 +27,8 @@ export interface ItemCalculado {
   prazoDias: number
   ordem: number
   observacao: string | null
+  /** Espera a arte antes de produzir: o que o vendedor marcou no item ou, sem marcação, o padrão do produto */
+  precisaArte: boolean
   precoLiberadoPorId: string | null
   acabamentos: { acabamentoId: string; nome: string; tipoCobranca: Prisma.AcabamentoCreateInput['tipoCobranca']; valorUnitario: string; base: string; valor: string; custo: string }[]
 }
@@ -121,6 +123,7 @@ export async function recalcularItens(
       prazoDias: produto.prazoProducaoDias + Math.max(0, ...acabs.map((a) => a.prazoAdicionalDias)),
       ordem: indice + 1,
       observacao: item.observacao ?? null,
+      precisaArte: item.precisaArte ?? produto.precisaArte,
       precoLiberadoPorId: r.abaixoDoMinimo ? ctx.usuarioId : null,
       acabamentos: r.acabamentos.map((a, i) => ({
         acabamentoId: acabs[i]!.id,

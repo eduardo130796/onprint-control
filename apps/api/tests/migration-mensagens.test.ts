@@ -55,3 +55,33 @@ describe('migration 20261024100000_mensagens_pedido_completas', () => {
     expect(lista.some((v) => v.categoria === 'orcamento_enviado' || v.categoria === 'arte_aprovacao')).toBe(false)
   })
 })
+
+describe('migration 20261025100000_orcamento_pagamento', () => {
+  const lista = trocas('20261025100000_orcamento_pagamento')
+  const anteriores = trocas('20261020100000_mensagens_whatsapp_formatadas')
+  const padraoAnterior = anteriores.find((v) => v.categoria === 'orcamento_enviado')!
+
+  it('só mexe no orçamento e troca para o texto padrão de agora, byte a byte', () => {
+    expect(lista.length).toBeGreaterThan(0)
+    for (const v of lista) {
+      expect(v.categoria).toBe('orcamento_enviado')
+      expect(v.novo).toBe(TEXTOS_PADRAO_MENSAGEM.orcamento_enviado)
+    }
+  })
+
+  it('o texto padrão anterior (intacto) e o ainda mais antigo passam para o novo', () => {
+    expect(aplicar(lista, { categoria: 'orcamento_enviado', conteudo: padraoAnterior.novo })).toBe(TEXTOS_PADRAO_MENSAGEM.orcamento_enviado)
+    expect(aplicar(lista, { categoria: 'orcamento_enviado', conteudo: padraoAnterior.antigo })).toBe(TEXTOS_PADRAO_MENSAGEM.orcamento_enviado)
+  })
+
+  it('template editado fica como está', () => {
+    const editado = padraoAnterior.novo.replace('Veja os detalhes e aprove aqui:', 'Aprove aqui:')
+    expect(aplicar(lista, { categoria: 'orcamento_enviado', conteudo: editado })).toBe(editado)
+  })
+
+  it('o novo texto traz o pagamento e a aprovação como na arte', () => {
+    const t = TEXTOS_PADRAO_MENSAGEM.orcamento_enviado
+    expect(t).toContain('Pagamento: {{condicoes_pagamento}}')
+    expect(t).toContain('Responda *APROVADO* aqui mesmo ou peça o ajuste que precisar.\n\n— {{empresa_nome}}\n\nSe preferir, veja e aprove pelo link:\n{{link_aprovacao}}')
+  })
+})

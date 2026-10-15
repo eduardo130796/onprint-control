@@ -69,10 +69,12 @@ const ASSINATURA = '— {{empresa_nome}}'
 /**
  * Textos padrão das mensagens (também os templates criados para cada empresa). As linhas cuja variável
  * fica vazia somem (preencherMensagem). Empresas antigas com o texto anterior intacto recebem estes pelas
- * migrations 20261020100000_mensagens_whatsapp_formatadas, 20261022100000_arte_aprovacao_simples e
- * 20261024100000_mensagens_pedido_completas (as editadas ficam como estão).
+ * migrations 20261020100000_mensagens_whatsapp_formatadas, 20261022100000_arte_aprovacao_simples,
+ * 20261024100000_mensagens_pedido_completas e 20261025100000_orcamento_pagamento (as editadas ficam como estão).
  */
 export const TEXTOS_PADRAO_MENSAGEM = {
+  // Já com o pagamento combinado (o "pedido confirmado" fala das parcelas: o cliente viu aqui antes) e a aprovação
+  // como na arte: responder APROVADO na conversa; o link fica para quem preferir
   orcamento_enviado: [
     'Olá, {{cliente_nome}}!',
     '',
@@ -80,12 +82,15 @@ export const TEXTOS_PADRAO_MENSAGEM = {
     '{{itens_orcamento}}',
     '',
     'Total: *{{valor_total}}*',
+    'Pagamento: {{condicoes_pagamento}}',
     'Prazo de produção: *{{prazo_producao}}*',
     'Válido até *{{validade}}*',
     '',
+    'Responda *APROVADO* aqui mesmo ou peça o ajuste que precisar.',
+    '',
     ASSINATURA,
     '',
-    'Veja os detalhes e aprove aqui:',
+    'Se preferir, veja e aprove pelo link:',
     '{{link_aprovacao}}',
   ].join('\n'),
   // Tudo no corpo (itens, pagamento, entrega): o cliente não precisa abrir o link. Não fala da arte (a arte só vai

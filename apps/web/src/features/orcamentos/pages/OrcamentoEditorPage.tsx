@@ -21,6 +21,7 @@ import { usePermission } from '@/hooks/usePermission'
 import { buscarClientes } from '../buscas'
 import { AcoesOrcamento } from '../components/editor/AcoesOrcamento'
 import { ItemOrcamento } from '../components/editor/ItemOrcamento'
+import { PagamentoOrcamento } from '../components/editor/PagamentoOrcamento'
 import { PedidoGerado } from '../components/editor/PedidoGerado'
 import { TotaisOrcamento } from '../components/editor/TotaisOrcamento'
 import { formDoOrcamento, itemVazio, itensDaSolicitacao, novaChave, payloadDoForm, type FormOrcamento, type ItemForm } from '../components/editor/formOrcamento'
@@ -54,7 +55,8 @@ function Editor({
   const queryClient = useQueryClient()
   const empresa = useEmpresa()
   const podeSalvar = usePermission('orcamentos', orcamento ? 'editar' : 'criar')
-  const [inicial] = useState(() => formDoOrcamento(orcamento, clienteInicial, doSite?.itens, doSite ? `Pedido do site ${doSite.numero}.` : undefined))
+  // Orçamento novo: pagamento e observações de pagamento pelos padrões da empresa (a página espera carregar)
+  const [inicial] = useState(() => formDoOrcamento(orcamento, clienteInicial, doSite?.itens, doSite ? `Pedido do site ${doSite.numero}.` : undefined, empresa.data))
   const [form, setForm] = useState<FormOrcamento>(inicial)
   const alterado = useMemo(() => JSON.stringify(form) !== JSON.stringify(inicial), [form, inicial])
   const editavel = podeSalvar && (!orcamento || ABERTOS.includes(orcamento.status))
@@ -181,19 +183,16 @@ function Editor({
             </Button>
           )}
 
+          <PagamentoOrcamento form={form} onChange={atualizar} total={calculo.total} editavel={editavel} />
+
           <Card>
             <CardContent className="grid gap-4 pt-6 md:grid-cols-2">
-              <CampoFormulario id="orc-cond" rotulo="Condições de pagamento">
-                <Textarea id="orc-cond" rows={3} disabled={!editavel} value={form.condicoes} placeholder={empresa.data?.condicoesPadrao ?? ''} onChange={(e) => atualizar({ condicoes: e.target.value })} />
-              </CampoFormulario>
               <CampoFormulario id="orc-obs" rotulo="Observações (aparecem para o cliente)">
                 <Textarea id="orc-obs" rows={3} disabled={!editavel} value={form.observacoes} onChange={(e) => atualizar({ observacoes: e.target.value })} />
               </CampoFormulario>
-              <div className="md:col-span-2">
-                <CampoFormulario id="orc-obsint" rotulo="Observações internas (só a equipe vê)">
-                  <Textarea id="orc-obsint" rows={2} disabled={!editavel} value={form.observacoesInternas} onChange={(e) => atualizar({ observacoesInternas: e.target.value })} />
-                </CampoFormulario>
-              </div>
+              <CampoFormulario id="orc-obsint" rotulo="Observações internas (só a equipe vê)">
+                <Textarea id="orc-obsint" rows={3} disabled={!editavel} value={form.observacoesInternas} onChange={(e) => atualizar({ observacoesInternas: e.target.value })} />
+              </CampoFormulario>
             </CardContent>
           </Card>
         </div>
@@ -275,6 +274,8 @@ export function OrcamentoEditorPage() {
       ? { numero: solicitacao.data.numero, ...itensDaSolicitacao(solicitacao.data.itens, produtosSite.data) }
       : null
   const carregandoSite = Boolean(solicitacaoId) && (solicitacao.isPending || (idsProdutos.length > 0 && produtosSite.isPending))
+  // Orçamento novo começa com o pagamento padrão da empresa
+  const empresa = useEmpresa()
 
   const voltar = (
     <Button asChild variant="outline" size="sm" className="mb-4">
@@ -285,7 +286,7 @@ export function OrcamentoEditorPage() {
   )
 
   if (novo) {
-    if ((clienteId && cliente.isPending) || carregandoSite) return <Skeleton className="h-96 w-full" />
+    if ((clienteId && cliente.isPending) || carregandoSite || empresa.isPending) return <Skeleton className="h-96 w-full" />
     return (
       <>
         {voltar}

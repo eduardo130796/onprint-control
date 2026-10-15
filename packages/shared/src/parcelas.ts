@@ -18,10 +18,15 @@ export interface OpcoesParcelamento {
   hoje: string
   /** Vencimento da 1ª parcela do saldo; padrão: hoje + intervalo */
   primeiroVencimento?: string | null
+  /**
+   * Parcelas = 0 ("restante na retirada/entrega"): o saldo vira uma conta só, que vence na previsão de entrega
+   * do pedido. Sem esta data, vale o padrão (hoje + intervalo), como antes.
+   */
+  vencimentoNaEntrega?: string | null
 }
 
 /**
- * Sinal (à vista, hoje) + saldo em N parcelas iguais. Os centavos que sobram
+ * Sinal (à vista, hoje) + saldo em N parcelas iguais (0 = o saldo numa conta só, na entrega). Os centavos que sobram
  * da divisão vão para a última parcela, então a soma sempre fecha com o total.
  */
 export function gerarParcelas(o: OpcoesParcelamento): ParcelaGerada[] {
@@ -37,7 +42,7 @@ export function gerarParcelas(o: OpcoesParcelamento): ParcelaGerada[] {
   }
   if (nParcelas > 0) {
     const base = saldo.div(nParcelas).toDecimalPlaces(2, Decimal.ROUND_DOWN)
-    const primeiro = o.primeiroVencimento ?? adicionarDias(o.hoje, o.intervaloDias)
+    const primeiro = o.primeiroVencimento ?? (o.parcelas <= 0 && o.vencimentoNaEntrega ? o.vencimentoNaEntrega : adicionarDias(o.hoje, o.intervaloDias))
     for (let i = 0; i < nParcelas; i++) {
       const valor = i === nParcelas - 1 ? saldo.minus(base.mul(nParcelas - 1)) : base
       resultado.push({

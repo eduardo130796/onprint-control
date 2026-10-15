@@ -1,8 +1,10 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import type { FastifyRequest } from 'fastify'
-import { ANEXO_WHATSAPP_MAX_MB, envioWhatsappSchema, idParamSchema, mensagensWhatsappQuerySchema, whatsappConfigSchema } from '@onprint/shared'
+import { ANEXO_WHATSAPP_MAX_MB, envioWhatsappSchema, idParamSchema, mensagemPedidoQuerySchema, mensagensWhatsappQuerySchema, whatsappConfigSchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
+import { contextoEmpresa } from '../../core/contexto-empresa'
 import { PERMISSOES_ENVIO, criarEnvioManual, validarPdf, type DadosEnvio } from './manual'
+import { textoMensagemPedido } from './mensagem-pedido'
 import { criarWhatsappService } from './service'
 
 const tags = ['whatsapp']
@@ -48,6 +50,18 @@ export const whatsappRoutes: FastifyPluginAsyncZod = async (app) => {
 
   app.get('/whatsapp/disponivel', { onRequest: [app.autenticar], schema: { tags, summary: 'Se o "Enviar pelo WhatsApp" sai pela conexão da gráfica ou abre o WhatsApp' } }, () =>
     service.disponivel(),
+  )
+  app.get(
+    '/whatsapp/pedidos/:id/mensagem',
+    {
+      onRequest: [app.exigirPermissao('pedidos', 'visualizar')],
+      schema: { tags, summary: 'Texto da mensagem do pedido (o mesmo do aviso automático) para o "Enviar pelo WhatsApp"', params: idParamSchema, querystring: mensagemPedidoQuerySchema },
+    },
+    async (req) => {
+      const texto = await textoMensagemPedido(app.prisma, contextoEmpresa.exigir(), req.params.id, req.query.tipo)
+      if (texto === null) throw AppError.naoEncontrado('Pedido não encontrado.')
+      return { texto }
+    },
   )
   app.post(
     '/whatsapp/enviar',

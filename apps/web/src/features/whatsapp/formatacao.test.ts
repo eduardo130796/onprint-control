@@ -2,9 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 import type { OrcamentoDetalhe, PedidoDetalhe } from '@onprint/shared'
 import { definirEmpresaAtual } from '@/lib/empresaAtual'
 import { mensagemDoOrcamento } from '@/features/orcamentos/mensagem'
-import { mensagemPedidoPronto, mensagemRecibo } from '@/features/pedidos/mensagens'
+import { mensagemRecibo } from '@/features/pedidos/mensagens'
 import { categoriasEmDestaque } from '@/features/vitrine/useEnviarCatalogo'
 import { linkDaPrevia, trechosWhatsapp } from './formatacao'
+import { previaDoEvento } from './previa'
 
 describe('formatação do WhatsApp na prévia', () => {
   it('negrito, itálico e riscado encostados no texto', () => {
@@ -75,13 +76,17 @@ describe('mensagens da equipe', () => {
     cliente: { nome: 'Pet Feliz Ltda', fantasia: null, cpfCnpj: '12.345.678/0001-90' },
   } as unknown as PedidoDetalhe
 
-  it('pedido pronto: retirada e o valor em aberto; recibo com o valor recebido', () => {
-    const pronto = mensagemPedidoPronto(pedido, [], 'Ponto Visual')
-    expect(pronto).toContain('Seu pedido *PED-2026-0017* está *pronto* 📦\nJá pode ser retirado aqui na gráfica.\nValor em aberto: *R$ 200,00*')
-    expect(pronto.endsWith('https://app.grafygo.com.br/pedido/ponto-visual/tp')).toBe(true)
+  it('recibo com o valor recebido', () => {
     const recibo = mensagemRecibo(pedido, 100, 'Ponto Visual', true)
     expect(recibo.startsWith('Olá, Pet Feliz!\n\nRecebemos *R$ 100,00* do pedido *PED-2026-0017* ✅')).toBe(true)
     expect(recibo).toContain('O recibo em PDF vai logo abaixo.\n\n— Ponto Visual')
+  })
+
+  it('prévia do pedido pronto (editor de templates): itens, retirada, pagamento e Pix no corpo; link no fim', () => {
+    const previa = previaDoEvento('pedido_pronto', [], { nome: 'Ponto Visual', slug: 'ponto-visual', origem: 'https://app.grafygo.com.br' })
+    expect(previa).toContain('está *pronto* 📦\n• 2× Banner em lona 2,0 × 1,0 m — R$ 130,00\n• 1.000× Cartão de visita 4x4 — R$ 89,90\n\nRetirada: Rua das Flores, 123 - Centro · Seg a sex, 8h às 18h')
+    expect(previa).toContain('Pago: *R$ 150,00* · Falta: *R$ 69,90*\nPix para pagar: *pix@suagrafica.com.br*')
+    expect(previa.endsWith('Detalhes do pedido:\nhttps://app.grafygo.com.br/pedido/ponto-visual/exemplo')).toBe(true)
   })
 
   it('catálogo: as categorias com mais produtos publicados', () => {

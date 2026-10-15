@@ -24,7 +24,7 @@ export const EVENTO_WHATSAPP_ROTULOS: Record<EventoWhatsapp, string> = {
 }
 
 export const EVENTO_WHATSAPP_DESCRICOES: Record<EventoWhatsapp, string> = {
-  pedido_confirmado: 'Quando o orçamento aprovado vira pedido. Diz o próximo passo e leva o link para acompanhar o pedido.',
+  pedido_confirmado: 'Quando o orçamento aprovado vira pedido: itens, total, pagamento, previsão e local de entrega, e o link para acompanhar.',
   arte_aprovacao: 'Quando a arte é enviada ao cliente: uma mensagem por pedido, com as artes anexadas e um link só para aprovar todas.',
   pedido_pronto: 'Quando o pedido fica pronto para retirada ou entrega.',
   pedido_em_entrega: 'Quando o pedido sai para entrega.',
@@ -35,6 +35,15 @@ export const EVENTO_WHATSAPP_DESCRICOES: Record<EventoWhatsapp, string> = {
 /** Envios feitos pela equipe pelo diálogo "Enviar pelo WhatsApp" (saem na hora, fora da fila dos avisos) */
 export const TIPOS_ENVIO_WHATSAPP = ['orcamento_enviado', 'arte_aprovacao', 'pedido_acompanhamento', 'pedido_pronto', 'recibo', 'catalogo', 'produto', 'vitrine'] as const
 export type TipoEnvioWhatsapp = (typeof TIPOS_ENVIO_WHATSAPP)[number]
+
+/**
+ * Mensagens do pedido com tudo no corpo (itens, pagamento, entrega). O texto vem da API (GET
+ * /whatsapp/pedidos/:id/mensagem) para o envio da equipe sair igual ao aviso automático.
+ */
+export const CATEGORIAS_MENSAGEM_PEDIDO = ['pedido_confirmado', 'pedido_pronto', 'pedido_em_entrega', 'pagamento_recebido', 'pedido_entregue', 'pedido_acompanhamento'] as const
+export type CategoriaMensagemPedido = (typeof CATEGORIAS_MENSAGEM_PEDIDO)[number]
+
+export const mensagemPedidoQuerySchema = z.object({ tipo: z.enum(CATEGORIAS_MENSAGEM_PEDIDO) })
 
 /** O que está registrado em mensagens_whatsapp: aviso automático ou envio da equipe */
 export type TipoMensagemWhatsapp = EventoWhatsapp | TipoEnvioWhatsapp
@@ -59,8 +68,9 @@ const ASSINATURA = '— {{empresa_nome}}'
 
 /**
  * Textos padrão das mensagens (também os templates criados para cada empresa). As linhas cuja variável
- * fica vazia somem (preencherMensagem). Empresas antigas com o texto anterior intacto recebem estes pela
- * migration 20261020100000_mensagens_whatsapp_formatadas.
+ * fica vazia somem (preencherMensagem). Empresas antigas com o texto anterior intacto recebem estes pelas
+ * migrations 20261020100000_mensagens_whatsapp_formatadas, 20261022100000_arte_aprovacao_simples e
+ * 20261024100000_mensagens_pedido_completas (as editadas ficam como estão).
  */
 export const TEXTOS_PADRAO_MENSAGEM = {
   orcamento_enviado: [
@@ -78,14 +88,21 @@ export const TEXTOS_PADRAO_MENSAGEM = {
     'Veja os detalhes e aprove aqui:',
     '{{link_aprovacao}}',
   ].join('\n'),
+  // Tudo no corpo (itens, pagamento, entrega): o cliente não precisa abrir o link. Não fala da arte (a arte só vai
+  // ao cliente quando a gráfica escolhe, numa mensagem própria)
   pedido_confirmado: [
     'Olá, {{cliente_nome}}!',
     '',
-    'Recebemos a aprovação do orçamento *{{numero_orcamento}}*.',
     'Seu pedido *{{numero_pedido}}* está confirmado ✅',
+    '{{itens_pedido}}',
     '',
-    '{{proximo_passo}}',
+    'Total: *{{valor_total}}*',
+    '{{resumo_pagamento}}',
+    '{{proximo_vencimento}}',
     'Previsão de entrega: *{{data_entrega}}*',
+    '{{local_entrega}}',
+    '',
+    'Avisamos por aqui quando estiver pronto.',
     '',
     ASSINATURA,
     '',
@@ -112,8 +129,11 @@ export const TEXTOS_PADRAO_MENSAGEM = {
     'Olá, {{cliente_nome}}!',
     '',
     'Seu pedido *{{numero_pedido}}* está *pronto* 📦',
-    '{{forma_entrega}}',
-    'Valor em aberto: *{{valor_em_aberto}}*',
+    '{{itens_pedido}}',
+    '',
+    '{{local_entrega}}',
+    '{{resumo_pagamento}}',
+    '{{pix_pagamento}}',
     '',
     ASSINATURA,
     '',
@@ -124,7 +144,10 @@ export const TEXTOS_PADRAO_MENSAGEM = {
     'Olá, {{cliente_nome}}!',
     '',
     'Você pode acompanhar o andamento do pedido *{{numero_pedido}}* pelo link abaixo.',
+    '{{itens_pedido}}',
+    '',
     'Previsão de entrega: *{{data_entrega}}*',
+    '{{resumo_pagamento}}',
     '',
     ASSINATURA,
     '',
@@ -135,7 +158,9 @@ export const TEXTOS_PADRAO_MENSAGEM = {
     'Olá, {{cliente_nome}}!',
     '',
     'Seu pedido *{{numero_pedido}}* *saiu para entrega* 🚚',
-    'Logo chega até você.',
+    '{{local_entrega}}',
+    '{{resumo_pagamento}}',
+    '{{pix_pagamento}}',
     '',
     ASSINATURA,
     '',
@@ -154,9 +179,10 @@ export const TEXTOS_PADRAO_MENSAGEM = {
     'Olá, {{cliente_nome}}!',
     '',
     'Recebemos o seu pagamento de *{{valor_pago}}* do pedido *{{numero_pedido}}* ✅',
-    'Valor em aberto: *{{valor_em_aberto}}*',
-    'Obrigado!',
+    '{{resumo_pagamento}}',
+    '{{proximo_vencimento}}',
     '',
+    'Obrigado!',
     ASSINATURA,
   ].join('\n'),
   cobranca: [

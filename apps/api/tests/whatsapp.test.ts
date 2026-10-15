@@ -1,7 +1,7 @@
 import { Readable } from 'node:stream'
 import type { FastifyInstance } from 'fastify'
 import { describe, expect, it, vi } from 'vitest'
-import { ANEXO_WHATSAPP_MAX_MB, TEXTOS_PADRAO_WHATSAPP, TIPOS_ENVIO_WHATSAPP, preencherMensagem, proximoPassoPedido, valoresArtesAprovacao } from '@onprint/shared'
+import { ANEXO_WHATSAPP_MAX_MB, TEXTOS_PADRAO_WHATSAPP, TIPOS_ENVIO_WHATSAPP, preencherMensagem, proximoPassoPedido, valoresArtesAprovacao, valoresPedidoCompleto } from '@onprint/shared'
 import { carregarEnv } from '../src/config/env'
 import { ErroWhatsapp, EvolutionWhatsappProvider, LogWhatsappProvider, criarProvedorWhatsapp, instanciaDaEmpresa } from '../src/integrations/whatsapp'
 import { combinarAvisos } from '../src/modules/whatsapp/agrupar'
@@ -87,8 +87,21 @@ const valores = {
   cliente_nome: 'Fernanda',
   numero_orcamento: 'ORC-2026-0042',
   numero_pedido: 'PED-2026-0007',
-  proximo_passo: proximoPassoPedido(true),
+  ...valoresPedidoCompleto(
+    {
+      total: '130',
+      valorPago: '65',
+      tipoEntrega: 'retirada',
+      enderecoEntrega: null,
+      itens: [{ descricao: 'Banner em lona', quantidade: '1', largura: '2', altura: '1', total: '130' }],
+      parcelas: [{ valor: '65', valorPago: '0', vencimento: '2026-10-20', status: 'aberto' }],
+    },
+    { endereco: 'Rua das Flores, 123 - Centro', horario: 'Seg a sex, 8h às 18h', chavePix: 'pix@pontovisual.com.br' },
+    '2026-10-14',
+    'pedido_confirmado',
+  ),
   ...valoresArtesAprovacao([{ descricao: 'Banner em lona 2,0 × 1,0 m', versao: 1 }], ACOMPANHAMENTO),
+  valor_total: 'R$ 130,00',
   data_entrega: '20/10/2026',
   link_acompanhamento: ACOMPANHAMENTO,
   empresa_nome: 'Ponto Visual',
@@ -97,16 +110,21 @@ const confirmado = preencherMensagem(TEXTOS_PADRAO_WHATSAPP.pedido_confirmado, v
 const arte = preencherMensagem(TEXTOS_PADRAO_WHATSAPP.arte_aprovacao, valores)
 
 describe('WhatsApp: texto dos avisos', () => {
-  it('pedido confirmado cita o orçamento, diz o próximo passo e termina no link de acompanhamento', () => {
+  it('pedido confirmado traz tudo no corpo (itens, total, pagamento, parcela, previsão, retirada), sem falar da arte', () => {
     expect(confirmado).toBe(
       [
         'Olá, Fernanda!',
         '',
-        'Recebemos a aprovação do orçamento *ORC-2026-0042*.',
         'Seu pedido *PED-2026-0007* está confirmado ✅',
+        '• 1× Banner em lona 2,0 × 1,0 m — R$ 130,00',
         '',
-        'Agora preparamos a arte e, em seguida, a produção.',
+        'Total: *R$ 130,00*',
+        'Pago: *R$ 65,00* · Falta: *R$ 65,00*',
+        'Próxima parcela: *R$ 65,00* em *20/10*',
         'Previsão de entrega: *20/10/2026*',
+        'Retirada: Rua das Flores, 123 - Centro · Seg a sex, 8h às 18h',
+        '',
+        'Avisamos por aqui quando estiver pronto.',
         '',
         '— Ponto Visual',
         '',
@@ -114,6 +132,10 @@ describe('WhatsApp: texto dos avisos', () => {
         ACOMPANHAMENTO,
       ].join('\n'),
     )
+    expect(confirmado).not.toMatch(/arte/i)
+  })
+  it('template antigo editado com {{proximo_passo}} continua preenchido', () => {
+    expect(preencherMensagem('Olá!\n\n{{proximo_passo}}', { proximo_passo: proximoPassoPedido(false) })).toBe('Olá!\n\nJá vamos começar a produção.')
   })
   it('todo evento tem texto padrão com a saudação e a assinatura', () => {
     for (const t of Object.values(TEXTOS_PADRAO_WHATSAPP)) {
@@ -128,7 +150,7 @@ describe('WhatsApp: texto dos avisos', () => {
 })
 
 describe('WhatsApp: avisos do mesmo pedido numa mensagem só', () => {
-  it('confirmação + arte: uma saudação, uma assinatura, um emoji e só o link da arte, no fim', () => {
+  it('confirmação + arte: o bloco da confirmação, depois o da arte, o fechamento antes da assinatura e só o link da arte, no fim', () => {
     const texto = combinarAvisos([
       { texto: confirmado, linkDispensavel: ACOMPANHAMENTO },
       { texto: arte, linkDispensavel: ACOMPANHAMENTO },
@@ -137,17 +159,22 @@ describe('WhatsApp: avisos do mesmo pedido numa mensagem só', () => {
       [
         'Olá, Fernanda!',
         '',
-        'Recebemos a aprovação do orçamento *ORC-2026-0042*.',
         'Seu pedido *PED-2026-0007* está confirmado ✅',
+        '• 1× Banner em lona 2,0 × 1,0 m — R$ 130,00',
         '',
-        'Agora preparamos a arte e, em seguida, a produção.',
+        'Total: *R$ 130,00*',
+        'Pago: *R$ 65,00* · Falta: *R$ 65,00*',
+        'Próxima parcela: *R$ 65,00* em *20/10*',
         'Previsão de entrega: *20/10/2026*',
+        'Retirada: Rua das Flores, 123 - Centro · Seg a sex, 8h às 18h',
         '',
         'Segue a arte do pedido *PED-2026-0007* para a sua aprovação',
         '• Banner em lona 2,0 × 1,0 m — v1',
         '',
         'Confira textos, cores e medidas.',
         'Responda *APROVADO* aqui mesmo ou peça o ajuste que precisar.',
+        '',
+        'Avisamos por aqui quando estiver pronto.',
         '',
         '— Ponto Visual',
         '',
@@ -158,16 +185,62 @@ describe('WhatsApp: avisos do mesmo pedido numa mensagem só', () => {
     expect(texto.match(/Olá/g)).toHaveLength(1)
     expect(texto.match(/https:/g)).toHaveLength(1)
   })
-  it('sem outro link depois, o de acompanhamento fica (a mensagem nunca perde o link)', () => {
-    const pago = preencherMensagem(TEXTOS_PADRAO_WHATSAPP.pagamento_recebido, { ...valores, valor_pago: 'R$ 50,00' })
+  it('pagamento + pronto: o "Obrigado!" que dividia o bloco com a assinatura desce para o fim, assinatura uma vez só', () => {
+    const pago = preencherMensagem(TEXTOS_PADRAO_WHATSAPP.pagamento_recebido, { ...valores, valor_pago: 'R$ 65,00' })
+    const pronto = preencherMensagem(TEXTOS_PADRAO_WHATSAPP.pedido_pronto, valores)
+    const texto = combinarAvisos([
+      { texto: pago, linkDispensavel: ACOMPANHAMENTO },
+      { texto: pronto, linkDispensavel: ACOMPANHAMENTO },
+    ])
+    expect(texto.match(/— Ponto Visual/g)).toHaveLength(1)
+    expect(texto).toContain('Obrigado!\n\n— Ponto Visual\n\nDetalhes do pedido:\n' + ACOMPANHAMENTO)
+    expect(texto.endsWith(ACOMPANHAMENTO)).toBe(true)
+  })
+  it('confirmação + pagamento: o pagamento mais novo vale (sem contradição) e o link de acompanhamento desce para o fim', () => {
+    // O pagamento chegou depois da confirmação: os dados dele são os atuais
+    const pago = preencherMensagem(TEXTOS_PADRAO_WHATSAPP.pagamento_recebido, {
+      ...valores,
+      valor_pago: 'R$ 65,00',
+      resumo_pagamento: 'Pagamento: *quitado* ✅',
+      proximo_vencimento: '',
+    })
     const texto = combinarAvisos([
       { texto: confirmado, linkDispensavel: ACOMPANHAMENTO },
       { texto: pago, linkDispensavel: ACOMPANHAMENTO },
     ])
-    expect(texto).toContain(`Acompanhe o pedido aqui:\n${ACOMPANHAMENTO}`)
-    expect(texto.match(/— Ponto Visual/g)).toHaveLength(1)
-    expect(texto.endsWith('— Ponto Visual')).toBe(true)
-    expect(texto).toContain('Recebemos o seu pagamento de *R$ 50,00* do pedido *PED-2026-0007*\n')
+    expect(texto).toBe(
+      [
+        'Olá, Fernanda!',
+        '',
+        'Seu pedido *PED-2026-0007* está confirmado ✅',
+        '• 1× Banner em lona 2,0 × 1,0 m — R$ 130,00',
+        '',
+        'Total: *R$ 130,00*',
+        'Previsão de entrega: *20/10/2026*',
+        'Retirada: Rua das Flores, 123 - Centro · Seg a sex, 8h às 18h',
+        '',
+        'Recebemos o seu pagamento de *R$ 65,00* do pedido *PED-2026-0007*',
+        'Pagamento: *quitado*',
+        '',
+        'Avisamos por aqui quando estiver pronto.',
+        '',
+        'Obrigado!',
+        '— Ponto Visual',
+        '',
+        'Acompanhe o pedido aqui:',
+        ACOMPANHAMENTO,
+      ].join('\n'),
+    )
+  })
+  it('dados repetidos só saem quando o aviso seguinte os traz de novo (a parcela conta como pagamento; o Pix fica enquanto falta pagar)', () => {
+    const texto = combinarAvisos([
+      { texto: 'Olá!\n\nA\nPróxima parcela: *R$ 10,00* em *20/10*\nPix para pagar: *x@y*\nTotal: *R$ 20,00*\nRetirada: Rua A\n\n— G' },
+      { texto: 'Olá!\n\nB\nPago: *R$ 10,00* · Falta: *R$ 10,00*\n\n— G' },
+    ])
+    expect(texto).toBe('Olá!\n\nA\nPix para pagar: *x@y*\nTotal: *R$ 20,00*\nRetirada: Rua A\n\nB\nPago: *R$ 10,00* · Falta: *R$ 10,00*\n\n— G')
+    expect(combinarAvisos([{ texto: 'Olá!\n\nA\nA pagar: *R$ 20,00*\nPix para pagar: *x@y*\n\n— G' }, { texto: 'Olá!\n\nB\nPagamento: *quitado*\n\n— G' }])).toBe(
+      'Olá!\n\nA\n\nB\nPagamento: *quitado*\n\n— G',
+    )
   })
   it('arte: duas artes do pedido numa mensagem só, com um link só (o das artes do pedido)', () => {
     const duas = preencherMensagem(TEXTOS_PADRAO_WHATSAPP.arte_aprovacao, {

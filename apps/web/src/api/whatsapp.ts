@@ -1,4 +1,5 @@
 import type {
+  CategoriaMensagemPedido,
   ConexaoWhatsapp,
   DisponibilidadeWhatsapp,
   EnvioWhatsappInput,
@@ -27,6 +28,8 @@ export const whatsappApi = {
 
   /** "Enviar pelo WhatsApp": sai pela conexão da gráfica ou o diálogo abre o WhatsApp (qualquer usuário logado) */
   disponivel: () => http<DisponibilidadeWhatsapp>('/whatsapp/disponivel'),
+  /** Mensagem do pedido já preenchida pela API (o mesmo texto do aviso automático) */
+  mensagemPedido: (pedidoId: string, tipo: CategoriaMensagemPedido) => http<{ texto: string }>(`/whatsapp/pedidos/${pedidoId}/mensagem${qs({ tipo })}`),
   enviar: (dados: EnvioWhatsappInput) => http<ResultadoEnvioWhatsapp>('/whatsapp/enviar', { method: 'POST', body: dados }),
   /** Com o PDF junto (o texto sai primeiro, com o link no fim; depois o arquivo) */
   enviarComPdf: (dados: EnvioWhatsappInput, pdf: File) => upload<ResultadoEnvioWhatsapp>('/whatsapp/enviar-com-pdf', pdf, undefined, false, { dados: JSON.stringify(dados) }),

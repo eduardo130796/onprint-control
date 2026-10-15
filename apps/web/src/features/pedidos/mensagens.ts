@@ -1,5 +1,4 @@
 import {
-  formaEntregaPronto,
   formatarDataSimples,
   formatarMoeda,
   inserirAntesDoFim,
@@ -16,7 +15,10 @@ import {
 import { textoDoTemplate } from '@/features/whatsapp/previa'
 import { linkAcompanhamento } from '@/lib/empresaAtual'
 
-/** Variáveis do pedido comuns às mensagens (mesmas da API nos avisos automáticos) */
+/**
+ * Variáveis básicas do pedido para as mensagens montadas aqui (artes e recibo). As mensagens do pedido com tudo no
+ * corpo (pronto, acompanhamento...) vêm prontas da API (whatsappApi.mensagemPedido), iguais aos avisos automáticos.
+ */
 function valoresDoPedido(pedido: PedidoDetalhe, empresa: string): Partial<Record<VariavelTemplate, string>> {
   return {
     cliente_nome: nomeParaSaudacao(nomeCliente(pedido.cliente), pedido.cliente.cpfCnpj),
@@ -25,7 +27,6 @@ function valoresDoPedido(pedido: PedidoDetalhe, empresa: string): Partial<Record
     valor_total: formatarMoeda(pedido.total),
     valor_em_aberto: valorEmAberto(pedido.total, pedido.valorPago),
     data_entrega: formatarDataSimples(pedido.dataPrevistaEntrega),
-    forma_entrega: formaEntregaPronto(pedido.tipoEntrega),
     empresa_nome: empresa,
   }
 }
@@ -37,16 +38,6 @@ function valoresDoPedido(pedido: PedidoDetalhe, empresa: string): Partial<Record
 export function mensagemDasArtes(pedido: PedidoDetalhe, artes: ArteMensagem[], templates: MensagemTemplate[] | undefined, empresa: string): string {
   const valores = valoresDoPedido(pedido, empresa)
   return preencherMensagem(textoDoTemplate('arte_aprovacao', templates), { ...valores, ...valoresArtesAprovacao(artes, valores.link_acompanhamento ?? '') })
-}
-
-/** Pedido pronto: retirada ou entrega e o que falta pagar (template "Pedido pronto") */
-export function mensagemPedidoPronto(pedido: PedidoDetalhe, templates: MensagemTemplate[] | undefined, empresa: string): string {
-  return preencherMensagem(textoDoTemplate('pedido_pronto', templates), valoresDoPedido(pedido, empresa))
-}
-
-/** Link "Acompanhe seu pedido" (template "Acompanhamento do pedido") */
-export function mensagemAcompanhamento(pedido: PedidoDetalhe, templates: MensagemTemplate[] | undefined, empresa: string): string {
-  return preencherMensagem(textoDoTemplate('pedido_acompanhamento', templates), valoresDoPedido(pedido, empresa))
 }
 
 /** Recibo dos pagamentos escolhidos; com o PDF anexado, avisa que ele vai logo abaixo */

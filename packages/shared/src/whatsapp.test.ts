@@ -44,14 +44,15 @@ describe('preencherMensagem', () => {
     const texto = preencherMensagem(TEXTOS_PADRAO_WHATSAPP.pedido_em_entrega, {
       cliente_nome: 'Ana',
       numero_pedido: 'PED-2026-0001',
+      local_entrega: 'Entrega em: Rua A, 1',
       link_acompanhamento: LINK,
       empresa_nome: 'Gráfica Boa',
     })
-    expect(texto).toBe(`Olá, Ana!\n\nSeu pedido *PED-2026-0001* *saiu para entrega* 🚚\nLogo chega até você.\n\n— Gráfica Boa\n\nAcompanhe a entrega aqui:\n${LINK}`)
+    expect(texto).toBe(`Olá, Ana!\n\nSeu pedido *PED-2026-0001* *saiu para entrega* 🚚\nEntrega em: Rua A, 1\n\n— Gráfica Boa\n\nAcompanhe a entrega aqui:\n${LINK}`)
   })
   it('sem link e sem a gráfica: o rótulo, o link e a assinatura saem (sem sobrar linha em branco)', () => {
     const texto = preencherMensagem(TEXTOS_PADRAO_WHATSAPP.pedido_em_entrega, { cliente_nome: 'Ana', numero_pedido: 'P1' })
-    expect(texto).toBe('Olá, Ana!\n\nSeu pedido *P1* *saiu para entrega* 🚚\nLogo chega até você.')
+    expect(texto).toBe('Olá, Ana!\n\nSeu pedido *P1* *saiu para entrega* 🚚')
   })
   it('linha com o negrito vazio ou terminando em ":" some; sem nome fica "Olá!"', () => {
     const texto = preencherMensagem(TEXTOS_PADRAO_MENSAGEM.pedido_confirmado, { numero_pedido: 'PED-1', link_acompanhamento: LINK })

@@ -1,23 +1,9 @@
 import { Prisma, type PrismaClient } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
-import {
-  TEXTOS_PADRAO_WHATSAPP,
-  valoresArtesAprovacao,
-  formaEntregaPronto,
-  formatarDataSimples,
-  formatarMoeda,
-  nomeCliente,
-  nomeParaSaudacao,
-  normalizarNumeroWhatsapp,
-  preencherMensagem,
-  proximoPassoPedido,
-  valorEmAberto,
-  type EventoWhatsapp,
-  type StatusPedido,
-} from '@onprint/shared'
+import { formatarMoeda, normalizarNumeroWhatsapp, preencherMensagem, valoresArtesAprovacao, type EventoWhatsapp, type StatusPedido } from '@onprint/shared'
 import { contextoEmpresa, type EmpresaAtual } from '../../core/contexto-empresa'
-import { linkAcompanhamento } from '../../core/links'
 import { anexosDasArtes, anexosJson, artesDoPedido, nomesDosAnexos } from './anexos-arte'
+import { templateDaCategoria, valoresMensagemPedido } from './mensagem-pedido'
 import { EVENTO_DO_STATUS, JANELA_DUPLICADO_MS, RESPIRO_MAX_MS, RESPIRO_MS, motivoParaNaoAvisar } from './regras'
 
 /*
@@ -28,12 +14,14 @@ import { EVENTO_DO_STATUS, JANELA_DUPLICADO_MS, RESPIRO_MAX_MS, RESPIRO_MS, moti
  *    junto), marca o orçamento como enviado e registra em mensagens_whatsapp (evento orcamento_enviado, manual).
  *    Sem conexão, o mesmo diálogo abre o WhatsApp (wa.me) com o texto pronto.
  * 2. Aprovação — o cliente aprova pelo link; a própria página confirma, sem mensagem a mais.
- * 3. Pedido confirmado — ao virar pedido: cita o orçamento aprovado e diz o próximo passo (preparar a arte e produzir,
- *    ou a produção começa) com a previsão de entrega e o link de acompanhamento.
+ * 3. Pedido confirmado — ao virar pedido: itens, total, pagamento (e a próxima parcela), previsão e local de entrega,
+ *    tudo no corpo da mensagem (sem falar da arte), e o link de acompanhamento no fim.
  * 4. Arte para aprovação (só quando a equipe envia a arte ao cliente; o normal é a aprovação interna): UMA mensagem
  *    por pedido com todas as artes que aguardam o cliente, os arquivos logo depois do texto e um link só (a página
  *    do pedido, seção das artes, onde aprova todas). Avisos de arte do mesmo pedido na fila viram um só.
- * 5. Pedido pronto, saiu para entrega, pagamento recebido, entregue — avisos automáticos.
+ * 5. Pedido pronto, saiu para entrega, pagamento recebido, entregue — avisos automáticos, também com o que o cliente
+ *    precisa no corpo (itens, onde retirar ou o endereço da entrega, o que falta pagar e o Pix). Os textos
+ *    vêm de mensagem-pedido.ts, o mesmo que o diálogo "Enviar pelo WhatsApp" da equipe usa.
  *
  * Todo aviso automático espera um "respiro" (RESPIRO_MS) na fila: avisos do mesmo pedido que se encontram ali
  * saem numa mensagem só (confirmação + artes; agrupar.ts). Continuam valendo os eventos ligados, o horário,
@@ -59,20 +47,11 @@ export async function obterConfigWhatsapp(prisma: PrismaClient) {
 /** WhatsApp liberado no plano da empresa (o módulo "whatsapp") */
 export const whatsappNoPlano = (empresa: EmpresaAtual | undefined) => !empresa?.assinatura || empresa.assinatura.modulos.includes('whatsapp')
 
-/** Nome da gráfica na assinatura das mensagens */
-export async function nomeDaEmpresa(prisma: PrismaClient, empresa: EmpresaAtual) {
-  const c = await prisma.empresaConfig.findFirst({ orderBy: { createdAt: 'asc' }, select: { nomeFantasia: true, razaoSocial: true } })
-  return c?.nomeFantasia?.trim() || c?.razaoSocial?.trim() || empresa.nome
-}
-
 /** WhatsApp do cadastro; sem ele, o telefone serve se for celular */
 export function numeroDoCliente(c: { whatsapp: string | null; telefone: string | null }): string | null {
   const telefone = normalizarNumeroWhatsapp(c.telefone)
   return normalizarNumeroWhatsapp(c.whatsapp) ?? (telefone?.length === 13 ? telefone : null)
 }
-
-/** Pedido ainda na etapa da arte (o "pedido confirmado" avisa que a arte vem para aprovar) */
-const NA_ETAPA_DA_ARTE: readonly StatusPedido[] = ['aguardando_arte', 'arte_em_aprovacao']
 
 /**
  * Coloca o aviso na fila (o envio é do job, respeitando horário e intervalo). Chamar DEPOIS do commit:
@@ -88,15 +67,7 @@ export function criarAvisosWhatsapp(app: FastifyInstance, aoEnfileirar: (empresa
       where: { id: alvo.pedidoId },
       select: {
         id: true,
-        numero: true,
-        status: true,
-        tipoEntrega: true,
-        total: true,
-        valorPago: true,
-        tokenPublico: true,
-        dataPrevistaEntrega: true,
-        orcamento: { select: { numero: true } },
-        cliente: { select: { id: true, nome: true, fantasia: true, cpfCnpj: true, whatsapp: true, telefone: true, receberAvisosWhatsapp: true } },
+        cliente: { select: { id: true, whatsapp: true, telefone: true, receberAvisosWhatsapp: true } },
       },
     })
     if (!pedido) return null
@@ -120,21 +91,12 @@ export function criarAvisosWhatsapp(app: FastifyInstance, aoEnfileirar: (empresa
     const artes = evento === 'arte_aprovacao' ? await artesDoPedido(prisma, pedido.id) : []
     if (evento === 'arte_aprovacao' && !artes.length) return null
     const anexos = anexosDasArtes(artes)
-    const acompanhamento = linkAcompanhamento(pedido.tokenPublico, empresa.slug)
-    const template = await prisma.mensagemTemplate.findFirst({ where: { categoria: evento, ativo: true }, orderBy: { createdAt: 'asc' } })
-    const texto = preencherMensagem(template?.conteudo ?? TEXTOS_PADRAO_WHATSAPP[evento], {
-      cliente_nome: nomeParaSaudacao(nomeCliente(pedido.cliente), pedido.cliente.cpfCnpj),
-      numero_pedido: pedido.numero,
-      numero_orcamento: pedido.orcamento?.numero ?? '',
-      ...(artes.length ? valoresArtesAprovacao(artes, acompanhamento) : {}),
-      proximo_passo: proximoPassoPedido(NA_ETAPA_DA_ARTE.includes(pedido.status)),
-      forma_entrega: formaEntregaPronto(pedido.tipoEntrega),
-      data_entrega: formatarDataSimples(pedido.dataPrevistaEntrega.toISOString()),
-      link_acompanhamento: acompanhamento,
-      valor_total: formatarMoeda(pedido.total.toString()),
+    const valores = await valoresMensagemPedido(prisma, empresa, pedido.id, evento)
+    if (!valores) return null
+    const texto = preencherMensagem(await templateDaCategoria(prisma, evento), {
+      ...valores,
+      ...(artes.length ? valoresArtesAprovacao(artes, valores.link_acompanhamento ?? '') : {}),
       valor_pago: alvo.valorPago ? formatarMoeda(alvo.valorPago) : '',
-      valor_em_aberto: valorEmAberto(pedido.total.toString(), pedido.valorPago.toString()),
-      empresa_nome: await nomeDaEmpresa(prisma, empresa),
     })
     const agora = Date.now()
     const fimDoRespiro = new Date(agora + RESPIRO_MS)

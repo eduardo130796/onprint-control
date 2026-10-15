@@ -4,8 +4,11 @@ import {
   linkArtesDoPedido,
   listaArtesMensagem,
   listaItensMensagem,
+  localEntrega,
+  pixPagamento,
   preencherMensagem,
   proximoPassoPedido,
+  resumoPagamento,
   formaEntregaPronto,
   textoPrazoDias,
   type CategoriaTemplate,
@@ -31,6 +34,10 @@ export function valoresDeExemplo(empresa: { nome: string; slug: string; origem: 
     validade: '20/10/2026',
     prazo_producao: textoPrazoDias(5),
     numero_pedido: 'PED-2026-0017',
+    itens_pedido: listaItensMensagem([
+      { descricao: 'Banner em lona', quantidade: 2, largura: 2, altura: 1, total: 130 },
+      { descricao: 'Cartão de visita 4x4', quantidade: 1000, total: 89.9 },
+    ]),
     descricao_item: 'Banner em lona 2,0 × 1,0 m, Cartão de visita 4x4',
     itens_arte: listaArtesMensagem([
       { descricao: 'Banner em lona 2,0 × 1,0 m', versao: 1 },
@@ -45,6 +52,10 @@ export function valoresDeExemplo(empresa: { nome: string; slug: string; origem: 
     valor_pago: 'R$ 150,00',
     valor_total: 'R$ 219,90',
     valor_em_aberto: 'R$ 69,90',
+    resumo_pagamento: resumoPagamento(219.9, 150),
+    proximo_vencimento: 'Próxima parcela: *R$ 69,90* em *15/10*',
+    pix_pagamento: pixPagamento(219.9, 150, 'pix@suagrafica.com.br'),
+    local_entrega: localEntrega('retirada', null, { endereco: 'Rua das Flores, 123 - Centro', horario: 'Seg a sex, 8h às 18h' }),
     empresa_nome: empresa.nome,
   }
 }

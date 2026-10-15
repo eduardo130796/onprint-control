@@ -5,6 +5,7 @@ import { ArrowLeft, Ban, ChevronDown, Copy, ExternalLink, FileDown, History, Lin
 import { toast } from 'sonner'
 import { TIPO_ENTREGA_ROTULOS, contagemArtes, formatarData, formatarDataSimples, formatarMoeda, nomeCliente, saldoPedido, type RecebimentosPedido } from '@onprint/shared'
 import { pedidosApi } from '@/api/producao'
+import { whatsappApi } from '@/api/whatsapp'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Anexos } from '@/components/shared/Anexos'
 import { Can } from '@/components/shared/Can'
@@ -31,8 +32,8 @@ import { AbaProducao } from '../components/detalhe/AbaProducao'
 import { AbaArte } from '../components/detalhe/AbaArte'
 import { CancelarPedidoDialog, EditarPedidoDialog } from '../components/detalhe/PedidoDialogs'
 import { ReciboDialog } from '../components/detalhe/ReciboDialog'
-import { usePedido, useTemplates } from '../hooks'
-import { mensagemAcompanhamento, mensagemPedidoPronto, mensagemRecibo } from '../mensagens'
+import { usePedido } from '../hooks'
+import { mensagemRecibo } from '../mensagens'
 
 const ABAS = ['itens', 'arte', 'producao', 'financeiro', 'entrega', 'historico', 'anexos'] as const
 
@@ -49,12 +50,12 @@ export function PedidoPage() {
   const { id = '' } = useParams()
   const [params, setParams] = useSearchParams()
   const consulta = usePedido(id)
-  const templates = useTemplates()
   const podeEditar = usePermission('pedidos', 'editar')
   const impressao = useImpressao()
   const etiquetas = useDialogoEtiquetas()
   const { usuario } = useAuth()
   const [envio, setEnvio] = useState<EnvioWhatsapp | null>(null)
+  const [buscandoMensagem, setBuscandoMensagem] = useState<'pedido_pronto' | 'pedido_acompanhamento' | null>(null)
   // ?editar=1 (atalho "Editar" do kanban) já abre o diálogo de edição
   const [dialogo, setDialogo] = useState<'editar' | 'cancelar' | 'recibo' | null>(() => (params.get('editar') === '1' && podeEditar ? 'editar' : null))
   const aba = ABAS.find((a) => a === params.get('aba')) ?? 'itens'
@@ -83,15 +84,26 @@ export function PedidoPage() {
   const empresa = usuario?.empresa.exibicao ?? ''
   const destinatario = { nome: nomeCliente(pedido.cliente), numero: pedido.cliente.whatsapp || pedido.cliente.telefone, clienteId: pedido.clienteId }
 
-  /** "Avisar cliente" (pronto) e o link de acompanhamento pelo diálogo "Enviar pelo WhatsApp" */
-  function enviarPeloWhatsapp(tipo: 'pedido_pronto' | 'pedido_acompanhamento') {
-    setEnvio({
-      titulo: tipo === 'pedido_pronto' ? 'Avisar que o pedido está pronto' : 'Enviar o link de acompanhamento',
-      tipo,
-      destinatario,
-      vinculo: { pedidoId: pedido.id },
-      mensagem: () => (tipo === 'pedido_pronto' ? mensagemPedidoPronto(pedido, templates.data, empresa) : mensagemAcompanhamento(pedido, templates.data, empresa)),
-    })
+  /**
+   * "Avisar cliente" (pronto) e o link de acompanhamento pelo diálogo "Enviar pelo WhatsApp". O texto vem da API,
+   * o mesmo do aviso automático (itens, pagamento, retirada/entrega, Pix).
+   */
+  async function enviarPeloWhatsapp(tipo: 'pedido_pronto' | 'pedido_acompanhamento') {
+    setBuscandoMensagem(tipo)
+    try {
+      const { texto } = await whatsappApi.mensagemPedido(pedido.id, tipo)
+      setEnvio({
+        titulo: tipo === 'pedido_pronto' ? 'Avisar que o pedido está pronto' : 'Enviar o link de acompanhamento',
+        tipo,
+        destinatario,
+        vinculo: { pedidoId: pedido.id },
+        mensagem: () => texto,
+      })
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setBuscandoMensagem(null)
+    }
   }
 
   /** Recibo dos pagamentos escolhidos, com o PDF anexado */
@@ -181,14 +193,14 @@ export function PedidoPage() {
                 <DropdownMenuItem onSelect={() => window.open(linkCliente, '_blank', 'noopener')}>
                   <ExternalLink /> Abrir como o cliente vê
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => enviarPeloWhatsapp('pedido_acompanhamento')}>
+                <DropdownMenuItem onSelect={() => void enviarPeloWhatsapp('pedido_acompanhamento')} disabled={Boolean(buscandoMensagem)}>
                   <MessageCircle /> Enviar no WhatsApp
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             {pedido.status === 'pronto' && (
-              <Button variant="secondary" onClick={() => enviarPeloWhatsapp('pedido_pronto')}>
-                <MessageCircle /> Avisar cliente
+              <Button variant="secondary" onClick={() => void enviarPeloWhatsapp('pedido_pronto')} disabled={Boolean(buscandoMensagem)}>
+                {buscandoMensagem === 'pedido_pronto' ? <Loader2 className="animate-spin" /> : <MessageCircle />} Avisar cliente
               </Button>
             )}
             {!encerrado && (

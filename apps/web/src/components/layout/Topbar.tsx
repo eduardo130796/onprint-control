@@ -47,7 +47,7 @@ export function Topbar({ onAbrirMenuMobile, menuRecolhido }: TopbarProps) {
           onClick={() => setOcultos(!ocultos)}
           aria-pressed={ocultos}
           aria-label={ocultos ? 'Mostrar valores' : 'Ocultar valores'}
-          title={ocultos ? 'Mostrar valores' : 'Ocultar valores (para quando alguém está olhando a tela)'}
+          title={ocultos ? 'Mostrar valores' : 'Ocultar valores (o que esconder: menu da sua conta)'}
           className={cn(
             'flex h-9 w-9 items-center justify-center rounded-xl text-white/75 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40',
             ocultos && 'bg-white/10 text-white',

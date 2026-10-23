@@ -27,7 +27,8 @@ export function AbaFinanceiro({ pedido }: { pedido: PedidoDetalhe }) {
   const saldoDe = (c: ContaReceberResumo) => (Number(c.valor) - Number(c.valorPago ?? 0)).toFixed(2)
 
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
+    // data-financeiro: entra no "Ocultar valores" (só faturamento)
+    <div className="grid gap-4 lg:grid-cols-3" data-financeiro="">
       <Card className="lg:col-span-2">
         <CardHeader className="flex-row items-center justify-between gap-2 space-y-0 pb-3">
           <CardTitle className="text-base">Contas a receber</CardTitle>

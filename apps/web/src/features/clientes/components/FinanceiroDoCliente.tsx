@@ -20,7 +20,8 @@ export function FinanceiroDoCliente({ clienteId }: { clienteId: string }) {
   const { data, resumo } = consulta.data
   if (data.length === 0) return <Card><EmptyState icone={Banknote} titulo="Nenhuma conta a receber" /></Card>
   return (
-    <div className="space-y-3">
+    // data-financeiro: entra no "Ocultar valores" (só faturamento)
+    <div className="space-y-3" data-financeiro="">
       <div className="grid gap-3 sm:grid-cols-3">
         {[['Total', resumo.valor], ['Recebido', resumo.pago], ['Em aberto', resumo.saldo]].map(([r, v]) => (
           <Card key={r} className="p-4">

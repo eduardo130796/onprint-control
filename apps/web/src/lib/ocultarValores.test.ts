@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { temValorEmDinheiro } from './ocultarValores'
+import { rotaFinanceira, temValorEmDinheiro } from './ocultarValores'
 
 describe('ocultar valores', () => {
   it('borra valores em dinheiro e rótulos curtos com valor', () => {
@@ -14,5 +14,9 @@ describe('ocultar valores', () => {
     expect(temValorEmDinheiro('PED-2026-0064')).toBe(false)
     expect(temValorEmDinheiro('R$')).toBe(false)
     expect(temValorEmDinheiro(`Resumo do mês com muitos números e texto ${'x'.repeat(80)} R$ 10,00`)).toBe(false)
+  })
+  it('só faturamento: painel, financeiro, caixa e relatórios', () => {
+    for (const r of ['/', '/financeiro/receber', '/financeiro', '/caixa', '/caixa/pdv', '/relatorios/vendas']) expect(rotaFinanceira(r)).toBe(true)
+    for (const r of ['/orcamentos', '/pedidos/1', '/produtos', '/clientes/1', '/financeiros', '/caixas']) expect(rotaFinanceira(r)).toBe(false)
   })
 })

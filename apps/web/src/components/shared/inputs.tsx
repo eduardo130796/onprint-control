@@ -47,6 +47,8 @@ export const MoneyInput = React.forwardRef<HTMLInputElement, InputProps>(({ clas
     <InputComMascara
       ref={ref}
       mascara={mascaraMoeda}
+      // Borrado com "Ocultar valores" (index.css), menos enquanto se digita
+      data-valor=""
       inputMode="numeric"
       className={cn('pl-9 text-right', className)}
       // Seleciona o valor ao focar: digitar substitui "0,00" ou o valor sugerido em vez de somar dígitos

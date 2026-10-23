@@ -1,4 +1,5 @@
-import { Menu } from 'lucide-react'
+import { Eye, EyeOff, Menu } from 'lucide-react'
+import { useOcultarValores } from '@/lib/ocultarValores'
 import { cn } from '@/lib/utils'
 import { BuscaGlobal } from './BuscaGlobal'
 import { MarcaEmpresa } from './MarcaEmpresa'
@@ -13,9 +14,10 @@ interface TopbarProps {
 
 /**
  * Barra do topo: marca da empresa (na largura do menu, para a busca alinhar com o conteúdo), busca e,
- * à direita, só notificações e a conta (o plano fica no menu da conta).
+ * à direita, ocultar valores, notificações e a conta (o plano fica no menu da conta).
  */
 export function Topbar({ onAbrirMenuMobile, menuRecolhido }: TopbarProps) {
+  const [ocultos, setOcultos] = useOcultarValores()
   return (
     <header className="fixed inset-x-0 top-0 z-40 flex h-16 items-center bg-grafite pl-2 pr-3 shadow-[0_1px_0_rgba(255,255,255,0.06),0_8px_24px_-12px_rgba(0,0,0,0.5)] sm:pl-4 sm:pr-4">
       <button
@@ -39,6 +41,20 @@ export function Topbar({ onAbrirMenuMobile, menuRecolhido }: TopbarProps) {
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+        {/* Ocultar valores (como nos apps de banco): borra os valores em dinheiro desta tela */}
+        <button
+          type="button"
+          onClick={() => setOcultos(!ocultos)}
+          aria-pressed={ocultos}
+          aria-label={ocultos ? 'Mostrar valores' : 'Ocultar valores'}
+          title={ocultos ? 'Mostrar valores' : 'Ocultar valores (para quando alguém está olhando a tela)'}
+          className={cn(
+            'flex h-9 w-9 items-center justify-center rounded-xl text-white/75 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40',
+            ocultos && 'bg-white/10 text-white',
+          )}
+        >
+          {ocultos ? <EyeOff className="h-[1.125rem] w-[1.125rem]" /> : <Eye className="h-[1.125rem] w-[1.125rem]" />}
+        </button>
         <Notificacoes />
         <span className="mx-1 hidden h-6 w-px bg-white/10 sm:block" aria-hidden="true" />
         <UserMenu />

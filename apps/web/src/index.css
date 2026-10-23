@@ -157,3 +157,17 @@ html {
     font-size: 16px !important;
   }
 }
+
+/* "Ocultar valores" (olho do topo, lib/ocultarValores.ts): borra os valores em dinheiro só na tela.
+   O campo em que se está digitando fica visível. */
+html.ocultar-valores [data-valor-oculto],
+html.ocultar-valores input[data-valor]:not(:focus) {
+  filter: blur(7px);
+  user-select: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-valor-oculto],
+  input[data-valor] {
+    transition: filter 0.15s ease;
+  }
+}

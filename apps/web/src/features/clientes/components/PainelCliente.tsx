@@ -112,7 +112,7 @@ export function PainelCliente({ cliente: resumo, onFechar }: { cliente: Cliente;
               {financeiro.isPending ? (
                 <Skeleton className="h-16 w-full" />
               ) : financeiro.data ? (
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-2" data-financeiro>
                   {(
                     [
                       ['Comprado', financeiro.data.resumo.valor, 'text-tinta'],
@@ -137,14 +137,16 @@ export function PainelCliente({ cliente: resumo, onFechar }: { cliente: Cliente;
               ) : !pedidos.data?.data.length ? (
                 <p className="text-texto-secundario">Nenhum pedido ainda.</p>
               ) : (
-                <ul className="-mx-2">
+                <ul className="-mx-2" data-valor-area="pedidos">
                   {pedidos.data.data.map((p) => (
                     <li key={p.id}>
                       <button type="button" onClick={() => ir(`/pedidos/${p.id}`)} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-fundo">
                         <span className="font-mono text-xs text-tinta">{p.numero}</span>
                         <span className="flex-1 text-xs text-texto-secundario">{formatarDataSimples(p.createdAt.slice(0, 10))}</span>
                         <StatusBadge entidade="pedido" codigo={p.status} className="text-[0.625rem]" />
-                        <span className="w-24 text-right text-sm font-medium tabular-nums">{formatarMoeda(p.total)}</span>
+                        <span className="w-24 text-right text-sm font-medium tabular-nums" data-valor-tipo="total">
+                          {formatarMoeda(p.total)}
+                        </span>
                       </button>
                     </li>
                   ))}

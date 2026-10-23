@@ -31,6 +31,8 @@ model Usuario {
   pesoTexto          String    @default("normal") @map("peso_texto")
   /// Tamanho da interface: compacto | padrao | grande
   escala             String    @default("padrao")
+  /// O que o olho do topo ("Ocultar valores") esconde: JSON { painel, financeiro, orcamentos, pedidos, custoLucro, produtos, campos }; vazio = padrão
+  ocultarValores     Json?     @map("ocultar_valores")
   /// Usuário de painel (TV da produção): não sai por inatividade
   semInatividade     Boolean   @default(false) @map("sem_inatividade")
   ultimoLogin        DateTime? @map("ultimo_login") @db.Timestamptz(3)

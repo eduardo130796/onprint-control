@@ -55,7 +55,16 @@ export function OrcamentosPage() {
           return <span className={cn(vencendo && 'font-medium text-coral-escuro')}>{formatarDataSimples(o.validade)}</span>
         },
       },
-      { id: 'total', header: 'Total', meta: { ordenavel: 'total', className: 'text-right' }, cell: ({ row }) => <span className="font-medium">{formatarMoeda(row.original.total)}</span> },
+      {
+        id: 'total',
+        header: 'Total',
+        meta: { ordenavel: 'total', className: 'text-right' },
+        cell: ({ row }) => (
+          <span className="font-medium" data-valor-tipo="total">
+            {formatarMoeda(row.original.total)}
+          </span>
+        ),
+      },
       {
         id: 'status',
         header: 'Status',

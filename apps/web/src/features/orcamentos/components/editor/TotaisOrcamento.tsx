@@ -46,7 +46,7 @@ export function TotaisOrcamento({ form, onChange, subtotal, total, prazoDias, pr
         {linha('(+) Frete / instalação', 'frete')}
         <div className="flex items-baseline justify-between border-t border-border pt-3">
           <span className="font-semibold text-tinta">Total</span>
-          <span className={Number(total) < 0 ? 'text-2xl font-bold text-coral-escuro' : 'text-2xl font-bold text-tinta'}>{formatarMoeda(total)}</span>
+          <span data-valor-tipo="total" className={Number(total) < 0 ? 'text-2xl font-bold text-coral-escuro' : 'text-2xl font-bold text-tinta'}>{formatarMoeda(total)}</span>
         </div>
         {analise && <LucroDoTotal analise={analise} desatualizado={analiseDesatualizada} className="border-t border-border pt-3" />}
         <div className="space-y-1 border-t border-border pt-3 text-texto-secundario">

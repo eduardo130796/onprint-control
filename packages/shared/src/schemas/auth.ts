@@ -58,9 +58,68 @@ export type PesoTexto = (typeof PESOS_TEXTO)[number]
 /** Tamanho da interface (escala de tudo: texto, espaços, menu): compacto ≈ 80%, padrão, grande */
 export const ESCALAS_INTERFACE = ['compacto', 'padrao', 'grande'] as const
 export type EscalaInterface = (typeof ESCALAS_INTERFACE)[number]
-/** Preferências do próprio usuário (modo da tela e texto); envia só o que mudou */
+/** O que o olho do topo ("Ocultar valores") esconde em orçamentos e pedidos: nada, só os totais ou todos os valores */
+export const NIVEIS_OCULTAR = ['nada', 'totais', 'tudo'] as const
+export type NivelOcultar = (typeof NIVEIS_OCULTAR)[number]
+/**
+ * O que o olho do topo esconde (cada pessoa escolhe em Aparência): painel inicial, telas de faturamento, orçamentos
+ * e pedidos (nada, totais ou tudo), custo/lucro/margem, preços do cadastro de produtos e campos de dinheiro.
+ */
+export const ocultarValoresSchema = z.object({
+  painel: z.boolean(),
+  financeiro: z.boolean(),
+  orcamentos: z.enum(NIVEIS_OCULTAR),
+  pedidos: z.enum(NIVEIS_OCULTAR),
+  custoLucro: z.boolean(),
+  produtos: z.boolean(),
+  campos: z.boolean(),
+})
+export type OcultarValoresPrefs = z.infer<typeof ocultarValoresSchema>
+/** Padrão: só o faturamento (painel e financeiro), sem atrapalhar preços de orçamento, pedido e produto */
+export const OCULTAR_VALORES_PADRAO: OcultarValoresPrefs = {
+  painel: true,
+  financeiro: true,
+  orcamentos: 'nada',
+  pedidos: 'nada',
+  custoLucro: false,
+  produtos: false,
+  campos: false,
+}
+/** Tudo ligado (o antigo alcance "todos os valores") */
+export const OCULTAR_VALORES_TUDO: OcultarValoresPrefs = {
+  painel: true,
+  financeiro: true,
+  orcamentos: 'tudo',
+  pedidos: 'tudo',
+  custoLucro: true,
+  produtos: true,
+  campos: true,
+}
+/** Lê o que está salvo (JSON da conta, pode faltar ou estar incompleto): o que não vale fica no padrão */
+export function normalizarOcultarValores(valor: unknown): OcultarValoresPrefs {
+  const salvo = valor && typeof valor === 'object' ? (valor as Record<string, unknown>) : {}
+  const nivel = (v: unknown, padrao: NivelOcultar) => ((NIVEIS_OCULTAR as readonly unknown[]).includes(v) ? (v as NivelOcultar) : padrao)
+  const sim = (v: unknown, padrao: boolean) => (typeof v === 'boolean' ? v : padrao)
+  const p = OCULTAR_VALORES_PADRAO
+  return {
+    painel: sim(salvo.painel, p.painel),
+    financeiro: sim(salvo.financeiro, p.financeiro),
+    orcamentos: nivel(salvo.orcamentos, p.orcamentos),
+    pedidos: nivel(salvo.pedidos, p.pedidos),
+    custoLucro: sim(salvo.custoLucro, p.custoLucro),
+    produtos: sim(salvo.produtos, p.produtos),
+    campos: sim(salvo.campos, p.campos),
+  }
+}
+/** Preferências do próprio usuário (modo da tela, texto e o que o olho esconde); envia só o que mudou */
 export const preferenciasSchema = z
-  .object({ modoTela: z.enum(MODOS_TELA), fonte: z.enum(FONTES_TEXTO), pesoTexto: z.enum(PESOS_TEXTO), escala: z.enum(ESCALAS_INTERFACE) })
+  .object({
+    modoTela: z.enum(MODOS_TELA),
+    fonte: z.enum(FONTES_TEXTO),
+    pesoTexto: z.enum(PESOS_TEXTO),
+    escala: z.enum(ESCALAS_INTERFACE),
+    ocultarValores: ocultarValoresSchema,
+  })
   .partial()
   .refine((p) => Object.keys(p).length > 0, 'Informe ao menos uma preferência')
 export type PreferenciasInput = z.infer<typeof preferenciasSchema>
@@ -77,6 +136,8 @@ export const usuarioLogadoSchema = z.object({
   fonte: z.enum(FONTES_TEXTO),
   pesoTexto: z.enum(PESOS_TEXTO),
   escala: z.enum(ESCALAS_INTERFACE),
+  /** O que o olho do topo ("Ocultar valores") esconde */
+  ocultarValores: ocultarValoresSchema,
   papel: z.object({ id: z.string().uuid(), codigo: z.string(), nome: z.string() }),
   /** Lista de permissões no formato "modulo:acao" */
   permissoes: z.array(z.string()),

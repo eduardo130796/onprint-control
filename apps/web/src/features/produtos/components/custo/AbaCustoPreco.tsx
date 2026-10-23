@@ -104,12 +104,17 @@ function Editor({ inicial, processos, maquinas, editavel, geralPendente }: Edito
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-tinta">Você já cadastrou os materiais — ative a composição</p>
                   <p className="text-sm text-texto-secundario">
-                    Pela composição, o custo seria <strong className="text-tinta">{formatarMoeda(custoComposicao)} / {unidade}</strong>
+                    Pela composição, o custo seria{' '}
+                    <strong className="text-tinta" data-valor-tipo="custo">
+                      {formatarMoeda(custoComposicao)} / {unidade}
+                    </strong>
                     {custoAtual > 0 && (
                       <>
                         {' '}
-                        (hoje: {formatarMoeda(custoAtual)}; {custoComposicao >= custoAtual ? '+' : '−'}
-                        {formatarMoeda(Math.abs(custoComposicao - custoAtual))})
+                        <span data-valor-tipo="custo">
+                          (hoje: {formatarMoeda(custoAtual)}; {custoComposicao >= custoAtual ? '+' : '−'}
+                          {formatarMoeda(Math.abs(custoComposicao - custoAtual))})
+                        </span>
                       </>
                     )}
                     . E passa a acompanhar o preço dos insumos.

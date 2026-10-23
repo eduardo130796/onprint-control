@@ -100,7 +100,9 @@ export function BlocoMateriais({ linhas, custos, unidadeProduto, baseNova, produ
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="text-xs text-texto-secundario">Custo / {unidadeProduto}</p>
-                  <p className="flex h-10 items-center justify-end font-semibold text-tinta">{formatarMoeda(custos[i] ?? 0)}</p>
+                  <p className="flex h-10 items-center justify-end font-semibold text-tinta" data-valor-tipo="custo">
+                    {formatarMoeda(custos[i] ?? 0)}
+                  </p>
                 </div>
                 {editavel && (
                   <Button type="button" variant="ghost" size="icon" className="shrink-0 text-coral-escuro hover:text-coral-escuro" aria-label="Remover material" onClick={() => onChange(linhas.filter((x) => x.chave !== l.chave))}>

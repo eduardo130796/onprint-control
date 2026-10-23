@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, CircleHelp, CreditCard, Info, KeyRound, LogOut, Monitor, Moon, Search, Sun, Type } from 'lucide-react'
+import { ChevronDown, CircleHelp, CreditCard, EyeOff, Info, KeyRound, LogOut, Monitor, Moon, Search, Sun, Type } from 'lucide-react'
 import { toast } from 'sonner'
 import { iniciais } from '@onprint/shared'
 import { abrirSobreSistema } from '@/app/marca'
@@ -7,7 +7,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { TOM_ASSINATURA, statusDaAssinatura } from '@/features/assinatura/status'
 import { useAuth } from '@/hooks/useAuth'
-import { useAlcanceOcultar, type AlcanceOcultar } from '@/lib/ocultarValores'
 import { cn } from '@/lib/utils'
 
 const MODOS = [
@@ -16,15 +15,9 @@ const MODOS = [
   { modo: 'sistema', rotulo: 'Sistema', Icone: Monitor },
 ] as const
 
-const ALCANCES: { alcance: AlcanceOcultar; rotulo: string }[] = [
-  { alcance: 'financeiro', rotulo: 'Só faturamento' },
-  { alcance: 'todos', rotulo: 'Todos os valores' },
-]
-
 /** Conta do usuário: avatar no topo; no menu, quem é, o plano, o modo da tela, preferências e sair. */
 export function UserMenu() {
   const { usuario, sair, definirModoTela } = useAuth()
-  const [alcanceOcultar, setAlcanceOcultar] = useAlcanceOcultar()
   const navigate = useNavigate()
   const nome = usuario?.nome ?? 'Usuário'
   const a = usuario?.assinatura
@@ -108,32 +101,11 @@ export function UserMenu() {
             })}
           </div>
         </div>
-        {/* O que o olho do topo esconde: só o faturamento (padrão) ou qualquer valor em dinheiro */}
-        <div className="px-2.5 pb-2">
-          <p className="mb-1.5 text-[0.6875rem] font-medium text-texto-secundario">Ocultar valores (olho do topo)</p>
-          <div role="radiogroup" aria-label="O que ocultar" className="grid grid-cols-2 gap-1 rounded-xl bg-fundo p-1">
-            {ALCANCES.map(({ alcance, rotulo }) => {
-              const marcado = alcanceOcultar === alcance
-              return (
-                <button
-                  key={alcance}
-                  type="button"
-                  role="radio"
-                  aria-checked={marcado}
-                  onClick={() => setAlcanceOcultar(alcance)}
-                  className={cn(
-                    'rounded-lg py-1.5 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    marcado ? 'bg-card text-tinta shadow-sm' : 'text-texto-secundario hover:text-tinta',
-                  )}
-                >
-                  {rotulo}
-                </button>
-              )
-            })}
-          </div>
-        </div>
         <DropdownMenuItem onSelect={() => navigate('/configuracoes/aparencia')}>
           <Type /> Fonte e intensidade do texto
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => navigate('/configuracoes/aparencia#ocultar-valores')}>
+          <EyeOff /> O que ocultar…
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => navigate('/trocar-senha')}>
           <KeyRound /> Alterar senha

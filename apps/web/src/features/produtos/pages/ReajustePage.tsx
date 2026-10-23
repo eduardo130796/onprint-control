@@ -96,7 +96,7 @@ function Lista({ itens, situacao, config }: { itens: ProdutoReajuste[]; situacao
                 </div>
                 <div className="col-start-2 flex justify-between text-sm lg:col-start-auto lg:block lg:text-right">
                   <span className="text-texto-secundario lg:hidden">Custo</span>
-                  <span>
+                  <span data-valor-tipo="custo">
                     {formatarCusto(p.custo)} <span className="text-xs text-texto-secundario">/ {sufixo}</span>
                   </span>
                 </div>

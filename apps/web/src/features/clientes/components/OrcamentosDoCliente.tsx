@@ -31,7 +31,8 @@ export function OrcamentosDoCliente({ clienteId }: { clienteId: string }) {
   return (
     <div className="space-y-3">
       <div className="flex justify-end">{novo}</div>
-      <Card>
+      {/* Na ficha do cliente, os valores seguem a escolha de orçamentos do olho do topo */}
+      <Card data-valor-area="orcamentos">
         <ul className="divide-y divide-border">
           {consulta.data.data.map((o) => (
             <li key={o.id}>
@@ -39,7 +40,9 @@ export function OrcamentosDoCliente({ clienteId }: { clienteId: string }) {
                 <span className="font-mono text-xs">{o.numero}</span>
                 <StatusBadge entidade="orcamento" codigo={o.status} />
                 <span className="text-texto-secundario">criado em {formatarData(o.createdAt)} · válido até {formatarDataSimples(o.validade)}</span>
-                <span className="ml-auto font-medium">{formatarMoeda(o.total)}</span>
+                <span className="ml-auto font-medium" data-valor-tipo="total">
+                  {formatarMoeda(o.total)}
+                </span>
               </Link>
             </li>
           ))}

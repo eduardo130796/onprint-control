@@ -28,7 +28,7 @@ export function InsumosBaixados({ op }: { op: OrdemProducaoDetalhe }) {
             ))}
             <li className="flex justify-between gap-3 pt-2 text-texto-secundario">
               <span>Custo dos insumos (custo médio)</span>
-              <span>{formatarMoeda(custo)}</span>
+              <span data-valor-tipo="custo">{formatarMoeda(custo)}</span>
             </li>
           </ul>
         )}

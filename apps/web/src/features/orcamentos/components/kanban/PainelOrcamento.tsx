@@ -81,7 +81,7 @@ export function PainelOrcamento({ orcamento: resumo, onFechar }: { orcamento: Or
         subtitulo={
           <span className="flex flex-wrap items-center gap-2">
             <StatusBadge entidade="orcamento" codigo={resumo.status} />
-            <span>{formatarMoeda(resumo.total)}</span>
+            <span data-valor-tipo="total">{formatarMoeda(resumo.total)}</span>
           </span>
         }
         acoes={
@@ -141,11 +141,15 @@ export function PainelOrcamento({ orcamento: resumo, onFechar }: { orcamento: Or
               <dl className="mt-2 space-y-1 text-right">
                 {Number(o.desconto) > 0 && <div className="text-texto-secundario">Desconto: − {formatarMoeda(o.desconto)}</div>}
                 {Number(o.frete) > 0 && <div className="text-texto-secundario">Frete / instalação: {formatarMoeda(o.frete)}</div>}
-                <div className="text-base font-semibold text-tinta">Total: {formatarMoeda(o.total)}</div>
+                <div className="text-base font-semibold text-tinta" data-valor-tipo="total">
+                  Total: {formatarMoeda(o.total)}
+                </div>
               </dl>
             </section>
             <DadoPainel rotulo="Pagamento">
-              {resumoCondicoesPagamento({ total: o.total, sinalPercentual: o.sinalPercentual, parcelas: o.parcelas, intervaloDias: o.intervaloDias })}
+              <span data-valor-tipo="total">
+                {resumoCondicoesPagamento({ total: o.total, sinalPercentual: o.sinalPercentual, parcelas: o.parcelas, intervaloDias: o.intervaloDias })}
+              </span>
               {o.condicoes && <span className="block text-texto-secundario">{o.condicoes}</span>}
             </DadoPainel>
             {o.observacoes && <DadoPainel rotulo="Observações">{o.observacoes}</DadoPainel>}

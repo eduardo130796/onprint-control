@@ -41,7 +41,9 @@ function CustoLinha({ valor, unidade, onRemover }: { valor: number; unidade: str
     <div className="flex items-end justify-between gap-2 md:justify-end">
       <div className="text-left md:text-right">
         <p className="text-xs text-texto-secundario">Custo / {unidade}</p>
-        <p className="flex h-10 items-center font-semibold text-tinta md:justify-end">{formatarMoeda(valor)}</p>
+        <p className="flex h-10 items-center font-semibold text-tinta md:justify-end" data-valor-tipo="custo">
+          {formatarMoeda(valor)}
+        </p>
       </div>
       {onRemover && (
         <Button type="button" variant="ghost" size="icon" className="text-coral-escuro hover:text-coral-escuro" aria-label="Remover" onClick={onRemover}>

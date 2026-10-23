@@ -29,7 +29,9 @@ export function CartaoOrcamento({ o, acoes }: { o: Orcamento; acoes: AcoesCartao
         <Link to={`/orcamentos/${o.id}`} className="font-mono text-xs font-semibold text-tinta hover:underline" onPointerDown={(e) => e.stopPropagation()}>
           {o.numero}
         </Link>
-        <span className="font-semibold tabular-nums">{formatarMoeda(o.total)}</span>
+        <span className="font-semibold tabular-nums" data-valor-tipo="total">
+          {formatarMoeda(o.total)}
+        </span>
       </div>
       <p className="mt-0.5 truncate text-[0.9375rem] font-semibold" title={nomeCliente(o.cliente)}>
         {nomeCliente(o.cliente)}

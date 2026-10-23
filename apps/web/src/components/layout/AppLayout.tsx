@@ -2,7 +2,7 @@ import { Suspense, useEffect, useLayoutEffect, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { paginaAtual } from '@/app/navigation'
-import { TEMAS, temaOuPadrao } from '@onprint/shared'
+import { OCULTAR_VALORES_PADRAO, OCULTAR_VALORES_TUDO, TEMAS, temaOuPadrao } from '@onprint/shared'
 import { TITULO_PADRAO, aplicarModo, aplicarTema, definirFavicon, gerarFavicon } from '@/features/aparencia/tema'
 import { aplicarEscala, aplicarTipografia } from '@/features/aparencia/tipografia'
 import { aplicarCorDocumentos } from '@/features/impressao/corDocumentos'
@@ -12,6 +12,7 @@ import { registrarSaidaPorInatividade, useInatividade } from '@/features/auth/us
 import { useAuth } from '@/hooks/useAuth'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useTempoReal } from '@/hooks/useTempoReal'
+import { aplicarPrefsOcultar, migrarAlcanceAntigo, revarrerValores } from '@/lib/ocultarValores'
 import { cn } from '@/lib/utils'
 import { EVENTO_SOBRE } from '@/app/marca'
 import { BannerAssinatura } from './BannerAssinatura'
@@ -48,7 +49,7 @@ export function AppLayout() {
   // Recolher/expandir vale a partir de 1024 px (abaixo, o menu é a gaveta do botão ☰)
   const comMenuLateral = useMediaQuery('(min-width: 1024px)')
   const menuRecolhido = recolhida
-  const { usuario, sair } = useAuth()
+  const { usuario, sair, definirPreferencias } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const larga = TELAS_LARGAS.includes(pathname)
@@ -84,6 +85,21 @@ export function AppLayout() {
     aplicarEscala(usuario?.escala ?? null)
     return () => aplicarEscala(null)
   }, [usuario?.escala])
+
+  // O que o olho do topo esconde (escolha da conta, em Aparência); fora do sistema, o padrão
+  const ocultarValores = usuario?.ocultarValores
+  useEffect(() => {
+    aplicarPrefsOcultar(ocultarValores ?? OCULTAR_VALORES_PADRAO)
+  }, [ocultarValores])
+  // Quem escolheu "Todos os valores" no menu antigo (neste navegador) passa a ter tudo ligado na conta, uma vez
+  const logado = Boolean(usuario)
+  useEffect(() => {
+    if (logado && migrarAlcanceAntigo()) void definirPreferencias({ ocultarValores: OCULTAR_VALORES_TUDO }).catch(() => undefined)
+  }, [logado, definirPreferencias])
+  // Outra tela, outra área: refaz as marcas (o que já estava montado também muda de área)
+  useEffect(() => {
+    revarrerValores()
+  }, [pathname])
 
   // Cor do tema da empresa; ao sair (login, páginas públicas) volta ao azul GrafyGo
   useEffect(() => {

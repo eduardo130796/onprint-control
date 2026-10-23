@@ -45,8 +45,12 @@ export function PainelPedido({ pedido: resumo, onFechar }: { pedido: Pedido; onF
         subtitulo={
           <span className="flex flex-wrap items-center gap-2">
             <StatusBadge entidade="pedido" codigo={resumo.status} />
-            <span>{formatarMoeda(resumo.total)}</span>
-            {resumo.statusFinanceiro === 'parcial' && <span className="font-medium text-amber-800">falta {formatarMoeda(saldoPedido(resumo.total, resumo.valorPago).falta)}</span>}
+            <span data-valor-tipo="total">{formatarMoeda(resumo.total)}</span>
+            {resumo.statusFinanceiro === 'parcial' && (
+              <span className="font-medium text-amber-800" data-valor-tipo="total">
+                falta {formatarMoeda(saldoPedido(resumo.total, resumo.valorPago).falta)}
+              </span>
+            )}
             {resumo.vendedor && (
               <span className="inline-flex items-center gap-1">
                 <User className="h-3.5 w-3.5" /> {resumo.vendedor.nome}
@@ -75,8 +79,12 @@ export function PainelPedido({ pedido: resumo, onFechar }: { pedido: Pedido; onF
             <dl className="grid grid-cols-2 gap-3">
               <DadoPainel rotulo="Previsão de entrega">{formatarDataSimples(p.dataPrevistaEntrega)}</DadoPainel>
               <DadoPainel rotulo={TIPO_ENTREGA_ROTULOS[p.tipoEntrega]}>{p.tipoEntrega === 'retirada' ? 'No balcão' : p.enderecoEntrega || 'A combinar'}</DadoPainel>
-              <DadoPainel rotulo="Pago">{formatarMoeda(p.valorPago)}</DadoPainel>
-              <DadoPainel rotulo="Em aberto">{formatarMoeda(aberto)}</DadoPainel>
+              <DadoPainel rotulo="Pago">
+                <span data-valor-tipo="total">{formatarMoeda(p.valorPago)}</span>
+              </DadoPainel>
+              <DadoPainel rotulo="Em aberto">
+                <span data-valor-tipo="total">{formatarMoeda(aberto)}</span>
+              </DadoPainel>
             </dl>
 
             <section>
@@ -122,7 +130,7 @@ export function PainelPedido({ pedido: resumo, onFechar }: { pedido: Pedido; onF
             </section>
 
             {p.contasReceber.length > 0 && (
-              <section>
+              <section data-financeiro>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-texto-secundario">Parcelas</h3>
                 <ul className="divide-y divide-border rounded-xl border border-border">
                   {p.contasReceber.map((c) => (

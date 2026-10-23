@@ -37,7 +37,9 @@ function ComposicaoCusto({ linhas, id }: { linhas: NonNullable<AnaliseLucro['lin
         <div key={g.grupo}>
           <p className="flex justify-between gap-3 font-semibold text-tinta">
             <span>{g.rotulo}</span>
-            <span className="tabular-nums">{formatarMoeda(g.valor)}</span>
+            <span className="tabular-nums" data-valor-tipo="custo">
+              {formatarMoeda(g.valor)}
+            </span>
           </p>
           <ul className="mt-0.5 space-y-0.5 text-texto-secundario">
             {g.linhas.map((l, i) => (
@@ -46,7 +48,9 @@ function ComposicaoCusto({ linhas, id }: { linhas: NonNullable<AnaliseLucro['lin
                   {l.nome}
                   {l.unidade && Number(l.quantidade) > 0 && <span className="opacity-80"> · {qtd(l.quantidade)} {l.unidade}</span>}
                 </span>
-                <span className="shrink-0 tabular-nums">{formatarMoeda(l.valor)}</span>
+                <span className="shrink-0 tabular-nums" data-valor-tipo="custo">
+                  {formatarMoeda(l.valor)}
+                </span>
               </li>
             ))}
           </ul>
@@ -77,10 +81,16 @@ export function LucroDoItem({ analise, desatualizado, className }: Props) {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-texto-secundario">
         <SemaforoLucro situacao={analise.situacao} lucroPercentual={analise.lucroPercentual} />
         <span>
-          Custo <strong className="font-semibold text-tinta">{formatarMoeda(analise.custoDireto)}</strong>
+          Custo{' '}
+          <strong className="font-semibold text-tinta" data-valor-tipo="custo">
+            {formatarMoeda(analise.custoDireto)}
+          </strong>
         </span>
         <span>
-          Lucro <strong className={cn('font-semibold', Number(analise.lucro) < 0 ? 'text-coral-escuro' : 'text-tinta')}>{formatarMoeda(analise.lucro)}</strong>
+          Lucro{' '}
+          <strong className={cn('font-semibold', Number(analise.lucro) < 0 ? 'text-coral-escuro' : 'text-tinta')} data-valor-tipo="custo">
+            {formatarMoeda(analise.lucro)}
+          </strong>
         </span>
         {analise.linhas && (
           <button
@@ -120,15 +130,21 @@ export function LucroDoTotal({ analise, desatualizado, className, rotulo = 'Lucr
       <dl className="grid grid-cols-2 gap-2 text-xs">
         <div className="rounded-xl bg-fundo px-3 py-2">
           <dt className="text-texto-secundario">Custo direto</dt>
-          <dd className="font-semibold tabular-nums text-tinta">{formatarMoeda(analise.custoDireto)}</dd>
+          <dd className="font-semibold tabular-nums text-tinta" data-valor-tipo="custo">
+            {formatarMoeda(analise.custoDireto)}
+          </dd>
         </div>
         <div className="rounded-xl bg-fundo px-3 py-2">
           <dt className="text-texto-secundario">Lucro</dt>
-          <dd className={cn('font-semibold tabular-nums', Number(analise.lucro) < 0 ? 'text-coral-escuro' : 'text-tinta')}>{formatarMoeda(analise.lucro)}</dd>
+          <dd className={cn('font-semibold tabular-nums', Number(analise.lucro) < 0 ? 'text-coral-escuro' : 'text-tinta')} data-valor-tipo="custo">
+            {formatarMoeda(analise.lucro)}
+          </dd>
         </div>
       </dl>
       {analise.despesasSobrePreco !== undefined && Number(analise.despesasSobrePreco) > 0 && (
-        <p className="text-xs text-texto-secundario">Já descontados impostos, comissão e custos fixos: {formatarMoeda(analise.despesasSobrePreco)}.</p>
+        <p className="text-xs text-texto-secundario" data-valor-tipo="custo">
+          Já descontados impostos, comissão e custos fixos: {formatarMoeda(analise.despesasSobrePreco)}.
+        </p>
       )}
     </div>
   )

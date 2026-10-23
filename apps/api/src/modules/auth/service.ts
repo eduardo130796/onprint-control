@@ -1,6 +1,6 @@
 import argon2 from 'argon2'
 import type { FastifyInstance } from 'fastify'
-import { CODIGOS_ERRO, ESCALAS_INTERFACE, FONTES_TEXTO, PESOS_TEXTO, filtrarPermissoes, type EscalaInterface, type FonteTexto, type LoginInput, type PesoTexto, type TrocarSenhaInput, type UsuarioLogado } from '@onprint/shared'
+import { CODIGOS_ERRO, ESCALAS_INTERFACE, FONTES_TEXTO, PESOS_TEXTO, filtrarPermissoes, normalizarOcultarValores, type EscalaInterface, type FonteTexto, type LoginInput, type PesoTexto, type TrocarSenhaInput, type UsuarioLogado } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { contextoEmpresa, type EmpresaAtual } from '../../core/contexto-empresa'
 import { empresaDoRefreshToken, gerarRefreshToken, hashRefreshToken } from '../../core/tokens'
@@ -50,6 +50,7 @@ export function criarAuthService(app: FastifyInstance) {
       fonte: (FONTES_TEXTO as readonly string[]).includes(usuario.fonte) ? (usuario.fonte as FonteTexto) : 'inter',
       pesoTexto: (PESOS_TEXTO as readonly string[]).includes(usuario.pesoTexto) ? (usuario.pesoTexto as PesoTexto) : 'normal',
       escala: (ESCALAS_INTERFACE as readonly string[]).includes(usuario.escala) ? (usuario.escala as EscalaInterface) : 'padrao',
+      ocultarValores: normalizarOcultarValores(usuario.ocultarValores),
       papel: { id: usuario.papel.id, codigo: usuario.papel.codigo, nome: usuario.papel.nome },
       // Módulos fora do plano, ações de escrita no modo só leitura e tudo no bloqueio saem da lista
       permissoes: assinatura ? filtrarPermissoes(permissoes, assinatura.modulos, assinatura.acesso.nivel) : permissoes,

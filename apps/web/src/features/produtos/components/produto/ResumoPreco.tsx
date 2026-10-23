@@ -72,7 +72,7 @@ export function ResumoPreco({ resultado: r, sufixo }: { resultado: ResultadoPrec
               </p>
             )}
             {r.margemPercentual !== null && Number(r.custoTotal) > 0 && (
-              <p className="text-xs text-texto-secundario">
+              <p className="text-xs text-texto-secundario" data-valor-tipo="custo">
                 Custo estimado {formatarMoeda(r.custoTotal)} · margem {num(r.margemPercentual, 2)}%
               </p>
             )}

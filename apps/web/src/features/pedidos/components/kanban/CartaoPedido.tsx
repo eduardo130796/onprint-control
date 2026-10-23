@@ -73,7 +73,11 @@ export function CartaoPedido({ pedido: p, acoes }: { pedido: Pedido; acoes: Acoe
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-fundo" title={`Pago ${formatarMoeda(saldo.pago)} de ${formatarMoeda(p.total)}`}>
           <div className="h-full rounded-full bg-green-500" style={{ width: `${saldo.percentual}%` }} />
         </div>
-        {p.statusFinanceiro === 'parcial' && <span className="text-[0.6875rem] tabular-nums text-texto-secundario">pago {formatarMoeda(saldo.pago)}</span>}
+        {p.statusFinanceiro === 'parcial' && (
+          <span className="text-[0.6875rem] tabular-nums text-texto-secundario" data-valor-tipo="total">
+            pago {formatarMoeda(saldo.pago)}
+          </span>
+        )}
       </div>
       <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-texto-secundario">
         <span className={cn('inline-flex items-center gap-1', p.atrasado && 'font-medium text-coral-escuro')}>

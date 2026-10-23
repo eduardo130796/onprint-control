@@ -49,7 +49,8 @@ export function PagamentoOrcamento({ form, onChange, total, editavel }: Pagament
           </CampoFormulario>
         </div>
         {resumo ? (
-          <p className="rounded-xl bg-marca-suave px-3 py-2 text-sm font-medium text-marca-escuro" aria-live="polite">
+          // Entrada e parcelas saem do total: para o olho do topo, também são valor final
+          <p className="rounded-xl bg-marca-suave px-3 py-2 text-sm font-medium text-marca-escuro" aria-live="polite" data-valor-tipo="total">
             {resumo}
           </p>
         ) : (

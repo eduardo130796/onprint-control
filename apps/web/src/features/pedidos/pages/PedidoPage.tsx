@@ -247,9 +247,11 @@ export function PedidoPage() {
           </div>
           <div>
             <p className="text-xs text-texto-secundario">Total</p>
-            <p className="text-base font-semibold text-tinta">{formatarMoeda(pedido.total)}</p>
+            <p className="text-base font-semibold text-tinta" data-valor-tipo="total">
+              {formatarMoeda(pedido.total)}
+            </p>
             {pedido.statusFinanceiro === 'parcial' && (
-              <p className="text-xs text-texto-secundario">
+              <p className="text-xs text-texto-secundario" data-valor-tipo="total">
                 pago {formatarMoeda(pedido.valorPago)} · <span className="font-medium text-amber-800">falta {formatarMoeda(saldoPedido(pedido.total, pedido.valorPago).falta)}</span>
               </p>
             )}

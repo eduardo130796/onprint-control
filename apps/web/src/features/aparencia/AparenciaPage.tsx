@@ -14,6 +14,7 @@ import { usePermission } from '@/hooks/usePermission'
 import { cn } from '@/lib/utils'
 import { CHAVE_EMPRESA, useEmpresa, useUrlArquivo } from '../configuracoes/hooks'
 import { LogoCard } from '../configuracoes/pages/EmpresaPage'
+import { OcultarValoresCard } from './OcultarValoresCard'
 import { aplicarTema, corMediaDaImagem } from './tema'
 import { ESCALAS, FONTES, PESOS } from './tipografia'
 
@@ -304,7 +305,7 @@ export function AparenciaPage() {
 
   return (
     <>
-      <PageHeader titulo="Aparência" subtitulo="A cor e a logo da empresa (para todos); o modo da tela e o texto (para você)." />
+      <PageHeader titulo="Aparência" subtitulo="A cor e a logo da empresa (para todos); o modo da tela, o texto e o que ocultar (para você)." />
       {consulta.isPending ? (
         <Skeleton className="h-96 w-full rounded-3xl" />
       ) : consulta.isError ? (
@@ -388,6 +389,7 @@ export function AparenciaPage() {
           <div className="space-y-6 lg:col-span-2">
             <TamanhoInterface />
             <TextoDoSistema />
+            <OcultarValoresCard />
           </div>
         </div>
       )}

@@ -43,7 +43,9 @@ export function ResumoCusto({ estado, resultado: r, parametros, nota, editavel, 
     <aside className="space-y-4" aria-label="Resumo do custo e do preço">
       <div className="rounded-3xl bg-grafite p-5 text-white shadow-suave">
         <p className="text-xs font-semibold uppercase tracking-wide text-white/70">Custo por {sufixo}</p>
-        <p className="mt-1 font-titulo text-3xl font-extrabold">{custo > 0 ? formatarMoeda(custo) : 'R$ —'}</p>
+        <p className="mt-1 font-titulo text-3xl font-extrabold" data-valor-tipo="custo">
+          {custo > 0 ? formatarMoeda(custo) : 'R$ —'}
+        </p>
         <p className="mt-1 text-xs text-white/70">{composicao ? nota : 'Custo que você informou'}</p>
         {composicao && totalPartes > 0 && (
           <>
@@ -57,7 +59,9 @@ export function ResumoCusto({ estado, resultado: r, parametros, nota, editavel, 
                     <span className={cn('h-2 w-2 rounded-full', p.cor)} aria-hidden="true" />
                     {p.rotulo}
                   </span>
-                  <span className="font-semibold">{formatarMoeda(r.partes[p.chave])}</span>
+                  <span className="font-semibold" data-valor-tipo="custo">
+                    {formatarMoeda(r.partes[p.chave])}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -145,7 +149,7 @@ export function ResumoCusto({ estado, resultado: r, parametros, nota, editavel, 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
           <SemaforoLucro situacao={r.analise.situacao} lucroPercentual={r.analise.lucroPercentual} className="px-3 py-1 text-sm" />
           {r.analise.situacao !== 'sem_custo' && (
-            <p className="text-xs text-texto-secundario">
+            <p className="text-xs text-texto-secundario" data-valor-tipo="custo">
               Sobra {formatarMoeda(r.analise.lucro)} / {sufixo}
             </p>
           )}

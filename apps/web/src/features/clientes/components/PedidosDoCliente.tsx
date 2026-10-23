@@ -24,8 +24,9 @@ export function PedidosDoCliente({ clienteId }: { clienteId: string }) {
     return <Card><EmptyState icone={ShoppingCart} titulo="Nenhum pedido" descricao="Os pedidos nascem da conversão de orçamentos aprovados." /></Card>
   }
 
+  // Na ficha do cliente, os valores seguem a escolha de pedidos do olho do topo
   return (
-    <Card>
+    <Card data-valor-area="pedidos">
       <ul className="divide-y divide-border">
         {consulta.data.data.map((p) => (
           <li key={p.id}>

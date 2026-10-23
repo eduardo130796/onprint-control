@@ -159,9 +159,9 @@ html {
 }
 
 /* "Ocultar valores" (olho do topo, lib/ocultarValores.ts): borra os valores em dinheiro só na tela.
-   Campos de dinheiro só no alcance "todos", e o campo em que se está digitando fica visível. */
+   Campos de dinheiro só se a pessoa escolheu (Aparência), e o campo em que se está digitando fica visível. */
 html.ocultar-valores [data-valor-oculto],
-html.ocultar-valores-todos input[data-valor]:not(:focus) {
+html.ocultar-valores-campos input[data-valor]:not(:focus) {
   filter: blur(7px);
   user-select: none;
 }

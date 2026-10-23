@@ -66,7 +66,7 @@ export function AbaItens({ pedido }: { pedido: PedidoComAnalise }) {
           ))}
           <div className="flex justify-between border-t border-border pt-1 text-base font-semibold text-tinta">
             <dt>Total</dt>
-            <dd>{formatarMoeda(pedido.total)}</dd>
+            <dd data-valor-tipo="total">{formatarMoeda(pedido.total)}</dd>
           </div>
           {pedido.analise && <LucroDoTotal analise={pedido.analise} rotulo="Lucro do pedido" className="!mt-3 border-t border-border pt-3" />}
         </dl>

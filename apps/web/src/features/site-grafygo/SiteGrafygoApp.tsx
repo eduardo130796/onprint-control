@@ -6,9 +6,9 @@ import { AjudaSite, TutorialSite } from './paginas/AjudaSite'
 import { InicioSite } from './paginas/InicioSite'
 import './site.css'
 
-const TITULO = `${MARCA.produto} · Sistema de gestão para gráficas e comunicação visual`
+const TITULO = `${MARCA.produto} · Sistema para gráficas com orçamento e avisos pelo WhatsApp`
 const DESCRICAO =
-  'Orçamentos, pedidos, aprovação de arte, produção, estoque e financeiro para gráficas e comunicação visual, com vitrine online para vender pelo WhatsApp. Teste grátis por 14 dias.'
+  'Sistema de gestão para gráficas e comunicação visual: orçamento enviado e aprovado pelo WhatsApp, pedido automático, arte, produção, avisos ao cliente, estoque, financeiro e vitrine online. Teste grátis por 14 dias.'
 
 /** Título e descrição da página de venda (o index.html é o mesmo do sistema) */
 function Seo() {

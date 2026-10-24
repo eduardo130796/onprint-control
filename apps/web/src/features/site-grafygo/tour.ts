@@ -1,8 +1,8 @@
-import { BarChart3, Boxes, Calculator, ClipboardList, Factory, Gauge, Globe, LayoutDashboard, Palette, ShoppingBag, Store, Wallet, type LucideIcon } from 'lucide-react'
+import { BarChart3, Boxes, Calculator, ClipboardList, Factory, Gauge, Globe, LayoutDashboard, MapPinned, MessageCircle, Palette, ShoppingBag, Smartphone, Store, Wallet, type LucideIcon } from 'lucide-react'
 
 /**
  * Visita guiada da página de venda: uma tela de verdade por área (capturas da empresa de demonstração
- * "Ponto Visual", geradas por scripts/capturas-site; ficam em public/site/).
+ * "Ponto Visual" com Playwright, 1600 × 1000; as telas do celular vão montadas em três aparelhos; ficam em public/site/).
  */
 export interface AreaTour {
   id: string
@@ -32,34 +32,56 @@ export const TOUR: AreaTour[] = [
     id: 'orcamentos',
     rotulo: 'Orçamentos',
     icone: Calculator,
-    titulo: 'Orçamento calculado na hora, com a sua marca',
-    texto: 'Escolha o produto, informe as medidas e os acabamentos: o preço sai pelo custo real e pela margem que você definiu.',
-    pontos: ['m², metro linear, milheiro, hora ou unidade', 'PDF com a sua logo e cores', 'Link para o cliente aprovar pelo celular', 'Kanban do que está em negociação'],
+    titulo: 'Orçamento calculado na hora e enviado no WhatsApp',
+    texto: 'Escolha o produto, as medidas e os acabamentos: o preço sai pelo custo real e pela margem. A mensagem já vai pronta, com o PDF.',
+    pontos: ['Itens, total, pagamento, prazo e validade na mensagem', 'Entrada e parcelas combinadas em cada orçamento', '"Precisa de arte" marcado por item', 'O cliente responde "APROVADO" ou aprova pelo link'],
     imagem: '/site/tour-orcamentos.webp',
-    alt: 'Lista de orçamentos com situação, cliente e valor',
+    alt: 'Envio do orçamento pelo WhatsApp com a prévia da mensagem e o PDF anexado',
     endereco: 'app.grafygo.com.br/orcamentos',
+  },
+  {
+    id: 'whatsapp',
+    rotulo: 'WhatsApp',
+    icone: MessageCircle,
+    titulo: 'Avisos do pedido saindo sozinhos, do seu número',
+    texto: 'Conecte o WhatsApp da gráfica lendo um QR code, como no WhatsApp Web. O cliente recebe os avisos do pedido sem ninguém digitar nada.',
+    pontos: ['Pedido confirmado, pronto, saiu para entrega e pagamento', 'Horário de envio e intervalo entre mensagens', 'Avisos do mesmo pedido numa mensagem só', 'Tudo registrado: enviadas, na fila e com falha'],
+    imagem: '/site/tour-whatsapp.webp',
+    alt: 'Tela do WhatsApp com a conexão, os avisos automáticos e as mensagens enviadas',
+    endereco: 'app.grafygo.com.br/whatsapp',
   },
   {
     id: 'pedidos',
     rotulo: 'Pedidos e entregas',
     icone: ClipboardList,
-    titulo: 'Aprovou, virou pedido. Sem digitar de novo',
-    texto: 'O pedido nasce do orçamento com itens, prazos e pagamentos. Todo mundo vê em que etapa está.',
-    pontos: ['Sinal, parcelas e o que falta pagar', 'Etiquetas e ficha do entregador', 'Kanban de pedidos', 'Histórico de tudo o que mudou'],
+    titulo: 'Aprovou, virou pedido. Sozinho',
+    texto: 'O orçamento aprovado vira pedido na hora, com itens, prazo e as parcelas combinadas. A tela de todo mundo atualiza ao vivo.',
+    pontos: ['Sinal, parcelas e o que falta pagar', 'Aviso na tela quando o cliente aprova', 'Kanban de pedidos com o andamento da arte', 'Etiquetas e ficha do entregador'],
     imagem: '/site/tour-pedidos.webp',
     alt: 'Kanban de pedidos por etapa',
     endereco: 'app.grafygo.com.br/pedidos',
   },
   {
     id: 'arte',
-    rotulo: 'Aprovação de arte',
+    rotulo: 'Arte',
     icone: Palette,
-    titulo: 'Arte aprovada pelo cliente, com registro',
-    texto: 'Mande a prova por link. O cliente aprova ou pede ajuste pelo celular, e a resposta fica no pedido com data e hora.',
-    pontos: ['Sem precisar de login para o cliente', 'Versões da arte guardadas', 'Ajuste pedido vira tarefa', 'Fim do "eu não aprovei isso"'],
+    titulo: 'Arte só quando precisa, aprovada do seu jeito',
+    texto: 'Envie a arte na conversa do WhatsApp, com os arquivos anexados, ou aprove internamente. Itens que não precisam de arte seguem direto para a produção.',
+    pontos: ['"Cliente aprovou todas as artes" num clique', 'Uma mensagem por pedido, um link só', 'Versões guardadas, com data e hora', 'Item sem arte não trava o pedido'],
     imagem: '/site/tour-arte.webp',
-    alt: 'Página de aprovação de arte vista pelo cliente',
-    endereco: 'app.grafygo.com.br/arte',
+    alt: 'Aba Arte do pedido com as artes de cada item e a aprovação em um clique',
+    endereco: 'app.grafygo.com.br/pedidos',
+  },
+  {
+    id: 'acompanhamento',
+    rotulo: 'Acompanhe seu pedido',
+    icone: MapPinned,
+    titulo: 'O cliente acompanha o pedido pelo celular',
+    texto: 'Cada pedido tem um link com a marca da gráfica. O cliente vê tudo sem login e sem instalar nada, e para de ligar perguntando "já está pronto?".',
+    pontos: ['Situação e previsão de entrega', 'Itens, arte e aprovação', 'O que já pagou e o que falta', 'Endereço e horário de retirada'],
+    imagem: '/site/tour-acompanhamento.webp',
+    alt: 'Página "Acompanhe seu pedido" no celular: andamento, artes, itens e pagamento',
+    endereco: 'app.grafygo.com.br/pedido',
   },
   {
     id: 'producao',
@@ -144,9 +166,20 @@ export const TOUR: AreaTour[] = [
     icone: Globe,
     titulo: 'Seu site de produtos, pronto para o WhatsApp',
     texto: 'Os produtos do catálogo viram um site da gráfica. O cliente monta a lista e o pedido chega organizado no sistema.',
-    pontos: ['Endereço próprio ou o seu domínio', 'Lista de orçamento com medidas', 'Catálogo em PDF com botão do WhatsApp', 'Prévia bonita ao mandar o link'],
+    pontos: ['Endereço que você escolhe ou o seu domínio', 'Lista de orçamento com medidas', 'Catálogo em PDF com botão do WhatsApp', 'Prévia bonita ao mandar o link'],
     imagem: '/site/tour-vitrine.webp',
     alt: 'Site de produtos da gráfica (vitrine online)',
+    endereco: 'pontovisual.grafygo.com.br',
+  },
+  {
+    id: 'vitrine-celular',
+    rotulo: 'Vitrine no celular',
+    icone: Smartphone,
+    titulo: 'No celular do cliente, parece um aplicativo',
+    texto: 'Barra embaixo, fotos que passam com o dedo e o preço estimado enquanto o cliente digita as medidas. A lista vai para você pelo WhatsApp.',
+    pontos: ['Estimativa ao vivo pelas medidas', 'Galeria de fotos de cada produto', 'Lista de orçamento enviada pelo WhatsApp', 'Busca e categorias sempre à mão'],
+    imagem: '/site/tour-vitrine-celular.webp',
+    alt: 'Vitrine no celular: início, página do produto e estimativa pelas medidas',
     endereco: 'pontovisual.grafygo.com.br',
   },
 ]

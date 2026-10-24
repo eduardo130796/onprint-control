@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Clock, Crown, Sparkles } from 'lucide-react'
+import { Check, Crown, Sparkles } from 'lucide-react'
 import { economiaAnual, formatarMoeda, mensalNoAnual, type CicloAssinatura } from '@onprint/shared'
 import { cn } from '@/lib/utils'
 import { INCLUSO } from '../conteudo'
@@ -7,10 +7,10 @@ import { linkCadastro, type PlanoPublico, type PlanosPublicos } from '../dados'
 
 /** O que cada módulo entrega, em linguagem de venda (a ordem segue os planos) */
 const RECURSO_DO_MODULO: Record<string, string> = {
-  orcamentos: 'Orçamentos com cálculo automático',
+  orcamentos: 'Orçamentos com cálculo e pagamento combinado',
   pedidos: 'Pedidos, entregas e etiquetas',
-  artes: 'Aprovação de arte por link',
-  clientes: 'Clientes e histórico de compras',
+  artes: 'Arte na conversa, aprovação interna ou por link',
+  clientes: 'Clientes pelo CNPJ, com histórico de compras',
   fornecedores: 'Fornecedores',
   produtos: 'Catálogo, insumos e precificação',
   financeiro: 'Contas a pagar e a receber',
@@ -20,9 +20,10 @@ const RECURSO_DO_MODULO: Record<string, string> = {
   estoque: 'Estoque, compras e alertas',
   relatorios: 'Relatórios e lucratividade',
   vitrine: 'Vitrine online: site + catálogo no WhatsApp',
+  whatsapp: 'WhatsApp automático: orçamento e avisos do pedido pelo seu número',
 }
-/** Módulos ainda em desenvolvimento: aparecem como "em breve" */
-const EM_BREVE: Record<string, string> = { whatsapp: 'Integração com o WhatsApp' }
+/** Módulos em destaque na lista do plano (ícone e texto mais fortes) */
+const DESTAQUES = new Set(['vitrine', 'whatsapp'])
 
 function Preco({ p, ciclo }: { p: PlanoPublico; ciclo: CicloAssinatura }) {
   if (ciclo === 'anual' && p.valorAnual) {
@@ -92,7 +93,6 @@ export function Planos({ dados, cupom }: { dados: PlanosPublicos | null; cupom: 
           {planos.map((p, i) => {
             const anterior = planos[i - 1]
             const novos = p.modulos.filter((m) => RECURSO_DO_MODULO[m] && !anterior?.modulos.includes(m))
-            const emBreve = p.modulos.filter((m) => EM_BREVE[m])
             const ehDestaque = p.codigo === destaque
             return (
               <article
@@ -133,17 +133,9 @@ export function Planos({ dados, cupom }: { dados: PlanosPublicos | null; cupom: 
                     </li>
                   )}
                   {novos.map((m) => (
-                    <li key={m} className={cn('flex items-start gap-2.5 text-slate-700', m === 'vitrine' && 'font-semibold text-[#021A40]')}>
-                      {m === 'vitrine' ? <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[#F97316]" aria-hidden="true" /> : <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#0265DC]" aria-hidden="true" />}
+                    <li key={m} className={cn('flex items-start gap-2.5 text-slate-700', DESTAQUES.has(m) && 'font-semibold text-[#021A40]')}>
+                      {DESTAQUES.has(m) ? <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[#F97316]" aria-hidden="true" /> : <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#0265DC]" aria-hidden="true" />}
                       {RECURSO_DO_MODULO[m]}
-                    </li>
-                  ))}
-                  {emBreve.map((m) => (
-                    <li key={m} className="flex items-start gap-2.5 text-slate-500">
-                      <Clock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                      <span>
-                        {EM_BREVE[m]} <span className="ml-1 inline-block whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-[0.6875rem] font-semibold">em breve</span>
-                      </span>
                     </li>
                   ))}
                 </ul>

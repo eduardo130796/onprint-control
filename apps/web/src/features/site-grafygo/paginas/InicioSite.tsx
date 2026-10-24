@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowRight, BadgeCheck, Check, ChevronDown, CreditCard, FileText, Lock, Menu, MessageCircle, QrCode, Receipt, ShieldCheck, Sparkles, X } from 'lucide-react'
+import { ArrowRight, BadgeCheck, BellRing, Check, ChevronDown, CreditCard, FileText, Lock, Menu, MessageCircle, QrCode, Receipt, RefreshCw, ShieldCheck, Sparkles, Wallet, X } from 'lucide-react'
 import { MARCA, anosDireitos, documentoTitular } from '@/app/marca'
 import { Logo } from '@/components/layout/Logo'
 import { cn } from '@/lib/utils'
-import { FLUXO, PERGUNTAS, RECURSOS, VITRINE_ITENS } from '../conteudo'
+import { FLUXO, PERGUNTAS, RECURSOS, VITRINE_ITENS, WHATSAPP_ITENS } from '../conteudo'
 import { baseSistema, linkCadastro, usePlanosPublicos, whatsappSuporte, type PlanosPublicos } from '../dados'
-import { MockAprovacao, MockArte, MockPainel, MockVitrine } from '../componentes/Mockups'
+import { CelularImagem, MockAvisoAprovacao, MockMiniConversa, MockPainel, MockVitrine, MockWhatsappOrcamento, MockWhatsappPronto } from '../componentes/Mockups'
 import { Personalizacao } from '../componentes/Personalizacao'
 import { Planos } from '../componentes/Planos'
 import { Tour } from '../componentes/Tour'
 
 const NAV = [
+  { href: '#whatsapp', rotulo: 'WhatsApp' },
   { href: '#por-dentro', rotulo: 'Por dentro' },
-  { href: '#personalizacao', rotulo: 'Sua marca' },
   { href: '#recursos', rotulo: 'Recursos' },
   { href: '#vitrine', rotulo: 'Vitrine online' },
   { href: '#planos', rotulo: 'Planos' },
@@ -111,11 +111,11 @@ function Hero({ dados, cupom }: { dados: PlanosPublicos | null; cupom: string | 
           <p className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-[#021A40] shadow-sm ring-1 ring-slate-200">
             <Sparkles className="h-3.5 w-3.5 text-[#F97316]" aria-hidden="true" /> Feito para gráficas e comunicação visual
           </p>
-          <h1 className="mt-6 font-titulo text-[2.5rem] font-extrabold leading-[1.05] tracking-tight text-[#021A40] sm:text-6xl lg:text-[3.5rem] xl:text-[3.75rem]">
-            Gestão inteligente para quem <span className="text-[#0265DC]">transforma ideias.</span>
+          <h1 className="mt-6 font-titulo text-[2.125rem] font-extrabold leading-[1.08] tracking-tight text-[#021A40] sm:text-5xl lg:text-[2.75rem] xl:text-[3.125rem]">
+            Orçamento, pedido e produção da gráfica. <span className="text-[#0265DC]">O cliente aprova pelo WhatsApp.</span>
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-slate-600">
-            Orçamento, pedido, arte, produção, estoque e financeiro num só lugar. E um site de produtos que traz pedidos direto para o seu WhatsApp.
+            O orçamento chega completo no WhatsApp do cliente, ele responde “APROVADO” e o pedido nasce sozinho. Arte, produção, estoque e financeiro num só lugar, com avisos automáticos até a entrega.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
             <BotaoTestar dados={dados} cupom={cupom} />
@@ -133,8 +133,8 @@ function Hero({ dados, cupom }: { dados: PlanosPublicos | null; cupom: string | 
         </div>
         <div className="relative">
           <MockPainel />
-          <MockAprovacao className="absolute -bottom-16 -left-4 hidden w-44 rotate-[-4deg] sm:block lg:-left-2 xl:-left-8" />
-          <MockArte className="absolute -right-2 -top-6 hidden w-52 rotate-[3deg] sm:block" />
+          <MockMiniConversa className="absolute -bottom-16 -left-4 hidden w-48 rotate-[-4deg] sm:block lg:-left-2 xl:-left-8" />
+          <MockAvisoAprovacao className="absolute -right-2 -top-8 hidden w-64 rotate-[2deg] sm:flex" />
         </div>
       </Container>
     </section>
@@ -143,8 +143,8 @@ function Hero({ dados, cupom }: { dados: PlanosPublicos | null; cupom: string | 
 
 function Dores() {
   const dores = [
-    { antes: 'Orçamento perdido no meio da conversa do WhatsApp', depois: 'Todos os orçamentos num lugar, com status e lembrete do que está para vencer.' },
-    { antes: 'Cliente que "não aprovou aquela arte"', depois: 'Aprovação por link, com data e hora registradas no pedido.' },
+    { antes: 'Orçamento copiado e colado, perdido no meio da conversa', depois: 'O orçamento sai pelo WhatsApp da gráfica, com o PDF, e fica registrado com status e validade.' },
+    { antes: 'Cliente ligando para saber se "já está pronto"', depois: 'Avisos automáticos do pedido e um link para ele acompanhar tudo pelo celular.' },
     { antes: 'Não saber se o trabalho dá lucro', depois: 'Custo de material e máquina em cada produto e o lucro de cada pedido.' },
   ]
   return (
@@ -167,6 +167,112 @@ function Dores() {
               </p>
             </div>
           ))}
+        </div>
+      </Container>
+    </section>
+  )
+}
+
+function Whatsapp() {
+  const automatico = [
+    { icone: RefreshCw, titulo: 'Aprovou, virou pedido', texto: 'Sozinho, com os itens, o prazo e o pagamento combinado no orçamento.' },
+    { icone: Wallet, titulo: 'Parcelas no financeiro', texto: 'A entrada e as parcelas do orçamento já entram nas contas a receber.' },
+    { icone: BellRing, titulo: 'Tela ao vivo', texto: 'Todo mundo vê na hora quando o cliente aprova, sem atualizar a página.' },
+  ]
+  return (
+    <section id="whatsapp" className="relative scroll-mt-20 overflow-hidden bg-white py-20 sm:py-28" aria-labelledby="titulo-whatsapp">
+      <div className="pointer-events-none absolute -left-40 top-20 h-96 w-96 rounded-full bg-[#25D366]/10 blur-3xl" aria-hidden="true" />
+      <Container className="relative">
+        <div className="grid items-center gap-14 lg:grid-cols-[1fr_1.05fr] lg:gap-12">
+          <div>
+            <p className="inline-flex items-center gap-2 rounded-full bg-[#E7FBEF] px-3.5 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-[#0B6B3A]">
+              <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" /> WhatsApp no centro
+            </p>
+            <h2 id="titulo-whatsapp" className="mt-4 font-titulo text-3xl font-extrabold leading-tight text-[#021A40] sm:text-4xl">
+              O orçamento vai pelo WhatsApp. O cliente responde “APROVADO”. Pronto.
+            </h2>
+            <p className="mt-5 text-lg leading-relaxed text-slate-600">
+              Nada de copiar e colar: a mensagem sai do número da sua gráfica com itens, total, pagamento, prazo e validade, e o PDF anexado. Depois, os avisos do pedido seguem sozinhos até a
+              retirada.
+            </p>
+            <ul className="mt-9 grid gap-4 sm:grid-cols-2">
+              {WHATSAPP_ITENS.map((w) => (
+                <li key={w.titulo} className="rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-200">
+                  <p className="flex items-start gap-2 font-semibold text-[#021A40]">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#16A34A]" aria-hidden="true" /> {w.titulo}
+                  </p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{w.texto}</p>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-6 flex items-start gap-2.5 rounded-2xl bg-[#F5F8FC] p-4 text-sm leading-relaxed text-slate-600 ring-1 ring-slate-200">
+              <QrCode className="mt-0.5 h-5 w-5 shrink-0 text-[#0265DC]" aria-hidden="true" />
+              <span>
+                <strong className="font-semibold text-[#021A40]">Usa o número que você já tem</strong>, conectado por QR code como no WhatsApp Web, sem custo por mensagem. Só avisos dos pedidos
+                para os seus clientes, nunca envio em massa. O envio automático está no plano Completo; nos outros, a mensagem sai pronta e abre no seu WhatsApp.
+              </span>
+            </p>
+          </div>
+          <div className="relative mx-auto grid w-full max-w-[34rem] gap-6 sm:grid-cols-2 sm:gap-5">
+            <MockWhatsappOrcamento className="mx-auto w-full max-w-[17rem]" />
+            <MockWhatsappPronto className="mx-auto w-full max-w-[17rem] sm:mt-16" />
+          </div>
+        </div>
+
+        <div className="mt-20 rounded-3xl bg-[#021A40] p-6 text-white sm:p-10">
+          <div className="grid items-center gap-8 lg:grid-cols-[1fr_1.6fr]">
+            <div>
+              <Sobretitulo claro>Automático e ao vivo</Sobretitulo>
+              <h3 className="mt-3 font-titulo text-2xl font-extrabold sm:text-3xl">O cliente aprovou? O sistema já fez o resto.</h3>
+              <MockAvisoAprovacao className="mt-6 max-w-sm" />
+            </div>
+            <ul className="grid gap-4 sm:grid-cols-3">
+              {automatico.map((a) => (
+                <li key={a.titulo} className="rounded-2xl bg-white/[0.06] p-5 ring-1 ring-white/10">
+                  <a.icone className="h-5 w-5 text-[#02BAF8]" aria-hidden="true" />
+                  <p className="mt-3 font-semibold">{a.titulo}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-white/70">{a.texto}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </Container>
+    </section>
+  )
+}
+
+function Acompanhe() {
+  const pontos = [
+    'Situação do pedido e previsão de entrega',
+    'Itens e a arte, para ver e aprovar',
+    'O que já pagou, o que falta e a próxima parcela',
+    'Endereço e horário de retirada',
+    'Botão para falar com a gráfica no WhatsApp',
+  ]
+  return (
+    <section id="acompanhe" className="scroll-mt-20 py-20 sm:py-28" aria-labelledby="titulo-acompanhe">
+      <Container className="grid items-center gap-14 lg:grid-cols-[1.05fr_1fr]">
+        <div className="order-2 mx-auto grid w-full max-w-[30rem] grid-cols-2 items-start gap-4 sm:gap-6 lg:order-1">
+          <CelularImagem src="/site/acompanhe-topo.webp" alt="Página Acompanhe seu pedido no celular: situação do pedido e as artes para aprovar" />
+          <CelularImagem src="/site/acompanhe-pagamento.webp" alt="Página Acompanhe seu pedido no celular: retirada no balcão e pagamento" className="mt-12" />
+        </div>
+        <div className="order-1 lg:order-2">
+          <Sobretitulo>Acompanhe seu pedido</Sobretitulo>
+          <h2 id="titulo-acompanhe" className="mt-3 font-titulo text-3xl font-extrabold leading-tight text-[#021A40] sm:text-4xl">
+            Seu cliente para de ligar perguntando “já está pronto?”
+          </h2>
+          <p className="mt-4 text-lg leading-relaxed text-slate-600">
+            Cada pedido tem uma página com a marca da sua gráfica, que abre no celular sem login e sem aplicativo. O link vai junto dos avisos do WhatsApp.
+          </p>
+          <ul className="mt-8 space-y-3">
+            {pontos.map((t) => (
+              <li key={t} className="flex items-start gap-2.5 text-slate-700">
+                <Check className="mt-0.5 h-5 w-5 shrink-0 text-[#0265DC]" aria-hidden="true" /> {t}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-6 text-sm text-slate-500">Em todos os planos.</p>
         </div>
       </Container>
     </section>
@@ -255,7 +361,7 @@ function Fluxo() {
             Do orçamento à entrega, sem retrabalho
           </h2>
         </div>
-        <ol className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-6">
+        <ol className="mt-14 grid gap-6 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
           {FLUXO.map((f, i) => (
             <li key={f.titulo} className="relative text-center">
               {i < FLUXO.length - 1 && <span className="absolute left-1/2 top-7 hidden h-0.5 w-full bg-gradient-to-r from-[#0265DC]/40 to-[#02BAF8]/20 lg:block" aria-hidden="true" />}
@@ -284,7 +390,7 @@ function Vitrine({ dados, cupom }: { dados: PlanosPublicos | null; cupom: string
             Seu catálogo vendendo no WhatsApp, 24 horas por dia
           </h2>
           <p className="mt-5 max-w-xl text-lg text-white/75">
-            Um site com os seus produtos e preços, montado a partir do que já está no sistema. O cliente monta a lista e o pedido de orçamento chega organizado, pronto para responder.
+            Um site com os seus produtos e preços, montado a partir do que já está no sistema e feito para o celular. O cliente vê a estimativa pelas medidas, monta a lista e manda pelo WhatsApp: o pedido chega organizado, pronto para virar orçamento.
           </p>
           <ul className="mt-9 grid gap-5 sm:grid-cols-2">
             {VITRINE_ITENS.map((v) => (
@@ -493,6 +599,8 @@ export function InicioSite() {
       <main id="conteudo">
         <Hero dados={dados} cupom={cupom} />
         <Dores />
+        <Whatsapp />
+        <Acompanhe />
         <PorDentro />
         <SuaMarca />
         <Recursos />

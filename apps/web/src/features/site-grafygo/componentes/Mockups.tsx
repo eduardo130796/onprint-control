@@ -1,4 +1,4 @@
-import { ArrowUpRight, Check, ClipboardList, Factory, LayoutDashboard, MessageCircle, Palette, Search, ShoppingBag, Wallet } from 'lucide-react'
+import { ArrowUpRight, CheckCheck, ChevronLeft, ClipboardList, Factory, FileText, LayoutDashboard, MessageCircle, Phone, Search, ShoppingBag, Video, Wallet, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -124,35 +124,12 @@ function Celular({ children, className }: { children: React.ReactNode; className
   )
 }
 
-/** O cliente aprova o orçamento pelo celular */
-export function MockAprovacao({ className }: { className?: string }) {
+/** Captura de verdade dentro do aparelho (lazy) */
+export function CelularImagem({ src, alt, className }: { src: string; alt: string; className?: string }) {
   return (
-    <Celular className={className}>
-      <div className="bg-[#0265DC] px-4 pb-4 pt-8 text-white">
-        <p className="text-[0.625rem] opacity-80">Gráfica Horizonte</p>
-        <p className="text-sm font-extrabold">Orçamento ORC-0142</p>
-      </div>
-      <div className="space-y-2 p-4">
-        {[
-          ['Banner lona 440 g · 3×1 m', 'R$ 210,00'],
-          ['Adesivo vinil · 2×0,5 m', 'R$ 140,00'],
-          ['Instalação', 'R$ 90,00'],
-        ].map(([d, v]) => (
-          <div key={d} className="flex justify-between gap-2 border-b border-slate-100 pb-2 text-[0.625rem]">
-            <span className="text-slate-700">{d}</span>
-            <span className="shrink-0 font-semibold text-slate-900">{v}</span>
-          </div>
-        ))}
-        <div className="flex items-end justify-between pt-1">
-          <span className="text-[0.625rem] text-slate-500">Total</span>
-          <span className="text-lg font-extrabold text-slate-900">R$ 440,00</span>
-        </div>
-        <div className="mt-2 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 py-2.5 text-xs font-bold text-white">
-          <Check className="h-3.5 w-3.5" /> Aprovar orçamento
-        </div>
-        <div className="rounded-xl py-2 text-center text-[0.625rem] font-semibold text-slate-500 ring-1 ring-slate-200">Pedir ajuste</div>
-      </div>
-    </Celular>
+    <div className={cn('rounded-[2.25rem] bg-[#0B1B33] p-2 shadow-[0_2rem_4rem_-1.5rem_rgba(2,26,64,0.5)]', className)}>
+      <img src={src} alt={alt} width={585} height={1266} loading="lazy" decoding="async" className="block aspect-[585/1266] w-full rounded-[1.75rem] bg-slate-100" />
+    </div>
   )
 }
 
@@ -206,18 +183,208 @@ export function MockVitrine({ className }: { className?: string }) {
   )
 }
 
-/** Arte enviada e aprovada (cartão pequeno para a seção de recursos) */
-export function MockArte({ className }: { className?: string }) {
+// ─── WhatsApp: a conversa como o cliente vê (textos iguais aos das mensagens prontas do sistema) ───
+
+/** *negrito* do WhatsApp */
+function Negrito({ texto }: { texto: string }) {
   return (
-    <div className={cn('rounded-2xl bg-white p-3 shadow-lg ring-1 ring-slate-900/10', className)} aria-hidden="true">
-      <div className="flex items-center gap-2">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-100 text-violet-700">
-          <Palette className="h-3.5 w-3.5" />
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-[0.6875rem] font-bold text-slate-900">Arte v2 · Fachada</p>
-          <p className="text-[0.5625rem] text-emerald-600">Aprovada pelo cliente · 14:32</p>
+    <>
+      {texto.split(/(\*[^*\n]+\*)/g).map((t, i) =>
+        t.length > 2 && t.startsWith('*') && t.endsWith('*') ? (
+          <strong key={i} className="font-bold">
+            {t.slice(1, -1)}
+          </strong>
+        ) : (
+          <span key={i}>{t}</span>
+        ),
+      )}
+    </>
+  )
+}
+
+function Hora({ hora, lida }: { hora: string; lida?: boolean }) {
+  return (
+    <span className="float-right ml-2 mt-1 flex translate-y-0.5 items-center gap-0.5 text-[0.5rem] font-normal text-slate-500">
+      {hora}
+      {lida && <CheckCheck className="h-2.5 w-2.5 text-sky-500" />}
+    </span>
+  )
+}
+
+/** Balão recebido (da gráfica), com a prévia do link no topo quando o link fecha a mensagem */
+function BalaoRecebido({ texto, hora, previa }: { texto: string; hora: string; previa?: { titulo: string; site: string } }) {
+  return (
+    <div className="mr-5 rounded-lg rounded-tl-none bg-white p-1 shadow-sm">
+      {previa && (
+        <div className="mb-1 flex overflow-hidden rounded-md bg-slate-100">
+          <span className="w-1 shrink-0 bg-[#0265DC]" />
+          <div className="min-w-0 px-2 py-1">
+            <p className="truncate text-[0.5625rem] font-bold text-slate-800">{previa.titulo}</p>
+            <p className="truncate text-[0.5rem] text-slate-500">{previa.site}</p>
+          </div>
         </div>
+      )}
+      <p className="whitespace-pre-line break-words px-1 text-[0.5625rem] leading-[1.4] text-slate-800">
+        <Negrito texto={texto} />
+        <Hora hora={hora} />
+      </p>
+    </div>
+  )
+}
+
+function BalaoEnviado({ texto, hora }: { texto: string; hora: string }) {
+  return (
+    <div className="ml-auto w-fit rounded-lg rounded-tr-none bg-[#D9FDD3] px-2 py-1 shadow-sm">
+      <p className="text-[0.625rem] text-slate-800">
+        <Negrito texto={texto} />
+        <Hora hora={hora} lida />
+      </p>
+    </div>
+  )
+}
+
+function BalaoPdf({ nome, hora }: { nome: string; hora: string }) {
+  return (
+    <div className="mr-5 rounded-lg bg-white p-1 shadow-sm">
+      <div className="flex items-center gap-2 rounded-md bg-slate-100 px-2 py-1.5">
+        <span className="flex h-6 w-5 shrink-0 items-center justify-center rounded-sm bg-[#E5484D] text-[0.4375rem] font-black text-white">PDF</span>
+        <div className="min-w-0">
+          <p className="truncate text-[0.5625rem] font-semibold text-slate-800">{nome}</p>
+          <p className="text-[0.5rem] text-slate-500">1 página · PDF</p>
+        </div>
+      </div>
+      <p className="px-1 text-right text-[0.5rem] text-slate-500">{hora}</p>
+    </div>
+  )
+}
+
+function TelaWhatsapp({ children, contato }: { children: React.ReactNode; contato: string }) {
+  return (
+    <>
+      <div className="flex items-center gap-2 bg-[#008069] px-2.5 pb-2 pt-7 text-white">
+        <ChevronLeft className="h-3.5 w-3.5 shrink-0" />
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-[0.5625rem] font-black text-teal-800">H</span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[0.6875rem] font-bold">{contato}</p>
+          <p className="text-[0.5rem] opacity-80">online</p>
+        </div>
+        <Video className="h-3.5 w-3.5 shrink-0" />
+        <Phone className="h-3 w-3 shrink-0" />
+      </div>
+      <div className="space-y-1.5 bg-[#EFEAE2] px-2 pb-4 pt-2.5">{children}</div>
+    </>
+  )
+}
+
+function Dia({ children }: { children: React.ReactNode }) {
+  return <p className="mx-auto w-fit rounded-md bg-white/90 px-2 py-0.5 text-[0.5rem] font-medium text-slate-500 shadow-sm">{children}</p>
+}
+
+const ITENS = '• 1× Banner em lona 440 g 3,0 × 1,0 m — R$ 210,00\n• 2× Adesivo vinil 2,0 × 0,5 m — R$ 140,00'
+
+const MSG_ORCAMENTO = `Olá, Mariana!
+
+Segue o seu orçamento *ORC-0142*:
+${ITENS}
+
+Total: *R$ 350,00*
+Pagamento: Entrada de R$ 175,00 (50%) na aprovação + 1× de R$ 175,00 em 30 dias
+Prazo de produção: *3 dias úteis*
+Válido até *31/10/2026*
+
+Responda *APROVADO* aqui mesmo ou peça o ajuste que precisar.
+
+— Gráfica Horizonte
+
+Se preferir, veja e aprove pelo link:
+https://app.grafygo.com.br/aprovar/…`
+
+const MSG_CONFIRMADO = `Olá, Mariana!
+
+Seu pedido *PED-0098* está confirmado ✅
+Total: *R$ 350,00*
+Pago: *R$ 175,00* · Falta: *R$ 175,00*
+Previsão de entrega: *29/10/2026*
+
+Avisamos por aqui quando estiver pronto.
+
+— Gráfica Horizonte`
+
+const MSG_PRONTO = `Olá, Mariana!
+
+Seu pedido *PED-0098* está *pronto* 📦
+${ITENS}
+
+Retirada: Av. Brasil, 120 · Seg a sex, 8h às 18h
+Pago: *R$ 175,00* · Falta: *R$ 175,00*
+Pix para pagar: *financeiro@horizonte.com.br*
+
+— Gráfica Horizonte
+
+Detalhes do pedido:
+https://app.grafygo.com.br/pedido/…`
+
+/** O orçamento chega no WhatsApp com tudo no corpo e o PDF; o cliente responde APROVADO */
+export function MockWhatsappOrcamento({ className }: { className?: string }) {
+  return (
+    <Celular className={className}>
+      <TelaWhatsapp contato="Gráfica Horizonte">
+        <Dia>Hoje</Dia>
+        <BalaoRecebido texto={MSG_ORCAMENTO} hora="09:12" previa={{ titulo: 'Orçamento ORC-0142 · Gráfica Horizonte', site: 'app.grafygo.com.br' }} />
+        <BalaoPdf nome="ORC-0142 - Mariana Costa.pdf" hora="09:12" />
+        <BalaoEnviado texto="*APROVADO* 👍" hora="09:20" />
+      </TelaWhatsapp>
+    </Celular>
+  )
+}
+
+/** Avisos automáticos: pedido confirmado e pedido pronto (retirada, o que falta pagar e a chave Pix) */
+export function MockWhatsappPronto({ className }: { className?: string }) {
+  return (
+    <Celular className={className}>
+      <TelaWhatsapp contato="Gráfica Horizonte">
+        <Dia>Hoje</Dia>
+        <BalaoRecebido texto={MSG_CONFIRMADO} hora="09:22" />
+        <Dia>Quinta-feira</Dia>
+        <BalaoRecebido texto={MSG_PRONTO} hora="15:40" previa={{ titulo: 'Pedido PED-0098 · Gráfica Horizonte', site: 'app.grafygo.com.br' }} />
+        <BalaoEnviado texto="Passo aí às 17h 🙌" hora="15:43" />
+      </TelaWhatsapp>
+    </Celular>
+  )
+}
+
+/** Aviso ao vivo no sistema: o cliente aprovou e o orçamento virou pedido */
+export function MockAvisoAprovacao({ className }: { className?: string }) {
+  return (
+    <div className={cn('flex items-start gap-2.5 rounded-2xl bg-white p-3 shadow-xl ring-1 ring-slate-900/10', className)} aria-hidden="true">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+        <Zap className="h-4 w-4" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[0.6875rem] font-bold leading-snug text-slate-900">Mariana Costa aprovou o orçamento ORC-0142 · virou o pedido PED-0098</p>
+        <p className="mt-1 text-[0.625rem] font-semibold text-[#0265DC]">Abrir pedido</p>
+      </div>
+    </div>
+  )
+}
+
+/** Mini conversa do hero: o cliente respondeu APROVADO */
+export function MockMiniConversa({ className }: { className?: string }) {
+  return (
+    <div className={cn('overflow-hidden rounded-2xl bg-[#EFEAE2] shadow-xl ring-1 ring-slate-900/10', className)} aria-hidden="true">
+      <div className="flex items-center gap-1.5 bg-[#008069] px-2.5 py-1.5 text-white">
+        <MessageCircle className="h-3 w-3" />
+        <span className="text-[0.5625rem] font-bold">Gráfica Horizonte</span>
+      </div>
+      <div className="space-y-1.5 p-2">
+        <div className="mr-4 whitespace-pre-line rounded-lg rounded-tl-none bg-white px-2 py-1 text-[0.5625rem] leading-snug text-slate-800 shadow-sm">
+          <Negrito texto={'Orçamento *ORC-0142*\nTotal: *R$ 350,00*\nResponda *APROVADO* aqui mesmo'} />
+        </div>
+        <div className="mr-4 flex items-center gap-1.5 rounded-lg bg-white px-2 py-1 shadow-sm">
+          <FileText className="h-3 w-3 text-[#E5484D]" />
+          <span className="text-[0.5rem] text-slate-600">ORC-0142.pdf</span>
+        </div>
+        <BalaoEnviado texto="*APROVADO* 👍" hora="09:20" />
       </div>
     </div>
   )

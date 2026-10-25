@@ -18,6 +18,7 @@ export const EmpresaPage = carregar(() => import('@/features/configuracoes/pages
 export const PermissoesPage = carregar(() => import('@/features/configuracoes/pages/PermissoesPage'), 'PermissoesPage')
 export const AparenciaPage = carregar(() => import('@/features/aparencia/AparenciaPage'), 'AparenciaPage')
 export const AssistentePage = carregar(() => import('@/features/assistente/AssistentePage'), 'AssistentePage')
+export const RegrasComerciaisPage = carregar(() => import('@/features/regras/RegrasComerciaisPage'), 'RegrasComerciaisPage')
 export const StatusPage = carregar(() => import('@/features/configuracoes/pages/StatusPage'), 'StatusPage')
 export const TemplatesPage = carregar(() => import('@/features/configuracoes/pages/TemplatesPage'), 'TemplatesPage')
 // Painel da plataforma e cadastro público

@@ -1,4 +1,4 @@
-import { formatarDataSimples, formatarMoeda, type AnaliseLucro } from '@onprint/shared'
+import { formatarDataSimples, formatarMoeda, type AnaliseLucro, type RegraAplicada } from '@onprint/shared'
 import { MoneyInput } from '@/components/shared/inputs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -17,9 +17,12 @@ interface TotaisProps {
   /** Lucro do orçamento (semáforo para todos; números só para quem vê custos) */
   analise?: AnaliseLucro | null
   analiseDesatualizada?: boolean
+  /** Regras comerciais aplicadas (as de orçamento viram linhas: desconto à vista, pedido mínimo, urgência) */
+  regras?: RegraAplicada[]
 }
 
-export function TotaisOrcamento({ form, onChange, subtotal, total, prazoDias, previsaoEntrega, editavel, analise, analiseDesatualizada }: TotaisProps) {
+export function TotaisOrcamento({ form, onChange, subtotal, total, prazoDias, previsaoEntrega, editavel, analise, analiseDesatualizada, regras }: TotaisProps) {
+  const doOrcamento = (regras ?? []).filter((a) => a.nivel === 'orcamento' && Number(a.valor) !== 0)
   const linha = (rotulo: string, campo: 'desconto' | 'acrescimo' | 'frete') => (
     <div className="flex items-center justify-between gap-3">
       <Label htmlFor={`tot-${campo}`} className="font-normal text-texto-secundario">
@@ -44,6 +47,14 @@ export function TotaisOrcamento({ form, onChange, subtotal, total, prazoDias, pr
         {linha('(−) Desconto', 'desconto')}
         {linha('(+) Acréscimo', 'acrescimo')}
         {linha('(+) Frete / instalação', 'frete')}
+        {doOrcamento.map((a) => (
+          <div key={a.regraId} className="flex items-baseline justify-between gap-3" title="Regra comercial: o sistema aplica sozinho">
+            <span className="min-w-0 text-texto-secundario [overflow-wrap:anywhere]">
+              {Number(a.valor) < 0 ? '(−)' : '(+)'} {a.nome} <span className="text-xs">({a.efeito})</span>
+            </span>
+            <span className={Number(a.valor) < 0 ? 'shrink-0 text-green-800 dark:text-green-300' : 'shrink-0'}>{formatarMoeda(Math.abs(Number(a.valor)).toFixed(2))}</span>
+          </div>
+        ))}
         <div className="flex items-baseline justify-between border-t border-border pt-3">
           <span className="font-semibold text-tinta">Total</span>
           <span data-valor-tipo="total" className={Number(total) < 0 ? 'text-2xl font-bold text-coral-escuro' : 'text-2xl font-bold text-tinta'}>{formatarMoeda(total)}</span>
@@ -64,6 +75,13 @@ export function TotaisOrcamento({ form, onChange, subtotal, total, prazoDias, pr
           <Input id="tot-validade" type="date" className="h-9 w-40" value={form.validade} disabled={!editavel} onChange={(e) => onChange({ validade: e.target.value })} />
         </div>
         {!form.validade && editavel && <p className="text-xs text-texto-secundario">Em branco: validade padrão da empresa.</p>}
+        {/* Prazo pedido pelo cliente: as regras de urgência olham esta data */}
+        <div className="flex items-center justify-between gap-3">
+          <Label htmlFor="tot-desejada" className="font-normal text-texto-secundario">
+            Cliente precisa até
+          </Label>
+          <Input id="tot-desejada" type="date" className="h-9 w-40" value={form.dataDesejada} disabled={!editavel} onChange={(e) => onChange({ dataDesejada: e.target.value })} />
+        </div>
       </CardContent>
     </Card>
   )

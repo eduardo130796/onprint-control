@@ -27,9 +27,10 @@ import { MontarComAssistente } from '../components/editor/MontarComAssistente'
 import { PagamentoOrcamento } from '../components/editor/PagamentoOrcamento'
 import { PedidoGerado } from '../components/editor/PedidoGerado'
 import { TotaisOrcamento } from '../components/editor/TotaisOrcamento'
-import { formDoOrcamento, itemVazio, itensDaSolicitacao, juntarItens, novaChave, payloadDoForm, type FormOrcamento, type ItemForm } from '../components/editor/formOrcamento'
+import { formDoOrcamento, itemComProduto, itemVazio, itensDaSolicitacao, juntarItens, novaChave, payloadDoForm, type FormOrcamento, type ItemForm } from '../components/editor/formOrcamento'
+import { RegrasDoOrcamento } from '../components/editor/RegrasDoOrcamento'
 import { useAnaliseOrcamento } from '../components/editor/useAnaliseOrcamento'
-import { useCalculoOrcamento } from '../components/editor/useCalculoOrcamento'
+import { chaveProdutoCatalogo, useCalculoOrcamento } from '../components/editor/useCalculoOrcamento'
 
 const ABERTOS = ['rascunho', 'enviado', 'em_negociacao']
 
@@ -63,7 +64,10 @@ function Editor({
   const [form, setForm] = useState<FormOrcamento>(inicial)
   const alterado = useMemo(() => JSON.stringify(form) !== JSON.stringify(inicial), [form, inicial])
   const editavel = podeSalvar && (!orcamento || ABERTOS.includes(orcamento.status))
-  const calculo = useCalculoOrcamento(form, empresa.data?.areaMinimaM2)
+  const calculo = useCalculoOrcamento(form, empresa.data?.areaMinimaM2, { origem: orcamento?.origem })
+  const podeAprovar = usePermission('orcamentos', 'aprovar')
+  // Regras comerciais: o gerente libera o que as regras pediram (o orçamento volta com a liberação gravada)
+  const liberar = useMutacao(['orcamentos'], (id: string) => orcamentosApi.liberar(id))
   // Semáforo do lucro: o salvo (GET) ou ao vivo (POST /orcamentos/analisar) para quem pode editar
   const analise = useAnaliseOrcamento(form, calculo.itens, { orcamento, alterado, podeAnalisar: editavel })
   const salvar = useMutacao(['orcamentos', 'solicitacoes'], (dados: unknown) => (orcamento ? orcamentosApi.atualizar(orcamento.id, dados) : orcamentosApi.criar(dados)))
@@ -87,6 +91,28 @@ function Editor({
 
   const atualizar = (dados: Partial<FormOrcamento>) => setForm((f) => ({ ...f, ...dados }))
   const mudarItens = (fn: (itens: FormOrcamento['itens']) => FormOrcamento['itens']) => setForm((f) => ({ ...f, itens: fn(f.itens) }))
+
+  /** Sugestão das regras com produto ("oferecer criação de arte"): só entra quando a pessoa clica em Adicionar */
+  async function adicionarProduto(produtoId: string) {
+    try {
+      const p = await queryClient.fetchQuery({ queryKey: chaveProdutoCatalogo(produtoId), queryFn: () => orcamentosApi.produto(produtoId), staleTime: 5 * 60 * 1000 })
+      mudarItens((itens) => juntarItens(itens, [itemComProduto(itemVazio(), p, { id: p.id, rotulo: p.nome, detalhe: p.codigo })]))
+    } catch (e) {
+      toast.error((e as Error).message)
+    }
+  }
+
+  // mutateAsync: o orçamento volta liberado e o editor remonta (chave nova); o aviso não pode depender dele montado
+  async function onLiberar() {
+    if (!orcamento) return
+    try {
+      const r = await liberar.mutateAsync(orcamento.id)
+      queryClient.setQueryData(['orcamentos', 'detalhe', r.id], r)
+      toast.success('Orçamento liberado: já pode ser enviado.')
+    } catch (e) {
+      toast.error((e as Error).message)
+    }
+  }
 
   async function onSalvar() {
     const payload = payloadDoForm(form, orcamento ? undefined : solicitacaoId)
@@ -192,6 +218,8 @@ function Editor({
                 if (r.cliente && !form.cliente) setClienteSugerido(true)
                 setForm((f) => ({
                   ...f,
+                  // Orçamento novo montado pelo Assistente: a origem vira "assistente" (regras por origem)
+                  doAssistente: orcamento ? f.doAssistente : true,
                   itens: juntarItens(f.itens, r.itens),
                   cliente: f.cliente ?? r.cliente,
                   observacoesInternas: r.nota ? [f.observacoesInternas.trim(), r.nota].filter(Boolean).join('\n') : f.observacoesInternas,
@@ -256,6 +284,17 @@ function Editor({
             editavel={editavel}
             analise={analise.total}
             analiseDesatualizada={analise.desatualizado}
+            regras={calculo.regras?.aplicadas}
+          />
+          <RegrasDoOrcamento
+            regras={calculo.regras}
+            orcamento={orcamento}
+            alterado={alterado}
+            editavel={editavel}
+            podeAprovar={podeAprovar}
+            liberando={liberar.isPending}
+            onLiberar={() => void onLiberar()}
+            onAdicionarProduto={(id) => void adicionarProduto(id)}
           />
           {orcamento?.pedido && <PedidoGerado pedido={orcamento.pedido} />}
         </div>

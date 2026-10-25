@@ -1,11 +1,15 @@
 import { Document, Page, Text, View } from '@react-pdf/renderer'
 import {
+  ajustesDoOrcamentoParaCliente,
   formatarCpfCnpj,
   formatarDataHora,
   formatarDataSimples,
   formatarMoeda,
   formatarTelefone,
+  lerRegrasDoOrcamento,
   resumoCondicoesPagamento,
+  textosDoItemParaCliente,
+  textosParaCliente,
   type EmpresaConfig,
   type OrcamentoDetalhe,
 } from '@onprint/shared'
@@ -21,10 +25,14 @@ export function DocumentoOrcamento({ o, empresa, logo }: { o: OrcamentoDetalhe; 
   const contato = [formatarTelefone(o.cliente.whatsapp ?? o.cliente.telefone), o.cliente.email].filter(Boolean).join('  ·  ')
   const cliente = nomesClientePdf(o.cliente)
   const legal = [cliente.razaoSocial, o.cliente.cpfCnpj && formatarCpfCnpj(o.cliente.cpfCnpj)].filter(Boolean).join(' · ')
+  // Regras comerciais: o que mudou no item (já no total dele), as do orçamento nos totais e as frases para o cliente
+  const regras = lerRegrasDoOrcamento(o.regras)
+  const condicoes = textosParaCliente(regras)
   const totais = [
     { rotulo: 'Subtotal', valor: formatarMoeda(o.subtotal) },
     ...(Number(o.desconto) > 0 ? [{ rotulo: 'Desconto', valor: `− ${formatarMoeda(o.desconto)}` }] : []),
     ...(Number(o.acrescimo) > 0 ? [{ rotulo: 'Acréscimo', valor: formatarMoeda(o.acrescimo) }] : []),
+    ...ajustesDoOrcamentoParaCliente(regras).map((a) => ({ rotulo: a.rotulo, valor: `${Number(a.valor) < 0 ? '− ' : ''}${formatarMoeda(Math.abs(Number(a.valor)).toFixed(2))}` })),
     ...(Number(o.frete) > 0 ? [{ rotulo: 'Frete / instalação', valor: formatarMoeda(o.frete) }] : []),
   ]
 
@@ -69,12 +77,15 @@ export function DocumentoOrcamento({ o, empresa, logo }: { o: OrcamentoDetalhe; 
             { titulo: 'Unitário', largura: 70, numero: true },
             { titulo: 'Total', largura: 76, numero: true },
           ]}
-          linhas={o.itens.map((i) => [
+          linhas={o.itens.map((i, k) => [
             <View key="d">
               <Text style={{ fontWeight: 600 }}>{i.descricao}</Text>
               {i.acabamentos.length > 0 && <Text style={[base.suave, { fontSize: 7.8 }]}>Acabamentos: {i.acabamentos.map((a) => a.nome).join(', ')}</Text>}
               {i.observacao ? <Text style={[base.suave, { fontSize: 7.8 }]}>{i.observacao}</Text> : null}
               {Number(i.desconto) > 0 && <Text style={{ fontSize: 7.8, color: COR.destaqueTexto }}>Desconto no item: {formatarMoeda(i.desconto)}</Text>}
+              {(regras.itens[k] ?? []).length > 0 && (
+                <Text style={{ fontSize: 7.8, color: COR.destaqueTexto }}>{textosDoItemParaCliente(regras.itens[k]!).join(' · ')} (já no total)</Text>
+              )}
             </View>,
             Number(i.quantidade).toLocaleString('pt-BR'),
             i.largura ? `${metros(i.largura)}${i.altura ? ` × ${metros(i.altura)}` : ''}` : '—',
@@ -101,6 +112,7 @@ export function DocumentoOrcamento({ o, empresa, logo }: { o: OrcamentoDetalhe; 
             </View>
           ) : null}
         </View>
+        {condicoes.length > 0 ? <TextoPdf titulo="Condições especiais">{condicoes.join('\n')}</TextoPdf> : null}
         {o.observacoes ? <TextoPdf titulo="Observações">{o.observacoes}</TextoPdf> : null}
 
         <NotaPdf>

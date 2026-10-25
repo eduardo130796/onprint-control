@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Clock, FileSearch, Loader2, MessageCircle, ThumbsDown, Wallet, XCircle } from 'lucide-react'
+import { BadgePercent, CheckCircle2, Clock, FileSearch, Loader2, MessageCircle, ThumbsDown, Wallet, XCircle } from 'lucide-react'
 import { formatarDataHora, formatarDataSimples, formatarMoeda, formatarTelefone, type OrcamentoPublico } from '@onprint/shared'
 import { publicoApi, type LinkPublico } from '@/api/comercial'
 import { Logo } from '@/components/layout/Logo'
@@ -28,7 +28,7 @@ function Resposta({ link, orcamento }: { link: LinkPublico; orcamento: Orcamento
     onError: (e) => setErro(e.message),
   })
 
-  if (!orcamento.podeResponder) return null
+  if (!orcamento.podeResponder || orcamento.emRevisao) return null
   return (
     <Card>
       <CardContent className="space-y-4 pt-6">
@@ -92,6 +92,14 @@ function Situacao({ o }: { o: OrcamentoPublico }) {
       </div>
     )
   }
+  // Regras comerciais: a gráfica ainda está revisando (um gerente precisa liberar)
+  if (o.emRevisao && o.podeResponder) {
+    return (
+      <div className="flex items-center gap-3 rounded-2xl bg-ambar/10 p-4 text-amber-800">
+        <Clock className="h-6 w-6 shrink-0" /> <p>Este orçamento está em revisão pela gráfica. Em breve ele fica liberado para a sua aprovação.</p>
+      </div>
+    )
+  }
   if (o.expirado) {
     return (
       <div className="flex items-center gap-3 rounded-2xl bg-ambar/10 p-4 text-amber-800">
@@ -141,6 +149,7 @@ export function AprovarOrcamentoPage() {
                         {i.largura && ` · ${metros(i.largura)}${i.altura ? ` × ${metros(i.altura)}` : ''} m`}
                       </p>
                       {i.acabamentos.length > 0 && <p className="text-xs text-texto-secundario">{i.acabamentos.join(', ')}</p>}
+                      {(i.regras ?? []).length > 0 && <p className="text-xs font-medium text-green-800">{i.regras.join(' · ')} (já no valor)</p>}
                     </div>
                     <p className="shrink-0 font-medium">{formatarMoeda(i.total)}</p>
                   </li>
@@ -149,6 +158,16 @@ export function AprovarOrcamentoPage() {
               <div className="space-y-1 border-t border-border p-4 text-sm">
                 {Number(o.desconto) > 0 && <p className="flex justify-between"><span>Desconto</span><span>- {formatarMoeda(o.desconto)}</span></p>}
                 {Number(o.acrescimo) > 0 && <p className="flex justify-between"><span>Acréscimo</span><span>{formatarMoeda(o.acrescimo)}</span></p>}
+                {/* Regras comerciais no orçamento (desconto à vista, pedido mínimo, urgência), já no total */}
+                {(o.ajustesRegras ?? []).map((a) => (
+                  <p key={a.rotulo} className="flex justify-between gap-3">
+                    <span className="min-w-0">{a.rotulo}</span>
+                    <span className="shrink-0">
+                      {Number(a.valor) < 0 ? '- ' : ''}
+                      {formatarMoeda(Math.abs(Number(a.valor)).toFixed(2))}
+                    </span>
+                  </p>
+                ))}
                 {Number(o.frete) > 0 && <p className="flex justify-between"><span>Frete / instalação</span><span>{formatarMoeda(o.frete)}</span></p>}
                 <p className="flex items-baseline justify-between pt-1">
                   <span className="font-semibold text-tinta">Total</span>
@@ -167,6 +186,16 @@ export function AprovarOrcamentoPage() {
                     {o.condicoes && <p className="mt-1 text-texto-secundario">{o.condicoes}</p>}
                   </div>
                 </div>
+                {(o.condicoesEspeciais ?? []).length > 0 && (
+                  <div className="flex items-start gap-3 border-t border-border pt-3">
+                    <BadgePercent className="mt-0.5 h-5 w-5 shrink-0 text-texto-secundario" />
+                    <ul className="min-w-0 space-y-0.5">
+                      {o.condicoesEspeciais.map((c) => (
+                        <li key={c}>{c}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {o.observacoes && (
                   <p className="border-t border-border pt-3">
                     <strong>Observações:</strong> {o.observacoes}

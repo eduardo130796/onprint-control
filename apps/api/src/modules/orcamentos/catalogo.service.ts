@@ -9,6 +9,7 @@ const selecionar = {
   descricao: true,
   modoCalculo: true,
   precisaArte: true,
+  categoriaId: true,
   precoVenda: true,
   precoMinimo: true,
   larguraPadrao: true,

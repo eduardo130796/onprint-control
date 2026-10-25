@@ -16,6 +16,7 @@ import { AppError } from '../../core/AppError'
 import { contextoUsuario } from '../../core/escopo'
 import { validarStatusPersonalizado } from '../../core/status-personalizado'
 import { analiseOrcamentoSchema } from './analise'
+import { carregarRegras, etiquetasDoCliente } from './calculo'
 import { criarCatalogoService } from './catalogo.service'
 import { criarOrcamentosController } from './controller'
 import { criarConversaoService } from './conversao.service'
@@ -71,6 +72,12 @@ export const orcamentosRoutes: FastifyPluginAsyncZod = async (app) => {
 
   // ── Orçamentos ──
   const tags = ['orcamentos']
+  // Regras comerciais para o editor (ao vivo): as ativas e as etiquetas do cliente escolhido
+  app.get(
+    '/orcamentos/regras',
+    { ...pode('visualizar'), schema: { tags, summary: 'Regras comerciais ativas e etiquetas do cliente', querystring: z.object({ clienteId: z.string().uuid().optional() }) } },
+    async (req) => ({ regras: await carregarRegras(app.prisma), etiquetasCliente: await etiquetasDoCliente(app.prisma, req.query.clienteId ?? null) }),
+  )
   app.get('/orcamentos', { ...pode('visualizar'), schema: { tags, summary: 'Lista orçamentos (só os próprios sem "ver todos")', querystring: orcamentosQuerySchema } }, (req) =>
     c.listar(req, req.query),
   )
@@ -123,6 +130,11 @@ export const orcamentosRoutes: FastifyPluginAsyncZod = async (app) => {
       await app.prisma.orcamento.update({ where: { id: o.id }, data: { statusPersonalizadoId: id } })
       return c.coluna(req, await orcamentos.obter(o.id, await contextoUsuario(app, req, 'orcamentos')))
     },
+  )
+  app.post(
+    '/orcamentos/:id/liberar',
+    { onRequest: [app.exigirPermissao('orcamentos', 'aprovar')], schema: { tags, summary: 'Libera o que as regras comerciais pediram (gerente)', params: idParamSchema } },
+    (req) => c.liberar(req, req.params.id),
   )
   app.post('/orcamentos/:id/duplicar', { ...pode('criar'), schema: { tags, summary: 'Duplica como novo rascunho', params: idParamSchema } }, async (req, reply) =>
     reply.status(201).send(await c.duplicar(req, req.params.id)),

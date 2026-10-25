@@ -14,6 +14,8 @@ import type {
 } from './enums-comercial'
 import type { Auditavel, RefCliente } from './tipos'
 import type { SolicitacaoItem } from './schemas/vitrine'
+import type { OrigemOrcamento } from './schemas/regras'
+import type { RegrasDoOrcamento } from './regras-comerciais'
 
 type Ref = { id: string; nome: string }
 
@@ -58,7 +60,10 @@ export interface OrcamentoItem {
   precoUnitario: string
   valorProduto: string
   valorAcabamentos: string
+  /** Desconto manual (o das regras comerciais fica em ajusteRegras) */
   desconto: string
+  /** Regras comerciais no item, com sinal (negativo = desconto) */
+  ajusteRegras: string
   total: string
   /** Só para quem vê custos */
   custoEstimado?: string
@@ -129,6 +134,18 @@ export interface Orcamento extends Auditavel {
   recusadoEm: string | null
   motivoRecusa: string | null
   pedidoId: string | null
+  /** De onde veio (condição "origem" das regras comerciais) */
+  origem: OrigemOrcamento
+  /** Data em que o cliente quer o pedido */
+  dataDesejada: string | null
+  /** Regras comerciais no orçamento (descontos/acréscimos de orçamento e pedido mínimo), com sinal */
+  ajusteRegras: string
+  /** O que as regras fizeram no último salvamento (orçamentos antigos: {}; use lerRegrasDoOrcamento) */
+  regras: Partial<RegrasDoOrcamento>
+  /** Precisa da liberação de um gerente: não pode ser enviado nem aprovado */
+  liberacaoPendente: boolean
+  liberadoPor?: Ref | null
+  liberadoEm: string | null
   /** Pedido gerado na conversão (no detalhe vem o resumo completo) */
   pedido?: { id: string; numero: string } | null
   /** Lista/kanban: quantidade de itens e os 3 primeiros ("10 × Caneca") */
@@ -169,11 +186,21 @@ export interface OrcamentoPublico {
     altura: string | null
     acabamentos: string[]
     total: string
+    /** Descontos e acréscimos das regras no item, para o cliente ("Desconto de 5%") */
+    regras: string[]
   }[]
   subtotal: string
   desconto: string
   acrescimo: string
   frete: string
+  /** Regras comerciais no orçamento (com sinal): desconto à vista, pedido mínimo, urgência… */
+  ajusteRegras: string
+  /** As mesmas, linha a linha, com o texto para o cliente (ajustesDoOrcamentoParaCliente) */
+  ajustesRegras: { rotulo: string; valor: string }[]
+  /** Frases das regras para o cliente ("Desconto de 5% por quantidade") */
+  condicoesEspeciais: string[]
+  /** Em revisão pela gráfica (aguardando um gerente): ainda não pode ser aprovado */
+  emRevisao: boolean
   total: string
   prazoDias: number
   /** Resumo do pagamento combinado (resumoCondicoesPagamento) */
@@ -201,6 +228,8 @@ export interface ProdutoCatalogo {
   prazoProducaoDias: number
   /** Padrão do "Precisa de arte" do item no orçamento */
   precisaArte: boolean
+  /** Condição "categoria" das regras comerciais */
+  categoriaId: string | null
   custo?: string
   acabamentos: {
     acabamentoId: string

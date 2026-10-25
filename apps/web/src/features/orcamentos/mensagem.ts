@@ -1,7 +1,10 @@
 import {
+  descontosMensagem,
   formatarDataSimples,
   formatarMoeda,
   inserirAntesDoFim,
+  lerRegrasDoOrcamento,
+  textosParaCliente,
   listaItensMensagem,
   nomeCliente,
   nomeParaSaudacao,
@@ -25,10 +28,16 @@ export function linkAprovacao(token: string): string {
  * vai logo abaixo.
  */
 export function mensagemDoOrcamento(o: OrcamentoDetalhe, templates: MensagemTemplate[] | undefined, empresa: string, comPdf = false): string {
-  const texto = preencherMensagem(textoDoTemplate('orcamento_enviado', templates), {
+  const conteudo = textoDoTemplate('orcamento_enviado', templates)
+  // Regras comerciais: as frases para o cliente ("Desconto de 5% por quantidade") na linha {{descontos}}; template
+  // editado antes desta versão (sem a variável): no fim da lista de itens, para o cliente ver de onde veio o valor
+  const descontos = descontosMensagem(textosParaCliente(lerRegrasDoOrcamento(o.regras)))
+  const semVariavel = Boolean(descontos) && !/\{\{\s*descontos\s*\}\}/.test(conteudo)
+  const texto = preencherMensagem(conteudo, {
     cliente_nome: nomeParaSaudacao(nomeCliente(o.cliente), o.cliente.cpfCnpj),
     numero_orcamento: o.numero,
-    itens_orcamento: listaItensMensagem(o.itens),
+    itens_orcamento: semVariavel ? `${listaItensMensagem(o.itens)}\n${descontos}` : listaItensMensagem(o.itens),
+    descontos,
     valor_total: formatarMoeda(o.total),
     // O mesmo resumo do PDF, da página de aprovação e das contas a receber do pedido
     condicoes_pagamento: resumoCondicoesPagamento({ total: o.total, sinalPercentual: o.sinalPercentual, parcelas: o.parcelas, intervaloDias: o.intervaloDias }),

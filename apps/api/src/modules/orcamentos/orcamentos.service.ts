@@ -1,7 +1,20 @@
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import type { Prisma } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
-import { STATUS_ORCAMENTO_ABERTOS, adicionarDias, hojeISO, type AnaliseOrcamento, type orcamentoSchema, type orcamentosQuerySchema } from '@onprint/shared'
+import {
+  Decimal,
+  STATUS_ORCAMENTO_ABERTOS,
+  adicionarDias,
+  hojeISO,
+  lerRegrasDoOrcamento,
+  motivosDeLiberacao,
+  resumoParaGravar,
+  type AnaliseOrcamento,
+  type OrigemOrcamento,
+  type ResultadoRegras,
+  type orcamentoSchema,
+  type orcamentosQuerySchema,
+} from '@onprint/shared'
 import type { z } from 'zod'
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
@@ -10,7 +23,7 @@ import { analisarDocumento } from '../produtos/custos'
 import { proximoNumero } from '../../core/numeracao'
 import { paginacao, paginado } from '../../core/paginacao'
 import type { analiseOrcamentoSchema } from './analise'
-import { itensParaCriar, recalcularItens, totalDoOrcamento } from './calculo'
+import { aplicarRegrasNoCalculo, itensParaCriar, recalcularItens, totalDoOrcamento } from './calculo'
 import { incluirDetalhe, incluirResumo } from './consultas'
 
 type Dados = z.output<typeof orcamentoSchema>
@@ -19,6 +32,38 @@ type Query = z.output<typeof orcamentosQuerySchema>
 export const dataBanco = (iso: string) => new Date(`${iso}T00:00:00Z`)
 export const gerarToken = () => randomBytes(24).toString('base64url')
 
+/** O que já estava gravado e importa para a liberação do gerente */
+interface LiberacaoAnterior {
+  liberacaoChave: string | null
+  liberadoPorId: string | null
+  liberadoEm: Date | null
+}
+
+/**
+ * Liberação do gerente pelas regras comerciais (pedido de aprovação, bloqueio, preço abaixo do mínimo pelas regras,
+ * limite de negociação). A chave resume o que precisa de liberação (motivos + total): se nada mudou desde a
+ * liberação, ela continua valendo; mudou, pede de novo. Quem pode aprovar libera ao salvar, menos os bloqueios (esses
+ * pedem o clique em "Liberar mesmo assim"). Sem motivo, nada pendente.
+ */
+export function liberacaoDoOrcamento(r: Pick<ResultadoRegras, 'aprovacoes' | 'bloqueios'>, total: string, ctx: Pick<ContextoUsuario, 'usuarioId' | 'podeAprovar'>, antes?: LiberacaoAnterior | null) {
+  const motivos = motivosDeLiberacao(r)
+  if (!motivos.length) return { liberacaoPendente: false, liberacaoChave: null, liberadoPorId: null, liberadoEm: null }
+  const chave = createHash('sha256').update(JSON.stringify({ motivos, total })).digest('hex').slice(0, 32)
+  if (antes?.liberacaoChave === chave && antes.liberadoPorId) return { liberacaoPendente: false, liberacaoChave: chave, liberadoPorId: antes.liberadoPorId, liberadoEm: antes.liberadoEm }
+  if (ctx.podeAprovar && r.bloqueios.length === 0) return { liberacaoPendente: false, liberacaoChave: chave, liberadoPorId: ctx.usuarioId, liberadoEm: new Date() }
+  return { liberacaoPendente: true, liberacaoChave: chave, liberadoPorId: null, liberadoEm: null }
+}
+
+/** Origem de um orçamento novo: Assistente (itens montados por ele) ou a da solicitação (site = vitrine, whatsapp) */
+export function origemDoOrcamento(pedida: 'balcao' | 'assistente' | undefined, origemSolicitacao: string | null | undefined): OrigemOrcamento {
+  if (pedida === 'assistente') return 'assistente'
+  if (origemSolicitacao === 'site') return 'vitrine'
+  if (origemSolicitacao === 'whatsapp') return 'whatsapp'
+  return 'balcao'
+}
+
+const MSG_LIBERACAO = 'Este orçamento precisa da liberação de um gerente antes de ser enviado ou aprovado.'
+
 export function criarOrcamentosService(app: FastifyInstance) {
   const { prisma } = app
 
@@ -26,6 +71,13 @@ export function criarOrcamentosService(app: FastifyInstance) {
     const o = await prisma.orcamento.findFirst({ where: { id, ...escopoProprio(ctx, 'vendedorId') }, include: incluirDetalhe })
     if (!o) throw AppError.naoEncontrado('Orçamento não encontrado.')
     return o
+  }
+
+  /** Regras comerciais: esperando um gerente, o orçamento não é enviado nem aprovado (devolve true para encadear) */
+  async function garantirLiberado(id: string, ctx: ContextoUsuario): Promise<true> {
+    const o = await prisma.orcamento.findFirst({ where: { id, ...escopoProprio(ctx, 'vendedorId') }, select: { liberacaoPendente: true } })
+    if (o?.liberacaoPendente) throw AppError.regraNegocio(MSG_LIBERACAO, { motivo: 'LIBERACAO_PENDENTE' })
+    return true
   }
 
   function garantirAberto(status: string) {
@@ -38,8 +90,10 @@ export function criarOrcamentosService(app: FastifyInstance) {
    * Valida cliente, vendedor e validade e recalcula todos os valores. Pagamento: ao criar, o que veio ou os padrões
    * da empresa (o orçamento guarda o que prometeu, mesmo se a empresa mudar os padrões depois); ao salvar, o que
    * veio ou o que já estava. Observações de pagamento: ao criar sem o campo, o padrão da empresa; vazio = nenhuma.
+   * Regras comerciais: aplicadas de novo a cada salvamento (a API é a fonte da verdade), com o resumo gravado.
    */
-  async function preparar(dados: Dados, ctx: ContextoUsuario, criando: boolean) {
+  async function preparar(dados: Dados, ctx: ContextoUsuario, antes?: Awaited<ReturnType<typeof obter>>) {
+    const criando = !antes
     const cliente = await prisma.cliente.findUnique({ where: { id: dados.clienteId } })
     if (!cliente?.ativo) throw AppError.regraNegocio('Cliente inválido ou desativado.')
     if (cliente.situacao === 'bloqueado') throw AppError.regraNegocio('Cliente bloqueado: não é possível orçar.')
@@ -54,16 +108,33 @@ export function criarOrcamentosService(app: FastifyInstance) {
     const validade = dados.validade ?? adicionarDias(hoje, empresa?.validadeOrcamentoDias ?? 7)
     if (validade < hoje) throw AppError.regraNegocio('A validade não pode ser anterior a hoje.')
 
-    const calculo = await recalcularItens(prisma, dados.itens, ctx)
-    const total = totalDoOrcamento(calculo.subtotal, dados.desconto, dados.acrescimo, dados.frete)
     const pagamento = {
       sinalPercentual: dados.sinalPercentual ?? (criando ? (empresa?.sinalPercentual.toString() ?? '50') : undefined),
       parcelas: dados.parcelas ?? (criando ? (empresa?.parcelasPadrao ?? 1) : undefined),
       intervaloDias: dados.intervaloDias ?? (criando ? (empresa?.intervaloDiasPadrao ?? 30) : undefined),
     }
+    const solicitacao = criando && dados.solicitacaoId ? await prisma.solicitacaoOrcamento.findUnique({ where: { id: dados.solicitacaoId }, select: { origem: true } }) : null
+    const origem = antes ? (antes.origem as OrigemOrcamento) : origemDoOrcamento(dados.origem, solicitacao?.origem)
+    const dataDesejada = dados.dataDesejada === undefined ? (antes?.dataDesejada?.toISOString().slice(0, 10) ?? null) : dados.dataDesejada
+
+    const { calculo, regras } = await aplicarRegrasNoCalculo(prisma, await recalcularItens(prisma, dados.itens, ctx), {
+      clienteId: dados.clienteId,
+      pagamento: { sinalPercentual: pagamento.sinalPercentual ?? antes?.sinalPercentual.toString() ?? '50', parcelas: pagamento.parcelas ?? antes?.parcelas ?? 1 },
+      dataDesejada,
+      origem,
+      desconto: dados.desconto,
+      acrescimo: dados.acrescimo,
+      frete: dados.frete,
+    })
+    const total = totalDoOrcamento(calculo.subtotal, dados.desconto, dados.acrescimo, dados.frete, regras.ajusteOrcamento)
     return {
       calculo,
       cabecalho: {
+        origem,
+        dataDesejada: dataDesejada ? dataBanco(dataDesejada) : null,
+        ajusteRegras: regras.ajusteOrcamento,
+        regras: resumoParaGravar(regras) as unknown as Prisma.InputJsonValue,
+        ...liberacaoDoOrcamento(regras, total, ctx, antes),
         clienteId: dados.clienteId,
         solicitacaoId: dados.solicitacaoId ?? null,
         desconto: dados.desconto,
@@ -116,13 +187,42 @@ export function criarOrcamentosService(app: FastifyInstance) {
 
     /** Semáforo do lucro ao vivo (nada é gravado; preço abaixo do mínimo não bloqueia a análise). */
     async analisar(d: z.output<typeof analiseOrcamentoSchema>, ctx: ContextoUsuario): Promise<AnaliseOrcamento> {
-      const calc = await recalcularItens(prisma, d.itens, { usuarioId: ctx.usuarioId, podeAprovar: true })
+      // Com as regras comerciais, como o orçamento vai ser gravado (o ajuste do orçamento entra como desconto/acréscimo)
+      const { calculo: calc, regras } = await aplicarRegrasNoCalculo(prisma, await recalcularItens(prisma, d.itens, { usuarioId: ctx.usuarioId, podeAprovar: true }), {
+        clienteId: d.clienteId ?? null,
+        pagamento: d.sinalPercentual !== undefined ? { sinalPercentual: d.sinalPercentual, parcelas: d.parcelas ?? 1 } : null,
+        dataDesejada: d.dataDesejada ?? null,
+        origem: d.origem ?? 'balcao',
+        desconto: d.desconto,
+        acrescimo: d.acrescimo,
+        frete: '0',
+      })
+      const ajuste = new Decimal(regras.ajusteOrcamento)
       return analisarDocumento(
         calc.itens.map((i, k) => ({ total: i.total, custoEstimado: i.custoEstimado, lucroMinimo: calc.lucrosMinimos[k], linhas: i.custoDetalhe.linhas })),
         calc.parametros,
         ctx.veCustos,
-        { desconto: d.desconto, acrescimo: d.acrescimo },
+        { desconto: Decimal.max(ajuste.neg(), 0).plus(d.desconto).toFixed(2), acrescimo: Decimal.max(ajuste, 0).plus(d.acrescimo).toFixed(2) },
       )
+    },
+
+    /** "Liberar" (quem pode aprovar orçamentos): o que as regras pediram passa a valer até o orçamento mudar de novo */
+    async liberar(id: string, ctx: ContextoUsuario) {
+      const antes = await obter(id, ctx)
+      garantirAberto(antes.status)
+      if (!antes.liberacaoPendente) throw AppError.regraNegocio('Este orçamento não está esperando liberação.')
+      return prisma.$transaction(async (tx) => {
+        const o = await tx.orcamento.update({ where: { id }, data: { liberacaoPendente: false, liberadoPorId: ctx.usuarioId, liberadoEm: new Date() }, include: incluirDetalhe })
+        await registrarAuditoria(tx, {
+          tabela: 'orcamentos',
+          registroId: id,
+          acao: 'editar',
+          antes: { liberacaoPendente: true },
+          depois: { liberacaoPendente: false, liberado: motivosDeLiberacao(lerRegrasDoOrcamento(antes.regras)) },
+          usuarioId: ctx.usuarioId,
+        })
+        return o
+      })
     },
 
     async listar(q: Query, ctx: ContextoUsuario) {
@@ -152,7 +252,7 @@ export function criarOrcamentosService(app: FastifyInstance) {
     },
 
     async criar(dados: Dados, ctx: ContextoUsuario) {
-      const { calculo, cabecalho } = await preparar(dados, ctx, true)
+      const { calculo, cabecalho } = await preparar(dados, ctx)
       if (dados.solicitacaoId) {
         const s = await prisma.solicitacaoOrcamento.findUnique({ where: { id: dados.solicitacaoId } })
         if (!s || s.status === 'descartada') throw AppError.regraNegocio('Solicitação inválida ou descartada.')
@@ -179,7 +279,7 @@ export function criarOrcamentosService(app: FastifyInstance) {
     async atualizar(id: string, dados: Dados, ctx: ContextoUsuario) {
       const antes = await obter(id, ctx)
       garantirAberto(antes.status)
-      const { calculo, cabecalho } = await preparar({ ...dados, solicitacaoId: antes.solicitacaoId }, ctx, false)
+      const { calculo, cabecalho } = await preparar({ ...dados, solicitacaoId: antes.solicitacaoId }, ctx, antes)
       return prisma.$transaction(async (tx) => {
         await tx.orcamentoItem.deleteMany({ where: { orcamentoId: id } })
         const o = await tx.orcamento.update({
@@ -192,7 +292,8 @@ export function criarOrcamentosService(app: FastifyInstance) {
       })
     },
 
-    marcarEnviado: (id: string, ctx: ContextoUsuario) =>
+    marcarEnviado: async (id: string, ctx: ContextoUsuario) =>
+      (await garantirLiberado(id, ctx)) &&
       mudarStatus(id, ctx, ['rascunho'], { status: 'enviado', enviadoEm: new Date() }, 'Só rascunhos podem ser marcados como enviados.'),
 
     emNegociacao: (id: string, ctx: ContextoUsuario) =>
@@ -202,7 +303,8 @@ export function criarOrcamentosService(app: FastifyInstance) {
      * "Registrar aprovação" ou, com canal "whatsapp", "Cliente aprovou pelo WhatsApp" (respondeu APROVADO na conversa).
      * Com `resposta`, foi o próprio sistema que leu a resposta do cliente na conversa (enquete ou texto).
      */
-    aprovarInterno: (id: string, nome: string, ctx: ContextoUsuario, canal?: 'whatsapp', resposta?: { via: 'enquete' | 'texto' | 'assistente'; texto: string | null }) =>
+    aprovarInterno: async (id: string, nome: string, ctx: ContextoUsuario, canal?: 'whatsapp', resposta?: { via: 'enquete' | 'texto' | 'assistente'; texto: string | null }) =>
+      (await garantirLiberado(id, ctx)) &&
       mudarStatus(
         id,
         ctx,

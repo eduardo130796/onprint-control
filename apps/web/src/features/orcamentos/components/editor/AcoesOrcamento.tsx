@@ -31,6 +31,7 @@ interface AcoesProps {
 type Dialogo = 'aprovar' | 'recusar' | 'converter' | null
 
 const DESCRICAO_APROVAR = 'Use quando o cliente aprovou por outro canal (WhatsApp, telefone, balcão).'
+const AVISO_LIBERACAO = 'Esperando um gerente liberar o que as regras comerciais pediram'
 
 /** Barra de ações do orçamento conforme o status e as permissões. */
 export function AcoesOrcamento({ orcamento: o, editavel, alterado, salvando, onSalvar }: AcoesProps) {
@@ -76,6 +77,8 @@ export function AcoesOrcamento({ orcamento: o, editavel, alterado, salvando, onS
     )
   }
   const ocupado = acao.isPending
+  // Regras comerciais: esperando um gerente, não envia nem aprova
+  const pendente = Boolean(o?.liberacaoPendente)
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -86,7 +89,7 @@ export function AcoesOrcamento({ orcamento: o, editavel, alterado, salvando, onS
       )}
       {o && (
         <>
-          <Button variant="outline" onClick={enviarOrcamento} disabled={alterado} title={alterado ? 'Salve antes de enviar' : undefined}>
+          <Button variant="outline" onClick={enviarOrcamento} disabled={alterado || pendente} title={alterado ? 'Salve antes de enviar' : pendente ? AVISO_LIBERACAO : undefined}>
             <MessageCircle /> Enviar orçamento
           </Button>
           <Button variant="outline" onClick={() => void impressao.orcamento(o, 'imprimir')} disabled={Boolean(impressao.ocupado) || alterado} title={alterado ? 'Salve antes de imprimir' : undefined}>
@@ -99,8 +102,8 @@ export function AcoesOrcamento({ orcamento: o, editavel, alterado, salvando, onS
           {podeEditar && podeAprovarPeloWhatsapp(o.status) && (
             <Button
               variant="secondary"
-              disabled={ocupado || alterado}
-              title={alterado ? 'Salve antes de registrar a aprovação' : 'O cliente respondeu APROVADO na conversa'}
+              disabled={ocupado || alterado || pendente}
+              title={alterado ? 'Salve antes de registrar a aprovação' : pendente ? AVISO_LIBERACAO : 'O cliente respondeu APROVADO na conversa'}
               onClick={() => executar(() => aprovarPeloWhatsapp(o), avisoAprovacao)}
             >
               <MessageCircleCheck /> Cliente aprovou pelo WhatsApp
@@ -127,7 +130,7 @@ export function AcoesOrcamento({ orcamento: o, editavel, alterado, salvando, onS
                 <Link2 /> Copiar link de aprovação
               </DropdownMenuItem>
               {podeEditar && status === 'rascunho' && (
-                <DropdownMenuItem onSelect={() => executar(() => orcamentosApi.enviar(o.id), 'Marcado como enviado.')}>
+                <DropdownMenuItem onSelect={() => executar(() => orcamentosApi.enviar(o.id), 'Marcado como enviado.')} disabled={pendente}>
                   <Send /> Marcar como enviado
                 </DropdownMenuItem>
               )}
@@ -138,7 +141,7 @@ export function AcoesOrcamento({ orcamento: o, editavel, alterado, salvando, onS
               )}
               {podeEditar && ['rascunho', 'enviado', 'em_negociacao'].includes(status ?? '') && (
                 <>
-                  <DropdownMenuItem onSelect={() => setDialogo('aprovar')}>
+                  <DropdownMenuItem onSelect={() => setDialogo('aprovar')} disabled={pendente}>
                     <CheckCircle2 /> Registrar aprovação
                   </DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => setDialogo('recusar')} className="text-coral-escuro focus:text-coral-escuro">

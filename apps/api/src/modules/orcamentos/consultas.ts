@@ -10,6 +10,8 @@ export const incluirResumo = {
 
 export const incluirDetalhe = {
   ...incluirResumo,
+  // Quem liberou o que as regras comerciais pediram
+  liberadoPor: { select: { id: true, nome: true } },
   itens: {
     orderBy: { ordem: 'asc' },
     include: {

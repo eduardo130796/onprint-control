@@ -11,6 +11,7 @@ import type {
   OrigemCliente,
   Paginado,
   ProdutoCatalogo,
+  RegraComercialMotor,
   Solicitacao,
   SolicitacoesQuery,
 } from '@onprint/shared'
@@ -37,7 +38,10 @@ export const orcamentosApi = {
   criar: (dados: unknown) => http<OrcamentoComAnalise>('/orcamentos', { method: 'POST', body: dados }),
   atualizar: (id: string, dados: unknown) => http<OrcamentoComAnalise>(`/orcamentos/${id}`, { method: 'PUT', body: dados }),
   /** Semáforo ao vivo do editor (mesmos itens do orçamento + desconto/acréscimo do cabeçalho; sem gravar) */
-  analisar: (dados: { itens: OrcamentoItemInput[]; desconto?: string; acrescimo?: string }, signal?: AbortSignal) =>
+  analisar: (
+    dados: { itens: OrcamentoItemInput[]; desconto?: string; acrescimo?: string; clienteId?: string | null; sinalPercentual?: string; parcelas?: string | number; dataDesejada?: string | null; origem?: string },
+    signal?: AbortSignal,
+  ) =>
     http<AnaliseOrcamento>('/orcamentos/analisar', { method: 'POST', body: dados, signal }),
   enviar: (id: string) => acao(id, 'enviar'),
   negociacao: (id: string) => acao(id, 'negociacao'),
@@ -47,6 +51,10 @@ export const orcamentosApi = {
   reabrir: (id: string) => acao(id, 'reabrir'),
   statusPersonalizado: (id: string, statusPersonalizadoId: string | null) => acao(id, 'status-personalizado', { statusPersonalizadoId }),
   duplicar: (id: string) => acao(id, 'duplicar'),
+  /** Gerente libera o que as regras comerciais pediram (aprovação, bloqueio, limite de negociação) */
+  liberar: (id: string) => acao(id, 'liberar'),
+  /** Regras comerciais ativas e as etiquetas do cliente (cálculo ao vivo no editor) */
+  regras: (clienteId?: string | null) => http<{ regras: RegraComercialMotor[]; etiquetasCliente: string[] }>(`/orcamentos/regras${qs({ clienteId: clienteId ?? undefined })}`),
   converter: (id: string, dados: unknown) => acao(id, 'converter', dados),
   catalogo: (busca: string) => http<ProdutoCatalogo[]>(`/orcamentos/catalogo${qs({ busca })}`),
   produto: (id: string) => http<ProdutoCatalogo>(`/orcamentos/catalogo/${id}`),

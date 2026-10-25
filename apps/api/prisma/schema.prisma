@@ -67,6 +67,8 @@ model Usuario {
   caixaMovimentos         CaixaMovimento[]       @relation("CaixaMovimentoUsuario")
   vendasPdv               VendaPdv[]             @relation("VendaPdvUsuario")
   mensagensWhatsapp       MensagemWhatsapp[]     @relation("MensagemWhatsappUsuario")
+  regrasCriadas           RegraComercial[]       @relation("RegraCriadaPor")
+  orcamentosLiberados     Orcamento[]            @relation("OrcamentoLiberadoPor")
 
   @@index([papelId])
   @@map("usuarios")
@@ -189,7 +191,10 @@ model EmpresaConfig {
   assistenteDescricoes     Boolean     @default(true) @map("assistente_descricoes")
   /// "Nunca falar com meus clientes": só ajudas internas; nada do Assistente chega ao cliente
   assistenteSemClientes    Boolean     @default(false) @map("assistente_sem_clientes")
-  createdAt                DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// Manual do atendente (Configurações → Regras comerciais): orientações livres do dono para o Assistente; nunca
+  /// mudam preço (os números ficam nas regras comerciais, aplicadas pelo sistema)
+  manualAtendente          String?     @map("manual_atendente")
+  createdAt               DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdBy                String?     @map("created_by") @db.Uuid
 
@@ -1096,10 +1101,26 @@ model Orcamento {
   recusadoEm            DateTime?       @map("recusado_em") @db.Timestamptz(3)
   motivoRecusa          String?         @map("motivo_recusa")
   pedidoId              String?         @unique @map("pedido_id") @db.Uuid
+  /// De onde veio: balcao | vitrine | assistente | whatsapp (condição "origem" das regras comerciais)
+  origem                String          @default("balcao")
+  /// Data em que o cliente quer o pedido (condição "prazo" das regras comerciais)
+  dataDesejada          DateTime?       @map("data_desejada") @db.Date
+  /// Regras comerciais no orçamento (descontos/acréscimos de orçamento e pedido mínimo), com sinal; os de item ficam
+  /// no item. total = subtotal − desconto + acréscimo + frete + ajuste_regras
+  ajusteRegras          Decimal         @default(0) @map("ajuste_regras") @db.Decimal(12, 2)
+  /// O que as regras fizeram no último salvamento (RegrasDoOrcamento: aplicadas, sugestões, avisos, aprovações…)
+  regras                Json            @default("{}")
+  /// Precisa da liberação de um gerente (regra, preço abaixo do mínimo pelas regras ou limite de negociação):
+  /// não pode ser enviado nem aprovado até liberar. A chave guarda o que foi liberado (motivos + total)
+  liberacaoPendente     Boolean         @default(false) @map("liberacao_pendente")
+  liberadoPorId         String?         @map("liberado_por") @db.Uuid
+  liberadoEm            DateTime?       @map("liberado_em") @db.Timestamptz(3)
+  liberacaoChave        String?         @map("liberacao_chave")
   createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdBy             String?         @map("created_by") @db.Uuid
 
+  liberadoPor         Usuario?              @relation("OrcamentoLiberadoPor", fields: [liberadoPorId], references: [id], onDelete: SetNull)
   statusPersonalizado StatusConfig?         @relation("OrcamentoStatusPersonalizado", fields: [statusPersonalizadoId], references: [id], onDelete: SetNull)
   cliente             Cliente               @relation(fields: [clienteId], references: [id], onDelete: Restrict)
   vendedor            Usuario?              @relation("OrcamentoVendedor", fields: [vendedorId], references: [id], onDelete: Restrict)
@@ -1129,7 +1150,10 @@ model OrcamentoItem {
   precoUnitario      Decimal  @map("preco_unitario") @db.Decimal(12, 2)
   valorProduto       Decimal  @map("valor_produto") @db.Decimal(12, 2)
   valorAcabamentos   Decimal  @default(0) @map("valor_acabamentos") @db.Decimal(12, 2)
+  /// Desconto manual no item (o das regras fica em ajuste_regras)
   desconto           Decimal  @default(0) @db.Decimal(12, 2)
+  /// Regras comerciais no item, com sinal (negativo = desconto). total = produto + acabamentos + ajuste − desconto
+  ajusteRegras       Decimal  @default(0) @map("ajuste_regras") @db.Decimal(12, 2)
   total              Decimal  @db.Decimal(12, 2)
   custoEstimado      Decimal  @default(0) @map("custo_estimado") @db.Decimal(12, 2)
   /// Linhas do custo direto com as medidas reais (CustoVenda)
@@ -1171,6 +1195,32 @@ model OrcamentoItemAcabamento {
 
   @@index([itemId])
   @@map("orcamento_item_acabamentos")
+}
+
+/// Regra comercial do dono (Configurações → Regras comerciais): "Quando…" (condições) → "Faça…" (ação). O sistema
+/// aplica em todo orçamento (balcão, Assistente, vitrine, WhatsApp) com o motor de @onprint/shared/regras-comerciais
+model RegraComercial {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome       String
+  ativa      Boolean  @default(true)
+  /// Ordem de aplicação (menor primeiro)
+  prioridade Int      @default(0)
+  /// Modelo pronto de origem (desconto_quantidade, desconto_a_vista…) ou "personalizada"
+  tipo       String   @default("personalizada")
+  /// CondicoesRegra (validado pelo condicoesRegraSchema)
+  condicoes  Json     @default("{}")
+  /// AcaoRegra (validado pelo acaoRegraSchema)
+  acao       Json
+  /// Descontos: soma (acumula) | maior (não acumula; vale o maior)
+  combinacao String   @default("soma")
+  criadoPor  String?  @map("criado_por") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  criador Usuario? @relation("RegraCriadaPor", fields: [criadoPor], references: [id], onDelete: SetNull)
+
+  @@index([ativa, prioridade])
+  @@map("regras_comerciais")
 }
 
 model Pedido {

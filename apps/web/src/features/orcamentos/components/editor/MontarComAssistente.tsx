@@ -228,7 +228,7 @@ export function MontarComAssistente({ onAdicionar }: { onAdicionar: (r: MontadoP
             })}
           </ul>
 
-          {(resultado.cliente.mencionado || resultado.cliente.encontrado || resultado.prazoDesejado || resultado.observacoes || resultado.naoIdentificados.length > 0) && (
+          {(resultado.cliente.mencionado || resultado.cliente.encontrado || resultado.prazoDesejado || resultado.observacoes || resultado.naoIdentificados.length > 0 || resultado.sugestoes.length > 0) && (
             <div className="space-y-1 rounded-xl bg-fundo p-3 text-sm">
               {(resultado.cliente.encontrado || resultado.cliente.mencionado) && (
                 <p className="flex items-start gap-1.5">
@@ -247,7 +247,9 @@ export function MontarComAssistente({ onAdicionar }: { onAdicionar: (r: MontadoP
               {resultado.prazoDesejado && <p>Prazo pedido: {resultado.prazoDesejado}</p>}
               {resultado.observacoes && <p>{resultado.observacoes}</p>}
               {resultado.naoIdentificados.length > 0 && <p className="text-amber-800">Não entendi: {resultado.naoIdentificados.join('; ')}</p>}
-              <p className="text-xs text-texto-secundario">Prazo, observações e o que ficou de fora vão para as observações internas.</p>
+              {/* Manual do atendente: só lembrete (nada entra no orçamento sem a pessoa escolher) */}
+              {resultado.sugestoes.length > 0 && <p className="text-marca-escuro">Oferecer ao cliente: {resultado.sugestoes.join('; ')}</p>}
+              <p className="text-xs text-texto-secundario">Prazo, observações, sugestões e o que ficou de fora vão para as observações internas.</p>
             </div>
           )}
 

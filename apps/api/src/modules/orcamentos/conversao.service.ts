@@ -46,6 +46,26 @@ export function contasDaConversao(total: string, dados: Pick<Dados, 'sinalPercen
   })
 }
 
+type Num = { toString(): string }
+
+/** Regras comerciais do orçamento no pedido: o ajuste (com sinal) vira desconto ou acréscimo do pedido */
+export function noPedido(desconto: Num, acrescimo: Num, ajusteRegras?: Num | null) {
+  const ajuste = new Decimal(ajusteRegras?.toString() ?? '0')
+  return {
+    desconto: new Decimal(desconto.toString()).plus(Decimal.max(ajuste.neg(), 0)).toFixed(2),
+    acrescimo: new Decimal(acrescimo.toString()).plus(Decimal.max(ajuste, 0)).toFixed(2),
+  }
+}
+
+/** Regras no item do pedido: desconto soma no desconto do item; acréscimo, no valor do produto (o total fica igual) */
+export function itemNoPedido(valorProduto: Num, desconto: Num, ajusteRegras?: Num | null) {
+  const ajuste = new Decimal(ajusteRegras?.toString() ?? '0')
+  return {
+    valorProduto: new Decimal(valorProduto.toString()).plus(Decimal.max(ajuste, 0)).toFixed(2),
+    desconto: new Decimal(desconto.toString()).plus(Decimal.max(ajuste.neg(), 0)).toFixed(2),
+  }
+}
+
 /** Status do pedido recém-criado: sem nenhum item que precise de arte, já nasce em produção */
 export function statusInicialDoPedido(itensPrecisamArte: boolean[]): StatusPedido {
   return statusAutomaticoPedido({ status: 'aguardando_arte', artes: statusArtesQueContam(itensPrecisamArte.map((precisaArte) => ({ precisaArte, artes: [] }))), ops: [] })
@@ -97,8 +117,8 @@ export function criarConversaoService(app: FastifyInstance, orcamentos: Orcament
             enderecoEntrega,
             prioridade: dados.prioridade,
             subtotal: o.subtotal,
-            desconto: o.desconto,
-            acrescimo: o.acrescimo,
+            // O pedido não tem coluna das regras comerciais: o ajuste do orçamento entra como desconto ou acréscimo
+            ...noPedido(o.desconto, o.acrescimo, o.ajusteRegras),
             frete: o.frete,
             total: o.total,
             observacoes: dados.observacoes ?? o.observacoes,
@@ -114,9 +134,9 @@ export function criarConversaoService(app: FastifyInstance, orcamentos: Orcament
                 altura: i.altura,
                 areaM2: i.areaM2,
                 precoUnitario: i.precoUnitario,
-                valorProduto: i.valorProduto,
                 valorAcabamentos: i.valorAcabamentos,
-                desconto: i.desconto,
+                // Regras no item: desconto entra no desconto do item; acréscimo, no valor do produto (o total fecha igual)
+                ...itemNoPedido(i.valorProduto, i.desconto, i.ajusteRegras),
                 total: i.total,
                 custoEstimado: i.custoEstimado,
                 // Custo detalhado do momento da venda (fase 3 da precificação)

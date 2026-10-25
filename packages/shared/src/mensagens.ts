@@ -195,3 +195,9 @@ export function inserirAntesDoFim(texto: string, bloco: string): string {
   b.splice(i, 0, extra)
   return b.join('\n\n')
 }
+
+/**
+ * {{descontos}} na mensagem do orçamento: as frases das regras comerciais para o cliente em uma linha
+ * ("Desconto de 5% por quantidade · Taxa de urgência de 20%"); sem regra, vazio (a linha some).
+ */
+export const descontosMensagem = (textos: string[]) => textos.map((t) => t.trim()).filter(Boolean).join(' · ')

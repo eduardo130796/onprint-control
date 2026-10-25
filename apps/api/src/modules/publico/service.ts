@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { STATUS_ORCAMENTO_ABERTOS, hojeISO, nomeCliente, resumoCondicoesPagamento, type OrcamentoPublico } from '@onprint/shared'
+import { STATUS_ORCAMENTO_ABERTOS, ajustesDoOrcamentoParaCliente, hojeISO, lerRegrasDoOrcamento, nomeCliente, resumoCondicoesPagamento, textosDoItemParaCliente, textosParaCliente, type OrcamentoPublico } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
 import type { ConversaoAutomatica } from '../orcamentos/conversao-automatica'
@@ -44,6 +44,7 @@ export function criarPublicoService(app: FastifyInstance, automatica: ConversaoA
   return {
     async obter(token: string): Promise<OrcamentoPublico> {
       const o = await buscar(token)
+      const regras = lerRegrasDoOrcamento(o.regras)
       const empresa = await prisma.empresaConfig.findFirst({ orderBy: { createdAt: 'asc' } })
       return {
         numero: o.numero,
@@ -60,18 +61,24 @@ export function criarPublicoService(app: FastifyInstance, automatica: ConversaoA
           email: empresa?.email ?? null,
           logoUrl: empresa?.logoArquivoId ? storage.gerarUrlTemporaria(empresa.logoArquivoId, 3600) : null,
         },
-        itens: o.itens.map((i) => ({
+        itens: o.itens.map((i, k) => ({
           descricao: i.descricao,
           quantidade: i.quantidade.toString(),
           largura: i.largura?.toString() ?? null,
           altura: i.altura?.toString() ?? null,
           acabamentos: i.acabamentos.map((a) => a.nome),
           total: i.total.toString(),
+          // Selos das regras no item, em texto neutro para o cliente ("Desconto de 5%")
+          regras: textosDoItemParaCliente(regras.itens[k] ?? []),
         })),
         subtotal: o.subtotal.toString(),
         desconto: o.desconto.toString(),
         acrescimo: o.acrescimo.toString(),
         frete: o.frete.toString(),
+        ajusteRegras: o.ajusteRegras.toString(),
+        ajustesRegras: ajustesDoOrcamentoParaCliente(regras),
+        condicoesEspeciais: textosParaCliente(regras),
+        emRevisao: o.liberacaoPendente,
         total: o.total.toString(),
         prazoDias: o.prazoDias,
         // O mesmo resumo da mensagem e do PDF (e das contas a receber do pedido)
@@ -89,6 +96,8 @@ export function criarPublicoService(app: FastifyInstance, automatica: ConversaoA
       if (!podeResponder(o.status)) {
         throw AppError.regraNegocio(o.status === 'expirado' ? 'Este orçamento expirou. Fale com seu atendente.' : 'Este orçamento já foi respondido.')
       }
+      // Regras comerciais: esperando um gerente da gráfica, o cliente ainda não aprova (recusar continua possível)
+      if (resposta.aprovar && o.liberacaoPendente) throw AppError.regraNegocio('Este orçamento está em revisão pela gráfica. Fale com seu atendente.')
       await prisma.$transaction(async (tx) => {
         // Transição atômica: só grava se o status ainda for o lido acima (clique duplo ou
         // aprovar e recusar ao mesmo tempo não aplicam as duas respostas)

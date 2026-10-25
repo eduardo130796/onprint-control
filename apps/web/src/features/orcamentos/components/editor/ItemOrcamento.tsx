@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowDown, ArrowUp, Copy, Palette, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowUp, Copy, Palette, Tag, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { MODO_CALCULO_SUFIXO, TIPO_COBRANCA_ROTULOS, formatarMoeda, type AnaliseLucro, type ModoCalculo } from '@onprint/shared'
 import { orcamentosApi } from '@/api/comercial'
@@ -145,6 +145,24 @@ export function ItemOrcamento({ indice, total, item, calculo, analise, analiseDe
             </label>
           </div>
         </fieldset>
+      )}
+
+      {/* Regras comerciais no item: "−5% Desconto por quantidade" (o total abaixo já vem com elas) */}
+      {calculo.regras && calculo.regras.regras.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Regras comerciais no item">
+          {calculo.regras.regras.map((e) => (
+            <span
+              key={e.regraId}
+              title={`${e.nome}: ${Number(e.valor) < 0 ? '−' : '+'} ${formatarMoeda(Math.abs(Number(e.valor)).toFixed(2))}`}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                Number(e.valor) < 0 ? 'bg-verde/10 text-green-800 dark:text-green-300' : 'bg-ambar/15 text-amber-800 dark:text-amber-200',
+              )}
+            >
+              <Tag className="h-3 w-3" aria-hidden="true" /> {e.efeito} {e.nome}
+            </span>
+          ))}
+        </div>
       )}
 
       {produto && r && (

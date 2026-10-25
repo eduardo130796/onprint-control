@@ -190,7 +190,7 @@ export function criarAjudasAssistente(app: FastifyInstance) {
       const { assinanteId, recurso } = await empresa.exigir('orcamentoTexto')
       const [produtos, config, grafica] = await Promise.all([
         prisma.produto.findMany({ where: { ativo: true, tipo: { in: ['produto', 'servico', 'revenda'] } }, select: selecionarProduto, orderBy: { nome: 'asc' } }),
-        prisma.empresaConfig.findFirst({ orderBy: { createdAt: 'asc' }, select: { areaMinimaM2: true } }),
+        prisma.empresaConfig.findFirst({ orderBy: { createdAt: 'asc' }, select: { areaMinimaM2: true, manualAtendente: true } }),
         nomeDaGrafica(prisma),
       ])
       if (!produtos.length) throw AppError.regraNegocio('Cadastre seus produtos antes: o Assistente monta o orçamento com o catálogo da gráfica.')
@@ -199,7 +199,7 @@ export function criarAjudasAssistente(app: FastifyInstance) {
         await app.assistente.executar({
           assinanteId,
           recurso,
-          pedido: pedidoOrcamentoDeTexto({ grafica, pedido: texto, catalogo: catalogo.map(paraIA) }),
+          pedido: pedidoOrcamentoDeTexto({ grafica, pedido: texto, catalogo: catalogo.map(paraIA), manual: config?.manualAtendente }),
           contar: (d) => d.itens.filter((i) => i.produtoId).length,
         }),
       )
@@ -211,6 +211,7 @@ export function criarAjudasAssistente(app: FastifyInstance) {
         prazoDesejado: leitura.prazoDesejado,
         observacoes: leitura.observacoes,
         naoIdentificados: leitura.naoIdentificados,
+        sugestoes: leitura.sugestoes,
       }
     },
 

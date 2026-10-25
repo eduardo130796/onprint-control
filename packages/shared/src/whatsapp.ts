@@ -75,8 +75,8 @@ const ASSINATURA = '— {{empresa_nome}}'
  * Textos padrão das mensagens (também os templates criados para cada empresa). As linhas cuja variável
  * fica vazia somem (preencherMensagem). Empresas antigas com o texto anterior intacto recebem estes pelas
  * migrations 20261020100000_mensagens_whatsapp_formatadas, 20261022100000_arte_aprovacao_simples,
- * 20261024100000_mensagens_pedido_completas, 20261025100000_orcamento_pagamento e 20261027100000_whatsapp_respostas
- * (as editadas ficam como estão).
+ * 20261024100000_mensagens_pedido_completas, 20261025100000_orcamento_pagamento, 20261027100000_whatsapp_respostas e
+ * 20261101100000_regras_comerciais (as editadas ficam como estão).
  */
 export const TEXTOS_PADRAO_MENSAGEM = {
   // Já com o pagamento combinado (o "pedido confirmado" fala das parcelas: o cliente viu aqui antes) e a aprovação na
@@ -90,6 +90,8 @@ export const TEXTOS_PADRAO_MENSAGEM = {
     '{{itens_orcamento}}',
     '',
     'Total: *{{valor_total}}*',
+    // Frases das regras comerciais ("Desconto de 5% por quantidade"); sem regra, a linha some
+    '{{descontos}}',
     'Pagamento: {{condicoes_pagamento}}',
     'Prazo de produção: *{{prazo_producao}}*',
     'Válido até *{{validade}}*',

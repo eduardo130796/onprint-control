@@ -109,6 +109,13 @@ export const orcamentoSchema = z.object({
   condicoes: textoOpcional,
   observacoes: textoOpcional,
   observacoesInternas: textoOpcional,
+  /** Data em que o cliente quer o pedido (regras comerciais de prazo/urgência). Ausente ao salvar = fica como estava */
+  dataDesejada: dataOpcional,
+  /**
+   * De onde veio, só ao criar: "assistente" quando os itens foram montados pelo Assistente GrafyGo; ausente = balcão
+   * (ou a origem da solicitação: site = vitrine, whatsapp = whatsapp). Vitrine e WhatsApp são marcados pelo sistema.
+   */
+  origem: z.enum(['balcao', 'assistente']).optional(),
   itens: z.array(orcamentoItemSchema).min(1, 'Adicione ao menos um item.').max(100),
 })
 export type OrcamentoInput = z.input<typeof orcamentoSchema>

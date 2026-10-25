@@ -233,6 +233,8 @@ export const navegacao: NavModulo[] = [
       { titulo: 'Mensagens prontas', path: '/configuracoes/templates', fase: 1, novo: 'Novo template' },
       { titulo: 'Status do sistema', path: '/configuracoes/status', fase: 1 },
       { titulo: 'Conexão do WhatsApp', path: '/configuracoes/whatsapp', fase: 9, modulo: 'whatsapp' },
+      // Vendedores (orçamentos) veem "o que vale hoje" e simulam; editar exige configurações:editar (na tela)
+      { titulo: 'Regras comerciais', path: '/configuracoes/regras-comerciais', fase: 21, modulo: 'orcamentos' },
       { titulo: 'Assistente GrafyGo', path: '/configuracoes/assistente', fase: 20 },
       { titulo: 'Minha assinatura', path: '/assinatura', fase: 11 },
       // Rotas antigas (as mesmas telas de Produtos → Máquinas e processos)

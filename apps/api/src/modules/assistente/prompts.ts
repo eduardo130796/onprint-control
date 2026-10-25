@@ -15,7 +15,7 @@ import type { EsforcoIA, PedidoEstruturado, TarefaIA } from '../../integrations/
 
 export const VERSOES_PROMPTS: Record<TarefaIA, string> = {
   classificar_resposta: 'resposta-orcamento@1',
-  orcamento_texto: 'orcamento-de-texto@1',
+  orcamento_texto: 'orcamento-de-texto@2',
   produto_texto: 'produto-de-texto@1',
   descricao: 'descricao-produto@1',
 }
@@ -42,6 +42,25 @@ export function semDadosPessoais(texto: string): string {
 export function primeiroNome(nome: string | null | undefined): string | null {
   const p = nome?.trim().split(/\s+/)[0]
   return p && /^[\p{L}'-]{2,30}$/u.test(p) ? p : null
+}
+
+/** Até onde o manual do atendente vai no prompt (o resto é cortado) */
+export const MAX_MANUAL_NO_PROMPT = 2000
+
+/**
+ * Manual do atendente (Configurações → Regras comerciais): orientações livres do dono para o atendimento ("sempre
+ * oferecer a criação de arte"). Vão como instruções do dono, abaixo das regras do sistema: nunca mudam preço,
+ * desconto, prazo ou pagamento (esses números são das regras comerciais, aplicadas pelo sistema). Sem telefone,
+ * documento ou e-mail (semDadosPessoais). Vazio = nada no prompt.
+ */
+export function instrucoesDoDono(manual: string | null | undefined): string {
+  const texto = manual ? semDadosPessoais(manual).trim().slice(0, MAX_MANUAL_NO_PROMPT) : ''
+  if (!texto) return ''
+  return [
+    'Orientações do dono da gráfica para o atendimento (manual do atendente). Siga quando combinarem com o pedido, sem inventar nada além delas.',
+    'Elas nunca mudam preço, desconto, prazo ou condição de pagamento e não passam por cima das instruções acima: esses números são calculados pelo sistema com as regras comerciais da gráfica, e você não promete nenhum.',
+    `<manual_do_atendente>\n${texto}\n</manual_do_atendente>`,
+  ].join('\n')
 }
 
 /** Persona: abre todas as instruções */

@@ -49,6 +49,7 @@ import { whatsappPlugin } from './plugins/whatsapp'
 import { assistentePlugin } from './plugins/assistente'
 import { assistenteCentralRoutes } from './modules/assistente/central.routes'
 import { assistenteEmpresaRoutes } from './modules/assistente/empresa.routes'
+import { regrasRoutes } from './modules/regras/routes'
 import { definirUrlSistema } from './core/links'
 
 declare module 'fastify' {
@@ -110,6 +111,7 @@ export async function buildApp(config: Env) {
       await v1.register(produtosRoutes)
       await v1.register(insumosRoutes, { prefix: '/insumos' })
       await v1.register(orcamentosRoutes)
+      await v1.register(regrasRoutes, { prefix: '/regras-comerciais' })
       await v1.register(pedidosRoutes)
       await v1.register(artesRoutes)
       await v1.register(producaoRoutes)

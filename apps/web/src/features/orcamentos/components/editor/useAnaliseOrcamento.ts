@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { orcamentoItemSchema, type AnaliseLucro, type OrcamentoItemInput } from '@onprint/shared'
+import { normalizarDecimal, orcamentoItemSchema, type AnaliseLucro, type OrcamentoItemInput } from '@onprint/shared'
 import { orcamentosApi, type OrcamentoComAnalise } from '@/api/comercial'
 import { useDebounce } from '@/hooks/useDebounce'
-import { payloadDoForm, type FormOrcamento } from './formOrcamento'
+import { payloadDoForm, resumoPagamentoDoForm, type FormOrcamento } from './formOrcamento'
 import type { ItemCalculadoTela } from './useCalculoOrcamento'
 
 export interface AnaliseTela {
@@ -18,7 +18,11 @@ export interface AnaliseTela {
  * O que vai para a análise: os itens com produto escolhido, válidos e sem erro de cálculo (com a chave de cada
  * um na tela) e o desconto/acréscimo do cabeçalho (o lucro do total considera os dois; o frete fica de fora).
  */
-export function itensAnalisaveis(form: FormOrcamento, calculos: ItemCalculadoTela[]): { chaves: string[]; itens: OrcamentoItemInput[]; desconto: string; acrescimo: string } {
+export function itensAnalisaveis(
+  form: FormOrcamento,
+  calculos: ItemCalculadoTela[],
+  origem?: string,
+): { chaves: string[]; itens: OrcamentoItemInput[]; desconto: string; acrescimo: string; clienteId: string | null; sinalPercentual?: string; parcelas?: string; dataDesejada: string | null; origem?: string } {
   const completo = payloadDoForm(form)
   const payload = completo.itens
   const chaves: string[] = []
@@ -30,7 +34,9 @@ export function itensAnalisaveis(form: FormOrcamento, calculos: ItemCalculadoTel
     itens.push(corpo)
   })
   const valor = (v: unknown) => (typeof v === 'string' && v.trim() ? v : '0')
-  return { chaves, itens, desconto: valor(completo.desconto), acrescimo: valor(completo.acrescimo) }
+  // O que as regras comerciais olham (o lucro sai como o orçamento vai ser gravado)
+  const pagamento = resumoPagamentoDoForm(form, '0') ? { sinalPercentual: normalizarDecimal(form.sinalPercentual || '0'), parcelas: form.parcelas || '0' } : {}
+  return { chaves, itens, desconto: valor(completo.desconto), acrescimo: valor(completo.acrescimo), clienteId: form.cliente?.id ?? null, ...pagamento, dataDesejada: form.dataDesejada || null, origem: origem ?? (form.doAssistente ? 'assistente' : undefined) }
 }
 
 /**

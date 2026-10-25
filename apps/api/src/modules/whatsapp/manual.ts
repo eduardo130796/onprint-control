@@ -69,8 +69,10 @@ export function criarEnvioManual(app: FastifyInstance) {
   const { prisma } = app
 
   async function vinculos(d: DadosEnvio) {
-    const orcamento = d.orcamentoId ? await prisma.orcamento.findUnique({ where: { id: d.orcamentoId }, select: { id: true, clienteId: true, numero: true } }) : null
+    const orcamento = d.orcamentoId ? await prisma.orcamento.findUnique({ where: { id: d.orcamentoId }, select: { id: true, clienteId: true, numero: true, liberacaoPendente: true } }) : null
     if (d.orcamentoId && !orcamento) throw AppError.naoEncontrado('Orçamento não encontrado.')
+    // Regras comerciais: orçamento esperando um gerente não sai para o cliente
+    if (d.tipo === 'orcamento_enviado' && orcamento?.liberacaoPendente) throw AppError.regraNegocio('Este orçamento precisa da liberação de um gerente antes de ser enviado.')
     const pedido = d.pedidoId ? await prisma.pedido.findUnique({ where: { id: d.pedidoId }, select: { id: true, clienteId: true } }) : null
     if (d.pedidoId && !pedido) throw AppError.naoEncontrado('Pedido não encontrado.')
     if (d.arteId) {

@@ -280,6 +280,11 @@ export interface OrcamentoDeTexto {
   observacoes: string | null
   /** Partes do pedido que não viraram item */
   naoIdentificados: string[]
+  /**
+   * O que oferecer ao cliente (ex.: "Oferecer a criação da arte"), pelo manual do atendente. Só sugere: nada entra no
+   * orçamento sem a pessoa escolher (as sugestões das regras comerciais aparecem no editor, pelo sistema)
+   */
+  sugestoes: string[]
 }
 
 // ─── Ajuda para criar produto ───

@@ -45,6 +45,10 @@ export interface FormOrcamento {
   condicoes: string
   observacoes: string
   observacoesInternas: string
+  /** Data em que o cliente quer o pedido (AAAA-MM-DD; vazio = não disse): regras comerciais de prazo/urgência */
+  dataDesejada: string
+  /** Itens montados pelo Assistente GrafyGo (só no orçamento novo: a origem vira "assistente") */
+  doAssistente?: boolean
   itens: ItemForm[]
 }
 
@@ -150,8 +154,10 @@ export function juntarItens(atuais: ItemForm[], novos: ItemForm[]): ItemForm[] {
 }
 
 /** Prazo, observações e o que não virou item vão para as observações internas (a equipe confere com o cliente) */
-export function notaDoAssistente(r: { prazoDesejado: string | null; observacoes: string | null; naoIdentificados: string[] }): string | null {
+export function notaDoAssistente(r: { prazoDesejado: string | null; observacoes: string | null; naoIdentificados: string[]; sugestoes?: string[] }): string | null {
   const partes = [
+    // Manual do atendente: o que oferecer ao cliente (só lembrete; nada entra sozinho no orçamento)
+    r.sugestoes?.length ? `oferecer ao cliente: ${r.sugestoes.join('; ')}` : null,
     r.prazoDesejado ? `prazo pedido pelo cliente: ${r.prazoDesejado}` : null,
     r.observacoes,
     r.naoIdentificados.length ? `não entendido: ${r.naoIdentificados.join('; ')}` : null,
@@ -180,6 +186,7 @@ export function formDoOrcamento(
       condicoes: padroes?.condicoesPadrao ?? '',
       observacoes: '',
       observacoesInternas: observacoesInternas ?? '',
+      dataDesejada: '',
       itens: itensIniciais?.length ? itensIniciais : [itemVazio()],
     }
   }
@@ -195,6 +202,7 @@ export function formDoOrcamento(
     condicoes: o.condicoes ?? '',
     observacoes: o.observacoes ?? '',
     observacoesInternas: o.observacoesInternas ?? '',
+    dataDesejada: o.dataDesejada?.slice(0, 10) ?? '',
     itens: o.itens.map((i) => ({
       chave: i.id,
       produto: { id: i.produtoId, rotulo: i.produto.nome, detalhe: i.produto.codigo },
@@ -226,6 +234,8 @@ export function payloadDoForm(f: FormOrcamento, solicitacaoId?: string | null): 
     condicoes: f.condicoes,
     observacoes: f.observacoes,
     observacoesInternas: f.observacoesInternas,
+    dataDesejada: f.dataDesejada || null,
+    ...(f.doAssistente ? { origem: 'assistente' as const } : {}),
     itens: f.itens.map((i) => ({
       produtoId: i.produto?.id ?? '',
       descricao: i.descricao,

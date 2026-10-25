@@ -116,6 +116,8 @@ export function criarOrcamentosController(app: FastifyInstance, s: Servicos) {
     recusar: async (req: FastifyRequest, id: string, motivo: string) => mudou(req, await s.orcamentos.recusar(id, motivo, await ctx(req)), 'recusado'),
     reabrir: async (req: FastifyRequest, id: string) => mudou(req, await s.orcamentos.reabrir(id, await ctx(req)), 'reaberto'),
     duplicar: async (req: FastifyRequest, id: string) => mudou(req, await s.orcamentos.duplicar(id, await ctx(req)), 'criado'),
+    /** Regras comerciais: o gerente libera o que as regras pediram (aprovação, bloqueio, limite de negociação) */
+    liberar: async (req: FastifyRequest, id: string) => mudou(req, await s.orcamentos.liberar(id, await ctx(req)), 'alterado'),
     /** Coluna própria do kanban (status personalizado) */
     coluna: async (req: FastifyRequest, o: Detalhe) => mudou(req, o, 'coluna'),
 

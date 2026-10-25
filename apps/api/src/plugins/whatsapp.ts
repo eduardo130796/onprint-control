@@ -39,6 +39,7 @@ export const whatsappPlugin = fp(async (app) => {
   }
 
   app.decorate('whatsapp', { ...criarAvisosWhatsapp(app, envio.marcarFila), provedor, marcarFila: envio.marcarFila, ligarWebhook })
+  app.addHook('onClose', async () => provedor.fechar?.())
 
   if (app.config.NODE_ENV === 'test') return
   let timer: NodeJS.Timeout | undefined

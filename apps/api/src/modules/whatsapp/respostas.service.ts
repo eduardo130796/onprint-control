@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
 import { OPCOES_ENQUETE_ORCAMENTO, TIPO_RESPOSTA_WHATSAPP_ROTULOS, nomeCliente, type FormatoRespostaOrcamento, type TipoRespostaWhatsapp } from '@onprint/shared'
 import { registrarAuditoria } from '../../core/auditoria'
@@ -10,12 +10,13 @@ import { criarConversaoService } from '../orcamentos/conversao.service'
 import { criarOrcamentosService } from '../orcamentos/orcamentos.service'
 import { avisarOrcamento } from '../orcamentos/tempo-real'
 import { numeroDoCliente, obterConfigWhatsapp, whatsappNoPlano } from './avisos'
-import { opcoesDoVoto } from './enquete'
+import { abrirVotoComIdentidades, ehLid, jidNormalizado, jidsUnicos, mascararJid, votoBrutoParaGuardar, votoDoBruto, type VotoAberto, type VotoCifrado } from './enquete'
 import { FUSO } from './regras'
 import { JANELA_RESPOSTA_MS, decidirResposta, numeroDaResposta, variantesDoNumero, type Decisao, type MotivoNotificacao, type OrcamentoEnviado, type Recebida } from './respostas'
 import type { AvisoWebhook, EventoWebhook } from './webhook'
 
 const ABERTOS_RESPOSTA = ['enviado', 'em_negociacao'] as const
+const OPCOES_ENQUETE = Object.values(OPCOES_ENQUETE_ORCAMENTO)
 
 const incluirOrcamento = {
   orcamento: {
@@ -235,6 +236,140 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
     return d
   }
 
+  // ─── Voto cifrado da enquete (enquete.ts): identidades da gráfica e do cliente ───
+
+  type Config = Awaited<ReturnType<typeof obterConfigWhatsapp>>
+  type EventoVoto = Extract<EventoWebhook, { tipo: 'voto' }>
+
+  /** LID aprendido nesta leitura: os votos guardados (voto_bruto) são tentados de novo ao fim do aviso */
+  let reprocessarDepois = false
+
+  /** Número e LID da gráfica (criador da enquete) */
+  const identidadesDaGrafica = (config: Config) => jidsUnicos([config.numero ? `${config.numero}@s.whatsapp.net` : null, config.lid])
+
+  /** O que a linha sabe do cliente: jid do envio, a outra identidade vista num voto e o telefone */
+  const identidadesDoCliente = (l: { enqueteJid: string | null; enqueteJidAlt: string | null; telefone: string }) => [l.enqueteJid, l.enqueteJidAlt, `${l.telefone}@s.whatsapp.net`]
+
+  /**
+   * Lê o LID da conta nas credenciais da instância (Evolution) e guarda em whatsapp_config.lid. Devolve a config
+   * atualizada só quando aprendeu um LID novo (null: igual, sem LID ou banco da Evolution fora — fica no log).
+   */
+  async function atualizarIdentidade(empresa: EmpresaAtual, config: Config): Promise<Config | null> {
+    let lid: string | null = null
+    try {
+      const id = await app.whatsapp.provedor.identidade(instanciaDaEmpresa(empresa.id))
+      lid = id?.lid ? jidNormalizado(id.lid) : null
+    } catch (erro) {
+      app.log.warn({ err: erro, empresa: empresa.slug }, 'LID da conta do WhatsApp não lido (credenciais da instância no banco da Evolution)')
+      return null
+    }
+    if (!lid || lid === config.lid) return null
+    const atualizada = await prisma.whatsappConfig.update({ where: { id: config.id }, data: { lid } })
+    app.log.info({ empresa: empresa.slug, lid: mascararJid(lid) }, 'LID da conta do WhatsApp guardado (abre o voto da enquete no endereçamento novo)')
+    reprocessarDepois = true
+    return atualizada
+  }
+
+  const tentarAbrir = (cifrado: VotoCifrado, idEnquete: string, segredo: Buffer | null, config: Config, criadores: string[], votantes: (string | null)[]): VotoAberto | null =>
+    segredo?.length
+      ? abrirVotoComIdentidades(cifrado, { idEnquete, segredo, opcoes: OPCOES_ENQUETE, criadores: [...identidadesDaGrafica(config), ...criadores], votantes })
+      : null
+
+  /** A outra identidade do cliente (o LID, se a enquete saiu pelo número) para guardar na linha */
+  function identidadeAlternativa(l: Linha, aberto: VotoAberto | null, votantes: string[]): string | null {
+    const enviada = l.enqueteJid ? jidNormalizado(l.enqueteJid) : null
+    const alt = aberto ? aberto.votanteJid : (jidsUnicos(votantes).find(ehLid) ?? null)
+    return alt && alt !== enviada && alt !== l.enqueteJidAlt ? alt : null
+  }
+
+  /**
+   * Abre o voto cifrado com { número, LID da gráfica } × { número, LID do cliente }. Se não abrir, relê o LID da
+   * conta na Evolution e tenta de novo; se ainda não abrir, guarda o voto como chegou (voto_bruto) e avisa no log
+   * (ids mascarados). Devolve os nomes das opções ou null (a equipe é avisada: "não deu para ler").
+   */
+  async function abrirVotoCifrado(empresa: EmpresaAtual, l: Linha, e: EventoVoto & { cifrado: VotoCifrado }): Promise<string[] | null> {
+    const segredo = l.enqueteSegredo ? Buffer.from(l.enqueteSegredo, 'base64') : null
+    const votantes = [...e.votantes, ...identidadesDoCliente(l)]
+    let config = await obterConfigWhatsapp(prisma)
+    let aberto = tentarAbrir(e.cifrado, e.idEnquete, segredo, config, e.criadores, votantes)
+    if (!aberto && segredo?.length) {
+      const nova = await atualizarIdentidade(empresa, config)
+      if (nova) {
+        config = nova
+        aberto = tentarAbrir(e.cifrado, e.idEnquete, segredo, config, e.criadores, votantes)
+      }
+    }
+    const alt = identidadeAlternativa(l, aberto, e.votantes)
+    if (aberto) {
+      if (alt || l.votoBruto !== null) await prisma.mensagemWhatsapp.update({ where: { id: l.id }, data: { ...(alt ? { enqueteJidAlt: alt } : {}), votoBruto: Prisma.DbNull } })
+      return aberto.opcoes
+    }
+    const bruto = votoBrutoParaGuardar({
+      idMensagem: e.idMensagem,
+      idEnquete: e.idEnquete,
+      cifrado: e.cifrado,
+      votantes: e.votantes,
+      criadores: e.criadores,
+      chaveEnquete: e.chaveEnquete ?? null,
+      grafica: identidadesDaGrafica(config),
+      recebidoEm: new Date().toISOString(),
+    })
+    await prisma.mensagemWhatsapp.update({ where: { id: l.id }, data: { votoBruto: bruto as unknown as Prisma.InputJsonValue, ...(alt ? { enqueteJidAlt: alt } : {}) } })
+    app.log.warn(
+      {
+        empresa: empresa.slug,
+        orcamento: l.orcamento?.numero,
+        enquete: e.idEnquete,
+        semSegredo: !segredo?.length,
+        lidDaGrafica: mascararJid(config.lid),
+        grafica: identidadesDaGrafica(config).map(mascararJid),
+        votantes: jidsUnicos(votantes).map(mascararJid),
+        criadoresVistos: jidsUnicos(e.criadores).map(mascararJid),
+        chaveEnquete: e.chaveEnquete ? { ...e.chaveEnquete, remoteJid: mascararJid(e.chaveEnquete.remoteJid), participant: mascararJid(e.chaveEnquete.participant) } : null,
+        tamanho: { encPayload: e.cifrado.encPayload.length, encIv: e.cifrado.encIv.length },
+      },
+      'Voto da enquete do WhatsApp não abriu: guardado em mensagens_whatsapp.voto_bruto para tentar de novo',
+    )
+    return null
+  }
+
+  /**
+   * Tenta de novo os votos guardados (voto_bruto) com as identidades conhecidas agora (LID da conta relido da
+   * Evolution). O que abrir segue como um voto normal (aprova, pede modificação…), a menos que o cliente já tenha
+   * respondido outra coisa depois; o que não abrir continua guardado. Roda dentro do contexto da empresa.
+   */
+  async function reprocessarVotosGuardados(empresa: EmpresaAtual): Promise<{ abertos: number; aplicados: number; pendentes: number }> {
+    const linhas = await prisma.mensagemWhatsapp.findMany({ where: { evento: 'orcamento_enviado', votoBruto: { not: Prisma.DbNull } }, include: incluirOrcamento, take: 50 })
+    const resultado = { abertos: 0, aplicados: 0, pendentes: 0 }
+    if (!linhas.length) return resultado
+    let config = await obterConfigWhatsapp(prisma)
+    config = (await atualizarIdentidade(empresa, config)) ?? config
+    reprocessarDepois = false
+    for (const l of linhas) {
+      const bruto = votoDoBruto(l.votoBruto)
+      if (!bruto) {
+        await prisma.mensagemWhatsapp.update({ where: { id: l.id }, data: { votoBruto: Prisma.DbNull } })
+        continue
+      }
+      const segredo = l.enqueteSegredo ? Buffer.from(l.enqueteSegredo, 'base64') : null
+      const aberto = tentarAbrir(bruto.cifrado, bruto.idEnquete, segredo, config, bruto.criadores, [...bruto.votantes, ...(bruto.chaveEnquete?.remoteJid ? [bruto.chaveEnquete.remoteJid] : []), ...identidadesDoCliente(l)])
+      if (!aberto) {
+        resultado.pendentes++
+        continue
+      }
+      resultado.abertos++
+      const alt = identidadeAlternativa(l, aberto, [])
+      await prisma.mensagemWhatsapp.update({ where: { id: l.id }, data: { votoBruto: Prisma.DbNull, ...(alt ? { enqueteJidAlt: alt } : {}) } })
+      // Respondeu outra coisa depois (texto, outro voto): o voto antigo não passa por cima
+      const depois = l.respostaEm && l.respostaEm.getTime() > new Date(bruto.recebidoEm).getTime() && l.respostaIdExterno !== bruto.idMensagem
+      if (depois || l.enqueteId !== bruto.idEnquete) continue
+      const d = await responder(empresa, { tipo: 'voto', idMensagem: `${bruto.idMensagem}:reaberto`, idEnquete: bruto.idEnquete, numero: null, nome: null, opcoes: aberto.opcoes, cifrado: null, votantes: [], criadores: [] })
+      if (d.acao !== 'ignorar') resultado.aplicados++
+    }
+    app.log.info({ empresa: empresa.slug, ...resultado }, 'Votos da enquete guardados: nova tentativa')
+    return resultado
+  }
+
   /** Um voto ou texto recebido */
   async function responder(empresa: EmpresaAtual, e: Extract<EventoWebhook, { tipo: 'voto' | 'texto' }>) {
     const config = await obterConfigWhatsapp(prisma)
@@ -243,19 +378,7 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
       const linhas = await buscarLinhas({ enqueteId: e.idEnquete })
       if (!linhas.length) return { acao: 'ignorar', motivo: 'enquete desconhecida' } as Decisao
       let escolhidas = e.opcoes
-      if (!escolhidas && e.cifrado) {
-        const l = linhas[0]!
-        const segredo = l.enqueteSegredo ? Buffer.from(l.enqueteSegredo, 'base64') : null
-        if (segredo?.length) {
-          escolhidas = opcoesDoVoto(e.cifrado, {
-            idEnquete: e.idEnquete,
-            segredo,
-            opcoes: Object.values(OPCOES_ENQUETE_ORCAMENTO),
-            criadores: [...e.criadores, ...(config.numero ? [`${config.numero}@s.whatsapp.net`] : [])],
-            votantes: [...e.votantes, ...(l.enqueteJid ? [l.enqueteJid] : []), `${l.telefone}@s.whatsapp.net`],
-          })
-        }
-      }
+      if (!escolhidas && e.cifrado) escolhidas = await abrirVotoCifrado(empresa, linhas[0]!, { ...e, cifrado: e.cifrado })
       const r: Recebida = { tipo: 'voto', idMensagem: e.idMensagem, idEnquete: e.idEnquete, opcoes: escolhidas }
       const decisao = decidirResposta(r, linhas.map(paraCandidato), opcoes)
       return aplicar(empresa, decisao, r, linhas, escolhidas?.join(', ') || null)
@@ -275,17 +398,30 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
     return aplicar(empresa, decidirResposta(r, linhas.map(paraCandidato), opcoes), r, linhas, e.texto)
   }
 
-  /** Conexão mudou (CONNECTION_UPDATE): grava o último estado conhecido */
+  /** Conexão mudou (CONNECTION_UPDATE): grava o último estado conhecido (e o LID da conta, para abrir os votos) */
   async function conexao(empresa: EmpresaAtual, e: Extract<EventoWebhook, { tipo: 'conexao' }>) {
     if (app.whatsapp.provedor.simulado || e.estado === 'conectando') return
     const config = await obterConfigWhatsapp(prisma)
     if (e.estado === 'conectado') {
-      if (config.conectado && (!e.numero || config.numero === e.numero)) return
-      await prisma.whatsappConfig.update({
+      if (config.conectado && (!e.numero || config.numero === e.numero)) {
+        if (!config.lid) await atualizarIdentidade(empresa, config)
+        return
+      }
+      // Outro número: o LID guardado era da conta anterior
+      const trocou = Boolean(e.numero && config.numero && e.numero !== config.numero)
+      const atualizada = await prisma.whatsappConfig.update({
         where: { id: config.id },
-        data: { conectado: true, numero: e.numero ?? config.numero, nomePerfil: e.nomePerfil ?? config.nomePerfil, conectadoEm: config.conectadoEm ?? new Date(), desconectadoEm: null },
+        data: {
+          conectado: true,
+          numero: e.numero ?? config.numero,
+          nomePerfil: e.nomePerfil ?? config.nomePerfil,
+          conectadoEm: config.conectadoEm ?? new Date(),
+          desconectadoEm: null,
+          ...(trocou ? { lid: null } : {}),
+        },
       })
       app.whatsapp.marcarFila(empresa.id)
+      await atualizarIdentidade(empresa, atualizada)
     } else if (config.conectado) {
       await prisma.whatsappConfig.update({ where: { id: config.id }, data: { conectado: false, desconectadoEm: new Date() } })
     }
@@ -310,8 +446,22 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
             resultados.push({ tipo: e.tipo, acao: 'erro' })
           }
         }
+        // Aprendeu o LID da conta agora: os votos guardados que não abriram têm nova chance
+        if (reprocessarDepois) {
+          reprocessarDepois = false
+          try {
+            await reprocessarVotosGuardados(empresa)
+          } catch (erro) {
+            app.log.warn({ err: erro, empresa: empresa.slug }, 'Votos da enquete guardados: nova tentativa falhou')
+          }
+        }
       })
       return resultados
+    },
+
+    /** Tenta de novo os votos guardados que não abriram (voto_bruto), com as identidades conhecidas agora */
+    async reprocessarVotos(empresa: EmpresaAtual) {
+      return contextoEmpresa.com(empresa, () => reprocessarVotosGuardados(empresa))
     },
   }
 }

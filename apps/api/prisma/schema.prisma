@@ -325,6 +325,9 @@ model WhatsappConfig {
   aprovarPelaResposta Boolean   @default(true) @map("aprovar_pela_resposta")
   /// Como o cliente aprova o orçamento enviado por aqui: enquete (toca na opção) | numeros (responde 1 ou 2)
   formatoAprovacao    String    @default("enquete") @map("formato_aprovacao")
+  /// LID da conta conectada ("…@lid", sem o aparelho; credenciais da instância na Evolution): o voto da enquete no
+  /// endereçamento novo é cifrado com ele como criador
+  lid                 String?
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -376,6 +379,11 @@ model MensagemWhatsapp {
   enqueteId          String?                @map("enquete_id")
   enqueteSegredo     String?                @map("enquete_segredo")
   enqueteJid         String?                @map("enquete_jid")
+  /// A outra identidade do cliente vista no voto (o LID, quando a enquete saiu pelo número)
+  enqueteJidAlt      String?                @map("enquete_jid_alt")
+  /// Voto que não abriu, como chegou (encPayload/encIv em base64, jids vistos, chave da enquete): tentado de novo
+  /// quando as identidades certas forem conhecidas (enquete.ts); null depois que abre
+  votoBruto          Json?                  @map("voto_bruto")
   /// Resposta do cliente na conversa (a mais recente): aprovado | modificacoes | outra, por enquete | texto
   resposta           String?
   respostaVia        String?                @map("resposta_via")

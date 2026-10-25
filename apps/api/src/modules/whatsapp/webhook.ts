@@ -20,6 +20,9 @@ import type { VotoCifrado } from './enquete'
  *   fromMe, id }, vote: { encPayload, encIv }, senderTimestampMs }. A Evolution só troca vote.selectedOptions pelos nomes
  *   (e põe data.pollUpdates = [{ name, voters }]) quando acha a enquete no banco dela; senão o voto vem cifrado e a API
  *   abre com o segredo guardado no envio (enquete.ts). Bytes vêm como objeto indexado ({ "0": 12, ... }).
+ *   Endereçamento novo (key.addressingMode "lid"): a Evolution troca key.remoteJid "…@lid" pelo remoteJidAlt (número)
+ *   antes de mandar, então remoteJid e remoteJidAlt chegam iguais (o número); o LID do cliente só vem em
+ *   pollCreationMessageKey.remoteJid (o Baileys põe ali a conversa e fromMe = true).
  * - "messages.update": status de entrega/leitura; o Baileys 7 não emite mais pollUpdates por aqui (o voto vem no
  *   upsert), por isso o webhook nem assina este evento (se vier com pollUpdates, é lido igual).
  */
@@ -38,6 +41,8 @@ export type EventoWebhook =
       /** Jids possíveis de quem votou e de quem criou a enquete (para abrir o voto) */
       votantes: string[]
       criadores: string[]
+      /** pollCreationMessageKey como chegou (diagnóstico do voto que não abre) */
+      chaveEnquete?: { remoteJid: string | null; participant: string | null; fromMe: boolean | null } | null
     }
   | { tipo: 'texto'; idMensagem: string; texto: string; citadoId: string | null; numero: string | null; nome: string | null }
 
@@ -108,6 +113,13 @@ export function lerMensagem(dados: unknown, sender: string | null): EventoWebhoo
     }
     const encPayload = bytesDoWhatsapp(v?.encPayload)
     const encIv = bytesDoWhatsapp(v?.encIv)
+    // O cleanMessage do Baileys põe na chave da enquete a conversa (remoteJid = o cliente, "…@lid" no endereçamento
+    // novo) e fromMe = true; é aqui que sobra o LID do cliente, porque a Evolution troca key.remoteJid pelo número
+    // antes do webhook. Sem essa normalização (fromMe false), o remoteJid seria a gráfica vista pelo cliente: entra
+    // nas duas listas (custa só mais umas tentativas; a etiqueta do GCM decide).
+    const chaveRemote = texto(chaveEnquete?.remoteJid)
+    const chaveParticipant = texto(chaveEnquete?.participant)
+    const chaveFromMe = typeof chaveEnquete?.fromMe === 'boolean' ? chaveEnquete.fromMe : null
     return {
       tipo: 'voto',
       idMensagem: id,
@@ -116,8 +128,9 @@ export function lerMensagem(dados: unknown, sender: string | null): EventoWebhoo
       nome,
       opcoes,
       cifrado: encPayload && encIv ? { encPayload, encIv } : null,
-      votantes: jids,
-      criadores: [sender, texto(chaveEnquete?.remoteJid), texto(chaveEnquete?.participant)].filter((j): j is string => Boolean(j)),
+      votantes: [...new Set([...jids, chaveRemote, texto(key.senderLid), texto(key.participantLid)].filter((j): j is string => Boolean(j)))],
+      criadores: [...new Set([sender, chaveParticipant, chaveRemote].filter((j): j is string => Boolean(j)))],
+      chaveEnquete: chaveEnquete ? { remoteJid: chaveRemote, participant: chaveParticipant, fromMe: chaveFromMe } : null,
     }
   }
 

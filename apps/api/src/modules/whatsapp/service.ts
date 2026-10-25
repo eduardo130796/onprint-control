@@ -78,7 +78,15 @@ export function criarWhatsappService(app: FastifyInstance) {
       if (config.conectado && config.numero === s.numero && config.nomePerfil === s.nomePerfil) return config
       const atualizada = await prisma.whatsappConfig.update({
         where: { id: config.id },
-        data: { conectado: true, numero: s.numero, nomePerfil: s.nomePerfil, conectadoEm: config.conectado ? config.conectadoEm : new Date(), desconectadoEm: null },
+        data: {
+          conectado: true,
+          numero: s.numero,
+          nomePerfil: s.nomePerfil,
+          conectadoEm: config.conectado ? config.conectadoEm : new Date(),
+          desconectadoEm: null,
+          // Outro número: o LID guardado era da conta anterior (relido no próximo voto ou na conexão pelo webhook)
+          ...(s.numero && config.numero && s.numero !== config.numero ? { lid: null } : {}),
+        },
       })
       // Avisos que esperavam a conexão voltam a sair; o webhook (respostas dos clientes) passa a apontar para cá
       app.whatsapp.marcarFila(contextoEmpresa.exigir().id)

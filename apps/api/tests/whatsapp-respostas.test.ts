@@ -1,10 +1,11 @@
-import { randomBytes } from 'node:crypto'
+import { createCipheriv, createHash, createHmac, randomBytes } from 'node:crypto'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { OPCOES_ENQUETE_ORCAMENTO } from '@onprint/shared'
 import { buildApp } from '../src/app'
 import { carregarEnv } from '../src/config/env'
 import { EvolutionWhatsappProvider, LogWhatsappProvider, bytesDoWhatsapp } from '../src/integrations/whatsapp'
-import { abrirVoto, cifrarVoto, jidNormalizado, lerPollVote, opcoesDoVoto } from '../src/modules/whatsapp/enquete'
+import { identidadeDasCredenciais, urlDoBancoEvolution } from '../src/integrations/whatsapp/credenciais-evolution'
+import { abrirVoto, abrirVotoComIdentidades, cifrarVoto, jidNormalizado, lerPollVote, mascararJid, opcoesDoVoto, votoBrutoParaGuardar, votoDoBruto } from '../src/modules/whatsapp/enquete'
 import {
   JANELA_RESPOSTA_MS,
   SILENCIO_NOTIFICACAO_MS,
@@ -231,6 +232,139 @@ describe('WhatsApp respostas: voto cifrado da enquete', () => {
   })
 })
 
+/**
+ * O que o WhatsApp do cliente faz ao votar, escrito como no Baileys 7 (decryptPollVote ao contrário, sem usar
+ * enquete.ts): sign = idEnquete + criador + votante + "Poll Vote" + 0x01; key0 = HMAC(zeros, messageSecret);
+ * chave = HMAC(key0, sign); AES-256-GCM com aad = idEnquete + "\0" + votante; saída = cifrado + etiqueta.
+ * PollVoteMessage: campo 1 (bytes) = SHA-256 do nome de cada opção.
+ */
+function votoComoOWhatsapp(opcoes: string[], c: { idEnquete: string; criadorJid: string; votanteJid: string; segredo: Buffer }) {
+  const sign = Buffer.concat([Buffer.from(c.idEnquete), Buffer.from(c.criadorJid), Buffer.from(c.votanteJid), Buffer.from('Poll Vote'), new Uint8Array([1])])
+  const key0 = createHmac('sha256', new Uint8Array(32)).update(c.segredo).digest()
+  const chave = createHmac('sha256', key0).update(sign).digest()
+  const iv = randomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', chave, iv)
+  cipher.setAAD(Buffer.from(`${c.idEnquete}\u0000${c.votanteJid}`))
+  const claro = Buffer.concat(opcoes.map((o) => Buffer.concat([Buffer.from([0x0a, 32]), createHash('sha256').update(o).digest()])))
+  return { encPayload: Buffer.concat([cipher.update(claro), cipher.final(), cipher.getAuthTag()]), encIv: iv }
+}
+
+describe('WhatsApp respostas: voto no endereçamento novo (LID)', () => {
+  const segredo = randomBytes(32)
+  const idEnquete = '3EB0F8EF16D4B9CFE25FD9'
+  // Gráfica e cliente, cada um com número e LID (valores inventados)
+  const grafica = { numero: '5511900001111@s.whatsapp.net', lid: '111122223333444@lid' }
+  const cliente = { numero: '5511988887777@s.whatsapp.net', lid: '555566667777888@lid' }
+  // O que a API sabe: o número e o LID guardados da gráfica; do cliente, o jid do envio e o LID visto no voto
+  const conhecidos = {
+    idEnquete,
+    segredo,
+    opcoes: OPCOES,
+    criadores: [grafica.numero, '111122223333444:6@lid'],
+    votantes: ['5511988887777:0@s.whatsapp.net', '555566667777888:12@lid'],
+  }
+
+  const combinacoes = [
+    ['número/número', grafica.numero, cliente.numero],
+    ['LID/LID', grafica.lid, cliente.lid],
+    ['LID da gráfica/número do cliente', grafica.lid, cliente.numero],
+    ['número da gráfica/LID do cliente', grafica.numero, cliente.lid],
+  ] as const
+  for (const [nome, criadorJid, votanteJid] of combinacoes) {
+    it(`abre o voto cifrado com ${nome}`, () => {
+      const v = votoComoOWhatsapp([OPCOES_ENQUETE_ORCAMENTO.aprovar], { idEnquete, criadorJid, votanteJid, segredo })
+      expect(abrirVotoComIdentidades(v, conhecidos)).toEqual({ opcoes: [OPCOES_ENQUETE_ORCAMENTO.aprovar], criadorJid, votanteJid })
+    })
+  }
+
+  it('enquete.ts cifra igual ao WhatsApp (cifrarVoto ↔ votoComoOWhatsapp)', () => {
+    const c = { idEnquete, criadorJid: grafica.lid, votanteJid: cliente.lid, segredo }
+    expect(opcoesDoVoto(cifrarVoto([OPCOES_ENQUETE_ORCAMENTO.modificar], c, randomBytes(12)), conhecidos)).toEqual([OPCOES_ENQUETE_ORCAMENTO.modificar])
+    expect(abrirVoto(votoComoOWhatsapp([OPCOES_ENQUETE_ORCAMENTO.modificar], c), c)).toHaveLength(1)
+  })
+
+  it('regressão (teste real de 25/10): criador = LID da gráfica; sem o LID guardado não abre, com ele abre', () => {
+    const v = votoComoOWhatsapp([OPCOES_ENQUETE_ORCAMENTO.aprovar], { idEnquete, criadorJid: grafica.lid, votanteJid: cliente.lid, segredo })
+    // Webhook como chegou: a Evolution trocou key.remoteJid "@lid" pelo número (remoteJid = remoteJidAlt); o LID do
+    // cliente só sobra na chave da enquete (cleanMessage do Baileys: remoteJid = conversa, fromMe = true)
+    const indexado = (b: Buffer) => Object.fromEntries([...b].map((x, i) => [String(i), x]))
+    const aviso = lerAvisoWebhook(
+      envelope('messages.upsert', {
+        key: { remoteJid: cliente.numero, remoteJidAlt: cliente.numero, fromMe: false, id: 'AC12EF16DC55D1669CBB', participant: '', addressingMode: 'lid' },
+        pushName: 'Cliente',
+        messageType: 'pollUpdateMessage',
+        message: {
+          pollUpdateMessage: {
+            pollCreationMessageKey: { remoteJid: cliente.lid, fromMe: true, id: idEnquete, participant: '' },
+            vote: { encPayload: indexado(v.encPayload), encIv: indexado(v.encIv) },
+            senderTimestampMs: { low: 1, high: 0, unsigned: false },
+          },
+        },
+      }),
+    )
+    const e = aviso.eventos[0]
+    expect(e).toMatchObject({ tipo: 'voto', idEnquete, numero: '5511988887777', opcoes: null })
+    if (e?.tipo !== 'voto' || !e.cifrado) throw new Error('voto não lido')
+    expect(e.votantes).toContain(cliente.lid)
+    expect(e.chaveEnquete).toEqual({ remoteJid: cliente.lid, participant: null, fromMe: true })
+    const base = { idEnquete, segredo, opcoes: OPCOES, votantes: [...e.votantes, cliente.numero] }
+    // Antes: só o número da gráfica (sender e whatsapp_config.numero)
+    expect(opcoesDoVoto(e.cifrado, { ...base, criadores: [...e.criadores, grafica.numero] })).toBeNull()
+    // Agora: com o LID da conta (whatsapp_config.lid, lido das credenciais da instância)
+    expect(opcoesDoVoto(e.cifrado, { ...base, criadores: [...e.criadores, grafica.numero, grafica.lid] })).toEqual([OPCOES_ENQUETE_ORCAMENTO.aprovar])
+  })
+
+  it('voto guardado que não abriu (voto_bruto) abre depois, quando o LID da gráfica aparece', () => {
+    const v = votoComoOWhatsapp([OPCOES_ENQUETE_ORCAMENTO.modificar], { idEnquete, criadorJid: grafica.lid, votanteJid: cliente.lid, segredo })
+    const bruto = votoBrutoParaGuardar({
+      idMensagem: 'VOTO1',
+      idEnquete,
+      cifrado: v,
+      votantes: [cliente.numero, cliente.lid],
+      criadores: [grafica.numero],
+      chaveEnquete: { remoteJid: cliente.lid, participant: null, fromMe: true },
+      grafica: [grafica.numero],
+      recebidoEm: '2026-10-25T12:00:00.000Z',
+    })
+    // Passa pelo banco (jsonb) e volta
+    const lido = votoDoBruto(JSON.parse(JSON.stringify(bruto)))
+    expect(lido).not.toBeNull()
+    expect(lido!.cifrado).toEqual(v)
+    expect(opcoesDoVoto(lido!.cifrado, { idEnquete, segredo, opcoes: OPCOES, criadores: lido!.criadores, votantes: lido!.votantes })).toBeNull()
+    expect(opcoesDoVoto(lido!.cifrado, { idEnquete, segredo, opcoes: OPCOES, criadores: [...lido!.criadores, grafica.lid], votantes: lido!.votantes })).toEqual([OPCOES_ENQUETE_ORCAMENTO.modificar])
+    expect(votoDoBruto({ qualquer: 1 })).toBeNull()
+  })
+
+  it('log sem o número inteiro; jid sem aparelho nem agente', () => {
+    expect(mascararJid('5511988887777@s.whatsapp.net')).toBe('…7777@s.whatsapp.net')
+    expect(mascararJid('555566667777888@lid')).toBe('…7888@lid')
+    expect(mascararJid(null)).toBeNull()
+    expect(jidNormalizado('555566667777888:12@lid')).toBe('555566667777888@lid')
+    expect(jidNormalizado('5511900001111_1:3@s.whatsapp.net')).toBe('5511900001111@s.whatsapp.net')
+    expect(jidNormalizado('5511900001111@c.us')).toBe('5511900001111@s.whatsapp.net')
+  })
+
+  it('LID da conta nas credenciais da instância (tabela "Session" da Evolution: JSON dentro de string, com aparelho)', () => {
+    const creds = { noiseKey: { private: { type: 'Buffer', data: 'AAAA' } }, me: { id: '5511900001111:6@s.whatsapp.net', lid: '111122223333444:6@lid', name: 'Gráfica' } }
+    expect(identidadeDasCredenciais(JSON.stringify(JSON.stringify(creds)))).toEqual({ jid: grafica.numero, lid: grafica.lid })
+    expect(identidadeDasCredenciais(JSON.stringify(creds))).toEqual({ jid: grafica.numero, lid: grafica.lid })
+    expect(identidadeDasCredenciais({ me: { id: '5511900001111:6@s.whatsapp.net' } })).toEqual({ jid: grafica.numero, lid: null })
+    expect(identidadeDasCredenciais('não é json')).toBeNull()
+    expect(identidadeDasCredenciais(null)).toBeNull()
+    expect(urlDoBancoEvolution({ DATABASE_URL: 'postgresql://u:s@db:5432/onprint?schema=public' })).toBe('postgresql://u:s@db:5432/evolution?schema=public&connection_limit=1')
+    expect(urlDoBancoEvolution({ DATABASE_URL: 'postgresql://u:s@db:5432/onprint', EVOLUTION_DATABASE_URL: 'postgresql://e:e@outro:5432/evo' })).toBe('postgresql://e:e@outro:5432/evo')
+  })
+
+  it('Evolution: identidade da conta vem do leitor das credenciais (sem leitor, desconhecida)', async () => {
+    const creds = JSON.stringify(JSON.stringify({ me: { id: '5511900001111:6@s.whatsapp.net', lid: '111122223333444:6@lid' } }))
+    const ler = vi.fn(async () => creds)
+    const p = new EvolutionWhatsappProvider('http://evolution:8080', 'chave', vi.fn(), 1000, ler)
+    expect(await p.identidade('grafygo-e1')).toEqual({ jid: grafica.numero, lid: grafica.lid })
+    expect(ler).toHaveBeenCalledWith('grafygo-e1')
+    expect(await new EvolutionWhatsappProvider('http://evolution:8080', 'chave', vi.fn()).identidade('grafygo-e1')).toBeNull()
+  })
+})
+
 /** Formatos reais do webhook da Evolution v2.3.7 (prepareMessage + EventController.emit) */
 const envelope = (event: string, data: unknown) => ({
   event,
@@ -294,8 +428,10 @@ describe('WhatsApp respostas: leitura do webhook', () => {
       nome: 'Pet Feliz',
       opcoes: null,
       cifrado: { encPayload: Buffer.from([1, 2, 3]), encIv: Buffer.from([9, 8]) },
-      votantes: ['5511988887777@s.whatsapp.net'],
-      criadores: ['5511900001111@s.whatsapp.net', '5511900001111@s.whatsapp.net'],
+      // Chave da enquete sem a normalização do Baileys (fromMe false): entra nas duas listas
+      votantes: ['5511988887777@s.whatsapp.net', '5511900001111@s.whatsapp.net'],
+      criadores: ['5511900001111@s.whatsapp.net'],
+      chaveEnquete: { remoteJid: '5511900001111@s.whatsapp.net', participant: null, fromMe: false },
     })
   })
   it('voto já aberto pela Evolution (selectedOptions com os nomes e pollUpdates)', () => {

@@ -91,6 +91,11 @@ const envSchema = z.object({
   /** Chave global da Evolution (AUTHENTICATION_API_KEY do container dela) */
   EVOLUTION_API_KEY: z.string().default(''),
   /**
+   * Banco da Evolution, só leitura do LID da conta conectada (voto da enquete; ver integrations/whatsapp/
+   * credenciais-evolution.ts). Opcional: sem valor, o DATABASE_URL com o banco "evolution" (como nos compose)
+   */
+  EVOLUTION_DATABASE_URL: z.string().default(''),
+  /**
    * Webhook da Evolution (o cliente responde o orçamento na conversa). Opcionais: o endereço padrão é o da rede
    * interna do compose (http://api:PORT/api/v1) e o segredo, sem valor, é derivado do JWT_ACCESS_SECRET
    */

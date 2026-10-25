@@ -2,6 +2,9 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import type { FastifyBaseLogger } from 'fastify'
 import { vaiComoImagem, type EstadoConexaoWhatsapp } from '@onprint/shared'
 import type { Env } from '../../config/env'
+import { identidadeDasCredenciais, leitorCredenciaisEvolution, urlDoBancoEvolution, type IdentidadeWhatsapp, type LeitorCredenciais } from './credenciais-evolution'
+
+export type { IdentidadeWhatsapp } from './credenciais-evolution'
 
 /**
  * WhatsApp da própria gráfica (conexão por QR code, como o WhatsApp Web). Uma instância por empresa
@@ -58,6 +61,13 @@ export interface ProvedorWhatsapp {
   enviarEnquete(instancia: string, numero: string, pergunta: string, opcoes: string[]): Promise<EnqueteEnviada>
   /** Liga o webhook da instância (mensagens recebidas e conexão) no endereço da API */
   configurarWebhook(instancia: string, url: string): Promise<void>
+  /**
+   * Número e LID da conta conectada (o LID não sai nas rotas da Evolution: vem das credenciais da instância, ver
+   * credenciais-evolution.ts). null se não houver; lança se o banco da Evolution não responder.
+   */
+  identidade(instancia: string): Promise<IdentidadeWhatsapp | null>
+  /** Fecha conexões próprias (banco da Evolution) ao desligar a API */
+  fechar?(): Promise<void>
 }
 
 export interface EnqueteEnviada {
@@ -127,6 +137,13 @@ export class LogWhatsappProvider implements ProvedorWhatsapp {
   async configurarWebhook(instancia: string, url: string): Promise<void> {
     this.webhooks.push({ instancia, url })
   }
+
+  /** Testes: a identidade "da conta" (número e LID) que o modo de teste devolve */
+  identidadeTeste: IdentidadeWhatsapp | null = null
+
+  async identidade(): Promise<IdentidadeWhatsapp | null> {
+    return this.identidadeTeste
+  }
 }
 
 type Fetch = typeof globalThis.fetch
@@ -165,8 +182,19 @@ export class EvolutionWhatsappProvider implements ProvedorWhatsapp {
     private readonly apiKey: string,
     private readonly fetcher: Fetch = globalThis.fetch,
     private readonly timeoutMs = 15_000,
+    /** Lê a coluna creds da instância no banco da Evolution (sem ele, o LID da conta fica desconhecido) */
+    private readonly lerCredenciais: LeitorCredenciais | null = null,
   ) {
     this.base = url.replace(/\/+$/, '')
+  }
+
+  async identidade(instancia: string): Promise<IdentidadeWhatsapp | null> {
+    if (!this.lerCredenciais) return null
+    return identidadeDasCredenciais(await this.lerCredenciais(instancia))
+  }
+
+  async fechar(): Promise<void> {
+    await this.lerCredenciais?.fechar?.().catch(() => undefined)
   }
 
   private async chamar(metodo: 'GET' | 'POST' | 'DELETE', caminho: string, corpo?: unknown, timeoutMs = this.timeoutMs): Promise<{ status: number; dados: unknown }> {
@@ -301,6 +329,11 @@ export class EvolutionWhatsappProvider implements ProvedorWhatsapp {
   }
 }
 
-export function criarProvedorWhatsapp(config: Pick<Env, 'WHATSAPP_PROVEDOR' | 'EVOLUTION_URL' | 'EVOLUTION_API_KEY'>, log?: FastifyBaseLogger): ProvedorWhatsapp {
-  return config.WHATSAPP_PROVEDOR === 'evolution' ? new EvolutionWhatsappProvider(config.EVOLUTION_URL, config.EVOLUTION_API_KEY) : new LogWhatsappProvider(log)
+export function criarProvedorWhatsapp(
+  config: Pick<Env, 'WHATSAPP_PROVEDOR' | 'EVOLUTION_URL' | 'EVOLUTION_API_KEY' | 'DATABASE_URL' | 'EVOLUTION_DATABASE_URL'>,
+  log?: FastifyBaseLogger,
+): ProvedorWhatsapp {
+  if (config.WHATSAPP_PROVEDOR !== 'evolution') return new LogWhatsappProvider(log)
+  const urlBanco = urlDoBancoEvolution(config)
+  return new EvolutionWhatsappProvider(config.EVOLUTION_URL, config.EVOLUTION_API_KEY, globalThis.fetch, 15_000, urlBanco ? leitorCredenciaisEvolution(urlBanco) : null)
 }

@@ -6,60 +6,59 @@ Depois de publicar no YouTube (pode ser "não listado"), coloque o id do vídeo 
 `apps/web/src/features/ajuda/conteudo/pedidos.ts`: a versão narrada passa a aparecer no lugar do vídeo gravado.
 
 Antes de gravar, tenha à mão (na empresa de demonstração): um orçamento em **Rascunho**, um orçamento **Aprovado**
-e um pedido com a arte ainda sem arquivo. O jeito mais rápido é rodar a parte `preparar()` dos scripts em
-`scripts/tutoriais/` (ou duplicar um orçamento em "Mais" → "Duplicar"). Para a página do cliente, abra o link
-de aprovação numa janela anônima do navegador: é exatamente o que o cliente vê.
+que ainda não virou pedido e um pedido com a arte ainda sem arquivo. O jeito mais rápido é rodar
+`scripts/tutoriais/fazer-orcamento.py` (cria o rascunho) ou a parte `preparar()` dos outros scripts (ou duplicar um
+orçamento em "Mais" → "Duplicar"). Para a página do cliente, abra o link numa janela anônima do navegador: é
+exatamente o que o cliente vê. Grave com o WhatsApp da empresa de demonstração em modo de teste
+(`WHATSAPP_PROVEDOR=log`) e nunca mostre o número verdadeiro de um celular conectado.
 
 ## Enviar o orçamento e receber a aprovação
 
-- **Objetivo:** mostrar que o cliente recebe o orçamento no WhatsApp e aprova sozinho, pelo celular.
-- **Duração alvo:** 60 a 75 segundos.
+- **Objetivo:** mostrar que o orçamento sai pelo WhatsApp da gráfica, com o PDF, e o cliente aprova sozinho pela enquete.
+- **Duração alvo:** 70 a 90 segundos.
 
 | Tempo | Na tela (o que clicar) | Fala (o que dizer) |
 |---|---|---|
-| 0:00 | Orçamento salvo aberto | "Orçamento pronto? Agora deixa o cliente aprovar sozinho, sem ficar ligando para ele. Olha como é fácil." |
-| 0:06 | Clique em **Copiar mensagem** | "Toco em Copiar mensagem. O texto já vai com o nome do cliente, o valor e um link para ele aprovar." |
-| 0:14 | **Mais** → **Marcar como enviado** (ou o botão no aviso verde) | "Colo no WhatsApp do cliente e marco como enviado. Assim eu sei quem está esperando resposta." |
-| 0:22 | Passe o mouse em **PDF** | "Se o cliente prefere PDF, eu baixo aqui, com a minha marca, e anexo na conversa." |
-| 0:28 | **Mais** → **Copiar link de aprovação** | "E se eu quiser mandar só o link, ele está aqui no Mais." |
-| 0:34 | Abra o link (janela anônima) | "Essa é a tela que o cliente vê: os itens, o total, a validade e as condições. Funciona no celular, sem senha." |
-| 0:44 | Digite o nome, marque o aceite, **Confirmar aprovação** | "Ele digita o nome, marca que leu e confirma. Pronto, aprovado." |
-| 0:52 | Volte ao orçamento no sistema | "E aqui no sistema já aparece: aprovado, com o nome, a data e a hora." |
-| 0:58 | Mostre o botão **Converter em pedido** | "Agora é transformar esse orçamento em pedido. É o próximo vídeo." |
+| 0:00 | Orçamento salvo aberto | "Orçamento pronto? Agora deixa o cliente aprovar sozinho, sem ficar ligando para ele." |
+| 0:05 | Clique em **Enviar orçamento** | "Toco em Enviar orçamento." |
+| 0:08 | Diálogo: prévia da mensagem e o PDF | "A mensagem já vem pronta, do jeito que o cliente vai ver: os itens, o total, a entrada e as parcelas, o prazo e o link. O PDF vai junto." |
+| 0:18 | Clique em **Enviar para…** | "Toco em Enviar. Sai do WhatsApp da própria gráfica, e o orçamento passa para Enviado." |
+| 0:25 | Tela **WhatsApp** → "Como o cliente aprova o orçamento" | "Logo depois chega uma enquete: o cliente toca em Aprovado ou em Quero modificações. Se preferir, ele responde um ou dois, ou escreve aprovado. Você escolhe o formato aqui." |
+| 0:40 | Abra o link de aprovação (janela anônima) | "O link no fim da mensagem abre o orçamento completo, com o pagamento combinado. Ele também pode aprovar por aqui." |
+| 0:50 | Volte ao orçamento → **Cliente aprovou pelo WhatsApp** | "Aprovou pela enquete? O orçamento se aprova sozinho. Respondeu de outro jeito na conversa? Um clique em Cliente aprovou pelo WhatsApp." |
+| 1:00 | Cartão do pedido gerado | "Pronto: aprovado, e o pedido já nasceu com a entrada e as parcelas nas contas a receber." |
+| 1:08 | — | "No próximo vídeo, o que acontece com esse pedido." |
 
-## Transformar o orçamento aprovado em pedido
+## O orçamento aprovado vira pedido
 
-- **Objetivo:** mostrar que o pedido nasce com um toque, já com sinal, parcelas e artes.
-- **Duração alvo:** 45 a 60 segundos.
-
-| Tempo | Na tela (o que clicar) | Fala (o que dizer) |
-|---|---|---|
-| 0:00 | Orçamento aprovado aberto | "O cliente aprovou? Então vamos fechar o pedido. Leva menos de um minuto." |
-| 0:05 | Clique em **Converter em pedido** | "Toco em Converter em pedido." |
-| 0:08 | Sinal 50%, **Parcelas do saldo** 2 | "Coloco o sinal, aqui cinquenta por cento, e o resto em duas vezes. Embaixo já aparecem as contas que vão ser criadas, com o vencimento de cada uma." |
-| 0:20 | Mostre **Entrega** e **Prioridade**, clique em **Criar pedido** | "Escolho se é retirada ou entrega, a prioridade, e crio o pedido." |
-| 0:26 | Cartão do pedido gerado → **Abrir pedido** | "O pedido nasceu com as contas a receber e uma arte para cada item. Vou abrir." |
-| 0:32 | Topo do pedido | "Aqui eu vejo o status, a data de entrega, quantas artes já foram aprovadas e o total." |
-| 0:38 | Aba **Financeiro** | "No Financeiro ficam o sinal e as parcelas. Quando o cliente pagar, é só tocar em Receber." |
-| 0:45 | **Pedidos** → **Kanban** | "E no Kanban eu vejo todos os pedidos por status, com quanto falta pagar em cada um." |
-| 0:52 | Cartão do pedido em "Aguardando arte" | "Esse aqui está aguardando arte. No próximo vídeo eu mostro como mandar a arte para o cliente aprovar." |
-
-## Mandar a arte para o cliente aprovar
-
-- **Objetivo:** mostrar o envio da arte e a aprovação (ou o pedido de ajuste) pelo link, tudo registrado.
-- **Duração alvo:** 60 a 80 segundos.
+- **Objetivo:** mostrar que o pedido nasce sozinho na aprovação, com o pagamento do orçamento, e o caminho manual.
+- **Duração alvo:** 50 a 65 segundos.
 
 | Tempo | Na tela (o que clicar) | Fala (o que dizer) |
 |---|---|---|
-| 0:00 | Pedido aberto, aba **Arte** | "Chega de imprimir arte errada e levar a culpa. Agora o cliente aprova a arte por escrito, pelo celular." |
-| 0:07 | **Escolher arquivo** → escolha a arte | "No pedido, na aba Arte, eu mando o arquivo. Pode ser PDF, imagem, CDR… A miniatura aparece na hora." |
-| 0:16 | Clique em **Enviar ao cliente** | "Toco em Enviar ao cliente." |
-| 0:20 | Clique em **Copiar mensagem com link** | "Copio a mensagem com o link e colo no WhatsApp dele." |
-| 0:26 | Abra o link (janela anônima) | "O cliente abre e vê a arte grandona, com a quantidade e as medidas." |
-| 0:34 | Clique em **Pedir ajuste** | "Se ele quiser mudar alguma coisa, toca em Pedir ajuste e escreve o que é. Esse pedido chega para mim, junto da arte." |
-| 0:44 | **Aprovar arte** → nome → aceite → **Confirmar aprovação** | "Se estiver tudo certo, ele aprova: coloca o nome, confirma que conferiu textos, cores e medidas, e pronto." |
-| 0:55 | Volte ao pedido, aba **Arte** | "No pedido, a arte já aparece aprovada, e a produção pode imprimir sem medo." |
-| 1:02 | — | "E para acompanhar essa produção, veja o próximo vídeo." |
+| 0:00 | **Ajustes** → **Dados da empresa** → quadro **Pedidos** | "Primeiro, deixe marcado: quando o cliente aprovar o orçamento, criar o pedido automaticamente. Aqui também ficam a entrega e a prioridade padrão." |
+| 0:12 | Orçamento aprovado, cartão do pedido gerado | "Aprovou pela enquete, pelo link ou pelo botão? O pedido já existe, com a entrada e as parcelas que estavam no orçamento." |
+| 0:22 | **Abrir pedido** → topo do pedido | "Aqui eu vejo o status, a data de entrega, quantas artes já foram aprovadas e o total." |
+| 0:30 | Aba **Financeiro** | "No Financeiro ficam a entrada e as parcelas. Quando o cliente pagar, é só tocar em Receber." |
+| 0:38 | **Pedidos** → **Kanban** | "E no Kanban eu vejo todos os pedidos por status, com quanto falta pagar em cada um." |
+| 0:46 | Orçamento aprovado sem pedido → **Converter em pedido** | "Desligou a criação automática? Aí o orçamento fica aprovado e você toca em Converter em pedido: confere o pagamento, a entrega e a prioridade, e cria o pedido." |
+| 0:58 | — | "No próximo vídeo, a aprovação da arte." |
+
+## Aprovar a arte (com a equipe ou com o cliente)
+
+- **Objetivo:** mostrar o envio do arquivo, a aprovação pela equipe e a aprovação do cliente pelo celular.
+- **Duração alvo:** 70 a 90 segundos.
+
+| Tempo | Na tela (o que clicar) | Fala (o que dizer) |
+|---|---|---|
+| 0:00 | Pedido aberto, aba **Arte** | "Chega de imprimir arte errada. No pedido, na aba Arte, cada item tem a sua arte, e no topo eu vejo quantas já foram aprovadas." |
+| 0:08 | **Não precisa de arte ▾** | "Item que não leva arte, ou que o cliente mandou pronta? Eu aviso aqui, e a produção não fica esperando." |
+| 0:15 | **Escolher arquivo** → escolha a arte | "Mando o arquivo: PDF, imagem, CDR… A miniatura aparece na hora." |
+| 0:22 | **Marcar como aprovada ▾** | "O cliente já aprovou com você? Marco como aprovada e digo como: pelo WhatsApp, pessoalmente, por telefone. Com várias artes, Cliente aprovou todas as artes resolve num clique." |
+| 0:34 | **Enviar para o cliente** → diálogo | "Quer que ele veja antes? Enviar para o cliente manda uma mensagem só, com os arquivos e um link para aprovar tudo." |
+| 0:44 | Abra o link (janela anônima): **Acompanhe seu pedido** | "Ele abre no celular, vê a arte grandona, coloca o nome, confirma que conferiu e aprova. Se quiser mudar algo, toca em Pedir ajuste." |
+| 0:58 | Volte ao pedido, aba **Arte** | "No pedido, a arte já aparece aprovada, com quem aprovou, e o pedido vai para a produção." |
+| 1:06 | — | "E para acompanhar essa produção, veja o próximo vídeo." |
 
 ## Acompanhar a produção no kanban
 

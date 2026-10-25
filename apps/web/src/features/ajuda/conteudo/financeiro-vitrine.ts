@@ -1,6 +1,6 @@
 import type { Tutorial } from '../tipos'
 
-/** Financeiro, caixa (PDV), vitrine e divulgação. Imagens e vídeo: scripts/tutoriais/{slug}.py */
+/** Financeiro, caixa (PDV), WhatsApp, vitrine e divulgação. Imagens e vídeo: scripts/tutoriais/{slug}.py */
 export const TUTORIAIS_FINANCEIRO_VITRINE: Tutorial[] = [
   {
     slug: 'receber-pagamento',
@@ -93,6 +93,57 @@ export const TUTORIAIS_FINANCEIRO_VITRINE: Tutorial[] = [
     proximos: ['receber-pagamento'],
   },
   {
+    slug: 'conectar-whatsapp',
+    titulo: 'Conectar o WhatsApp e os avisos automáticos',
+    resumo: 'Ligue o WhatsApp da gráfica pelo QR code: orçamentos, artes e avisos do pedido saem do seu número, e o cliente aprova o orçamento pela enquete.',
+    categoria: 'vitrine',
+    minutos: 3,
+    telas: ['/whatsapp', '/configuracoes/whatsapp'],
+    video: { arquivo: '/ajuda/conectar-whatsapp/video.mp4', capa: '/ajuda/conectar-whatsapp/capa.webp', segundos: 56 },
+    passos: [
+      {
+        titulo: 'Abra a tela WhatsApp',
+        texto: 'No menu Comercial, toque em "WhatsApp" (também fica em Ajustes → Conexão do WhatsApp). Toque em "Conectar".',
+        imagem: '/ajuda/conectar-whatsapp/1.webp',
+      },
+      {
+        titulo: 'Leia o QR code com o celular da gráfica',
+        texto: 'No celular, abra o WhatsApp, toque em ⋮ (Android) ou em Configurações (iPhone), depois em "Aparelhos conectados" → "Conectar aparelho", e aponte a câmera para o QR code.',
+        imagem: '/ajuda/conectar-whatsapp/2.webp',
+        dica: 'Funciona como o WhatsApp Web: o número continua funcionando normalmente no celular. O QR é renovado sozinho até ser lido.',
+      },
+      {
+        titulo: 'Pronto: WhatsApp conectado',
+        texto: 'A tela mostra "WhatsApp conectado", com o número e desde quando. Daqui em diante, "Enviar orçamento", "Enviar para o cliente" e os avisos saem do número da própria gráfica.',
+        imagem: '/ajuda/conectar-whatsapp/3.webp',
+        dica: 'Use só para os seus clientes e os avisos dos pedidos. Propaganda ou mensagens em massa podem fazer o WhatsApp bloquear o número.',
+      },
+      {
+        titulo: 'Escolha os avisos automáticos',
+        texto: 'Ligue os avisos que o cliente recebe quando o pedido anda: pedido confirmado, arte para aprovação, pedido pronto, saiu para entrega, pagamento recebido e pedido entregue. Em "Ver mensagem" você vê o texto que vai.',
+        imagem: '/ajuda/conectar-whatsapp/4.webp',
+        dica: 'O texto de cada aviso fica em Ajustes → Mensagens prontas.',
+      },
+      {
+        titulo: 'Horário e pausa',
+        texto: 'Escolha o horário de envio: fora dele, os avisos esperam e saem na abertura. Precisa parar tudo por um tempo? Ligue "Pausar os avisos". Depois toque em "Salvar".',
+        imagem: '/ajuda/conectar-whatsapp/5.webp',
+      },
+      {
+        titulo: 'Como o cliente aprova o orçamento',
+        texto: 'Escolha "Enquete" (o cliente toca em ✅ Aprovado ou ✏️ Quero modificações) ou "Responder 1 ou 2". Nos dois, escrever "aprovado" também aprova. Com "Aprovar sozinho" ligado, o orçamento é aprovado na hora e vira pedido, se a criação automática estiver ligada.',
+        imagem: '/ajuda/conectar-whatsapp/6.webp',
+        dica: 'Desligado, o vendedor recebe uma notificação e confirma com "Cliente aprovou pelo WhatsApp". Pedido de modificação sempre volta para negociação.',
+      },
+      {
+        titulo: 'Acompanhe o que saiu',
+        texto: 'Em "Mensagens enviadas e na fila" ficam todas as mensagens, com o pedido ou o orçamento de cada uma. Filtre por "Na fila", "Enviada", "Falhou" ou "Não enviada" e reenvie quando precisar.',
+        imagem: '/ajuda/conectar-whatsapp/7.webp',
+      },
+    ],
+    proximos: ['enviar-orcamento', 'aprovacao-arte'],
+  },
+  {
     slug: 'ligar-vitrine',
     titulo: 'Colocar o seu site (vitrine) no ar',
     resumo: 'Ligue a vitrine, escolha os produtos que aparecem e receba listas de orçamento dos clientes pelo site.',
@@ -162,7 +213,7 @@ export const TUTORIAIS_FINANCEIRO_VITRINE: Tutorial[] = [
       },
       {
         titulo: 'Mande a mensagem pronta',
-        texto: 'A mensagem já vem com o nome do produto, o preço e o link. Escolha um cliente ou "Qualquer contato" e toque em "Abrir o WhatsApp": a conversa abre com o texto pronto.',
+        texto: 'A mensagem já vem com o nome do produto, o preço e o link. Escolha um cliente (toque em "Enviar para…": com o WhatsApp conectado, sai pelo número da gráfica) ou "Qualquer contato" e toque em "Abrir o WhatsApp": a conversa abre com o texto pronto.',
         imagem: '/ajuda/divulgar-whatsapp/3.webp',
         dica: 'Quer divulgar o site inteiro? Em Configurar vitrine, toque em "Divulgar a vitrine".',
       },
@@ -182,6 +233,6 @@ export const TUTORIAIS_FINANCEIRO_VITRINE: Tutorial[] = [
         imagem: '/ajuda/divulgar-whatsapp/6.webp',
       },
     ],
-    proximos: ['fazer-orcamento', 'enviar-orcamento'],
+    proximos: ['conectar-whatsapp', 'fazer-orcamento'],
   },
 ]

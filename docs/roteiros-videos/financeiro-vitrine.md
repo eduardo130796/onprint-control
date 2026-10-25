@@ -43,6 +43,22 @@ janela anônima. Não toque em "Abrir o WhatsApp" se não quiser mandar a mensag
 | 0:44 | Clique em **Sangria** e depois feche | "Tirou dinheiro da gaveta para levar ao banco? Registre uma sangria, com o valor e o motivo." |
 | 0:52 | Passe o mouse em **Fechar caixa** | "E no fim do dia, Fechar caixa: você confere o que contou com o que o sistema calculou. No próximo vídeo, como receber as contas a prazo." |
 
+## Conectar o WhatsApp e os avisos automáticos
+
+- **Objetivo:** mostrar que, conectado pelo QR code, o WhatsApp da gráfica manda os orçamentos e os avisos do pedido sozinho.
+- **Duração alvo:** 55 a 70 segundos.
+- **Atenção:** nunca mostre o número de um celular de verdade. Grave com o WhatsApp em modo de teste ou cubra o número na edição.
+
+| Tempo | Na tela (o que clicar) | Fala (o que dizer) |
+|---|---|---|
+| 0:00 | Comercial → **WhatsApp** | "Quer que o cliente receba o orçamento e os avisos do pedido no WhatsApp, sem você digitar nada? Começa aqui." |
+| 0:06 | Clique em **Conectar** → QR code | "Toco em Conectar e aparece um QR code. No celular da gráfica: Aparelhos conectados, Conectar aparelho, e leio o código. Igual ao WhatsApp Web." |
+| 0:18 | Cartão **WhatsApp conectado** | "Pronto, conectado. A partir de agora, as mensagens saem do número da própria gráfica, e o celular continua funcionando normal." |
+| 0:26 | **Avisos automáticos** → **Ver mensagem** | "Aqui eu escolho os avisos: pedido confirmado, arte para aprovação, pedido pronto, saiu para entrega… E vejo o texto de cada um." |
+| 0:38 | **Horário de envio** e **Pausar os avisos** | "Escolho o horário. Fora dele, os avisos esperam. E se precisar parar tudo, é só pausar." |
+| 0:46 | **Como o cliente aprova o orçamento** e **Aprovar sozinho** | "E o orçamento: o cliente aprova numa enquete, ou respondendo um ou dois. Com Aprovar sozinho ligado, ele vira pedido na hora." |
+| 0:58 | **Mensagens enviadas e na fila** | "Aqui do lado fica tudo o que saiu e o que está na fila. Simples assim." |
+
 ## Colocar o seu site (vitrine) no ar
 
 - **Objetivo:** mostrar que a gráfica tem um site de produtos pronto e que o cliente monta a lista de orçamento sozinho.

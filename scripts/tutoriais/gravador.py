@@ -222,6 +222,51 @@ class Gravador:
         self.fotos.append(destino)
         print(f'  foto {n}: {destino.relative_to(RAIZ)} ({destino.stat().st_size // 1024} KB)')
 
+    # ─── WhatsApp de demonstração ──────────────────────────────────────────
+    def whatsapp_demo(self, *, estado: str = 'conectado', formato: str | None = None):
+        """
+        A tela mostra o WhatsApp como no uso real, com um número fictício, e NENHUMA mensagem sai: o envio do
+        diálogo "Enviar pelo WhatsApp" é respondido aqui mesmo (não chega à API). Assim a gravação não mostra o
+        número verdadeiro da gráfica nem o aviso de "modo de teste", e não manda nada para os clientes.
+        estado: 'conectado' ou 'desconectado' (para mostrar o botão "Conectar" e o QR code de exemplo).
+        """
+        import json
+
+        api = URL + '/api/v1/whatsapp'
+
+        def config(route):
+            r = route.fetch()
+            dados = r.json()
+            dados.update(provedor='evolution', estado=estado, pausado=False, pendentes=0, liberadoNoPlano=True)
+            if formato:
+                dados['formatoAprovacao'] = formato
+            if estado == 'conectado':
+                dados.update(numero=NUMERO_FICTICIO, nomePerfil='Ponto Visual')
+            else:
+                dados.update(numero=None, nomePerfil=None, conectadoEm=None, desconectadoEm=None)
+            route.fulfill(response=r, body=json.dumps(dados), headers={**r.headers, 'content-type': 'application/json'})
+
+        def disponivel(route):
+            r = route.fetch()
+            dados = r.json()
+            dados.update(conectado=True, motivo=None, numero=NUMERO_FICTICIO, teste=False)
+            if formato:
+                dados['formatoAprovacao'] = formato
+            route.fulfill(response=r, body=json.dumps(dados), headers={**r.headers, 'content-type': 'application/json'})
+
+        def envio(route):
+            route.fulfill(status=200, content_type='application/json', body=json.dumps({'id': None, 'status': 'enviada', 'aviso': None}))
+
+        def conectar(route):
+            route.fulfill(status=200, content_type='application/json', body=json.dumps({'estado': 'conectando', 'qrBase64': qr_de_exemplo()}))
+
+        self.pg.route(api, lambda route: config(route) if route.request.method == 'GET' else route.continue_())
+        self.pg.route(api + '/estado', config)
+        self.pg.route(api + '/disponivel', disponivel)
+        self.pg.route(api + '/enviar', envio)
+        self.pg.route(api + '/enviar-com-pdf', envio)
+        self.pg.route(api + '/conectar', conectar)
+
     # ─── vídeo ──────────────────────────────────────────────────────────────
     def _converter(self, webm: Path):
         mp4 = self.saida / 'video.mp4'
@@ -253,6 +298,26 @@ class Gravador:
             return round(float(r.stdout.strip()))
         except ValueError:
             return 0
+
+
+NUMERO_FICTICIO = '5511987654321'
+
+
+def qr_de_exemplo() -> str:
+    """QR code de exemplo (aponta para a central de ajuda; não conecta nada), gerado no container web."""
+    r = subprocess.run(
+        ['docker', 'compose', 'exec', '-T', 'web', 'sh', '-c',
+         "cd /app/apps/web && node -e \"require('qrcode').toDataURL('https://grafygo.com.br/ajuda',{margin:1,width:480}).then((u)=>process.stdout.write(u))\""],
+        capture_output=True, text=True, cwd=RAIZ, env={**os.environ, 'MSYS_NO_PATHCONV': '1'},
+    )
+    if r.stdout.startswith('data:image/png'):
+        return r.stdout
+    # Sem o container: um quadro cinza no lugar do QR
+    from io import BytesIO
+    import base64
+    buf = BytesIO()
+    Image.new('RGB', (480, 480), (230, 232, 236)).save(buf, 'PNG')
+    return 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode()
 
 
 def esperar(segundos: float):

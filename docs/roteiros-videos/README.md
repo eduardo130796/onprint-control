@@ -8,7 +8,7 @@ para cada tarefa, um passo a passo com fotos das telas e um vídeo curto.
 | Primeiros passos | configurar-empresa, cadastrar-produto, convidar-equipe, assinar-plano | `apps/web/src/features/ajuda/conteudo/comecar.ts` | [comecar.md](comecar.md) |
 | Orçamentos | fazer-orcamento | `conteudo/vendas.ts` | [vendas.md](vendas.md) |
 | Pedidos, arte e produção | enviar-orcamento, orcamento-em-pedido, aprovacao-arte, acompanhar-producao | `conteudo/pedidos.ts` | [pedidos.md](pedidos.md) |
-| Financeiro e vitrine | receber-pagamento, venda-balcao, ligar-vitrine, divulgar-whatsapp | `conteudo/financeiro-vitrine.ts` | [financeiro-vitrine.md](financeiro-vitrine.md) |
+| Financeiro, WhatsApp e vitrine | receber-pagamento, venda-balcao, conectar-whatsapp, ligar-vitrine, divulgar-whatsapp | `conteudo/financeiro-vitrine.ts` | [financeiro-vitrine.md](financeiro-vitrine.md) |
 
 ## Dois tipos de vídeo
 
@@ -35,6 +35,10 @@ substituindo os arquivos de `apps/web/public/ajuda/<slug>/`. Depois, confira a d
 - Os scripts criam dados novos na empresa de demonstração (orçamentos, pedidos, produtos). Não rode em produção.
 - Rode um tutorial por vez: dois ao mesmo tempo disputam o servidor e podem gravar telas de carregamento.
 - O motor comum fica em `scripts/tutoriais/gravador.py` (legendas, destaque, cursor, fotos e vídeo).
+- Telas com WhatsApp: rode a API no modo de teste (`WHATSAPP_PROVEDOR=log docker compose up -d --no-deps api`). Os scripts
+  usam `g.whatsapp_demo()`: a conexão aparece com um número fictício e o envio do diálogo "Enviar pelo WhatsApp" não sai.
+- Encadeados: `fazer-orcamento.py` mostra o id do orçamento criado; passe-o para `enviar-orcamento.py` e
+  `orcamento-em-pedido.py`, e o id do pedido gerado para `aprovacao-arte.py`.
 
 ## Escrever um tutorial novo
 

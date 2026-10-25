@@ -61,15 +61,15 @@ Depois de publicar no YouTube (pode ser "não listado"), coloque o id do vídeo 
 ## Assinar a GrafyGo
 
 - **Objetivo:** mostrar como assinar durante o teste grátis, sem perder nenhum dia.
-- **Duração alvo:** 55 a 65 segundos.
+- **Duração alvo:** 45 a 60 segundos.
 - **Atenção:** grave numa conta em teste grátis e pare antes de tocar em "Assinar e ir para o pagamento" (ou use o seu cartão de verdade, se for assinar).
 
 | Tempo | Na tela (o que clicar) | Fala (o que dizer) |
 |---|---|---|
 | 0:00 | Ajustes → **Minha assinatura** aberto | "Em um minuto você assina a GrafyGo e continua sem interrupção." |
 | 0:05 | Mostre o quadro escuro com o plano e os dias de teste | "Aqui eu vejo o meu plano, quantos dias de teste ainda tenho e quantos usuários estou usando." |
-| 0:12 | Clique em **Assinar agora** → clique no cartão **Completo** | "Toco em Assinar agora e escolho o plano. Cada cartão mostra o que vem incluído e quantos usuários cabem." |
-| 0:22 | Clique em **Anual** e depois em **Mensal** | "Posso pagar por mês ou por ano. No anual, ganho dois meses grátis." |
+| 0:12 | Clique em **Assinar agora** → mostre o cartão **GrafyGo** | "Toco em Assinar agora. É um plano só, de noventa e nove reais por mês, com tudo incluído: WhatsApp automático, vitrine online e usuários ilimitados." |
+| 0:22 | Clique em **Anual** e depois em **Mensal** | "Posso pagar por mês ou por ano: no anual são novecentos e noventa reais, e eu ganho dois meses grátis." |
 | 0:30 | Mostre **Cartão de crédito** e **PIX ou boleto** | "Forma de pagamento: no cartão, as mensalidades são cobradas sozinhas. No PIX ou boleto, a cobrança chega todo mês." |
 | 0:39 | Digite o CNPJ em **CNPJ (ou CPF)** | "Coloco o CNPJ da gráfica, que vai na cobrança. Se tiver cupom, é aqui embaixo." |
 | 0:47 | Mostre o **Resumo** e o botão **Assinar e ir para o pagamento** | "Confiro o resumo: plano, pagamento e valor. A primeira mensalidade só vence no fim do teste." |

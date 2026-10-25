@@ -37,7 +37,7 @@ export const TUTORIAIS_COMECAR: Tutorial[] = [
         titulo: 'Salve',
         texto: 'Toque em "Salvar" no fim da página. Aparece o aviso "Dados da empresa salvos." e tudo já vale nos próximos orçamentos.',
         imagem: '/ajuda/configurar-empresa/5.webp',
-        dica: 'Na mesma página ficam os padrões comerciais: validade do orçamento, sinal, chave PIX e condições de pagamento.',
+        dica: 'Na mesma página ficam a validade do orçamento, a chave PIX, o pagamento padrão (entrada e parcelas) e a criação automática do pedido quando o cliente aprova.',
       },
       {
         titulo: 'Escolha a cor do sistema',
@@ -49,7 +49,7 @@ export const TUTORIAIS_COMECAR: Tutorial[] = [
         titulo: 'Salve a cor',
         texto: 'Gostou? Toque em "Salvar cor": vale para toda a equipe. Mudou de ideia? Toque em "Voltar para…" e nada muda.',
         imagem: '/ajuda/configurar-empresa/7.webp',
-        dica: 'O modo claro ou escuro e o tamanho da letra são de cada pessoa: cada um escolhe o seu.',
+        dica: 'O modo claro ou escuro, o tamanho da letra e o que o olho do topo ("Ocultar valores") esconde são de cada pessoa: cada um escolhe o seu.',
       },
     ],
     proximos: ['cadastrar-produto', 'convidar-equipe'],
@@ -151,7 +151,7 @@ export const TUTORIAIS_COMECAR: Tutorial[] = [
     categoria: 'conta',
     minutos: 2,
     telas: ['/assinatura'],
-    video: { arquivo: '/ajuda/assinar-plano/video.mp4', capa: '/ajuda/assinar-plano/capa.webp', segundos: 52 },
+    video: { arquivo: '/ajuda/assinar-plano/video.mp4', capa: '/ajuda/assinar-plano/capa.webp', segundos: 45 },
     passos: [
       {
         titulo: 'Abra a sua assinatura',
@@ -160,12 +160,12 @@ export const TUTORIAIS_COMECAR: Tutorial[] = [
       },
       {
         titulo: 'Confira o plano',
-        texto: 'Toque em "Assinar agora". A GrafyGo tem um plano só, com tudo incluído (WhatsApp automático e vitrine online também) e usuários ilimitados.',
+        texto: 'Toque em "Assinar agora". A GrafyGo tem um plano só, de R$ 99 por mês, com tudo incluído (WhatsApp automático e vitrine online também) e usuários ilimitados.',
         imagem: '/ajuda/assinar-plano/2.webp',
       },
       {
         titulo: 'Mensal ou anual',
-        texto: 'No canto do quadro, escolha Mensal ou Anual. No anual você paga uma vez por ano e ganha 2 meses grátis.',
+        texto: 'No canto do quadro, escolha Mensal (R$ 99/mês) ou Anual (R$ 990/ano). No anual você paga uma vez por ano e ganha 2 meses grátis.',
         imagem: '/ajuda/assinar-plano/3.webp',
       },
       {

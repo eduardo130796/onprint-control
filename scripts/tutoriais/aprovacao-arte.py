@@ -1,290 +1,147 @@
-"""Tutorial "Mandar a arte para o cliente aprovar" (vídeo + capturas). Uso: python scripts/tutoriais/aprovacao-arte.py
+"""Tutorial "Aprovar a arte (com a equipe ou com o cliente)" (vídeo + capturas). Uso:
+    python scripts/tutoriais/aprovacao-arte.py [id do pedido com a arte ainda sem arquivo]
 
-Antes de gravar, cria pela API um pedido novo (cópia do ORC-2026-0050 da empresa de demonstração, aprovada e
-convertida), com a arte ainda sem arquivo. O arquivo da arte é desenhado aqui mesmo (Pillow).
+Sem id, duplica o ORC-2026-0066, marca como enviado e aprova pela API (com "criar o pedido automaticamente"
+ligado, vira pedido). O ideal é usar o pedido criado em enviar-orcamento.py (Padaria Pão Dourado, banner).
+O WhatsApp aparece conectado com número fictício e o envio NÃO sai (gravador.whatsapp_demo); a aprovação do cliente
+na página "Acompanhe seu pedido" é real. Rode com a API no modo de teste do WhatsApp (WHATSAPP_PROVEDOR=log).
 """
-import os
-import subprocess
+import json
 import sys
 import tempfile
-import time
+import urllib.request
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
-from PIL import Image, ImageDraw, ImageFont  # noqa: E402
-from playwright.sync_api import Browser, Page, sync_playwright  # noqa: E402
+from PIL import Image, ImageDraw, ImageFont
 
+sys.path.insert(0, str(Path(__file__).parent))
 from gravador import EMAIL, SENHA, URL, Gravador  # noqa: E402
 
-# ─── sistema lento: espera paciente, sem tempo morto no vídeo ─────────────
-# Com muitos acessos ao mesmo tempo, as telas podem demorar minutos e a API pode falhar de vez em quando.
-# As esperas são marcadas e cortadas do vídeo no final (quem assiste vê só as telas prontas), as ações que
-# gravam algo são repetidas se o resultado não aparecer e os avisos de erro não aparecem na gravação.
-ESPERA_MAX = 600_000
-_goto, _wait_for_url, _novo_contexto = Page.goto, Page.wait_for_url, Browser.new_context
+BASE = 'ORC-2026-0066'
 
 
-def _goto_paciente(self, url, **kw):
-    kw.setdefault('timeout', ESPERA_MAX)
-    return _goto(self, url, **kw)
-
-
-def _url_paciente(self, url, **kw):
-    kw['timeout'] = max(kw.get('timeout') or 0, ESPERA_MAX)
-    return _wait_for_url(self, url, **kw)
-
-
-# Opcional: TUTORIAL_API=http://localhost:3333 manda as chamadas da API direto ao container, sem o proxy do Vite
-# (que engasga com muitos acessos). Não serve para envio de arquivo (upload); aí use um front servido à parte.
-API_DIRETA = os.environ.get('TUTORIAL_API', '')
-
-
-def _api_direta(route):
-    try:
-        route.fulfill(response=route.fetch(url=route.request.url.replace(URL, API_DIRETA, 1), timeout=ESPERA_MAX))
-    except Exception:
-        route.continue_()
-
-
-def _contexto_paciente(self, **kw):
-    ctx = _novo_contexto(self, **kw)
-    ctx.set_default_timeout(ESPERA_MAX)
-    if API_DIRETA:
-        ctx.route(URL + '/api/**', _api_direta)
-    return ctx
-
-
-Page.goto, Page.wait_for_url, Browser.new_context = _goto_paciente, _url_paciente, _contexto_paciente
-CORTES: list[tuple[float, float]] = []
-ESQUELETO = '[class*="animate-pulse"][class*="bg-slate-200"]'
-SEM_ERROS = '[data-sonner-toast][data-type="error"]{display:none!important}'
-
-
-def _marcar(g: Gravador, inicio: float):
-    fim = time.monotonic()
-    if fim - inicio > 0.8:
-        CORTES.append((inicio + 0.15 - g._t0, fim - 0.15 - g._t0))
-
-
-def pronto(g: Gravador, alvo=None, limite: int = 600):
-    """Espera o alvo aparecer e a tela terminar de carregar; a espera sai do vídeo."""
-    inicio = time.monotonic()
-    if alvo is not None:
-        try:
-            alvo.wait_for(timeout=limite * 1000)
-        except Exception:
-            _marcar(g, inicio)  # a espera sai do vídeo mesmo quando o alvo não aparece
-            raise
-    for passo in [
-        lambda: g.pg.wait_for_load_state('networkidle', timeout=60_000),
-        lambda: g.pg.wait_for_function("Array.from(document.images).filter((i) => i.loading !== 'lazy').every((i) => i.complete)", timeout=60_000),
-        lambda: g.pg.locator('text=Carregando…').first.wait_for(state='detached', timeout=limite * 1000),
-        lambda: g.pg.locator(ESQUELETO).first.wait_for(state='detached', timeout=limite * 1000),
-    ]:
-        try:
-            passo()
-        except Exception:
-            pass
-    _marcar(g, inicio)
-
-
-def tentar(g: Gravador, acao, resultado, vezes: int = 25, limite: int = 40, repetir=None):
-    """Faz a ação e espera o resultado; se a API falhar (sistema sobrecarregado), repete sem animação (fora do vídeo)."""
-    for n in range(vezes):
-        if n and resultado.is_visible():
-            return
-        g.pg.set_default_timeout(60_000)
-        inicio = time.monotonic()
-        try:
-            (acao if n == 0 or repetir is None else repetir)()
-        except Exception:
-            pass  # o botão sumiu: a ação anterior deu certo agora há pouco
-        finally:
-            g.pg.set_default_timeout(ESPERA_MAX)
-        try:
-            pronto(g, resultado, limite=limite)
-            if n:
-                _marcar(g, inicio - 0.5)
-            return
-        except Exception:
-            if n:
-                _marcar(g, inicio - 0.5)
-            if resultado.is_visible():
-                return
-            if n == vezes - 1:
-                raise
-            print('  o resultado não apareceu; repetindo a ação')
-
-
-def _ir(self: Gravador, rota: str, espera: float = 1.2):
-    inicio = time.monotonic()
-    self.pg.goto(URL + rota)
-    pronto(self)
-    _marcar(self, inicio)
-    self.pausa(espera)
-
-
-Gravador.ir = _ir
-
-
-def preparar_pagina(g: Gravador):
-    """Tempo maior, área de transferência liberada e avisos de erro escondidos na gravação."""
-    g.pg.set_default_timeout(ESPERA_MAX)
-    g._ctx.grant_permissions(['clipboard-read', 'clipboard-write'], origin=URL)
-    g._ctx.add_init_script(f"addEventListener('DOMContentLoaded', () => {{ const s = document.createElement('style'); s.textContent = '{SEM_ERROS}'; document.head.appendChild(s) }})")
-    g.pg.add_style_tag(content=SEM_ERROS)
-
-
-def comecar_aqui(g: Gravador):
-    """O vídeo começa agora (com a primeira tela pronta)."""
-    g._corte = max(0.0, time.monotonic() - g._t0 - 0.4)
-
-
-def cortar_esperas(g: Gravador):
-    """Tira do video.mp4 os trechos de espera marcados."""
-    mp4 = g.saida / 'video.mp4'
-    trechos = [(a - g._corte, b - g._corte) for a, b in CORTES if b - g._corte > 0.5]
-    if not trechos or not mp4.exists():
-        return
-    expr = '+'.join(f'between(t,{max(0.0, a):.2f},{b:.2f})' for a, b in trechos)
-    subprocess.run(
-        ['docker', 'run', '--rm', '-v', f'{g.saida}:/v', 'linuxserver/ffmpeg:latest', '-y', '-loglevel', 'error', '-i', '/v/video.mp4',
-         '-vf', f"select='not({expr})',setpts=N/FRAME_RATE/TB", '-c:v', 'libx264', '-preset', 'slow', '-crf', '27', '-pix_fmt', 'yuv420p',
-         '-movflags', '+faststart', '-an', '/v/video-cortado.mp4'],
-        check=True, env={**os.environ, 'MSYS_NO_PATHCONV': '1'},
-    )
-    (g.saida / 'video-cortado.mp4').replace(mp4)
-    print(f'  vídeo sem esperas: {mp4.stat().st_size // 1024} KB, {g._duracao(mp4)}s ({len(trechos)} corte(s))')
-
-
-def api_sessao(pw):
-    """Contexto da API já logado na empresa de demonstração, com nova tentativa quando a API falha."""
-    api = pw.request.new_context(base_url=(API_DIRETA or URL) + '/api/v1/', timeout=ESPERA_MAX)
-    token = api.post('auth/login', data={'email': EMAIL, 'senha': SENHA}).json()['accessToken']
-    h = {'Authorization': f'Bearer {token}'}
-
-    def chamar(metodo: str, caminho: str, **kw):
-        for _ in range(6):
-            r = getattr(api, metodo)(caminho, headers=h, **kw)
-            if r.ok:
-                return r.json()
-            print(f'  API {r.status} em {caminho}; tentando de novo')
-            time.sleep(5)
-        raise RuntimeError(f'A API não respondeu: {caminho}')
-
-    return chamar
-
-
-BASE = 'ORC-2026-0050'  # Marcelo Augusto Pereira: 45 camisetas personalizadas
-
-
-def desenhar_arte(destino: Path):
-    """Estampa de camiseta simples, só para ilustrar a aprovação."""
-    fonte = lambda nome, t: ImageFont.truetype(f'C:/Windows/Fonts/{nome}', t)  # noqa: E731
-    im = Image.new('RGB', (1400, 1400), '#FFF7E8')
-    d = ImageDraw.Draw(im)
-    d.ellipse([250, 170, 1150, 1070], fill='#0E7C66')
-    d.ellipse([330, 250, 1070, 990], fill='#F2A900')
-    for texto, y, f in [('FAMÍLIA', 420, fonte('arialbd.ttf', 120)), ('PEREIRA', 560, fonte('arialbd.ttf', 150)), ('Encontro 2026', 760, fonte('arial.ttf', 70))]:
-        w = d.textlength(texto, font=f)
-        d.text(((1400 - w) / 2, y), texto, font=f, fill='#123B33')
-    rodape = fonte('arialbd.ttf', 64)
-    w = d.textlength('Sítio Boa Vista · 15 de novembro', font=rodape)
-    d.text(((1400 - w) / 2, 1160), 'Sítio Boa Vista · 15 de novembro', font=rodape, fill='#0E7C66')
-    im.save(destino)
+def api(metodo: str, caminho: str, corpo=None, token: str | None = None):
+    req = urllib.request.Request(f'{URL}/api/v1/{caminho}', method=metodo, data=json.dumps(corpo).encode() if corpo is not None else None)
+    req.add_header('content-type', 'application/json')
+    if token:
+        req.add_header('authorization', f'Bearer {token}')
+    with urllib.request.urlopen(req) as r:
+        return json.loads(r.read() or b'null')
 
 
 def preparar() -> str:
-    """Duplica o orçamento base, aprova, converte em pedido e devolve o id do pedido."""
-    with sync_playwright() as pw:
-        api = api_sessao(pw)
-        base = next(o for o in api('get', f'orcamentos?page=1&pageSize=20&busca={BASE}')['data'] if o['numero'] == BASE)
-        copia = api('post', f"orcamentos/{base['id']}/duplicar")
-        api('post', f"orcamentos/{copia['id']}/aprovar", data={'nome': 'Marcelo Pereira, pelo WhatsApp'})
-        condicoes = {'sinalPercentual': '50', 'parcelas': '1', 'intervaloDias': '30', 'primeiroVencimento': '', 'tipoEntrega': 'retirada', 'prioridade': 'normal'}
-        r = api('post', f"orcamentos/{copia['id']}/converter", data=condicoes)
-        print(f"  pedido do tutorial: {r['pedido']['numero']} ({copia['numero']})")
-        return r['pedido']['id']
+    token = api('POST', 'auth/login', {'email': EMAIL, 'senha': SENHA})['accessToken']
+    base = next(o for o in api('GET', f'orcamentos?busca={BASE}', token=token)['data'] if o['numero'] == BASE)
+    copia = api('POST', f"orcamentos/{base['id']}/duplicar", {}, token=token)
+    api('POST', f"orcamentos/{copia['id']}/enviar", {}, token=token)
+    r = api('POST', f"orcamentos/{copia['id']}/aprovar", {'nome': 'Cliente', 'canal': 'whatsapp'}, token=token)
+    if not r.get('pedido'):
+        raise SystemExit('Ligue "criar o pedido automaticamente" em Configurações → Empresa → Pedidos.')
+    print(f"  pedido do tutorial: {r['pedido']['numero']} ({copia['numero']})")
+    return r['pedido']['id']
 
 
-# Para repetir a gravação com um pedido (arte ainda sem arquivo) já criado: python aprovacao-arte.py <id do pedido>
+def desenhar_arte(destino: Path):
+    """Banner simples da padaria, só para ilustrar a aprovação."""
+    fonte = lambda nome, t: ImageFont.truetype(f'C:/Windows/Fonts/{nome}', t)  # noqa: E731
+    im = Image.new('RGB', (1800, 600), '#7A3E12')
+    d = ImageDraw.Draw(im)
+    d.rectangle([30, 30, 1770, 570], outline='#F5C26B', width=8)
+    d.ellipse([90, 150, 390, 450], fill='#F5C26B')
+    d.ellipse([140, 200, 340, 400], fill='#C8781E')
+    for texto, y, f, cor in [
+        ('PADARIA PÃO DOURADO', 120, fonte('arialbd.ttf', 110), '#FFF4DC'),
+        ('Pão quentinho toda hora', 270, fonte('arial.ttf', 80), '#F5C26B'),
+        ('(11) 98112-3301 · Rua das Flores, 120', 420, fonte('arialbd.ttf', 56), '#FFF4DC'),
+    ]:
+        w = d.textlength(texto, font=f)
+        d.text((1080 - w / 2, y), texto, font=f, fill=cor)
+    im.save(destino)
+
+
 pedido = sys.argv[1] if len(sys.argv) > 1 else preparar()
-arte = Path(tempfile.mkdtemp(prefix='tut-arte-')) / 'camiseta-familia-pereira.png'
-desenhar_arte(arte)
+arquivo = Path(tempfile.mkdtemp(prefix='tut-arte-')) / 'banner-padaria-pao-dourado.png'
+desenhar_arte(arquivo)
 
 with Gravador('aprovacao-arte', rota_inicial=f'/pedidos/{pedido}?aba=arte') as g:
     pg = g.pg
-    preparar_pagina(g)
-    botao = pg.get_by_role('button', name='Escolher arquivo')
-    pronto(g, botao)
-    pronto(g, pg.get_by_role('tabpanel').get_by_text('Aguardando arquivo', exact=True))
-    comecar_aqui(g)
+    g.whatsapp_demo()
+    pg.get_by_role('button', name='Escolher arquivo').wait_for()
+    cartao = pg.get_by_role('button', name='Não precisa de arte').locator('xpath=ancestor::div[contains(@class,"rounded")][1]')
 
+    # 1. Aba Arte
     g.legenda('No pedido, abra a aba "Arte": cada item tem a sua', 1, segundos=2)
     g.foto(1, pg.get_by_role('tab', name='Arte'))
 
-    g.legenda('Toque em "Escolher arquivo" e mande a arte (PDF, imagem, CDR…)', 2)
-
-    def enviar_arquivo():
-        g.destacar(botao)
-        g.mover(botao)
-        g.pausa(0.5)
-        with pg.expect_file_chooser() as escolha:
-            botao.click()
-        escolha.value.set_files(str(arte))
-        g.limpar()
-
-    enviar = pg.get_by_role('button', name='Enviar ao cliente')
-    tentar(g, enviar_arquivo, enviar, vezes=6, limite=120)
-    miniatura = pg.get_by_role('img', name='Arte v1')
-    pronto(g, miniatura)
+    # 2. Item que não precisa de arte
+    g.legenda('Item sem arte (ou com a arte pronta do cliente)? Avise aqui', 2)
+    g.clicar(pg.get_by_role('button', name='Não precisa de arte'))
+    menu = pg.get_by_role('menu')
+    menu.wait_for()
     g.pausa(1.2)
-    g.foto(2, miniatura)
-
-    g.legenda('Toque em "Enviar ao cliente"', 3)
-    copiar = pg.get_by_role('button', name='Copiar mensagem com link')
-    tentar(g, lambda: g.clicar(enviar), copiar, repetir=enviar.click)
-    g.pausa(1)
-    g.legenda('Copie a mensagem com o link e cole no WhatsApp do cliente', 3)
-    g.clicar(copiar)
-    g.pausa(0.8)
-    g.foto(3, copiar.locator('xpath=..'))
-    link = pg.get_by_role('link', name='Abrir link').get_attribute('href')
-
-    g.legenda('O cliente abre o link e vê a arte em tamanho grande', 4, segundos=0.3)
-    g.ir(link.replace(URL, ''))
-    ajuste = pg.get_by_role('button', name='Pedir ajuste')
-    pronto(g, ajuste)
-    g.legenda('O cliente abre o link e vê a arte em tamanho grande', 4, segundos=2.2)
-    g.foto(4)
-
-    g.legenda('Se precisar mudar algo, ele toca em "Pedir ajuste" e escreve', 5)
-    g.clicar(ajuste)
-    g.digitar(pg.locator('#arte-ajuste'), 'Trocar a data para 16 de novembro', atraso=45)
-    g.foto(5, pg.locator('#arte-ajuste').locator('xpath=ancestor::div[contains(@class,"rounded")][1]'))
+    g.foto(2, menu)
+    pg.keyboard.press('Escape')
     g.pausa(0.6)
 
-    g.legenda('Se estiver tudo certo: "Aprovar arte", nome, aceite e confirmar', 6)
-    g.clicar(pg.get_by_role('button', name='Aprovar arte'))
-    g.digitar(pg.locator('#arte-nome'), 'Marcelo Pereira')
-    g.clicar(pg.locator('label:has(input[type=checkbox])').first, destacar=False)
-    feito = pg.get_by_text('Arte aprovada', exact=True).first
-    confirmar = pg.get_by_role('button', name='Confirmar aprovação')
-    tentar(g, lambda: g.clicar(confirmar), feito, repetir=confirmar.click)
-    g.pausa(1)
-    g.foto(6, feito.locator('xpath=ancestor::div[1]'))
+    # 3. Enviar o arquivo
+    botao = pg.get_by_role('button', name='Escolher arquivo')
+    g.legenda('Toque em "Escolher arquivo" e mande a arte (PDF, imagem, CDR…)', 3)
+    g.destacar(botao)
+    g.mover(botao)
+    g.pausa(0.5)
+    with pg.expect_file_chooser() as escolha:
+        botao.click()
+    escolha.value.set_files(str(arquivo))
+    g.limpar()
+    pg.get_by_role('img', name='Arte v1').wait_for(timeout=120_000)
+    g.pausa(1.2)
+    g.legenda('A miniatura aparece na hora. Corrigiu? Envie de novo: vira a versão 2', 3, segundos=2)
+    g.foto(3, cartao)
 
-    g.legenda('No pedido, a arte aparece como Aprovada', 7, segundos=0.3)
+    # 4. A equipe marca como aprovada (ou todas de uma vez)
+    g.legenda('O cliente já aprovou com você? Toque em "Marcar como aprovada"', 4)
+    g.clicar(pg.get_by_role('button', name='Marcar como aprovada'))
+    menu = pg.get_by_role('menu')
+    menu.wait_for()
+    g.pausa(0.8)
+    g.legenda('Escolha como ele aprovou. Várias artes? "Cliente aprovou todas as artes"', 4, segundos=2.2)
+    g.foto(4, menu)
+    pg.keyboard.press('Escape')
+    g.pausa(0.6)
+
+    # 5. Ou mande para o cliente: uma mensagem com os arquivos e um link só
+    g.legenda('Quer que o cliente veja antes? Toque em "Enviar para o cliente"', 5)
+    g.clicar(pg.get_by_role('button', name='Enviar para o cliente').first)
+    dialogo = pg.get_by_role('dialog')
+    enviar = dialogo.get_by_role('button', name='Enviar para', exact=False)
+    enviar.wait_for()
+    g.pausa(1)
+    g.legenda('Uma mensagem só, com os arquivos e um link para aprovar tudo', 5, segundos=2.4)
+    g.foto(5, dialogo)
+    g.clicar(enviar)
+    pagina = pg.get_by_role('link', name='Página do cliente')
+    pagina.wait_for()
+    g.pausa(1)
+
+    # 6. O cliente aprova na página "Acompanhe seu pedido"
+    link = pagina.get_attribute('href')
+    g.legenda('Pelo link, o cliente vê a arte e aprova (ou pede ajuste)', 6, segundos=0.2)
+    g.ir(link.replace(URL, ''))
+    aprovar = pg.get_by_role('button', name='Aprovar a arte')
+    aprovar.wait_for()
+    g.legenda('Pelo link, o cliente vê a arte e aprova (ou pede ajuste)', 6, segundos=1.4)
+    g.digitar(pg.locator('#artes-nome'), 'Roberto Almeida')
+    g.clicar(pg.locator('label:has(input[type=checkbox])').last, destacar=False)
+    g.foto(6, aprovar.locator('xpath=ancestor::section[1]'))
+    g.clicar(aprovar)
+    g.pausa(1.6)
+
+    # 7. Aprovada no pedido: a produção pode seguir
+    g.legenda('No pedido, a arte fica Aprovada e a produção pode seguir', 7, segundos=0.2)
     g.ir(f'/pedidos/{pedido}?aba=arte')
-    resumo = pg.get_by_text('Artes aprovadas', exact=True).locator('xpath=..')
-    pronto(g, resumo)
-    pronto(g, pg.get_by_role('tabpanel').get_by_text('Aprovada', exact=True))
-    g.legenda('No pedido, a arte aparece como Aprovada', 7, segundos=1.2)
-    g.destacar(resumo)
-    g.pausa(1.5)
-    cartao = pg.get_by_role('tabpanel').get_by_text('Aprovada', exact=True).locator('xpath=ancestor::div[contains(@class,"rounded-2xl")][1]')
+    resumo = pg.get_by_text('1 de 1 arte aprovada')
+    resumo.wait_for()
+    g.legenda('No pedido, a arte fica Aprovada e a produção pode seguir', 7, segundos=2.4)
     g.foto(7, cartao)
     g.legenda(None)
     g.pausa(0.5)
-
-cortar_esperas(g)

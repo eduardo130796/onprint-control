@@ -355,7 +355,7 @@ Pix para pagar: *financeiro@horizonte.com.br*
 Detalhes do pedido:
 https://app.grafygo.com.br/pedido/…`
 
-/** O orçamento chega no WhatsApp com tudo no corpo, o PDF e a enquete; o cliente toca em "Aprovado" */
+/** O orçamento chega no WhatsApp com tudo no corpo, o PDF e a enquete; o cliente toca em "Aprovado" (a gráfica também pode trocar a enquete por "responda 1 ou 2") */
 export function MockWhatsappOrcamento({ className }: { className?: string }) {
   return (
     <Celular className={className}>

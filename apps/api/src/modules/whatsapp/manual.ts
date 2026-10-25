@@ -7,8 +7,11 @@ import {
   perguntaEnqueteOrcamento,
   envioWhatsappSchema,
   normalizarNumeroWhatsapp,
+  textoParaFormato,
+  textoPedeNumeros,
   type Acao,
   type EventoWhatsapp,
+  type FormatoRespostaOrcamento,
   type Modulo,
   type ResultadoEnvioWhatsapp,
   type TipoEnvioWhatsapp,
@@ -17,7 +20,7 @@ import { AppError } from '../../core/AppError'
 import { contextoEmpresa } from '../../core/contexto-empresa'
 import { ErroWhatsapp, instanciaDaEmpresa, type DocumentoWhatsapp, type EnqueteEnviada } from '../../integrations/whatsapp'
 import { anexosEscolhidos, anexosJson, enviarAnexos, nomesDosAnexos } from './anexos-arte'
-import { obterConfigWhatsapp, whatsappNoPlano } from './avisos'
+import { formatoAprovacao, obterConfigWhatsapp, whatsappNoPlano } from './avisos'
 import { formatarMensagem, incluirMensagem } from './service'
 
 export type DadosEnvio = z.output<typeof envioWhatsappSchema>
@@ -57,8 +60,10 @@ export function validarPdf(conteudo: Buffer, nome: string): DocumentoWhatsapp {
  * "Enviar pelo WhatsApp" da equipe: sai na hora pela conexão da gráfica (respeita a pausa, não o horário dos avisos),
  * fica registrado em mensagens_whatsapp (manual) e tira da fila o mesmo aviso automático, se estiver esperando.
  * Primeiro o texto (com o link no fim, que mostra a prévia), depois o PDF ou os arquivos das artes (até 6).
- * Orçamento: por último a enquete "✅ Aprovado / ✏️ Quero modificações"; o voto (ou um "aprovado" escrito) volta
- * pelo webhook e segue sozinho (respostas.service.ts).
+ * Orçamento, conforme a empresa escolheu na tela WhatsApp: por último a enquete "✅ Aprovado / ✏️ Quero modificações",
+ * ou nenhuma enquete e o texto pede "responda 1 / 2". O voto, o 1/2 ou um "aprovado" escrito volta pelo webhook e segue
+ * sozinho (respostas.service.ts). A linha de aprovação padrão do texto é trocada aqui também (textoParaFormato: o diálogo
+ * aberto antes de a gráfica mudar o formato não manda a linha errada); linha editada fica como veio.
  */
 export function criarEnvioManual(app: FastifyInstance) {
   const { prisma } = app
@@ -88,6 +93,11 @@ export function criarEnvioManual(app: FastifyInstance) {
     const anexosArte = d.pedidoId && d.arquivoIds?.length ? await anexosEscolhidos(prisma, d.pedidoId, d.arquivoIds) : []
     const numero = normalizarNumeroWhatsapp(d.telefone)!
     const instancia = instanciaDaEmpresa(empresa.id)
+    const ehOrcamento = d.tipo === 'orcamento_enviado' && Boolean(orcamento)
+    const formato = formatoAprovacao(config)
+    const texto = ehOrcamento ? textoParaFormato(d.texto, formato) : d.texto
+    // Como o orçamento saiu: "numeros" só se o texto pede mesmo o 1 (linha padrão ou editada dizendo "responda 1")
+    let formatoResposta: FormatoRespostaOrcamento | null = !ehOrcamento ? null : formato === 'enquete' ? 'enquete' : textoPedeNumeros(texto) ? 'numeros' : 'texto'
     const base = {
       clienteId,
       pedidoId: d.pedidoId ?? null,
@@ -97,18 +107,18 @@ export function criarEnvioManual(app: FastifyInstance) {
       manual: true,
       usuarioId,
       telefone: numero,
-      texto: d.texto,
+      texto,
       anexoNome: anexo?.nomeArquivo ?? nomesDosAnexos(anexosArte),
       anexos: anexosJson(anexosArte),
     }
 
     let idExterno: string | null
     try {
-      idExterno = (await provedor.enviarTexto(instancia, numero, d.texto)).id
+      idExterno = (await provedor.enviarTexto(instancia, numero, texto)).id
     } catch (erro) {
       const e = erro instanceof ErroWhatsapp ? erro : new ErroWhatsapp('temporario', (erro as Error).message)
       if (e.tipo === 'desconectado' && config.conectado) await prisma.whatsappConfig.update({ where: { id: config.id }, data: { conectado: false, desconectadoEm: new Date() } })
-      await prisma.mensagemWhatsapp.create({ data: { ...base, status: 'falhou', erro: e.message, tentativas: 1 } })
+      await prisma.mensagemWhatsapp.create({ data: { ...base, formatoResposta, status: 'falhou', erro: e.message, tentativas: 1 } })
       app.log.warn({ err: e, empresa: empresa.slug }, 'Envio do WhatsApp pela equipe falhou')
       const motivo = e.tipo === 'numero_invalido' ? e.message : e.tipo === 'desconectado' ? 'O WhatsApp da gráfica está desconectado.' : `Não foi possível enviar agora. ${e.message}`
       throw AppError.regraNegocio(`${motivo} Use "Abrir no WhatsApp" para mandar pelo seu celular.`)
@@ -125,13 +135,14 @@ export function criarEnvioManual(app: FastifyInstance) {
     }
     if (anexosArte.length) aviso = await enviarAnexos(app, provedor, instancia, numero, anexosArte)
 
-    // Orçamento: a enquete de aprovação logo depois (o cliente toca numa opção em vez de digitar)
+    // Orçamento com enquete: a enquete de aprovação logo depois (o cliente toca numa opção em vez de digitar)
     let enquete: EnqueteEnviada | null = null
-    if (d.tipo === 'orcamento_enviado' && orcamento) {
+    if (ehOrcamento && orcamento && formatoResposta === 'enquete') {
       try {
         enquete = await provedor.enviarEnquete(instancia, numero, perguntaEnqueteOrcamento(orcamento.numero), Object.values(OPCOES_ENQUETE_ORCAMENTO))
       } catch (erro) {
         aviso = [aviso, 'A enquete de aprovação não foi; o cliente ainda pode responder APROVADO na conversa.'].filter(Boolean).join(' ')
+        formatoResposta = 'texto'
         app.log.warn({ err: erro, empresa: empresa.slug }, 'Enquete do orçamento não enviada')
       }
     }
@@ -144,6 +155,7 @@ export function criarEnvioManual(app: FastifyInstance) {
         idExterno,
         tentativas: 1,
         erro: aviso,
+        formatoResposta,
         ...(enquete ? { enqueteId: enquete.id, enqueteSegredo: enquete.segredo, enqueteJid: enquete.jid } : {}),
       },
       include: incluirMensagem,

@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
-import { OPCOES_ENQUETE_ORCAMENTO, TIPO_RESPOSTA_WHATSAPP_ROTULOS, nomeCliente, type TipoRespostaWhatsapp } from '@onprint/shared'
+import { OPCOES_ENQUETE_ORCAMENTO, TIPO_RESPOSTA_WHATSAPP_ROTULOS, nomeCliente, type FormatoRespostaOrcamento, type TipoRespostaWhatsapp } from '@onprint/shared'
 import { registrarAuditoria } from '../../core/auditoria'
 import { contextoEmpresa, type EmpresaAtual } from '../../core/contexto-empresa'
 import type { ContextoUsuario } from '../../core/escopo'
@@ -12,7 +12,7 @@ import { avisarOrcamento } from '../orcamentos/tempo-real'
 import { numeroDoCliente, obterConfigWhatsapp, whatsappNoPlano } from './avisos'
 import { opcoesDoVoto } from './enquete'
 import { FUSO } from './regras'
-import { JANELA_RESPOSTA_MS, decidirResposta, variantesDoNumero, type Decisao, type MotivoNotificacao, type OrcamentoEnviado, type Recebida } from './respostas'
+import { JANELA_RESPOSTA_MS, decidirResposta, numeroDaResposta, variantesDoNumero, type Decisao, type MotivoNotificacao, type OrcamentoEnviado, type Recebida } from './respostas'
 import type { AvisoWebhook, EventoWebhook } from './webhook'
 
 const ABERTOS_RESPOSTA = ['enviado', 'em_negociacao'] as const
@@ -63,6 +63,7 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
     status: l.orcamento!.status,
     idExterno: l.idExterno,
     enqueteId: l.enqueteId,
+    formatoResposta: (l.formatoResposta as FormatoRespostaOrcamento | null) ?? null,
     enviadaEm: l.enviadaEm ?? l.createdAt,
     resposta: (l.resposta as TipoRespostaWhatsapp | null) ?? null,
     respostaEm: l.respostaEm,
@@ -180,7 +181,10 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
       const o = l.orcamento!
       const cliente = nomeCliente(o.cliente)
       const quando = dataHora(new Date())
-      const nota = `[${quando} · WhatsApp] ${cliente} pediu modificações${escrito && r.tipo === 'texto' ? `: “${escrito}”` : ' (enquete; ainda sem os detalhes)'}`
+      // Pelo "2" (formato 1/2) ou pela enquete ainda não há os detalhes do ajuste
+      const porNumero = r.tipo === 'texto' && numeroDaResposta(r.texto) !== null
+      const detalhe = r.tipo === 'voto' ? ' (enquete; ainda sem os detalhes)' : porNumero ? ' (respondeu 2; ainda sem os detalhes)' : escrito ? `: “${escrito}”` : ''
+      const nota = `[${quando} · WhatsApp] ${cliente} pediu modificações${detalhe}`
       const mudou = await prisma.$transaction(async (tx) => {
         const atual = await tx.orcamento.findUnique({ where: { id: o.id }, select: { status: true, observacoesInternas: true } })
         if (!atual || !(ABERTOS_RESPOSTA as readonly string[]).includes(atual.status)) return false
@@ -203,7 +207,12 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
       if (!mudou) return d
       await notificar(
         await quemAvisar(o.vendedorId),
-        { titulo: `${cliente} pediu modificações no orçamento ${o.numero}`, mensagem: escrito && r.tipo === 'texto' ? `“${escrito.slice(0, 200)}”` : 'Pela enquete do WhatsApp; fale com o cliente para combinar os ajustes.', link: `/orcamentos/${o.id}` },
+        { titulo: `${cliente} pediu modificações no orçamento ${o.numero}`, mensagem:
+            r.tipo === 'voto'
+              ? 'Pela enquete do WhatsApp; fale com o cliente para combinar os ajustes.'
+              : porNumero
+                ? 'Respondeu 2 no WhatsApp; fale com o cliente para combinar os ajustes.'
+                : `“${(escrito ?? '').slice(0, 200)}”`, link: `/orcamentos/${o.id}` },
         // O aviso flutuante vem do evento do orçamento (negociação pelo cliente)
         false,
       )

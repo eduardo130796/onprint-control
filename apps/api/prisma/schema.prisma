@@ -323,6 +323,8 @@ model WhatsappConfig {
   pausado             Boolean   @default(false)
   /// Cliente respondeu "Aprovado" na conversa (enquete ou texto): aprova sozinho (e vira pedido se a empresa deixou)
   aprovarPelaResposta Boolean   @default(true) @map("aprovar_pela_resposta")
+  /// Como o cliente aprova o orçamento enviado por aqui: enquete (toca na opção) | numeros (responde 1 ou 2)
+  formatoAprovacao    String    @default("enquete") @map("formato_aprovacao")
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -381,6 +383,8 @@ model MensagemWhatsapp {
   respostaEm         DateTime?              @map("resposta_em") @db.Timestamptz(3)
   /// Id da mensagem recebida (o mesmo aviso do webhook duas vezes não é aplicado de novo)
   respostaIdExterno  String?                @map("resposta_id_externo")
+  /// Orçamento: como saiu (enquete | numeros | texto) — o "1"/"2" do cliente só vale quando saiu como numeros
+  formatoResposta    String?                @map("formato_resposta")
   createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
 

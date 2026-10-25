@@ -116,7 +116,7 @@ export const FLUXO: { icone: LucideIcon; titulo: string; texto: string }[] = [
 export const WHATSAPP_ITENS: { titulo: string; texto: string }[] = [
   {
     titulo: 'Orçamento completo na mensagem',
-    texto: 'Itens, total, entrada e parcelas, prazo de produção e validade em destaque, com o PDF junto. O cliente aprova ali mesmo.',
+    texto: 'Itens, total, entrada e parcelas, prazo de produção e validade em destaque, com o PDF junto. O cliente aprova ali mesmo: toca em Aprovado ou responde 1, como você preferir.',
   },
   {
     titulo: 'Avisos do pedido, sozinhos',
@@ -183,7 +183,7 @@ export function perguntas(preco: PrecoFaq | null): { pergunta: string; resposta:
     {
       pergunta: 'Meu cliente precisa instalar alguma coisa?',
       resposta:
-        'Não. Ele recebe tudo no WhatsApp que já usa. Se quiser, abre o link do pedido no celular, sem senha e sem aplicativo: vê a situação, a previsão de entrega, os itens, a arte, o que já pagou e o que falta, e onde retirar.',
+        'Não. Ele recebe tudo no WhatsApp que já usa e aprova o orçamento ali mesmo, tocando em Aprovado ou respondendo 1 (ou "aprovado"), como a sua gráfica preferir. Se quiser, abre o link do pedido no celular, sem senha e sem aplicativo: vê a situação, a previsão de entrega, os itens, a arte, o que já pagou e o que falta, e onde retirar.',
     },
     {
       pergunta: 'E se eu não quiser que o cliente veja a arte antes?',

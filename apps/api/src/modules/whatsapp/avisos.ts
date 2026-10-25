@@ -1,6 +1,6 @@
 import { Prisma, type PrismaClient } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
-import { formatarMoeda, normalizarNumeroWhatsapp, preencherMensagem, valoresArtesAprovacao, type EventoWhatsapp, type StatusPedido } from '@onprint/shared'
+import { formatarMoeda, normalizarNumeroWhatsapp, preencherMensagem, valoresArtesAprovacao, type EventoWhatsapp, type FormatoAprovacao, type StatusPedido } from '@onprint/shared'
 import { contextoEmpresa, type EmpresaAtual } from '../../core/contexto-empresa'
 import { anexosDasArtes, anexosJson, artesDoPedido, nomesDosAnexos } from './anexos-arte'
 import { templateDaCategoria, valoresMensagemPedido } from './mensagem-pedido'
@@ -43,6 +43,9 @@ export interface AlvoAviso {
 export async function obterConfigWhatsapp(prisma: PrismaClient) {
   return (await prisma.whatsappConfig.findFirst({ orderBy: { createdAt: 'asc' } })) ?? prisma.whatsappConfig.create({ data: {} })
 }
+
+/** Como o cliente aprova o orçamento enviado pela conexão (valor desconhecido no banco = enquete, o padrão) */
+export const formatoAprovacao = (config: { formatoAprovacao: string }): FormatoAprovacao => (config.formatoAprovacao === 'numeros' ? 'numeros' : 'enquete')
 
 /** WhatsApp liberado no plano da empresa (o módulo "whatsapp") */
 export const whatsappNoPlano = (empresa: EmpresaAtual | undefined) => !empresa?.assinatura || empresa.assinatura.modulos.includes('whatsapp')

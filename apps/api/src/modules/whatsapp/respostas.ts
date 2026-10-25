@@ -1,8 +1,8 @@
-import { OPCOES_ENQUETE_ORCAMENTO, STATUS_ORCAMENTO_ABERTOS, type TipoRespostaWhatsapp } from '@onprint/shared'
+import { OPCOES_ENQUETE_ORCAMENTO, STATUS_ORCAMENTO_ABERTOS, type FormatoRespostaOrcamento, type TipoRespostaWhatsapp } from '@onprint/shared'
 
 /*
  * O cliente responde o orçamento na própria conversa: voto na enquete ("✅ Aprovado" / "✏️ Quero modificações") ou
- * texto ("aprovado", "pode fazer", "quero mudar a cor"). Aqui só a decisão (pura, testável); o banco fica em
+ * texto ("aprovado", "pode fazer", "quero mudar a cor") ou, se a gráfica escolheu "Responder 1 ou 2", o número. Aqui só a decisão (pura, testável); o banco fica em
  * respostas.service.ts. Na dúvida, nada muda sozinho: a equipe recebe a notificação e confirma no orçamento.
  */
 
@@ -39,6 +39,15 @@ export function intencaoDoTexto(texto: string): IntencaoResposta {
   return 'indefinida'
 }
 
+/**
+ * "1" (aprovar) ou "2" (pedir mudança) respondido sozinho: "1", "1." ou "1️⃣" (espaços em volta não contam). Qualquer
+ * outra coisa ("1 banner", "12", "opção 1") não é número de resposta.
+ */
+export function numeroDaResposta(texto: string): 1 | 2 | null {
+  const m = /^([12])(?:\.|\uFE0F?\u20E3)?$/u.exec(texto.trim())
+  return m ? (Number(m[1]) as 1 | 2) : null
+}
+
 /** Opção escolhida na enquete (o nome que voltou no voto) */
 export function intencaoDaOpcao(opcoes: string[]): IntencaoResposta | 'sem_voto' {
   if (opcoes.length === 0) return 'sem_voto'
@@ -59,6 +68,8 @@ export interface OrcamentoEnviado {
   /** Mensagem do orçamento e enquete (ids no WhatsApp) */
   idExterno: string | null
   enqueteId: string | null
+  /** Como saiu: o "1"/"2" só vale para "numeros" (null = envio de antes da escolha: nunca) */
+  formatoResposta: FormatoRespostaOrcamento | null
   enviadaEm: Date
   /** Última resposta já registrada */
   resposta: TipoRespostaWhatsapp | null
@@ -104,6 +115,8 @@ const aprovado = (status: string) => status === 'aprovado' || status === 'conver
 /**
  * O que fazer com a resposta. `candidatos`: para o voto, a linha da enquete (pelo id); para o texto, os orçamentos
  * enviados ao número (o citado, se houver, e os abertos nos últimos 30 dias).
+ * "1"/"2" sozinho só vale para o orçamento que saiu pedindo o número (formato "numeros"): o citado, ou o único aberto
+ * enviado ao número nos 30 dias. Para orçamento com enquete ou só texto, o número é uma resposta qualquer (a equipe vê).
  */
 export function decidirResposta(r: Recebida, candidatos: OrcamentoEnviado[], opcoes: { aprovarSozinho: boolean; agora: Date }): Decisao {
   let alvo: OrcamentoEnviado | undefined
@@ -120,7 +133,8 @@ export function decidirResposta(r: Recebida, candidatos: OrcamentoEnviado[], opc
     intencao = i
   } else {
     alvo = r.citadoId ? candidatos.find((c) => c.idExterno === r.citadoId || c.enqueteId === r.citadoId) : undefined
-    intencao = intencaoDoTexto(r.texto)
+    const numero = numeroDaResposta(r.texto)
+    intencao = numero === null ? intencaoDoTexto(r.texto) : 'indefinida'
     if (!alvo) {
       const limite = opcoes.agora.getTime() - JANELA_RESPOSTA_MS
       const abertos = candidatos.filter((c) => aberto(c.status) && c.enviadaEm.getTime() >= limite)
@@ -134,6 +148,8 @@ export function decidirResposta(r: Recebida, candidatos: OrcamentoEnviado[], opc
       }
       alvo = porOrcamento[0]!
     }
+    // O número só aprova/pede mudança no orçamento que saiu pedindo 1/2
+    if (numero !== null && alvo.formatoResposta === 'numeros') intencao = numero === 1 ? 'aprovar' : 'modificar'
   }
 
   if (alvo.respostaIdExterno === r.idMensagem) return { acao: 'ignorar', motivo: 'repetida' }

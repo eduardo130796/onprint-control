@@ -11,6 +11,7 @@ import {
   decidirResposta,
   intencaoDaOpcao,
   intencaoDoTexto,
+  numeroDaResposta,
   variantesDoNumero,
   type OrcamentoEnviado,
   type Recebida,
@@ -38,6 +39,22 @@ describe('WhatsApp respostas: o que o texto do cliente pede', () => {
     expect(intencaoDaOpcao(OPCOES)).toBe('indefinida')
   })
 
+  it.each([
+    ['1', 1],
+    [' 1 ', 1],
+    ['1.', 1],
+    ['1️⃣', 1],
+    ['1⃣', 1],
+    ['2', 2],
+    ['2.', 2],
+    ['2️⃣', 2],
+  ])('"%s" é a resposta numérica %s', (t, n) => expect(numeroDaResposta(t)).toBe(n))
+  it.each(['3', '12', '1 banner', 'opção 1', '1,', '1!', '01', '', 'um'])('"%s" não é resposta numérica', (t) => expect(numeroDaResposta(t)).toBeNull())
+  it('o número sozinho não tem intenção como texto (só vale pelo formato do orçamento)', () => {
+    expect(intencaoDoTexto('1')).toBe('indefinida')
+    expect(intencaoDoTexto('2')).toBe('indefinida')
+  })
+
   it('número com e sem o 9º dígito', () => {
     expect(variantesDoNumero('5511988887777')).toEqual(['5511988887777', '551188887777'])
     expect(variantesDoNumero('551188887777')).toEqual(['551188887777', '5511988887777'])
@@ -52,6 +69,7 @@ const orc = (o: Partial<OrcamentoEnviado> = {}): OrcamentoEnviado => ({
   status: 'enviado',
   idExterno: 'TXT1',
   enqueteId: 'POLL1',
+  formatoResposta: 'enquete',
   enviadaEm: new Date(agora.getTime() - 3_600_000),
   resposta: null,
   respostaEm: null,
@@ -119,6 +137,56 @@ describe('WhatsApp respostas: decisão', () => {
   })
   it('"não aprovado" nunca aprova (fica para a equipe)', () => {
     expect(decidirResposta(texto('não aprovado'), [orc()], ligado)).toMatchObject({ acao: 'notificar', motivo: 'texto' })
+  })
+})
+
+describe('WhatsApp respostas: "Responder 1 ou 2"', () => {
+  const numeros = (o: Partial<OrcamentoEnviado> = {}) => orc({ formatoResposta: 'numeros', enqueteId: null, ...o })
+  it('"1" aprova e "2" pede modificação no único orçamento aberto que saiu pedindo 1/2', () => {
+    expect(decidirResposta(texto('1'), [numeros()], ligado)).toMatchObject({ acao: 'aprovar', alvo: { orcamentoId: 'o1' }, resposta: 'aprovado' })
+    expect(decidirResposta(texto('1.'), [numeros()], ligado)).toMatchObject({ acao: 'aprovar' })
+    expect(decidirResposta(texto('1️⃣'), [numeros()], ligado)).toMatchObject({ acao: 'aprovar' })
+    expect(decidirResposta(texto('2'), [numeros()], ligado)).toMatchObject({ acao: 'modificar', resposta: 'modificacoes', responderCliente: true })
+    expect(decidirResposta(texto(' 2. '), [numeros()], ligado)).toMatchObject({ acao: 'modificar' })
+  })
+  it('"1" com "aprovar sozinho" desligado: só avisa a equipe', () => {
+    expect(decidirResposta(texto('1'), [numeros()], { ...ligado, aprovarSozinho: false })).toMatchObject({ acao: 'notificar', motivo: 'aprovacao_manual', resposta: 'aprovado' })
+  })
+  it('"1" citando a mensagem do orçamento vale para ele, mesmo com outros abertos', () => {
+    const d = decidirResposta(texto('1', 'TXT2'), [orc(), numeros({ orcamentoId: 'o2', mensagemId: 'm2', idExterno: 'TXT2' })], ligado)
+    expect(d).toMatchObject({ acao: 'aprovar', alvo: { orcamentoId: 'o2' } })
+  })
+  it('número nunca conta para orçamento que saiu com enquete, só texto ou antes da escolha: fica para a equipe', () => {
+    expect(decidirResposta(texto('1'), [orc()], ligado)).toMatchObject({ acao: 'notificar', motivo: 'texto', resposta: 'outra' })
+    expect(decidirResposta(texto('2'), [orc({ formatoResposta: 'texto' })], ligado)).toMatchObject({ acao: 'notificar', motivo: 'texto', resposta: 'outra' })
+    expect(decidirResposta(texto('1'), [orc({ formatoResposta: null })], ligado)).toMatchObject({ acao: 'notificar', motivo: 'texto' })
+    // Citando um orçamento com enquete, mesmo havendo outro que pediu 1/2
+    expect(decidirResposta(texto('1', 'TXT1'), [orc(), numeros({ orcamentoId: 'o2', mensagemId: 'm2', idExterno: 'TXT2' })], ligado)).toMatchObject({ acao: 'notificar', motivo: 'texto', alvos: [{ orcamentoId: 'o1' }] })
+  })
+  it('"1" sem citar com dois orçamentos abertos (mesmo que só um pediu 1/2): não aprova nenhum, avisa a equipe', () => {
+    const d = decidirResposta(texto('1'), [numeros(), orc({ orcamentoId: 'o2', mensagemId: 'm2', numero: 'ORC-2', idExterno: 'TXT2', enqueteId: 'P2' })], ligado)
+    expect(d).toMatchObject({ acao: 'notificar', motivo: 'varios', resposta: 'outra' })
+  })
+  it('"1" sem orçamento aberto (ou fora dos 30 dias): conversa normal, nada acontece', () => {
+    expect(decidirResposta(texto('1'), [], ligado).acao).toBe('ignorar')
+    expect(decidirResposta(texto('1'), [numeros({ enviadaEm: new Date(agora.getTime() - JANELA_RESPOSTA_MS - 1) })], ligado).acao).toBe('ignorar')
+  })
+  it('orçamento que pediu 1/2: o "aprovado" escrito também vale; texto com número no meio não é resposta numérica', () => {
+    expect(decidirResposta(texto('aprovado'), [numeros()], ligado)).toMatchObject({ acao: 'aprovar' })
+    expect(decidirResposta(texto('quero mudar a cor'), [numeros()], ligado)).toMatchObject({ acao: 'modificar' })
+    expect(decidirResposta(texto('1 banner a mais'), [numeros()], ligado)).toMatchObject({ acao: 'notificar', motivo: 'texto' })
+    expect(decidirResposta(texto('3'), [numeros()], ligado)).toMatchObject({ acao: 'notificar', motivo: 'texto' })
+  })
+  it('depois de aprovado: "1" de novo é ignorado; "2" não desfaz, só avisa; webhook repetido não faz nada', () => {
+    expect(decidirResposta(texto('1', 'TXT1', 'T2'), [numeros({ status: 'convertido' })], ligado)).toMatchObject({ acao: 'ignorar', motivo: 'já aprovado' })
+    expect(decidirResposta(texto('2', 'TXT1', 'T3'), [numeros({ status: 'aprovado' })], ligado)).toMatchObject({ acao: 'notificar', motivo: 'depois_de_aprovado', resposta: 'modificacoes' })
+    expect(decidirResposta(texto('1', null, 'T1'), [numeros({ respostaIdExterno: 'T1' })], ligado)).toEqual({ acao: 'ignorar', motivo: 'repetida' })
+  })
+  it('vale o formato do envio mais recente do mesmo orçamento', () => {
+    const reenvioComEnquete = orc({ mensagemId: 'm9', enviadaEm: new Date(agora.getTime() - 60_000) })
+    expect(decidirResposta(texto('1'), [numeros(), reenvioComEnquete], ligado)).toMatchObject({ acao: 'notificar', motivo: 'texto' })
+    const reenvioNumeros = numeros({ mensagemId: 'm9', enviadaEm: new Date(agora.getTime() - 60_000) })
+    expect(decidirResposta(texto('1'), [orc(), reenvioNumeros], ligado)).toMatchObject({ acao: 'aprovar', alvo: { mensagemId: 'm9' } })
   })
 })
 

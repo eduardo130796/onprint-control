@@ -4,6 +4,9 @@ import { inserirAntesDoFim, linhaItemMensagem, listaArtesMensagem, listaItensMen
 import {
   ANEXOS_ARTE_MAX,
   OPCOES_ENQUETE_ORCAMENTO,
+  FORMATOS_APROVACAO,
+  textoParaFormato,
+  textoPedeNumeros,
   TEXTOS_PADRAO_MENSAGEM,
   descreverRespostaWhatsapp,
   perguntaEnqueteOrcamento,
@@ -116,6 +119,25 @@ describe('preencherMensagem', () => {
     expect(semEnquete).toContain('Válido até *20/10/2026*\n\nResponda *APROVADO* aqui mesmo ou peça o ajuste que precisar.\n\n— Ponto Visual')
     expect(semEnquete).not.toContain('opção')
     expect(textoSemEnquete('texto editado sem a linha')).toBe('texto editado sem a linha')
+  })
+  it('formato da aprovação: a linha padrão vira a do formato (enquete, 1/2 ou texto); linha editada fica como está', () => {
+    const base = TEXTOS_PADRAO_MENSAGEM.orcamento_enviado
+    const numeros = textoParaFormato(base, 'numeros')
+    expect(numeros).toContain('Válido até *{{validade}}*\n\nPara aprovar, responda *1*.\nPara pedir alguma mudança, responda *2*.\n\n— {{empresa_nome}}\n\nSe preferir, veja e aprove pelo link:')
+    expect(numeros).not.toContain('opção')
+    expect(textoPedeNumeros(numeros)).toBe(true)
+    // De qualquer formato para qualquer outro (o texto já trocado no diálogo volta)
+    expect(textoParaFormato(numeros, 'enquete')).toBe(base)
+    expect(textoParaFormato(textoParaFormato(numeros, 'texto'), 'numeros')).toBe(numeros)
+    expect(textoParaFormato(numeros, 'numeros')).toBe(numeros)
+    expect(textoSemEnquete(numeros)).toContain('Responda *APROVADO* aqui mesmo ou peça o ajuste que precisar.')
+    // Template com a linha editada: nada a trocar
+    const editado = base.replace('Toque em uma opção logo abaixo ou responda *APROVADO* aqui mesmo.', 'Me diga se posso fazer!')
+    expect(textoParaFormato(editado, 'numeros')).toBe(editado)
+    expect(textoPedeNumeros(editado)).toBe(false)
+    expect(textoPedeNumeros('Para fechar, responda 1. Para mudar, responda 2.')).toBe(true)
+    expect(textoPedeNumeros(base)).toBe(false)
+    expect(FORMATOS_APROVACAO).toEqual(['enquete', 'numeros'])
   })
   it('enquete do orçamento: pergunta com o número e duas opções; a resposta descrita para a equipe', () => {
     expect(perguntaEnqueteOrcamento('ORC-2026-0042')).toBe('Aprovar o orçamento ORC-2026-0042?')

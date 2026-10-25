@@ -80,7 +80,8 @@ const ASSINATURA = '— {{empresa_nome}}'
 export const TEXTOS_PADRAO_MENSAGEM = {
   // Já com o pagamento combinado (o "pedido confirmado" fala das parcelas: o cliente viu aqui antes) e a aprovação na
   // própria conversa: logo depois sai a enquete "✅ Aprovado / ✏️ Quero modificações" (ou o cliente responde APROVADO);
-  // o link fica para quem preferir. Sem a conexão da gráfica (wa.me) não há enquete: textoSemEnquete troca a linha
+  // o link fica para quem preferir. Sem a conexão da gráfica (wa.me) não há enquete, e a gráfica pode trocar a enquete
+  // por "responda 1 ou 2": textoParaFormato troca a linha na hora do envio
   orcamento_enviado: [
     'Olá, {{cliente_nome}}!',
     '',
@@ -219,10 +220,50 @@ export const OPCOES_ENQUETE_ORCAMENTO = { aprovar: '✅ Aprovado', modificar: '�
 
 export const perguntaEnqueteOrcamento = (numero: string) => `Aprovar o orçamento ${numero}?`
 
+/** A mesma linha quando a gráfica escolheu "Responder 1 ou 2" (sem enquete) */
+export const LINHA_APROVACAO_NUMEROS = 'Para aprovar, responda *1*.\nPara pedir alguma mudança, responda *2*.'
+
+/**
+ * Como o cliente aprova o orçamento enviado pela conexão da gráfica (tela WhatsApp, por empresa): tocando na enquete
+ * que vai logo depois ou respondendo 1 (aprovar) / 2 (pedir mudança). Escrever "aprovado" vale nos dois.
+ */
+export const FORMATOS_APROVACAO = ['enquete', 'numeros'] as const
+export type FormatoAprovacao = (typeof FORMATOS_APROVACAO)[number]
+export const FORMATO_APROVACAO_ROTULOS: Record<FormatoAprovacao, string> = {
+  enquete: 'Enquete (o cliente toca na opção)',
+  numeros: 'Responder 1 ou 2',
+}
+
+/**
+ * Como saiu cada orçamento (gravado na mensagem): com enquete, pedindo 1/2, ou só texto (wa.me, copiar, enquete que
+ * não foi, linha editada sem o "responda 1"). O "1"/"2" do cliente só vale para o orçamento que saiu como "numeros".
+ */
+export type FormatoRespostaOrcamento = FormatoAprovacao | 'texto'
+
+const LINHA_POR_FORMATO: Record<FormatoRespostaOrcamento, string> = {
+  enquete: LINHA_APROVACAO_COM_ENQUETE,
+  numeros: LINHA_APROVACAO_NUMEROS,
+  texto: LINHA_APROVACAO_SEM_ENQUETE,
+}
+
+/**
+ * Um template só (Mensagens prontas) para os três jeitos: na hora do envio, a linha de aprovação padrão que estiver no
+ * texto (qualquer uma das três) vira a do formato. Linha editada pela gráfica não é reconhecida e fica como está.
+ */
+export function textoParaFormato(texto: string, formato: FormatoRespostaOrcamento): string {
+  const destino = LINHA_POR_FORMATO[formato]
+  return Object.values(LINHA_POR_FORMATO)
+    .filter((l) => l !== destino)
+    .reduce((t, l) => t.split(l).join(destino), texto)
+}
+
 /** Sem a enquete (o "Abrir no WhatsApp" e o "Copiar" não levam enquete), a linha que fala dela vira "Responda APROVADO..." */
 export function textoSemEnquete(texto: string): string {
-  return texto.split(LINHA_APROVACAO_COM_ENQUETE).join(LINHA_APROVACAO_SEM_ENQUETE)
+  return textoParaFormato(texto, 'texto')
 }
+
+/** O texto pede ao cliente para responder 1 (a linha padrão ou uma editada que diga "responda 1") */
+export const textoPedeNumeros = (texto: string) => /responda\s*\*?\s*1\b/i.test(texto)
 
 /** O que o cliente respondeu ao orçamento na conversa */
 export type TipoRespostaWhatsapp = 'aprovado' | 'modificacoes' | 'outra'
@@ -297,6 +338,8 @@ export const whatsappConfigSchema = z
     pausado: z.boolean(),
     /** Cliente respondeu "Aprovado" (enquete ou texto): aprova sozinho (e vira pedido se a empresa deixou ligado) */
     aprovarPelaResposta: z.boolean().optional(),
+    /** Como o cliente aprova o orçamento: enquete ou responder 1/2 */
+    formatoAprovacao: z.enum(FORMATOS_APROVACAO).optional(),
   })
   .refine((v) => v.horarioInicio < v.horarioFim, { message: 'O fim precisa ser depois do início.', path: ['horarioFim'] })
 export type WhatsappConfigInput = z.input<typeof whatsappConfigSchema>
@@ -398,6 +441,8 @@ export interface WhatsappConfig {
   pausado: boolean
   /** Aprova sozinho quando o cliente responde "Aprovado" na conversa (enquete ou texto) */
   aprovarPelaResposta: boolean
+  /** Como o cliente aprova o orçamento enviado por aqui */
+  formatoAprovacao: FormatoAprovacao
   /** Mensagens na fila agora */
   pendentes: number
 }
@@ -415,6 +460,8 @@ export interface DisponibilidadeWhatsapp {
   numero: string | null
   /** Modo de teste (WHATSAPP_PROVEDOR=log): a mensagem só é registrada */
   teste: boolean
+  /** Orçamento pela conexão: vai a enquete ou o texto pede 1/2 */
+  formatoAprovacao: FormatoAprovacao
 }
 
 export interface ConexaoWhatsapp {

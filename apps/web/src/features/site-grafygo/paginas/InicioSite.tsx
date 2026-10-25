@@ -193,8 +193,8 @@ function Whatsapp() {
               O orçamento vai pelo WhatsApp. O cliente aprova por lá. Pronto.
             </h2>
             <p className="mt-5 text-lg leading-relaxed text-slate-600">
-              Nada de copiar e colar: a mensagem sai do número da sua gráfica com itens, total, pagamento, prazo e validade, e o PDF junto. O cliente aprova pelo WhatsApp e o pedido nasce
-              sozinho (ou você confirma com um clique). Depois, os avisos do pedido seguem sozinhos até a retirada.
+              Nada de copiar e colar: a mensagem sai do número da sua gráfica com itens, total, pagamento, prazo e validade, e o PDF junto. O cliente toca em Aprovado ou responde 1, como você preferir, e o
+              pedido nasce sozinho (ou você confirma com um clique). Depois, os avisos do pedido seguem sozinhos até a retirada.
             </p>
             <ul className="mt-9 grid gap-4 sm:grid-cols-2">
               {WHATSAPP_ITENS.map((w) => (

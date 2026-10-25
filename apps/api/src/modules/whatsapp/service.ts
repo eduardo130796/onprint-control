@@ -7,7 +7,7 @@ import { registrarAuditoria } from '../../core/auditoria'
 import { contextoEmpresa } from '../../core/contexto-empresa'
 import { paginado } from '../../core/paginacao'
 import { ErroWhatsapp, instanciaDaEmpresa, type SituacaoWhatsapp } from '../../integrations/whatsapp'
-import { obterConfigWhatsapp, whatsappNoPlano } from './avisos'
+import { formatoAprovacao, obterConfigWhatsapp, whatsappNoPlano } from './avisos'
 
 type Config = Awaited<ReturnType<typeof obterConfigWhatsapp>>
 
@@ -66,6 +66,7 @@ export function criarWhatsappService(app: FastifyInstance) {
       horarioFim: config.horarioFim,
       pausado: config.pausado,
       aprovarPelaResposta: config.aprovarPelaResposta,
+      formatoAprovacao: formatoAprovacao(config),
       pendentes: await prisma.mensagemWhatsapp.count({ where: { status: 'pendente' } }),
     }
   }
@@ -109,7 +110,7 @@ export function criarWhatsappService(app: FastifyInstance) {
           : !teste && !config.conectado
             ? 'O WhatsApp da gráfica não está conectado.'
             : null
-      return { conectado: !motivo, motivo, numero: teste ? null : config.numero, teste }
+      return { conectado: !motivo, motivo, numero: teste ? null : config.numero, teste, formatoAprovacao: formatoAprovacao(config) }
     },
 
     async salvar(dados: z.output<typeof whatsappConfigSchema>, usuarioId: string) {
@@ -123,13 +124,14 @@ export function criarWhatsappService(app: FastifyInstance) {
             horarioFim: dados.horarioFim,
             pausado: dados.pausado,
             ...(dados.aprovarPelaResposta === undefined ? {} : { aprovarPelaResposta: dados.aprovarPelaResposta }),
+            ...(dados.formatoAprovacao === undefined ? {} : { formatoAprovacao: dados.formatoAprovacao }),
           },
         })
         await registrarAuditoria(tx, {
           tabela: 'whatsapp_config',
           registroId: c.id,
           acao: 'editar',
-          antes: { eventos: antes.eventos, horarioInicio: antes.horarioInicio, horarioFim: antes.horarioFim, pausado: antes.pausado, aprovarPelaResposta: antes.aprovarPelaResposta },
+          antes: { eventos: antes.eventos, horarioInicio: antes.horarioInicio, horarioFim: antes.horarioFim, pausado: antes.pausado, aprovarPelaResposta: antes.aprovarPelaResposta, formatoAprovacao: antes.formatoAprovacao },
           depois: dados,
           usuarioId,
         })

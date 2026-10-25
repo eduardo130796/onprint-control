@@ -1,8 +1,19 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Copy, ExternalLink, FileText, ListChecks, Loader2, Pencil, RotateCcw, Send, UserRound } from 'lucide-react'
+import { Copy, ExternalLink, FileText, ListChecks, Loader2, MessageCircle, Pencil, RotateCcw, Send, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
-import { OPCOES_ENQUETE_ORCAMENTO, escolherAnexosArte, formatarNumeroWhatsapp, normalizarNumeroWhatsapp, textoSemEnquete, vaiComoImagem, type TipoEnvioWhatsapp } from '@onprint/shared'
+import {
+  OPCOES_ENQUETE_ORCAMENTO,
+  escolherAnexosArte,
+  formatarNumeroWhatsapp,
+  normalizarNumeroWhatsapp,
+  textoParaFormato,
+  textoPedeNumeros,
+  textoSemEnquete,
+  vaiComoImagem,
+  type FormatoRespostaOrcamento,
+  type TipoEnvioWhatsapp,
+} from '@onprint/shared'
 import { CHAVE_WHATSAPP, whatsappApi } from '@/api/whatsapp'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
@@ -74,9 +85,11 @@ function Conteudo({ envio, onFechar }: { envio: EnvioWhatsapp; onFechar: () => v
   const { anexos: arquivosJuntos } = escolherAnexosArte(conectado ? selecionados.flatMap((i) => (i.arquivo ? [i.arquivo] : [])) : [])
   const vaiJunto = (i: ItemSelecaoEnvio) => Boolean(i.arquivo && arquivosJuntos.includes(i.arquivo))
   const semSelecao = Boolean(envio.selecao) && selecionados.length === 0
-  // Orçamento pela conexão: logo depois vai a enquete de aprovação; no wa.me e no "Copiar" não há enquete
-  const comEnquete = envio.tipo === 'orcamento_enviado' && conectado
-  const padrao = comEnquete ? envio.mensagem(anexar, marcados) : textoSemEnquete(envio.mensagem(anexar, marcados))
+  // Orçamento pela conexão: logo depois vai a enquete de aprovação, ou o texto pede "responda 1 / 2" (como a gráfica
+  // escolheu na tela WhatsApp); no wa.me e no "Copiar" não há enquete nem 1/2: a linha vira "Responda APROVADO..."
+  const formato: FormatoRespostaOrcamento = envio.tipo === 'orcamento_enviado' && conectado ? (disponivel.data?.formatoAprovacao ?? 'enquete') : 'texto'
+  const comEnquete = formato === 'enquete'
+  const padrao = textoParaFormato(envio.mensagem(anexar, marcados), formato)
   const texto = editado ?? padrao
   const numero = outroNumero ? normalizarNumeroWhatsapp(digitado) : numeroCadastro
   // Nome de exibição inteiro ("Pet Feliz", não "Pet"); só encurta nome muito longo para caber no botão
@@ -263,6 +276,21 @@ function Conteudo({ envio, onFechar }: { envio: EnvioWhatsapp; onFechar: () => v
               <span>
                 Logo depois vai uma enquete para o cliente tocar: <strong>{OPCOES_ENQUETE_ORCAMENTO.aprovar}</strong> ou <strong>{OPCOES_ENQUETE_ORCAMENTO.modificar}</strong>. A
                 resposta (ou um “aprovado” escrito) volta para o orçamento sozinha.
+              </span>
+            </p>
+          )}
+          {formato === 'numeros' && (
+            <p className="mt-2 flex items-start gap-2 rounded-xl bg-marca-suave p-2.5 text-xs text-marca-escuro">
+              <MessageCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                {textoPedeNumeros(texto) ? (
+                  <>
+                    Sem enquete: o cliente responde <strong>1</strong> para aprovar ou <strong>2</strong> para pedir mudança. A resposta (ou um “aprovado” escrito) volta
+                    para o orçamento sozinha.
+                  </>
+                ) : (
+                  <>O texto não pede mais “responda 1 ou 2”: só um “aprovado” escrito volta para o orçamento sozinho.</>
+                )}
               </span>
             </p>
           )}

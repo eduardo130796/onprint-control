@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { Interruptor } from '@/features/vitrine/components/Interruptor'
 import { previaDoEvento } from '../previa'
 import { BolhaWhatsapp } from './BolhaWhatsapp'
+import { FormatoAprovacaoEscolha } from './FormatoAprovacao'
 
 /** Quais avisos saem, em que horário, e a pausa geral. Cada aviso mostra a prévia do texto (template da categoria). */
 export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; podeEditar: boolean }) {
@@ -25,9 +26,11 @@ export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; pod
   const [fim, setFim] = useState(config.horarioFim)
   const [pausado, setPausado] = useState(config.pausado)
   const [aprovarSozinho, setAprovarSozinho] = useState(config.aprovarPelaResposta)
+  const [formato, setFormato] = useState(config.formatoAprovacao)
   const [aberto, setAberto] = useState<EventoWhatsapp | null>(null)
   const alterado =
     aprovarSozinho !== config.aprovarPelaResposta ||
+    formato !== config.formatoAprovacao ||
     pausado !== config.pausado || inicio !== config.horarioInicio || fim !== config.horarioFim || [...eventos].sort().join() !== [...config.eventos].sort().join()
 
   const salvar = useMutation({
@@ -40,7 +43,7 @@ export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; pod
   })
 
   function enviar() {
-    const dados = whatsappConfigSchema.safeParse({ eventos, horarioInicio: inicio, horarioFim: fim, pausado, aprovarPelaResposta: aprovarSozinho })
+    const dados = whatsappConfigSchema.safeParse({ eventos, horarioInicio: inicio, horarioFim: fim, pausado, aprovarPelaResposta: aprovarSozinho, formatoAprovacao: formato })
     if (!dados.success) return toast.error(dados.error.issues[0]?.message ?? 'Verifique o horário.')
     salvar.mutate(dados.data)
   }
@@ -116,15 +119,18 @@ export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; pod
             </div>
           </div>
 
-          <div className="flex items-start gap-3 rounded-xl border border-tinta/10 p-3">
-            <Interruptor rotulo="Aprovar sozinho quando o cliente responder Aprovado" marcado={aprovarSozinho} onMudar={setAprovarSozinho} desabilitado={!podeEditar} className="mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-tinta">Aprovar sozinho quando o cliente responder Aprovado</p>
-              <p className="text-xs text-texto-secundario">
-                O orçamento enviado por aqui leva uma enquete “✅ Aprovado / ✏️ Quero modificações”. Se o cliente tocar em Aprovado (ou responder APROVADO), o
-                orçamento é aprovado e vira pedido conforme Configurações → Empresa → Pedidos. Desligado, o vendedor recebe a notificação e confirma. Pedido de
-                modificação sempre volta para negociação e avisa o vendedor.
-              </p>
+          <div className="space-y-4 rounded-xl border border-tinta/10 p-3">
+            <FormatoAprovacaoEscolha valor={formato} onMudar={setFormato} desabilitado={!podeEditar} />
+            <div className="flex items-start gap-3 border-t border-tinta/10 pt-3">
+              <Interruptor rotulo="Aprovar sozinho quando o cliente responder Aprovado" marcado={aprovarSozinho} onMudar={setAprovarSozinho} desabilitado={!podeEditar} className="mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-tinta">Aprovar sozinho quando o cliente responder Aprovado</p>
+                <p className="text-xs text-texto-secundario">
+                  {formato === 'enquete' ? 'Se o cliente tocar em Aprovado' : 'Se o cliente responder 1'} (ou escrever APROVADO), o orçamento é aprovado e vira pedido
+                  conforme Configurações → Empresa → Pedidos. Desligado, o vendedor recebe a notificação e confirma. Pedido de modificação
+                  {formato === 'enquete' ? '' : ' (o 2)'} sempre volta para negociação e avisa o vendedor.
+                </p>
+              </div>
             </div>
           </div>
         </fieldset>

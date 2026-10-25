@@ -3,6 +3,9 @@ import type { FastifyInstance } from 'fastify'
 import {
   Decimal,
   descreverRegra,
+  modoUsoDaRegra,
+  planoDasRespostas,
+  type RespostasRegras,
   type CondicoesRegra,
   type AcaoRegra,
   type RegraComercialDados,
@@ -72,6 +75,7 @@ export function criarRegrasService(app: FastifyInstance) {
     condicoes: d.condicoes as Prisma.InputJsonValue,
     acao: d.acao as unknown as Prisma.InputJsonValue,
     combinacao: d.combinacao,
+    modoUso: modoUsoDaRegra(d.acao.tipo, d.modoUso),
   })
 
   return {
@@ -117,6 +121,35 @@ export function criarRegrasService(app: FastifyInstance) {
         for (const [i, id] of ids.entries()) await tx.regraComercial.update({ where: { id }, data: { prioridade: i + 1 } })
         await registrarAuditoria(tx, { tabela: 'regras_comerciais', registroId: ids[0]!, acao: 'editar', antes: { ordem: todas.sort((a, b) => a.prioridade - b.prioridade).map((r) => r.id) }, depois: { ordem: ids }, usuarioId })
       })
+      return listar()
+    },
+
+    /**
+     * As perguntas da tela ("Dá desconto por quantidade?"): cria, atualiza ou desliga as regras de cada pergunta numa
+     * transação só (planoDasRespostas, o mesmo da tela). Número inválido: nada é gravado e volta a pergunta com erro.
+     */
+    async salvarRespostas(respostas: RespostasRegras, usuarioId: string) {
+      const plano = planoDasRespostas(respostas, await carregarRegras(prisma, false))
+      if (plano.erros.length) throw AppError.regraNegocio(plano.erros[0]!.mensagem, { erros: plano.erros })
+      if (plano.operacoes.length) {
+        const ultima = await prisma.regraComercial.aggregate({ _max: { prioridade: true } })
+        let prioridade = ultima._max.prioridade ?? 0
+        await prisma.$transaction(async (tx) => {
+          for (const op of plano.operacoes) {
+            if (op.tipo === 'criar') {
+              const r = await tx.regraComercial.create({ data: { ...paraGravar(op.dados), prioridade: ++prioridade, criadoPor: usuarioId } })
+              await registrarAuditoria(tx, { tabela: 'regras_comerciais', registroId: r.id, acao: 'criar', depois: r, usuarioId })
+            } else if (op.tipo === 'atualizar') {
+              const antes = await tx.regraComercial.findUniqueOrThrow({ where: { id: op.id } })
+              const r = await tx.regraComercial.update({ where: { id: op.id }, data: paraGravar(op.dados) })
+              await registrarAuditoria(tx, { tabela: 'regras_comerciais', registroId: op.id, acao: 'editar', antes, depois: r, usuarioId })
+            } else {
+              await tx.regraComercial.update({ where: { id: op.id }, data: { ativa: false } })
+              await registrarAuditoria(tx, { tabela: 'regras_comerciais', registroId: op.id, acao: 'desativar', antes: { ativa: true }, depois: { ativa: false }, usuarioId })
+            }
+          }
+        })
+      }
       return listar()
     },
 

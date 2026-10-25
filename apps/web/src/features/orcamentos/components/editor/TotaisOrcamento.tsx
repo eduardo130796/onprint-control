@@ -1,4 +1,5 @@
-import { formatarDataSimples, formatarMoeda, type AnaliseLucro, type RegraAplicada } from '@onprint/shared'
+import { useState } from 'react'
+import { formatarDataSimples, formatarMoeda, normalizarDecimal, type AnaliseLucro } from '@onprint/shared'
 import { MoneyInput } from '@/components/shared/inputs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -9,7 +10,11 @@ import type { FormOrcamento } from './formOrcamento'
 interface TotaisProps {
   form: FormOrcamento
   onChange: (dados: Partial<FormOrcamento>) => void
+  /** Itens antes das regras comerciais (só com o desconto de cada item) */
   subtotal: string
+  /** O que as regras tiraram e somaram (positivos) */
+  descontosRegras: string
+  acrescimosRegras: string
   total: string
   prazoDias: number
   previsaoEntrega: string
@@ -17,12 +22,18 @@ interface TotaisProps {
   /** Lucro do orçamento (semáforo para todos; números só para quem vê custos) */
   analise?: AnaliseLucro | null
   analiseDesatualizada?: boolean
-  /** Regras comerciais aplicadas (as de orçamento viram linhas: desconto à vista, pedido mínimo, urgência) */
-  regras?: RegraAplicada[]
+  /** "ver detalhes": as regras com a explicação e o que o cliente vê */
+  onVerDetalhes: () => void
 }
 
-export function TotaisOrcamento({ form, onChange, subtotal, total, prazoDias, previsaoEntrega, editavel, analise, analiseDesatualizada, regras }: TotaisProps) {
-  const doOrcamento = (regras ?? []).filter((a) => a.nivel === 'orcamento' && Number(a.valor) !== 0)
+/**
+ * Totais do orçamento: itens, uma linha "Descontos" (e "Acréscimos") das regras com "ver detalhes", o desconto e o
+ * frete do vendedor, o total, o lucro, o prazo e as datas. O acréscimo manual fica escondido até ser preciso.
+ */
+export function TotaisOrcamento({ form, onChange, subtotal, descontosRegras, acrescimosRegras, total, prazoDias, previsaoEntrega, editavel, analise, analiseDesatualizada, onVerDetalhes }: TotaisProps) {
+  const [comAcrescimo, setComAcrescimo] = useState(Number(normalizarDecimal(form.acrescimo || '0')) !== 0)
+  const temDesconto = Number(descontosRegras) > 0
+  const temAcrescimo = Number(acrescimosRegras) > 0
   const linha = (rotulo: string, campo: 'desconto' | 'acrescimo' | 'frete') => (
     <div className="flex items-center justify-between gap-3">
       <Label htmlFor={`tot-${campo}`} className="font-normal text-texto-secundario">
@@ -33,6 +44,11 @@ export function TotaisOrcamento({ form, onChange, subtotal, total, prazoDias, pr
       </div>
     </div>
   )
+  const detalhes = (
+    <button type="button" onClick={onVerDetalhes} className="ml-1.5 text-xs font-medium text-marca-escuro hover:underline">
+      ver detalhes
+    </button>
+  )
 
   return (
     <Card>
@@ -41,23 +57,40 @@ export function TotaisOrcamento({ form, onChange, subtotal, total, prazoDias, pr
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <div className="flex justify-between">
-          <span className="text-texto-secundario">Subtotal dos itens</span>
+          <span className="text-texto-secundario">Itens</span>
           <span>{formatarMoeda(subtotal)}</span>
         </div>
-        {linha('(−) Desconto', 'desconto')}
-        {linha('(+) Acréscimo', 'acrescimo')}
-        {linha('(+) Frete / instalação', 'frete')}
-        {doOrcamento.map((a) => (
-          <div key={a.regraId} className="flex items-baseline justify-between gap-3" title="Regra comercial: o sistema aplica sozinho">
-            <span className="min-w-0 text-texto-secundario [overflow-wrap:anywhere]">
-              {Number(a.valor) < 0 ? '(−)' : '(+)'} {a.nome} <span className="text-xs">({a.efeito})</span>
+        {temDesconto && (
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-texto-secundario">
+              Descontos
+              {detalhes}
             </span>
-            <span className={Number(a.valor) < 0 ? 'shrink-0 text-green-800 dark:text-green-300' : 'shrink-0'}>{formatarMoeda(Math.abs(Number(a.valor)).toFixed(2))}</span>
+            <span className="shrink-0 font-medium text-green-800 dark:text-green-300">−{formatarMoeda(descontosRegras)}</span>
           </div>
-        ))}
+        )}
+        {temAcrescimo && (
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-texto-secundario">
+              Acréscimos
+              {!temDesconto && detalhes}
+            </span>
+            <span className="shrink-0">+{formatarMoeda(acrescimosRegras)}</span>
+          </div>
+        )}
+        {linha('Desconto extra', 'desconto')}
+        {comAcrescimo && linha('Acréscimo extra', 'acrescimo')}
+        {linha('Frete / instalação', 'frete')}
+        {editavel && !comAcrescimo && (
+          <button type="button" className="text-xs font-medium text-marca-escuro hover:underline" onClick={() => setComAcrescimo(true)}>
+            + acréscimo
+          </button>
+        )}
         <div className="flex items-baseline justify-between border-t border-border pt-3">
           <span className="font-semibold text-tinta">Total</span>
-          <span data-valor-tipo="total" className={Number(total) < 0 ? 'text-2xl font-bold text-coral-escuro' : 'text-2xl font-bold text-tinta'}>{formatarMoeda(total)}</span>
+          <span data-valor-tipo="total" className={Number(total) < 0 ? 'text-2xl font-bold text-coral-escuro' : 'text-2xl font-bold text-tinta'}>
+            {formatarMoeda(total)}
+          </span>
         </div>
         {analise && <LucroDoTotal analise={analise} desatualizado={analiseDesatualizada} className="border-t border-border pt-3" />}
         <div className="space-y-1 border-t border-border pt-3 text-texto-secundario">

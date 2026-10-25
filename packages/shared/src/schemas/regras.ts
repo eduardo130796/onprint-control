@@ -51,6 +51,34 @@ export const TIPO_ACAO_ROTULOS: Record<TipoAcaoRegra, string> = {
   limite_negociacao: 'Limite de negociação',
 }
 
+/**
+ * Como usar o desconto (o dono diz quando o vendedor — ou o Assistente — usa cada um, como faria com um estagiário):
+ * - sempre: o sistema aplica sozinho em todo orçamento que se encaixa;
+ * - sugerir: aparece para o vendedor como sugestão ("Pode aplicar: 5% por quantidade [Aplicar]"); só vale se ele aplicar;
+ * - se_pedir: só aparece na "margem para negociar" ("pode oferecer até 3%"); nunca é aplicado sem o vendedor clicar.
+ * Só vale para descontos (e preço especial); acréscimo, pedido mínimo, aprovação e bloqueio são sempre "sempre".
+ */
+export const MODOS_USO_REGRA = ['sempre', 'sugerir', 'se_pedir'] as const
+export type ModoUsoRegra = (typeof MODOS_USO_REGRA)[number]
+
+export const MODO_USO_ROTULOS: Record<ModoUsoRegra, string> = {
+  sempre: 'Sempre',
+  sugerir: 'Sugerir ao vendedor',
+  se_pedir: 'Só se o cliente pedir',
+}
+
+/** Ações em que o dono escolhe o modo de uso (as outras valem sempre) */
+export const acaoTemModoUso = (tipo: TipoAcaoRegra) => tipo === 'desconto' || tipo === 'preco_especial'
+
+/**
+ * Modo que vale para a regra: ação sem modo de uso = sempre; com modo = o escolhido ou, sem escolha, o padrão de uma
+ * regra nova (desconto = sugerir ao vendedor)
+ */
+export function modoUsoDaRegra(tipo: TipoAcaoRegra, modo?: ModoUsoRegra | string | null): ModoUsoRegra {
+  if (!acaoTemModoUso(tipo)) return 'sempre'
+  return (MODOS_USO_REGRA as readonly string[]).includes(modo ?? '') ? (modo as ModoUsoRegra) : 'sugerir'
+}
+
 /** Como um desconto convive com os outros: soma (acumula) ou "maior vence" (não acumula; vale o maior) */
 export const COMBINACOES_REGRA = ['soma', 'maior'] as const
 export type CombinacaoRegra = (typeof COMBINACOES_REGRA)[number]
@@ -181,6 +209,8 @@ export const regraComercialSchema = z.object({
   condicoes: condicoesRegraSchema.default({}),
   acao: acaoRegraSchema,
   combinacao: z.enum(COMBINACOES_REGRA).default('soma'),
+  /** Quando usar (só desconto e preço especial; ausente = sugerir ao vendedor). Gravado já normalizado (modoUsoDaRegra) */
+  modoUso: z.enum(MODOS_USO_REGRA).optional(),
 })
 export type RegraComercialInput = z.input<typeof regraComercialSchema>
 export type RegraComercialDados = z.output<typeof regraComercialSchema>

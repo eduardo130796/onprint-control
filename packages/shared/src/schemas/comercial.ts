@@ -116,6 +116,11 @@ export const orcamentoSchema = z.object({
    * (ou a origem da solicitação: site = vitrine, whatsapp = whatsapp). Vitrine e WhatsApp são marcados pelo sistema.
    */
   origem: z.enum(['balcao', 'assistente']).optional(),
+  /**
+   * Descontos das regras que o vendedor aplicou (regras "sugerir ao vendedor" e "só se o cliente pedir"): os ids das
+   * regras. Ficam gravados e valem a cada recálculo enquanto a regra servir. Ausente ao salvar = fica como estava.
+   */
+  regrasAceitas: z.array(z.string().uuid()).max(50).optional(),
   itens: z.array(orcamentoItemSchema).min(1, 'Adicione ao menos um item.').max(100),
 })
 export type OrcamentoInput = z.input<typeof orcamentoSchema>

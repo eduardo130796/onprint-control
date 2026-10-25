@@ -189,6 +189,8 @@ model EmpresaConfig {
   assistenteOrcamentoTexto Boolean     @default(true) @map("assistente_orcamento_texto")
   assistenteProdutos       Boolean     @default(true) @map("assistente_produtos")
   assistenteDescricoes     Boolean     @default(true) @map("assistente_descricoes")
+  /// "Explique com suas palavras" (Regras comerciais): o texto do dono vira as respostas das perguntas
+  assistenteRegras         Boolean     @default(true) @map("assistente_regras")
   /// "Nunca falar com meus clientes": só ajudas internas; nada do Assistente chega ao cliente
   assistenteSemClientes    Boolean     @default(false) @map("assistente_sem_clientes")
   /// Manual do atendente (Configurações → Regras comerciais): orientações livres do dono para o Assistente; nunca
@@ -1110,6 +1112,8 @@ model Orcamento {
   ajusteRegras          Decimal         @default(0) @map("ajuste_regras") @db.Decimal(12, 2)
   /// O que as regras fizeram no último salvamento (RegrasDoOrcamento: aplicadas, sugestões, avisos, aprovações…)
   regras                Json            @default("{}")
+  /// Regras "sugerir ao vendedor" / "só se o cliente pedir" que o vendedor aplicou (ids): valem a cada recálculo
+  regrasAceitas         String[]        @default([]) @map("regras_aceitas")
   /// Precisa da liberação de um gerente (regra, preço abaixo do mínimo pelas regras ou limite de negociação):
   /// não pode ser enviado nem aprovado até liberar. A chave guarda o que foi liberado (motivos + total)
   liberacaoPendente     Boolean         @default(false) @map("liberacao_pendente")
@@ -1213,6 +1217,8 @@ model RegraComercial {
   acao       Json
   /// Descontos: soma (acumula) | maior (não acumula; vale o maior)
   combinacao String   @default("soma")
+  /// Quando usar o desconto: sempre | sugerir (ao vendedor) | se_pedir (só se o cliente pedir); os outros: sempre
+  modoUso    String   @default("sempre") @map("modo_uso")
   criadoPor  String?  @map("criado_por") @db.Uuid
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)

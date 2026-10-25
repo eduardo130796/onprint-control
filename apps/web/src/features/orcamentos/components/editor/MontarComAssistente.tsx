@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle2, Loader2, Sparkles, UserRound, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -25,6 +26,12 @@ export interface MontadoPeloAssistente {
   nota: string | null
 }
 
+/**
+ * Por que o Assistente não está disponível: a GrafyGo ainda não liberou (central), a empresa desligou (quem é admin
+ * ativa em Configurações → Assistente) ou a pessoa não é admin (pede a quem é); null = disponível
+ */
+export type Indisponivel = 'central' | 'empresa' | 'pedir_admin' | null
+
 interface Linha {
   sugerido: ItemOrcamentoSugerido
   incluir: boolean
@@ -45,10 +52,12 @@ function resumoDoItem(s: ItemOrcamentoSugerido) {
  * itens com os produtos do catálogo e o sistema calcula os preços (a IA nunca dá preço). A prévia mostra o que
  * conferir; "Adicionar ao orçamento" junta os escolhidos aos itens que já estão (nada é salvo até "Salvar").
  */
-export function MontarComAssistente({ onAdicionar }: { onAdicionar: (r: MontadoPeloAssistente) => void }) {
+export function MontarComAssistente({ onAdicionar, indisponivel }: { onAdicionar: (r: MontadoPeloAssistente) => void; indisponivel: Indisponivel }) {
   const queryClient = useQueryClient()
   const atualizarUso = useAtualizarUsoAssistente()
   const [aberto, setAberto] = useState(false)
+  // Sem o Assistente: o botão fica, e o clique explica como ativar
+  const [aviso, setAviso] = useState(false)
   const [texto, setTexto] = useState('')
   const [lendo, setLendo] = useState(false)
   const [adicionando, setAdicionando] = useState(false)
@@ -112,18 +121,30 @@ export function MontarComAssistente({ onAdicionar }: { onAdicionar: (r: MontadoP
 
   if (!aberto) {
     return (
-      <Card className="flex flex-col gap-3 border border-dashed border-marca/40 bg-marca-suave/40 p-4 sm:flex-row sm:items-center">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-marca text-marca-contraste">
-          <Sparkles className="h-4 w-4" aria-hidden="true" />
-        </span>
-        <p className="min-w-0 flex-1 text-sm text-texto-secundario">
-          <span className="block font-semibold text-tinta">Recebeu o pedido por mensagem?</span>
-          Cole o texto do cliente e o Assistente monta os itens com os seus produtos. Os preços são os do sistema.
-        </p>
-        <Button type="button" variant="outline" onClick={() => setAberto(true)}>
-          <Sparkles /> Montar com o Assistente
-        </Button>
-      </Card>
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Button type="button" variant="outline" className="border-marca/40 text-marca-escuro" onClick={() => (indisponivel ? setAviso((v) => !v) : setAberto(true))}>
+            <Sparkles /> Montar com o Assistente
+          </Button>
+          <span className="text-xs text-texto-secundario">Cole o pedido do cliente e ele monta os itens. Os preços são os do sistema.</span>
+        </div>
+        {aviso && indisponivel && (
+          <p role="status" className="text-sm text-texto-secundario">
+            {indisponivel === 'central' ? (
+              'O Assistente GrafyGo ainda não foi liberado pela GrafyGo para a sua empresa.'
+            ) : indisponivel === 'empresa' ? (
+              <>
+                O Assistente está desligado.{' '}
+                <Link to="/configuracoes/assistente" className="font-medium text-marca-escuro hover:underline">
+                  Ativar em Configurações → Assistente GrafyGo
+                </Link>
+              </>
+            ) : (
+              'O Assistente não está ativo. Peça ao administrador para ativar.'
+            )}
+          </p>
+        )}
+      </div>
     )
   }
 

@@ -16,6 +16,8 @@ export const analiseOrcamentoSchema = z.object({
   parcelas: z.coerce.number().int().min(0).max(24).optional(),
   dataDesejada: z.preprocess((v) => (v === '' ? null : v), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional()),
   origem: z.enum(ORIGENS_ORCAMENTO).optional(),
+  /** Descontos sugeridos que o vendedor aplicou (ids das regras) */
+  regrasAceitas: z.array(z.string().uuid()).max(50).optional(),
 })
 
 type Db = PrismaClient | Prisma.TransactionClient

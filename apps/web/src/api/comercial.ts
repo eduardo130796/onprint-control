@@ -39,7 +39,18 @@ export const orcamentosApi = {
   atualizar: (id: string, dados: unknown) => http<OrcamentoComAnalise>(`/orcamentos/${id}`, { method: 'PUT', body: dados }),
   /** Semáforo ao vivo do editor (mesmos itens do orçamento + desconto/acréscimo do cabeçalho; sem gravar) */
   analisar: (
-    dados: { itens: OrcamentoItemInput[]; desconto?: string; acrescimo?: string; clienteId?: string | null; sinalPercentual?: string; parcelas?: string | number; dataDesejada?: string | null; origem?: string },
+    dados: {
+      itens: OrcamentoItemInput[]
+      desconto?: string
+      acrescimo?: string
+      clienteId?: string | null
+      sinalPercentual?: string
+      parcelas?: string | number
+      dataDesejada?: string | null
+      origem?: string
+      /** Descontos sugeridos que o vendedor aplicou */
+      regrasAceitas?: string[]
+    },
     signal?: AbortSignal,
   ) =>
     http<AnaliseOrcamento>('/orcamentos/analisar', { method: 'POST', body: dados, signal }),

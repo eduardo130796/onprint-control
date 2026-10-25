@@ -71,7 +71,7 @@ function Formulario({ dados, podeEditar }: { dados: AssistenteEmpresa; podeEdita
       <div className="min-w-0 space-y-6">
         {!dados.disponivel && (
           <p className="flex items-start gap-2 rounded-2xl bg-ambar/15 p-4 text-sm text-amber-900 dark:text-amber-200">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />O {NOME_ASSISTENTE} ainda não foi liberado pela GrafyGo. Você já pode escolher o que fica ligado: vale assim que ele for liberado.
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />O {NOME_ASSISTENTE} ainda não foi liberado pela GrafyGo. O que você ligar aqui vale quando ele for liberado.
           </p>
         )}
 
@@ -82,7 +82,7 @@ function Formulario({ dados, podeEditar }: { dados: AssistenteEmpresa; podeEdita
             </span>
             <div className="min-w-0 flex-1">
               <p className="font-titulo text-lg font-extrabold text-tinta">Usar o {NOME_ASSISTENTE}</p>
-              <p className="text-sm text-texto-secundario">Desligado, nenhuma ajuda funciona e nada vai para o provedor de IA.</p>
+              <p className="text-sm text-texto-secundario">Desligado, nenhuma ajuda funciona e nada vai para a IA.</p>
             </div>
             <Interruptor rotulo={`Usar o ${NOME_ASSISTENTE}`} marcado={controles.ativo} onMudar={(v) => mudar({ ativo: v })} desabilitado={!podeEditar} className="mt-1" />
           </div>
@@ -114,7 +114,7 @@ function Formulario({ dados, podeEditar }: { dados: AssistenteEmpresa; podeEdita
           <ul>
             <LinhaControle
               titulo="Nunca falar com meus clientes"
-              descricao="O Assistente fica só nas ajudas da equipe: nada escrito ou decidido por ele chega aos seus clientes. Hoje ele não conversa com clientes; com isto ligado, também não sai a resposta automática do WhatsApp depois de uma leitura dele, e funções futuras que falem com clientes ficam desligadas."
+              descricao="Nada escrito ou decidido pelo Assistente chega aos seus clientes: ele só ajuda a equipe."
               marcado={controles.semClientes}
               onMudar={(v) => mudar({ semClientes: v })}
               desabilitado={!podeEditar || !controles.ativo}
@@ -169,8 +169,8 @@ function Formulario({ dados, podeEditar }: { dados: AssistenteEmpresa; podeEdita
           <p className="flex items-center gap-2 font-semibold text-tinta">
             <ShieldCheck className="h-4 w-4 text-marca-escuro" /> O que vai para a IA
           </p>
-          <p>Só o texto necessário para cada ajuda e os nomes do seu cadastro. Telefone, CPF/CNPJ e e-mail dos clientes ficam no sistema.</p>
-          <p>Preços e custos nunca vêm da IA: o sistema calcula com o seu cadastro. Tudo o que o Assistente sugere aparece marcado para você conferir antes de salvar.</p>
+          <p>Só o texto de cada ajuda e os nomes do seu cadastro. Telefone, CPF/CNPJ e e-mail ficam no sistema.</p>
+          <p>Preço nunca vem da IA: quem calcula é o sistema.</p>
         </Card>
       </aside>
     </div>
@@ -183,7 +183,7 @@ export function AssistentePage() {
   const podeEditar = usePermission('configuracoes', 'editar')
   return (
     <>
-      <PageHeader titulo={NOME_ASSISTENTE} subtitulo="A IA que ajuda a sua equipe no dia a dia. Você escolhe o que fica ligado; tudo o que ela sugere passa por você." />
+      <PageHeader titulo={NOME_ASSISTENTE} subtitulo="A IA que ajuda a sua equipe. Você escolhe o que fica ligado e confere tudo o que ela sugere." />
       {consulta.isPending ? (
         <Skeleton className="h-96 w-full rounded-3xl" />
       ) : consulta.isError ? (

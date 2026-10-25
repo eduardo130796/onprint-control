@@ -84,7 +84,7 @@ describe('regras ao vivo no editor (mesmo motor da API)', () => {
     const c = calcularItem(item, cartao)
     const e = itemParaRegras(item, c)!
     expect(e.quantidade).toBe('1000')
-    const regra: RegraComercialMotor = { id: 'q', prioridade: 1, ...regraComercialSchema.parse({ ...regraDoPreset('desconto_quantidade'), acao: { tipo: 'desconto', modo: 'percentual', valor: '5', nivel: 'item', faixasPor: 'quantidade', faixas: [{ minimo: '1000', valor: '5' }] } }) }
+    const regra: RegraComercialMotor = { id: 'q', prioridade: 1, ...regraComercialSchema.parse({ ...regraDoPreset('desconto_quantidade'), modoUso: 'sempre', acao: { tipo: 'desconto', modo: 'percentual', valor: '5', nivel: 'item', faixasPor: 'quantidade', faixas: [{ minimo: '1000', valor: '5' }] } }) }
     const r = aplicarRegras({ itens: [e], clienteId: null, etiquetasCliente: [], pagamento: null, dataDesejada: null, hoje: '2026-10-26', origem: 'balcao' }, [regra])
     expect(r.itens[0]!.total).toBe('427.50')
   })

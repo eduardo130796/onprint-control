@@ -63,8 +63,7 @@ export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; pod
       <CardHeader>
         <CardTitle>Avisos automáticos</CardTitle>
         <CardDescription>
-          O cliente recebe estes avisos no WhatsApp quando o pedido avança. O texto vem das mensagens prontas. Cada aviso espera 2 minutos na fila: avisos do
-          mesmo pedido que se encontram ali (ex.: pedido confirmado e a arte) saem numa mensagem só.
+          O cliente recebe estes avisos no WhatsApp quando o pedido avança. Avisos do mesmo pedido que saem juntos viram uma mensagem só.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -122,7 +121,7 @@ export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; pod
               <Interruptor rotulo="Pausar os avisos" marcado={pausado} onMudar={setPausado} desabilitado={!podeEditar} className="mt-0.5" />
               <div>
                 <p className="text-sm font-medium text-tinta">Pausar os avisos</p>
-                <p className="text-xs text-texto-secundario">Nada sai enquanto estiver pausado. Avisos parados há mais de 48 horas são descartados.</p>
+                <p className="text-xs text-texto-secundario">Nada sai enquanto estiver pausado. O que ficar parado mais de 2 dias não sai mais.</p>
               </div>
             </div>
           </div>
@@ -134,9 +133,8 @@ export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; pod
               <div>
                 <p className="text-sm font-medium text-tinta">Aprovar sozinho quando o cliente responder Aprovado</p>
                 <p className="text-xs text-texto-secundario">
-                  {formato === 'enquete' ? 'Se o cliente tocar em Aprovado' : 'Se o cliente responder 1'} (ou escrever APROVADO), o orçamento é aprovado e vira pedido
-                  conforme Configurações → Empresa → Pedidos. Desligado, o vendedor recebe a notificação e confirma. Pedido de modificação
-                  {formato === 'enquete' ? '' : ' (o 2)'} sempre volta para negociação e avisa o vendedor.
+                  {formato === 'enquete' ? 'O cliente tocou em Aprovado' : 'O cliente respondeu 1'} (ou escreveu APROVADO): o orçamento é aprovado sem ninguém clicar.
+                  Desligado, o vendedor recebe o aviso e confirma. Pedido de mudança sempre avisa o vendedor.
                 </p>
               </div>
             </div>
@@ -147,12 +145,10 @@ export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; pod
                   <Sparkles className="h-3.5 w-3.5 shrink-0 text-marca-escuro" aria-hidden="true" /> Usar o Assistente GrafyGo para entender respostas fora do padrão
                 </p>
                 <p className="text-xs text-texto-secundario">
-                  Quando o cliente escreve algo que não é um “aprovado” claro (ex.: “tá ótimo, pode mandar ver” ou “dá pra entregar sexta?”), o Assistente lê a
-                  resposta: aprova só quando tem certeza e não há pergunta{aprovarSozinho ? '' : ' (com “aprovar sozinho” desligado, avisa para confirmar)'}, passa
-                  para negociação se o cliente pedir ajustes e, no resto, avisa o vendedor com um resumo. O texto vai a um provedor de IA, sem o telefone do cliente.
+                  Entende respostas como “tá ótimo, pode mandar ver” ou “dá pra entregar sexta?”. Só aprova quando tem certeza{aprovarSozinho ? '' : ' (e, com “aprovar sozinho” desligado, pede para o vendedor confirmar)'}; no resto, avisa o vendedor com um resumo.
                 </p>
                 {!config.assistenteDisponivel && (
-                  <p className="mt-1 text-xs font-medium text-amber-800">O Assistente ainda não foi liberado pela GrafyGo: a escolha passa a valer assim que ele for ligado.</p>
+                  <p className="mt-1 text-xs font-medium text-amber-800">O Assistente ainda não foi liberado pela GrafyGo. A escolha vale quando ele for liberado.</p>
                 )}
                 {config.assistenteDisponivel && assistenteEmpresa.data && !assistenteEmpresa.data.controles.ativo && (
                   <p className="mt-1 text-xs font-medium text-amber-800">

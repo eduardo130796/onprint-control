@@ -142,6 +142,8 @@ export interface Orcamento extends Auditavel {
   ajusteRegras: string
   /** O que as regras fizeram no último salvamento (orçamentos antigos: {}; use lerRegrasDoOrcamento) */
   regras: Partial<RegrasDoOrcamento>
+  /** Descontos sugeridos pelas regras que o vendedor aplicou (ids das regras; valem a cada recálculo) */
+  regrasAceitas: string[]
   /** Precisa da liberação de um gerente: não pode ser enviado nem aprovado */
   liberacaoPendente: boolean
   liberadoPor?: Ref | null

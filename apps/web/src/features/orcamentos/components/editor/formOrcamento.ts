@@ -47,6 +47,8 @@ export interface FormOrcamento {
   observacoesInternas: string
   /** Data em que o cliente quer o pedido (AAAA-MM-DD; vazio = não disse): regras comerciais de prazo/urgência */
   dataDesejada: string
+  /** Descontos sugeridos pelas regras que o vendedor aplicou (ids das regras; vão para a API e valem ao recalcular) */
+  regrasAceitas: string[]
   /** Itens montados pelo Assistente GrafyGo (só no orçamento novo: a origem vira "assistente") */
   doAssistente?: boolean
   itens: ItemForm[]
@@ -187,6 +189,7 @@ export function formDoOrcamento(
       observacoes: '',
       observacoesInternas: observacoesInternas ?? '',
       dataDesejada: '',
+      regrasAceitas: [],
       itens: itensIniciais?.length ? itensIniciais : [itemVazio()],
     }
   }
@@ -203,6 +206,7 @@ export function formDoOrcamento(
     observacoes: o.observacoes ?? '',
     observacoesInternas: o.observacoesInternas ?? '',
     dataDesejada: o.dataDesejada?.slice(0, 10) ?? '',
+    regrasAceitas: o.regrasAceitas ?? [],
     itens: o.itens.map((i) => ({
       chave: i.id,
       produto: { id: i.produtoId, rotulo: i.produto.nome, detalhe: i.produto.codigo },
@@ -235,6 +239,7 @@ export function payloadDoForm(f: FormOrcamento, solicitacaoId?: string | null): 
     observacoes: f.observacoes,
     observacoesInternas: f.observacoesInternas,
     dataDesejada: f.dataDesejada || null,
+    regrasAceitas: f.regrasAceitas,
     ...(f.doAssistente ? { origem: 'assistente' as const } : {}),
     itens: f.itens.map((i) => ({
       produtoId: i.produto?.id ?? '',

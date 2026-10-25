@@ -6,6 +6,7 @@ import {
   aplicarRegras,
   calcularPreco,
   condicoesRegraSchema,
+  modoUsoDaRegra,
   custoDoAcabamento,
   hojeISO,
   type CustoVenda,
@@ -200,6 +201,8 @@ export interface ContextoRegras {
   frete: string
   /** Data do orçamento (padrão: hoje em São Paulo) */
   hoje?: string
+  /** Regras sugeridas que o vendedor aplicou (orcamentos.regras_aceitas) */
+  aceitas?: string[]
 }
 
 /** Regras ativas da empresa, na ordem; regra com JSON que não passa no schema fica de fora (nunca quebra o orçamento) */
@@ -209,7 +212,19 @@ export async function carregarRegras(db: Db, apenasAtivas = true): Promise<Regra
     const condicoes = condicoesRegraSchema.safeParse(r.condicoes)
     const acao = acaoRegraSchema.safeParse(r.acao)
     if (!condicoes.success || !acao.success) return []
-    return [{ id: r.id, nome: r.nome, ativa: r.ativa, prioridade: r.prioridade, tipo: r.tipo, condicoes: condicoes.data, acao: acao.data, combinacao: r.combinacao === 'maior' ? 'maior' : 'soma' }]
+    return [
+      {
+        id: r.id,
+        nome: r.nome,
+        ativa: r.ativa,
+        prioridade: r.prioridade,
+        tipo: r.tipo,
+        condicoes: condicoes.data,
+        acao: acao.data,
+        combinacao: r.combinacao === 'maior' ? 'maior' : 'soma',
+        modoUso: modoUsoDaRegra(acao.data.tipo, r.modoUso),
+      },
+    ]
   })
 }
 
@@ -244,6 +259,7 @@ export async function aplicarRegrasNoCalculo(
       desconto: ctx.desconto,
       acrescimo: ctx.acrescimo,
       frete: ctx.frete,
+      aceitas: ctx.aceitas ?? [],
     },
     lista,
   )

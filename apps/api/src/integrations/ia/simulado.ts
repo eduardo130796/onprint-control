@@ -1,4 +1,4 @@
-import { descricaoSimulada, orcamentoSimulado, produtoSimulado } from './simulado-equipe'
+import { descricaoSimulada, orcamentoSimulado, produtoSimulado, regrasSimuladas } from './simulado-equipe'
 import { ErroIA, type PedidoEstruturado, type ProvedorIA, type RespostaEstruturada, type TarefaIA } from './tipos'
 
 /*
@@ -15,7 +15,7 @@ const tokens = (t: string) => Math.max(1, Math.ceil(t.length / 4))
 
 /** Só o texto livre (mensagem ou pedido do cliente, descrição da equipe), entre as marcas que o prompt usa */
 export const mensagemDoConteudo = (conteudo: string) =>
-  /<(mensagem_do_cliente|pedido_do_cliente|descricao_da_equipe)>\n?([\s\S]*?)\n?<\/\1>/.exec(conteudo)?.[2]?.trim() ?? conteudo
+  /<(mensagem_do_cliente|pedido_do_cliente|descricao_da_equipe|texto_do_dono)>\n?([\s\S]*?)\n?<\/\1>/.exec(conteudo)?.[2]?.trim() ?? conteudo
 
 /** Classificação por palavras-chave: imita o modelo nos casos comuns, com confiança alta só no óbvio */
 export function classificarSimulado(conteudo: string) {
@@ -38,6 +38,7 @@ const SIMULACOES: Record<TarefaIA, SimulacaoIA> = {
   orcamento_texto: orcamentoSimulado,
   produto_texto: produtoSimulado,
   descricao: descricaoSimulada,
+  regras_texto: regrasSimuladas,
 }
 
 export class SimuladoProvider implements ProvedorIA {

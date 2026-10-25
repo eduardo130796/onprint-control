@@ -1,8 +1,8 @@
 import { adicionarDias, diaDaSemana } from './datas'
 import { formatarMoeda } from './format'
 import { Decimal, type Valor } from './pricing'
-import type { AcaoRegra, CombinacaoRegra, CondicoesRegra, OrigemOrcamento, PresetRegra, RegraComercialInput, TipoAcaoRegra, TipoRegra } from './schemas/regras'
-import { DIAS_SEMANA_CURTOS, ORIGEM_ORCAMENTO_ROTULOS } from './schemas/regras'
+import type { AcaoRegra, CombinacaoRegra, CondicoesRegra, ModoUsoRegra, OrigemOrcamento, PresetRegra, RegraComercialInput, TipoAcaoRegra, TipoRegra } from './schemas/regras'
+import { DIAS_SEMANA_CURTOS, ORIGEM_ORCAMENTO_ROTULOS, acaoTemModoUso, modoUsoDaRegra } from './schemas/regras'
 
 /*
  * Motor das regras comerciais: função pura, a mesma no editor (valores ao vivo), no simulador e na API (que aplica de
@@ -25,6 +25,11 @@ import { DIAS_SEMANA_CURTOS, ORIGEM_ORCAMENTO_ROTULOS } from './schemas/regras'
  * - Limite de negociação: desconto manual (itens + orçamento + preço digitado abaixo do de tabela) sobre o valor já
  *   com as regras; acima do limite, pede aprovação. Sem regra de limite, não há limite.
  * - Arredondamento: cada valor de regra em centavos (meio para cima); nenhum item fica negativo.
+ * - Modo de uso dos descontos (modoUso): "sempre" aplica como acima; "sugerir" e "se_pedir" só entram quando o vendedor
+ *   aplica (o id da regra em `aceitas`, gravado no orçamento). Fora disso viram ofertas: quanto o total cairia (a
+ *   diferença real, já com "vale o maior", pedido mínimo e tudo mais) e o texto para o vendedor. "Se pedir" que só não
+ *   vale pelo pagamento também vira oferta, com a condição ("se pagar à vista ou Pix"). Desconto aplicado assim é da
+ *   regra, não manual: não conta no limite de negociação. Regra sem modoUso (antiga, testes) = sempre.
  */
 
 export interface RegraComercialMotor {
@@ -36,6 +41,8 @@ export interface RegraComercialMotor {
   condicoes: CondicoesRegra
   acao: AcaoRegra
   combinacao: CombinacaoRegra
+  /** Quando usar (descontos): ausente = sempre */
+  modoUso?: ModoUsoRegra
 }
 
 export interface ItemParaRegras {
@@ -75,6 +82,8 @@ export interface EntradaRegras {
   desconto?: Valor
   acrescimo?: Valor
   frete?: Valor
+  /** Regras "sugerir"/"se_pedir" que o vendedor aplicou (ids) */
+  aceitas?: string[]
 }
 
 export type NivelRegra = 'item' | 'orcamento'
@@ -115,6 +124,10 @@ export interface RegraAplicada {
   /** Para a equipe: "Desconto por quantidade (−5%)" */
   explicacao: string
   fraseCliente: string | null
+  /** Desconto que só vale porque o vendedor aplicou (sugerido ou "se o cliente pedir") */
+  aceita?: boolean
+  /** Só nas aceitas: o mesmo texto da sugestão ("5% por quantidade"), para o "aplicado · desfazer" */
+  texto?: string
 }
 
 export interface RegraIgnorada {
@@ -130,6 +143,25 @@ export interface SugestaoRegra {
   obrigatorio: boolean
 }
 
+/** Desconto que o vendedor pode aplicar com um clique (sugestão) ou oferecer se o cliente pedir (margem de negociação) */
+export interface OfertaRegra {
+  regraId: string
+  nome: string
+  modo: 'sugerir' | 'se_pedir'
+  /** Quanto o total do orçamento cai se aplicar (R$, positivo) */
+  valor: string
+  /** "5%", "R$ 10,00", "Preço especial R$ 0,30/un" */
+  efeito: string
+  /** Para o vendedor: "5% por quantidade", "3% à vista ou Pix" */
+  texto: string
+  /** Frase para o cliente, se aplicar ("Desconto de 5% por quantidade") */
+  fraseCliente: string | null
+  /** Itens alcançados (desconto de item) */
+  itens: number[]
+  /** Só "se pedir": o que falta para valer ("se pagar à vista ou Pix"); null = pode aplicar já */
+  condicao: string | null
+}
+
 export interface MotivoLiberacao {
   regraId: string | null
   motivo: string
@@ -142,6 +174,10 @@ export interface ResultadoRegras {
   aplicadas: RegraAplicada[]
   ignoradas: RegraIgnorada[]
   sugestoes: SugestaoRegra[]
+  /** Descontos para o vendedor aplicar (sugerir) ou oferecer se o cliente pedir (se_pedir), ainda não aplicados */
+  ofertas: OfertaRegra[]
+  /** Regras aplicadas pelo vendedor que estão valendo (ids) */
+  aceitas: string[]
   avisos: { regraId: string; texto: string }[]
   aprovacoes: MotivoLiberacao[]
   bloqueios: MotivoLiberacao[]
@@ -214,7 +250,7 @@ function itemAtende(c: CondicoesRegra, item: ItemParaRegras, bruto: Decimal): bo
   return true
 }
 
-function orcamentoAtende(c: CondicoesRegra, e: EntradaRegras, subtotalBruto: Decimal): boolean {
+function orcamentoAtende(c: CondicoesRegra, e: EntradaRegras, subtotalBruto: Decimal, ignorarPagamento = false): boolean {
   if (temLista(c.clienteIds) && !(e.clienteId && c.clienteIds!.includes(e.clienteId))) return false
   if (temLista(c.etiquetas)) {
     const doCliente = new Set(e.etiquetasCliente.map(normalizarEtiqueta))
@@ -222,7 +258,7 @@ function orcamentoAtende(c: CondicoesRegra, e: EntradaRegras, subtotalBruto: Dec
   }
   if (definido(c.valorTotalMin) && subtotalBruto.lt(dec(c.valorTotalMin))) return false
   if (definido(c.valorTotalMax) && subtotalBruto.gt(dec(c.valorTotalMax))) return false
-  if (c.pagamento) {
+  if (c.pagamento && !ignorarPagamento) {
     if (!e.pagamento) return false
     if ((c.pagamento === 'a_vista') !== pagamentoAVista(e.pagamento)) return false
   }
@@ -264,8 +300,40 @@ export function ordenarRegras<T extends Pick<RegraComercialMotor, 'prioridade' |
   return [...regras].sort((a, b) => a.prioridade - b.prioridade || a.nome.localeCompare(b.nome, 'pt-BR') || a.id.localeCompare(b.id))
 }
 
+/** Modo que vale no motor: sem modoUso (regra antiga, testes) = sempre */
+const modoNoMotor = (r: RegraComercialMotor): ModoUsoRegra => (r.modoUso ? modoUsoDaRegra(r.acao.tipo, r.modoUso) : 'sempre')
+
+/** Para o vendedor, o "porquê" do desconto pelo modelo da regra ("por quantidade", "para Revenda"); senão o nome */
+function motivoDaOferta(r: RegraComercialMotor): string {
+  switch (r.tipo) {
+    case 'desconto_quantidade':
+      return 'por quantidade'
+    case 'desconto_valor':
+      return 'pelo valor do pedido'
+    case 'desconto_a_vista':
+      return 'à vista ou Pix'
+    case 'cliente_especial':
+      return r.condicoes.etiquetas?.length ? `para ${ou(r.condicoes.etiquetas)}` : 'cliente especial'
+    default:
+      return `(${r.nome})`
+  }
+}
+
+/** O que falta para a regra "se pedir" valer, quando só o pagamento não bate */
+const condicaoDePagamento = (c: CondicoesRegra) => (c.pagamento === 'a_vista' ? 'se pagar à vista ou Pix' : c.pagamento === 'parcelado' ? 'se parcelar' : null)
+
 export function aplicarRegras(entrada: EntradaRegras, regras: RegraComercialMotor[]): ResultadoRegras {
+  return aplicarRegrasInterno(entrada, regras, true)
+}
+
+function aplicarRegrasInterno(entrada: EntradaRegras, regras: RegraComercialMotor[], comOfertas: boolean): ResultadoRegras {
   const ativas = ordenarRegras(regras.filter((r) => r.ativa))
+  const aceitas = new Set(entrada.aceitas ?? [])
+  /** Desconto "sugerir"/"se pedir" ainda não aplicado pelo vendedor: vira oferta (calculada no fim) */
+  const pendentes: RegraComercialMotor[] = []
+  /** "Se pedir" que só não vale pelo pagamento: oferta com a condição ("se pagar à vista") */
+  const condicionais: RegraComercialMotor[] = []
+  const soPorAceite = (r: RegraComercialMotor) => acaoTemModoUso(r.acao.tipo) && modoNoMotor(r) !== 'sempre'
   const brutos = entrada.itens.map((i) => centavos(dec(i.valorProduto).plus(dec(i.valorAcabamentos))))
   const subtotalBruto = brutos.reduce((s, b) => s.plus(b), ZERO)
   const rotuloItem = (k: number) => `Item ${k + 1}${entrada.itens[k]?.descricao ? ` (${entrada.itens[k]!.descricao})` : ''}`
@@ -285,16 +353,24 @@ export function aplicarRegras(entrada: EntradaRegras, regras: RegraComercialMoto
   const registrar = (r: RegraComercialMotor, dados: Omit<RegraAplicada, 'regraId' | 'nome' | 'tipo' | 'fraseCliente'>, valorFrase = '') => {
     const a = r.acao as { avisoEquipe?: string | null; fraseCliente?: string | null }
     if (a.avisoEquipe?.trim()) avisos.push({ regraId: r.id, texto: a.avisoEquipe.trim() })
-    aplicadas.push({ regraId: r.id, nome: r.nome, tipo: r.acao.tipo, fraseCliente: frase(a.fraseCliente, valorFrase), ...dados })
+    aplicadas.push({ regraId: r.id, nome: r.nome, tipo: r.acao.tipo, fraseCliente: frase(a.fraseCliente, valorFrase), ...dados, ...(soPorAceite(r) ? { aceita: true, texto: `${dados.efeito.replace(/^[−+]/, '')} ${motivoDaOferta(r)}` } : {}) })
   }
 
   for (const [ordem, r] of ativas.entries()) {
-    if (!orcamentoAtende(r.condicoes, entrada, subtotalBruto)) continue
+    if (!orcamentoAtende(r.condicoes, entrada, subtotalBruto)) {
+      const soPagamento = comOfertas && soPorAceite(r) && modoNoMotor(r) === 'se_pedir' && condicaoDePagamento(r.condicoes) !== null
+      if (soPagamento && orcamentoAtende(r.condicoes, entrada, subtotalBruto, true)) condicionais.push(r)
+      continue
+    }
     const porItem = temCondicaoDeItem(r.condicoes)
     const alvos = entrada.itens.map((_, k) => k).filter((k) => !porItem || itemAtende(r.condicoes, entrada.itens[k]!, brutos[k]!))
     if (porItem && alvos.length === 0) continue
     const itensDaRegra = porItem ? alvos : []
     const a = r.acao
+    if (soPorAceite(r) && !aceitas.has(r.id)) {
+      if (comOfertas) pendentes.push(r)
+      continue
+    }
 
     switch (a.tipo) {
       case 'desconto':
@@ -398,8 +474,8 @@ export function aplicarRegras(entrada: EntradaRegras, regras: RegraComercialMoto
   const vencem = new Set<Candidato>(melhor && totalDe(melhor).gt(somaAcumulavel) ? [melhor] : acumulaveis)
   for (const c of descontos) {
     if (vencem.has(c)) continue
-    const porque = melhor && vencem.has(melhor) ? `vale “${melhor.regra.nome}”, que dá mais desconto` : 'os outros descontos juntos dão mais'
-    ignoradas.push({ regraId: c.regra.id, nome: c.regra.nome, motivo: `Não acumula com outros descontos: ${porque}.` })
+    const porque = melhor && vencem.has(melhor) ? `vale “${melhor.regra.nome}”, que dá mais` : 'os outros descontos juntos dão mais'
+    ignoradas.push({ regraId: c.regra.id, nome: c.regra.nome, motivo: `Não junta com outro desconto: ${porque}.` })
   }
 
   // ── Aplica (na ordem das regras), sem deixar nenhum item nem o orçamento negativo ──
@@ -503,12 +579,43 @@ export function aplicarRegras(entrada: EntradaRegras, regras: RegraComercialMoto
   aplicadas.sort((a, b) => (ordemRegra.get(a.regraId) ?? 0) - (ordemRegra.get(b.regraId) ?? 0))
   const frasesCliente = [...new Set(aplicadas.flatMap((a) => (a.fraseCliente ? [a.fraseCliente] : [])))]
 
+  // ── Ofertas: quanto o total cairia com cada desconto ainda não aplicado (o motor de novo, com ele aceito) ──
+  const ofertas: OfertaRegra[] = []
+  const oferta = (r: RegraComercialMotor, base: EntradaRegras, totalAntes: Decimal, condicao: string | null) => {
+    const com = aplicarRegrasInterno({ ...base, aceitas: [...aceitas, r.id] }, regras, false)
+    const ganho = totalAntes.minus(dec(com.total))
+    const aplicada = com.aplicadas.find((x) => x.regraId === r.id && Number(x.valor) < 0)
+    // Não muda o total (vale um desconto maior, pedido mínimo…): não é oferta
+    if (!aplicada || ganho.lte(0)) return
+    const efeito = aplicada.efeito.replace(/^[−+]/, '')
+    ofertas.push({
+      regraId: r.id,
+      nome: r.nome,
+      modo: modoNoMotor(r) === 'se_pedir' ? 'se_pedir' : 'sugerir',
+      valor: ganho.toFixed(2),
+      efeito,
+      texto: `${efeito} ${motivoDaOferta(r)}`,
+      fraseCliente: aplicada.fraseCliente,
+      itens: aplicada.itens,
+      condicao,
+    })
+  }
+  for (const r of pendentes) oferta(r, entrada, total, null)
+  for (const r of condicionais) {
+    // Como se o pagamento já fosse o da condição: a diferença que o desconto faria
+    const pagamento = r.condicoes.pagamento === 'a_vista' ? { sinalPercentual: '100', parcelas: 0 } : { sinalPercentual: '50', parcelas: 1 }
+    const base = { ...entrada, pagamento }
+    oferta(r, base, dec(aplicarRegrasInterno(base, regras, false).total), condicaoDePagamento(r.condicoes))
+  }
+
   return {
     itens,
     ajusteOrcamento: ajusteOrcamento.toFixed(2),
     aplicadas,
     ignoradas,
     sugestoes,
+    ofertas,
+    aceitas: [...new Set(aplicadas.filter((a) => a.aceita).map((a) => a.regraId))],
     avisos,
     aprovacoes,
     bloqueios,
@@ -529,6 +636,10 @@ export interface RegrasDoOrcamento {
   aplicadas: RegraAplicada[]
   ignoradas: RegraIgnorada[]
   sugestoes: SugestaoRegra[]
+  /** Descontos que o vendedor podia aplicar e não aplicou (orçamentos antigos: []) */
+  ofertas: OfertaRegra[]
+  /** Regras aplicadas pelo vendedor que valeram */
+  aceitas: string[]
   avisos: { regraId: string; texto: string }[]
   aprovacoes: MotivoLiberacao[]
   bloqueios: MotivoLiberacao[]
@@ -545,6 +656,8 @@ export function resumoParaGravar(r: ResultadoRegras, em = new Date()): RegrasDoO
     aplicadas: r.aplicadas,
     ignoradas: r.ignoradas,
     sugestoes: r.sugestoes,
+    ofertas: r.ofertas,
+    aceitas: r.aceitas,
     avisos: r.avisos,
     aprovacoes: r.aprovacoes,
     bloqueios: r.bloqueios,
@@ -563,6 +676,8 @@ export function lerRegrasDoOrcamento(json: unknown): RegrasDoOrcamento {
     aplicadas: j.aplicadas ?? [],
     ignoradas: j.ignoradas ?? [],
     sugestoes: j.sugestoes ?? [],
+    ofertas: j.ofertas ?? [],
+    aceitas: j.aceitas ?? [],
     avisos: j.avisos ?? [],
     aprovacoes: j.aprovacoes ?? [],
     bloqueios: j.bloqueios ?? [],
@@ -696,12 +811,14 @@ export function descreverAcao(a: AcaoRegra, nomes: NomesRegra = {}): string {
 }
 
 /** "Quando a categoria for Cartões e o cliente tiver a etiqueta Revenda → 10% de desconto no item" */
-export function descreverRegra(r: { condicoes: CondicoesRegra; acao: AcaoRegra; combinacao?: CombinacaoRegra }, nomes: NomesRegra = {}): string {
+export function descreverRegra(r: { condicoes: CondicoesRegra; acao: AcaoRegra; combinacao?: CombinacaoRegra; modoUso?: ModoUsoRegra }, nomes: NomesRegra = {}): string {
   const cond = descreverCondicoes(r.condicoes, nomes)
-  const quando = cond.length ? `Quando ${cond.length > 1 ? `${cond.slice(0, -1).join(', ')} e ${cond[cond.length - 1]}` : cond[0]}` : 'Sempre'
+  const quando = cond.length ? `Quando ${cond.length > 1 ? `${cond.slice(0, -1).join(', ')} e ${cond[cond.length - 1]}` : cond[0]}` : 'Em todo orçamento'
   const extras: string[] = []
   const a = r.acao as { avisoEquipe?: string | null }
-  if ((r.acao.tipo === 'desconto' || r.acao.tipo === 'preco_especial') && r.combinacao === 'maior') extras.push('não acumula: vale o maior desconto')
+  if ((r.acao.tipo === 'desconto' || r.acao.tipo === 'preco_especial') && r.combinacao === 'maior') extras.push('não junta com outro desconto: vale o maior')
+  if (acaoTemModoUso(r.acao.tipo) && r.modoUso === 'sugerir') extras.push('o vendedor escolhe se aplica')
+  if (acaoTemModoUso(r.acao.tipo) && r.modoUso === 'se_pedir') extras.push('só se o cliente pedir')
   if (a.avisoEquipe) extras.push(`avisa a equipe: “${a.avisoEquipe}”`)
   return `${quando} → ${descreverAcao(r.acao, nomes)}${extras.length ? ` (${extras.join('; ')})` : ''}`
 }
@@ -711,7 +828,7 @@ export function descreverRegra(r: { condicoes: CondicoesRegra; acao: AcaoRegra; 
 export const PRESETS_REGRA_INFO: Record<PresetRegra, { titulo: string; descricao: string }> = {
   desconto_quantidade: { titulo: 'Desconto por quantidade', descricao: 'Faixas: quanto mais peças no item, maior o desconto.' },
   desconto_valor: { titulo: 'Desconto por valor do pedido', descricao: 'Pedidos maiores ganham um desconto no total.' },
-  desconto_a_vista: { titulo: 'Desconto à vista / Pix', descricao: 'Entrada de 100% ganha desconto (não acumula: vale o maior).' },
+  desconto_a_vista: { titulo: 'Desconto à vista / Pix', descricao: 'Entrada de 100% ganha desconto (não junta com outro desconto: vale o maior).' },
   cliente_especial: { titulo: 'Cliente especial (VIP, revenda)', descricao: 'Clientes com uma etiqueta ganham desconto.' },
   urgencia: { titulo: 'Acréscimo de urgência', descricao: 'Prazo apertado cobra a mais e avisa a produção.' },
   pedido_minimo: { titulo: 'Pedido mínimo', descricao: 'Abaixo do mínimo, completa até o valor ou cobra uma taxa.' },
@@ -720,7 +837,9 @@ export const PRESETS_REGRA_INFO: Record<PresetRegra, { titulo: string; descricao
 
 /** A regra preenchida do modelo (o dono confere e ajusta antes de salvar) */
 export function regraDoPreset(p: PresetRegra): RegraComercialInput {
-  const base = { nome: PRESETS_REGRA_INFO[p].titulo, ativa: true, tipo: p, condicoes: {}, combinacao: 'soma' as const }
+  // Descontos: o vendedor escolhe se aplica (o dono muda para "sempre" ou "só se o cliente pedir")
+  const desconto = p.startsWith('desconto') || p === 'cliente_especial'
+  const base = { nome: PRESETS_REGRA_INFO[p].titulo, ativa: true, tipo: p, condicoes: {}, combinacao: 'soma' as const, modoUso: desconto ? ('sugerir' as const) : ('sempre' as const) }
   switch (p) {
     case 'desconto_quantidade':
       return {

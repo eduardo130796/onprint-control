@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import type { FastifyRequest } from 'fastify'
 import type { Acao, Modulo } from '@onprint/shared'
-import { controlesAssistenteSchema, descricaoAssistenteSchema, orcamentoDeTextoSchema, produtoDeTextoSchema } from '@onprint/shared'
+import { controlesAssistenteSchema, descricaoAssistenteSchema, orcamentoDeTextoSchema, produtoDeTextoSchema, regrasDeTextoSchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { criarAjudasAssistente } from './ajudas.service'
 import { criarAssistenteEmpresa } from './empresa.service'
@@ -47,6 +47,15 @@ export const assistenteEmpresaRoutes: FastifyPluginAsyncZod = async (app) => {
       await exigirAlguma(request, [['produtos', 'criar'], ['produtos', 'editar']])
       return ajudas.produtoDeTexto(request.body.texto)
     },
+  )
+  app.post(
+    '/regras-texto',
+    {
+      onRequest: [app.exigirPermissao('configuracoes', 'editar')],
+      config: limite(20),
+      schema: { tags, summary: 'Lê como o dono dá desconto e preenche as perguntas das regras comerciais (não salva)', body: regrasDeTextoSchema },
+    },
+    (request) => ajudas.regrasDeTexto(request.body.texto),
   )
   app.post(
     '/descricao',

@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import type { FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { idParamSchema, manualAtendenteSchema, ordemRegrasSchema, regraAtivaSchema, regraComercialSchema, simulacaoRegrasSchema, type Acao, type Modulo } from '@onprint/shared'
+import { idParamSchema, manualAtendenteSchema, ordemRegrasSchema, regraAtivaSchema, regraComercialSchema, respostasRegrasSchema, simulacaoRegrasSchema, type Acao, type Modulo } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { criarRegrasService } from './service'
 
@@ -28,6 +28,9 @@ export const regrasRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get('/', { ...ver, schema: { tags, summary: 'Regras comerciais na ordem, com a frase "Quando… → …"' } }, () => s.listar())
   app.post('/', { ...editar, schema: { tags, summary: 'Cria regra (vai para o fim da ordem)', body: regraComercialSchema } }, async (req, reply) =>
     reply.status(201).send(await s.criar(req.body, req.user.sub)),
+  )
+  app.put('/perguntas', { ...editar, schema: { tags, summary: 'Respostas das perguntas (desconto por quantidade, à vista, mínimo…): cria, atualiza ou desliga as regras', body: respostasRegrasSchema } }, (req) =>
+    s.salvarRespostas(req.body, req.user.sub),
   )
   app.put('/ordem', { ...editar, schema: { tags, summary: 'Nova ordem (prioridade) de todas as regras', body: ordemRegrasSchema } }, (req) => s.ordenar(req.body.ids, req.user.sub))
   app.put('/:id', { ...editar, schema: { tags, summary: 'Atualiza regra', params: idParamSchema, body: regraComercialSchema } }, (req) => s.atualizar(req.params.id, req.body, req.user.sub))

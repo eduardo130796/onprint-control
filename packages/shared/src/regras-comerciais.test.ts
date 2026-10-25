@@ -13,7 +13,7 @@ import {
   type ItemParaRegras,
   type RegraComercialMotor,
 } from './regras-comerciais'
-import { PRESETS_REGRA, acaoRegraSchema, condicoesRegraSchema, regraComercialSchema, type AcaoRegraInput, type CondicoesRegra } from './schemas/regras'
+import { PRESETS_REGRA, acaoRegraSchema, condicoesRegraSchema, modoUsoDaRegra, regraComercialSchema, type AcaoRegraInput, type CondicoesRegra } from './schemas/regras'
 
 // ─── Montagem ───
 
@@ -464,9 +464,9 @@ describe('gravado no orçamento e textos', () => {
       { categorias: { [cat]: 'Cartões' } },
     )
     expect(d).toBe('Quando a categoria for Cartões e o cliente tiver a etiqueta Revenda → 10% de desconto no item')
-    expect(descreverRegra({ condicoes: {}, acao: acaoRegraSchema.parse({ tipo: 'limite_negociacao', percentual: '5' }) })).toBe('Sempre → desconto manual até 5% sem gerente')
+    expect(descreverRegra({ condicoes: {}, acao: acaoRegraSchema.parse({ tipo: 'limite_negociacao', percentual: '5' }) })).toBe('Em todo orçamento → desconto manual até 5% sem gerente')
     const pix = regraComercialSchema.parse(regraDoPreset('desconto_a_vista'))
-    expect(descreverRegra(pix)).toBe('Quando o pagamento for à vista (entrada de 100%) → 3% de desconto no orçamento (não acumula: vale o maior desconto)')
+    expect(descreverRegra(pix)).toBe('Quando o pagamento for à vista (entrada de 100%) → 3% de desconto no orçamento (não junta com outro desconto: vale o maior; o vendedor escolhe se aplica)')
   })
 
   it('todos os modelos prontos passam no schema', () => {
@@ -483,3 +483,105 @@ describe('gravado no orçamento e textos', () => {
     expect(condicoesRegraSchema.parse({ produtoIds: [], etiquetas: [], quantidadeMin: '', pagamento: null })).toEqual({})
   })
 })
+
+describe('modo de uso dos descontos (sempre / sugerir / só se o cliente pedir)', () => {
+  const faixasQtd = (minimo: string, valor: string): AcaoRegraInput => ({ tipo: 'desconto', modo: 'percentual', valor, nivel: 'item', faixasPor: 'quantidade', faixas: [{ minimo, valor }], fraseCliente: 'Desconto de {valor} por quantidade' })
+
+  it('"sempre" aplica sozinho, como antes', () => {
+    const r = aplicarRegras(entrada([item('10', '10')]), [regra(desconto('5'), {}, { modoUso: 'sempre' })])
+    expect(r.total).toBe('95.00')
+    expect(r.ofertas).toEqual([])
+    expect(r.aplicadas[0]!.aceita).toBeUndefined()
+  })
+
+  it('"sugerir" não aplica: vira sugestão com o valor e o texto para o vendedor', () => {
+    const q = regra(faixasQtd('10', '5'), {}, { modoUso: 'sugerir', tipo: 'desconto_quantidade', nome: 'Desconto por quantidade' })
+    const r = aplicarRegras(entrada([item('10', '47')]), [q])
+    expect(r.total).toBe('470.00')
+    expect(r.aplicadas).toEqual([])
+    expect(r.frasesCliente).toEqual([])
+    expect(r.ofertas).toEqual([
+      { regraId: q.id, nome: 'Desconto por quantidade', modo: 'sugerir', valor: '23.50', efeito: '5%', texto: '5% por quantidade', fraseCliente: 'Desconto de 5% por quantidade', itens: [0], condicao: null },
+    ])
+  })
+
+  it('sugestão aceita aplica (marcada como aceita) e some das ofertas; ao recalcular continua valendo', () => {
+    const q = regra(faixasQtd('10', '5'), {}, { modoUso: 'sugerir', tipo: 'desconto_quantidade' })
+    const aceita = aplicarRegras(entrada([item('10', '47')], { aceitas: [q.id] }), [q])
+    expect(aceita.total).toBe('446.50')
+    expect(aceita.aplicadas[0]).toMatchObject({ regraId: q.id, aceita: true, valor: '-23.50' })
+    expect(aceita.aceitas).toEqual([q.id])
+    expect(aceita.ofertas).toEqual([])
+    // Mais peças (recalcula): continua aplicada, sobre o valor novo
+    expect(aplicarRegras(entrada([item('20', '47')], { aceitas: [q.id] }), [q]).total).toBe('893.00')
+    // Abaixo da faixa: a regra deixa de servir e nada é aplicado (o aceite fica guardado, sem efeito)
+    const abaixo = aplicarRegras(entrada([item('5', '47')], { aceitas: [q.id] }), [q])
+    expect(abaixo.total).toBe('235.00')
+    expect(abaixo.aceitas).toEqual([])
+  })
+
+  it('"se pedir" vira margem de negociação; com o pagamento errado, diz a condição', () => {
+    const pix = regra({ ...desconto('3', 'orcamento') }, { pagamento: 'a_vista' }, { modoUso: 'se_pedir', tipo: 'desconto_a_vista' })
+    const aVista = aplicarRegras(entrada([item('10', '10')], { pagamento: { sinalPercentual: '100', parcelas: 0 } }), [pix])
+    expect(aVista.total).toBe('100.00')
+    expect(aVista.ofertas).toMatchObject([{ regraId: pix.id, modo: 'se_pedir', valor: '3.00', texto: '3% à vista ou Pix', condicao: null }])
+    const parcelado = aplicarRegras(entrada([item('10', '10')]), [pix])
+    expect(parcelado.ofertas).toMatchObject([{ regraId: pix.id, modo: 'se_pedir', valor: '3.00', condicao: 'se pagar à vista ou Pix' }])
+    // Aceito com o pagamento errado: não aplica (a condição continua valendo)
+    expect(aplicarRegras(entrada([item('10', '10')], { aceitas: [pix.id] }), [pix]).total).toBe('100.00')
+    expect(aplicarRegras(entrada([item('10', '10')], { aceitas: [pix.id], pagamento: { sinalPercentual: '100', parcelas: 0 } }), [pix]).total).toBe('97.00')
+  })
+
+  it('o valor da sugestão é a diferença real: "vale o maior" e pedido mínimo entram na conta', () => {
+    const revenda = regra(desconto('10'), { etiquetas: ['Revenda'] }, { modoUso: 'sempre', combinacao: 'maior', tipo: 'cliente_especial' })
+    const qtd = regra(faixasQtd('10', '5'), {}, { modoUso: 'sugerir', combinacao: 'maior', tipo: 'desconto_quantidade' })
+    // Já vale 10% (maior): 5% por quantidade não muda nada — não é oferta
+    expect(aplicarRegras(entrada([item('10', '10')], { etiquetasCliente: ['revenda'] }), [revenda, qtd]).ofertas).toEqual([])
+    // Revenda sugerida e quantidade aceita: a revenda vale só a diferença (10% − 5%)
+    const revSug = { ...revenda, modoUso: 'sugerir' as const }
+    const r = aplicarRegras(entrada([item('10', '10')], { etiquetasCliente: ['Revenda'], aceitas: [qtd.id] }), [revSug, qtd])
+    expect(r.total).toBe('95.00')
+    expect(r.ofertas).toMatchObject([{ regraId: revenda.id, valor: '5.00', texto: '10% para Revenda' }])
+    // Abaixo do pedido mínimo o desconto não muda o total: não é oferta
+    const minimo = regra({ tipo: 'pedido_minimo', valor: '200', modo: 'completar' })
+    expect(aplicarRegras(entrada([item('10', '10')]), [qtd, minimo]).ofertas).toEqual([])
+  })
+
+  it('desconto aceito é da regra: não conta no limite de negociação; o manual continua contando', () => {
+    const q = regra(desconto('10'), {}, { modoUso: 'sugerir' })
+    const limite = regra({ tipo: 'limite_negociacao', percentual: '5' })
+    const aceita = aplicarRegras(entrada([item('10', '10')], { aceitas: [q.id] }), [q, limite])
+    expect(aceita.total).toBe('90.00')
+    expect(aceita.descontoManualPercentual).toBe('0.00')
+    expect(aceita.aprovacoes).toEqual([])
+    // + R$ 9 manual = 10% sobre os R$ 90 com a regra: passa do limite
+    const comManual = aplicarRegras(entrada([item('10', '10')], { aceitas: [q.id], desconto: '9' }), [q, limite])
+    expect(comManual.descontoManualPercentual).toBe('10.00')
+    expect(comManual.aprovacoes).toHaveLength(1)
+  })
+
+  it('só desconto e preço especial têm modo: acréscimo "sugerir" vale sempre', () => {
+    const urg = regra(acrescimo('20'), {}, { modoUso: 'sugerir' })
+    expect(aplicarRegras(entrada([item('10', '10')]), [urg]).total).toBe('120.00')
+  })
+
+  it('aceites e ofertas vão para o resumo gravado e voltam iguais', () => {
+    const q = regra(desconto('5'), {}, { modoUso: 'sugerir' })
+    const p = regra(desconto('3', 'orcamento'), {}, { modoUso: 'se_pedir' })
+    const r = aplicarRegras(entrada([item('10', '10')], { aceitas: [q.id] }), [q, p])
+    const lido = lerRegrasDoOrcamento(JSON.parse(JSON.stringify(resumoParaGravar(r))))
+    expect(lido.aceitas).toEqual([q.id])
+    expect(lido.ofertas.map((o) => o.regraId)).toEqual([p.id])
+    expect(lerRegrasDoOrcamento({}).ofertas).toEqual([])
+  })
+
+  it('schema: modo só nos descontos; sem modo, regra nova de desconto = sugerir', () => {
+    expect(modoUsoDaRegra('desconto', undefined)).toBe('sugerir')
+    expect(modoUsoDaRegra('desconto', 'se_pedir')).toBe('se_pedir')
+    expect(modoUsoDaRegra('acrescimo', 'sugerir')).toBe('sempre')
+    expect(modoUsoDaRegra('pedido_minimo', null)).toBe('sempre')
+    expect(regraComercialSchema.parse(regraDoPreset('desconto_quantidade')).modoUso).toBe('sugerir')
+    expect(regraComercialSchema.parse(regraDoPreset('urgencia')).modoUso).toBe('sempre')
+  })
+})
+

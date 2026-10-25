@@ -1,9 +1,11 @@
 import {
   acaoPadrao,
+  modoUsoDaRegra,
   TIPOS_REGRA,
   regraComercialSchema,
   type AcaoRegra,
   type CombinacaoRegra,
+  type ModoUsoRegra,
   type CondicoesRegra,
   type OrigemOrcamento,
   type RegraComercialDados,
@@ -50,6 +52,8 @@ export interface RascunhoRegra {
   ativa: boolean
   tipo: TipoRegra
   combinacao: CombinacaoRegra
+  /** Quando usar (só desconto e preço especial) */
+  modoUso: ModoUsoRegra
   /** Condições ligadas (ordem dos chips) */
   condicoes: CondicaoUI[]
   produtos: OpcaoBusca[]
@@ -129,6 +133,7 @@ const VAZIO: Omit<RascunhoRegra, 'nome' | 'acaoTipo'> = {
   ativa: true,
   tipo: 'personalizada',
   combinacao: 'soma',
+  modoUso: 'sugerir',
   condicoes: [],
   produtos: [],
   categoriaIds: [],
@@ -162,7 +167,10 @@ const VAZIO: Omit<RascunhoRegra, 'nome' | 'acaoTipo'> = {
 }
 
 /** Regra gravada (ou modelo pronto já validado) → rascunho do editor */
-export function rascunhoDaRegra(r: Pick<RegraComercialDados, 'nome' | 'ativa' | 'condicoes' | 'acao' | 'combinacao'> & { id?: string; tipo?: string }, nomes?: NomesRegras): RascunhoRegra {
+export function rascunhoDaRegra(
+  r: Pick<RegraComercialDados, 'nome' | 'ativa' | 'condicoes' | 'acao' | 'combinacao'> & { id?: string; tipo?: string; modoUso?: ModoUsoRegra },
+  nomes?: NomesRegras,
+): RascunhoRegra {
   const c: CondicoesRegra = r.condicoes
   const ligadas: CondicaoUI[] = []
   const liga = (k: CondicaoUI, sim: unknown) => {
@@ -187,6 +195,7 @@ export function rascunhoDaRegra(r: Pick<RegraComercialDados, 'nome' | 'ativa' | 
     ativa: r.ativa,
     tipo: (TIPOS_REGRA as readonly string[]).includes(r.tipo ?? '') ? (r.tipo as TipoRegra) : 'personalizada',
     combinacao: r.combinacao,
+    modoUso: modoUsoDaRegra(r.acao.tipo, r.modoUso),
     condicoes: ligadas,
     produtos: (c.produtoIds ?? []).map((id) => ({ id, rotulo: nomes?.produtos[id] ?? 'Produto removido' })),
     categoriaIds: c.categoriaIds ?? [],
@@ -216,7 +225,8 @@ export function rascunhoNovo(): RascunhoRegra {
 
 /** Troca o tipo da ação: começa com os valores padrão dela (mantém aviso e frase já escritos) */
 export function trocarAcao(r: RascunhoRegra, tipo: TipoAcaoRegra): RascunhoRegra {
-  const novo = { ...r, acaoTipo: tipo, faixas: [], usarFaixas: false, ...camposDaAcao(acaoPadrao(tipo)) }
+  // Desconto novo começa em "sugerir ao vendedor" (o dono escolhe); o resto é sempre
+  const novo = { ...r, acaoTipo: tipo, faixas: [], usarFaixas: false, modoUso: modoUsoDaRegra(tipo, r.modoUso === 'sempre' && r.acaoTipo !== 'desconto' && r.acaoTipo !== 'preco_especial' ? null : r.modoUso), ...camposDaAcao(acaoPadrao(tipo)) }
   return { ...novo, avisoEquipe: r.avisoEquipe || novo.avisoEquipe, fraseCliente: r.fraseCliente || novo.fraseCliente }
 }
 
@@ -281,7 +291,7 @@ export function regraDoRascunho(r: RascunhoRegra): RegraComercialInput {
       acao = { tipo: 'limite_negociacao', percentual: r.valor }
       break
   }
-  return { nome: r.nome, ativa: r.ativa, tipo: r.tipo, condicoes, acao, combinacao: r.combinacao }
+  return { nome: r.nome, ativa: r.ativa, tipo: r.tipo, condicoes, acao, combinacao: r.combinacao, modoUso: modoUsoDaRegra(r.acaoTipo, r.modoUso) }
 }
 
 /** Valida o rascunho como a API vai validar: a regra pronta ou a primeira mensagem de erro */

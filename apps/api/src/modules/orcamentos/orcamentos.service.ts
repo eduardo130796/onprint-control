@@ -62,6 +62,9 @@ export function origemDoOrcamento(pedida: 'balcao' | 'assistente' | undefined, o
   return 'balcao'
 }
 
+/** Descontos sugeridos que o vendedor aplicou: o que veio (sem repetir) ou, ausente, o que já estava gravado */
+export const aceitasParaGravar = (vindas: string[] | undefined, antes: string[] | undefined): string[] => [...new Set(vindas ?? antes ?? [])]
+
 const MSG_LIBERACAO = 'Este orçamento precisa da liberação de um gerente antes de ser enviado ou aprovado.'
 
 export function criarOrcamentosService(app: FastifyInstance) {
@@ -117,6 +120,8 @@ export function criarOrcamentosService(app: FastifyInstance) {
     const origem = antes ? (antes.origem as OrigemOrcamento) : origemDoOrcamento(dados.origem, solicitacao?.origem)
     const dataDesejada = dados.dataDesejada === undefined ? (antes?.dataDesejada?.toISOString().slice(0, 10) ?? null) : dados.dataDesejada
 
+    // Descontos sugeridos que o vendedor aplicou: o que veio ou, ausente, o que já estava
+    const regrasAceitas = aceitasParaGravar(dados.regrasAceitas, antes?.regrasAceitas)
     const { calculo, regras } = await aplicarRegrasNoCalculo(prisma, await recalcularItens(prisma, dados.itens, ctx), {
       clienteId: dados.clienteId,
       pagamento: { sinalPercentual: pagamento.sinalPercentual ?? antes?.sinalPercentual.toString() ?? '50', parcelas: pagamento.parcelas ?? antes?.parcelas ?? 1 },
@@ -125,6 +130,7 @@ export function criarOrcamentosService(app: FastifyInstance) {
       desconto: dados.desconto,
       acrescimo: dados.acrescimo,
       frete: dados.frete,
+      aceitas: regrasAceitas,
     })
     const total = totalDoOrcamento(calculo.subtotal, dados.desconto, dados.acrescimo, dados.frete, regras.ajusteOrcamento)
     return {
@@ -134,6 +140,7 @@ export function criarOrcamentosService(app: FastifyInstance) {
         dataDesejada: dataDesejada ? dataBanco(dataDesejada) : null,
         ajusteRegras: regras.ajusteOrcamento,
         regras: resumoParaGravar(regras) as unknown as Prisma.InputJsonValue,
+        regrasAceitas,
         ...liberacaoDoOrcamento(regras, total, ctx, antes),
         clienteId: dados.clienteId,
         solicitacaoId: dados.solicitacaoId ?? null,
@@ -196,6 +203,7 @@ export function criarOrcamentosService(app: FastifyInstance) {
         desconto: d.desconto,
         acrescimo: d.acrescimo,
         frete: '0',
+        aceitas: d.regrasAceitas ?? [],
       })
       const ajuste = new Decimal(regras.ajusteOrcamento)
       return analisarDocumento(
@@ -360,6 +368,7 @@ export function criarOrcamentosService(app: FastifyInstance) {
           sinalPercentual: o.sinalPercentual.toString(),
           parcelas: o.parcelas,
           intervaloDias: o.intervaloDias,
+          regrasAceitas: o.regrasAceitas,
           condicoes: o.condicoes,
           observacoes: o.observacoes,
           observacoesInternas: o.observacoesInternas,

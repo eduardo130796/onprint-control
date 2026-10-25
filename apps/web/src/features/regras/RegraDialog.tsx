@@ -4,11 +4,14 @@ import { ArrowRight, Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   DIAS_SEMANA_CURTOS,
+  MODOS_USO_REGRA,
+  MODO_USO_ROTULOS,
   ORIGENS_ORCAMENTO,
   ORIGEM_ORCAMENTO_ROTULOS,
   TIPOS_ACAO_REGRA,
   TIPO_ACAO_ROTULOS,
   descreverRegra,
+  type ModoUsoRegra,
   type OrigemOrcamento,
   type TipoAcaoRegra,
 } from '@onprint/shared'
@@ -35,7 +38,7 @@ interface RegraDialogProps {
 }
 
 /** Botões lado a lado (escolha única), bons no celular */
-function Escolha<T extends string>({ valor, opcoes, onChange, rotulo }: { valor: T; opcoes: [T, string][]; onChange: (v: T) => void; rotulo: string }) {
+export function Escolha<T extends string>({ valor, opcoes, onChange, rotulo }: { valor: T; opcoes: [T, string][]; onChange: (v: T) => void; rotulo: string }) {
   return (
     <div role="radiogroup" aria-label={rotulo} className="inline-flex flex-wrap gap-1 rounded-xl bg-fundo p-1">
       {opcoes.map(([v, r]) => (
@@ -435,14 +438,20 @@ export function RegraDialog({ inicial, nomes, onFechar }: RegraDialogProps) {
         {camposDaAcao()}
         {ehDesconto && (
           <div className="space-y-1">
+            <Label className="block text-xs text-texto-secundario">Como usar</Label>
+            <Escolha rotulo="Como usar" valor={r.modoUso} onChange={(modoUso) => set({ modoUso })} opcoes={MODOS_USO_REGRA.map((m): [ModoUsoRegra, string] => [m, MODO_USO_ROTULOS[m]])} />
+          </div>
+        )}
+        {ehDesconto && (
+          <div className="space-y-1">
             <Label className="block text-xs text-texto-secundario">Com outros descontos</Label>
             <Escolha
               rotulo="Com outros descontos"
               valor={r.combinacao}
               onChange={(combinacao) => set({ combinacao })}
               opcoes={[
-                ['soma', 'Soma (acumula)'],
-                ['maior', 'Não acumula: vale o maior'],
+                ['maior', 'Não junta: vale o maior'],
+                ['soma', 'Junta com os outros'],
               ]}
             />
           </div>

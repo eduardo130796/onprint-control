@@ -44,13 +44,14 @@ export function custoEstimadoUsd(precos: PrecoModeloIA[], modelo: string, tokens
 }
 
 /** Onde a IA foi usada (uso_ia.recurso) */
-export const RECURSOS_IA = ['whatsapp_resposta', 'orcamento_texto', 'produto_texto', 'descricao', 'teste_central'] as const
+export const RECURSOS_IA = ['whatsapp_resposta', 'orcamento_texto', 'produto_texto', 'descricao', 'regras_texto', 'teste_central'] as const
 export type RecursoIA = (typeof RECURSOS_IA)[number]
 export const RECURSO_IA_ROTULOS: Record<RecursoIA, string> = {
   whatsapp_resposta: 'Respostas no WhatsApp',
   orcamento_texto: 'Orçamento a partir de texto',
   produto_texto: 'Ajuda para criar produto',
   descricao: 'Descrições',
+  regras_texto: 'Regras de desconto com suas palavras',
   teste_central: 'Teste da central',
 }
 
@@ -146,7 +147,7 @@ export interface UsoAssistenteMes {
 // ─── Controles da empresa (Configurações → Assistente) ───
 
 /** Cada uso que a empresa liga ou desliga */
-export const FUNCOES_ASSISTENTE = ['respostasWhatsapp', 'orcamentoTexto', 'produtos', 'descricoes'] as const
+export const FUNCOES_ASSISTENTE = ['respostasWhatsapp', 'orcamentoTexto', 'produtos', 'descricoes', 'regras'] as const
 export type FuncaoAssistente = (typeof FUNCOES_ASSISTENTE)[number]
 
 export interface InfoFuncaoAssistente {
@@ -164,7 +165,7 @@ export const FUNCOES_ASSISTENTE_INFO: Record<FuncaoAssistente, InfoFuncaoAssiste
   respostasWhatsapp: {
     recurso: 'whatsapp_resposta',
     titulo: 'Respostas do WhatsApp',
-    descricao: 'Entende respostas do cliente ao orçamento que fogem do padrão (“tá ótimo, pode mandar ver”) e avisa o vendedor com um resumo.',
+    descricao: 'Entende respostas fora do padrão (“tá ótimo, pode mandar ver”) e avisa o vendedor com um resumo.',
     falaComCliente: false,
   },
   orcamentoTexto: {
@@ -176,13 +177,19 @@ export const FUNCOES_ASSISTENTE_INFO: Record<FuncaoAssistente, InfoFuncaoAssiste
   produtos: {
     recurso: 'produto_texto',
     titulo: 'Ajuda para criar produtos',
-    descricao: 'Descreva o produto e o Assistente preenche o cadastro (categoria, cobrança, materiais e acabamentos) para você conferir.',
+    descricao: 'Descreva o produto e o Assistente preenche o cadastro para você conferir.',
     falaComCliente: false,
   },
   descricoes: {
     recurso: 'descricao',
     titulo: 'Descrições de produtos',
-    descricao: 'Escreve a descrição do produto e o texto da vitrine com os dados reais do cadastro, para você revisar antes de salvar.',
+    descricao: 'Escreve a descrição do produto e o texto do site com os dados do cadastro. Você revisa antes de salvar.',
+    falaComCliente: false,
+  },
+  regras: {
+    recurso: 'regras_texto',
+    titulo: 'Regras de desconto com suas palavras',
+    descricao: 'Você explica como dá desconto e o Assistente preenche as perguntas das regras comerciais. Você confere antes de salvar.',
     falaComCliente: false,
   },
 }
@@ -194,12 +201,14 @@ export const controlesAssistenteSchema = z.object({
   orcamentoTexto: z.boolean(),
   produtos: z.boolean(),
   descricoes: z.boolean(),
+  /** "Explique com suas palavras" nas regras comerciais (ausente = ligado, como as outras ajudas) */
+  regras: z.boolean().default(true),
   /** "Nunca falar com meus clientes": só as ajudas internas */
   semClientes: z.boolean(),
 })
 export type ControlesAssistente = z.infer<typeof controlesAssistenteSchema>
 
-export const CONTROLES_ASSISTENTE_PADRAO: ControlesAssistente = { ativo: true, respostasWhatsapp: true, orcamentoTexto: true, produtos: true, descricoes: true, semClientes: false }
+export const CONTROLES_ASSISTENTE_PADRAO: ControlesAssistente = { ativo: true, respostasWhatsapp: true, orcamentoTexto: true, produtos: true, descricoes: true, regras: true, semClientes: false }
 
 /** A empresa deixa usar esta função (a central da GrafyGo ainda precisa estar ligada) */
 export function funcaoLiberada(c: ControlesAssistente, funcao: FuncaoAssistente): boolean {
@@ -339,3 +348,10 @@ export type DescricaoAssistenteInput = z.input<typeof descricaoAssistenteSchema>
 export interface DescricaoSugerida {
   texto: string
 }
+
+// ─── Regras de desconto com as palavras do dono ───
+
+/** "Explique com suas palavras como você dá desconto": o texto do dono vira as respostas das perguntas (RegrasDeTexto) */
+export const regrasDeTextoSchema = z.object({
+  texto: z.string().trim().min(10, 'Explique em uma ou duas frases como você dá desconto.').max(2000, 'Use até 2.000 caracteres.'),
+})

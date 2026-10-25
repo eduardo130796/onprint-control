@@ -16,19 +16,19 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/form-controls'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SeloSugerido } from '@/features/assistente/SeloSugerido'
-import { useAjudaLiberada } from '@/features/assistente/useAssistente'
+import { useAssistente } from '@/features/assistente/useAssistente'
 import { useEmpresa } from '@/features/configuracoes/hooks'
 import { useMutacao } from '@/hooks/useMutacao'
 import { usePermission } from '@/hooks/usePermission'
 import { buscarClientes } from '../buscas'
 import { AcoesOrcamento } from '../components/editor/AcoesOrcamento'
 import { ItemOrcamento } from '../components/editor/ItemOrcamento'
-import { MontarComAssistente } from '../components/editor/MontarComAssistente'
+import { MontarComAssistente, type Indisponivel } from '../components/editor/MontarComAssistente'
 import { PagamentoOrcamento } from '../components/editor/PagamentoOrcamento'
 import { PedidoGerado } from '../components/editor/PedidoGerado'
 import { TotaisOrcamento } from '../components/editor/TotaisOrcamento'
 import { formDoOrcamento, itemComProduto, itemVazio, itensDaSolicitacao, juntarItens, novaChave, payloadDoForm, type FormOrcamento, type ItemForm } from '../components/editor/formOrcamento'
-import { RegrasDoOrcamento } from '../components/editor/RegrasDoOrcamento'
+import { AvisosDasRegras, DetalhesDasRegras, SugestoesDasRegras } from '../components/editor/RegrasDoOrcamento'
 import { useAnaliseOrcamento } from '../components/editor/useAnaliseOrcamento'
 import { chaveProdutoCatalogo, useCalculoOrcamento } from '../components/editor/useCalculoOrcamento'
 
@@ -72,8 +72,15 @@ function Editor({
   const analise = useAnaliseOrcamento(form, calculo.itens, { orcamento, alterado, podeAnalisar: editavel })
   const salvar = useMutacao(['orcamentos', 'solicitacoes'], (dados: unknown) => (orcamento ? orcamentosApi.atualizar(orcamento.id, dados) : orcamentosApi.criar(dados)))
   // Assistente GrafyGo: monta itens a partir do texto do cliente (o cliente achado fica com o selo até ser trocado)
-  const assistenteLiberado = useAjudaLiberada('orcamentoTexto')
+  // Sempre à vista; sem o Assistente, o clique explica como ativar (admin) ou pede a quem é admin
+  const assistente = useAssistente()
+  const podeConfigurar = usePermission('configuracoes', 'editar')
+  const indisponivel: Indisponivel = assistente.data?.liberado.orcamentoTexto ? null : !podeConfigurar ? 'pedir_admin' : assistente.data && !assistente.data.disponivel ? 'central' : 'empresa'
   const [clienteSugerido, setClienteSugerido] = useState(false)
+  const [detalhes, setDetalhes] = useState(false)
+  /** Desconto sugerido pelas regras: o vendedor aplica (fica gravado no orçamento) ou desfaz */
+  const aceitar = (regraId: string, sim: boolean) =>
+    setForm((f) => ({ ...f, regrasAceitas: sim ? [...new Set([...f.regrasAceitas, regraId])] : f.regrasAceitas.filter((id) => id !== regraId) }))
 
   // Salvando: a versão que chegar é a minha (não é "alterado por outra pessoa")
   const pendente = alterado && !salvar.isPending
@@ -212,8 +219,9 @@ function Editor({
             </CardContent>
           </Card>
 
-          {editavel && assistenteLiberado && (
+          {editavel && (
             <MontarComAssistente
+              indisponivel={indisponivel}
               onAdicionar={(r) => {
                 if (r.cliente && !form.cliente) setClienteSugerido(true)
                 setForm((f) => ({
@@ -274,19 +282,7 @@ function Editor({
         </div>
 
         <div className="min-w-0 space-y-4 xl:sticky xl:top-24 xl:self-start">
-          <TotaisOrcamento
-            form={form}
-            onChange={atualizar}
-            subtotal={calculo.subtotal}
-            total={calculo.total}
-            prazoDias={calculo.prazoDias}
-            previsaoEntrega={calculo.previsaoEntrega}
-            editavel={editavel}
-            analise={analise.total}
-            analiseDesatualizada={analise.desatualizado}
-            regras={calculo.regras?.aplicadas}
-          />
-          <RegrasDoOrcamento
+          <AvisosDasRegras
             regras={calculo.regras}
             orcamento={orcamento}
             alterado={alterado}
@@ -294,11 +290,32 @@ function Editor({
             podeAprovar={podeAprovar}
             liberando={liberar.isPending}
             onLiberar={() => void onLiberar()}
+          />
+          <SugestoesDasRegras
+            regras={calculo.regras}
+            editavel={editavel}
+            onAplicar={(id) => aceitar(id, true)}
+            onDesfazer={(id) => aceitar(id, false)}
             onAdicionarProduto={(id) => void adicionarProduto(id)}
+          />
+          <TotaisOrcamento
+            form={form}
+            onChange={atualizar}
+            subtotal={calculo.subtotalSemRegras}
+            descontosRegras={calculo.descontosRegras}
+            acrescimosRegras={calculo.acrescimosRegras}
+            onVerDetalhes={() => setDetalhes(true)}
+            total={calculo.total}
+            prazoDias={calculo.prazoDias}
+            previsaoEntrega={calculo.previsaoEntrega}
+            editavel={editavel}
+            analise={analise.total}
+            analiseDesatualizada={analise.desatualizado}
           />
           {orcamento?.pedido && <PedidoGerado pedido={orcamento.pedido} />}
         </div>
       </div>
+      <DetalhesDasRegras regras={calculo.regras} aberta={detalhes} onAbertaChange={setDetalhes} />
     </>
   )
 }

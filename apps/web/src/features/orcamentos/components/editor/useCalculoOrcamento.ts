@@ -5,6 +5,7 @@ import {
   MODO_CALCULO_SUFIXO,
   adicionarDiasUteis,
   aplicarRegras,
+  formatarMoeda,
   calcularPreco,
   hojeISO,
   normalizarDecimal,
@@ -137,6 +138,7 @@ export function useCalculoOrcamento(form: FormOrcamento, areaMinimaM2?: string, 
           desconto: n(form.desconto) || '0',
           acrescimo: n(form.acrescimo) || '0',
           frete: n(form.frete) || '0',
+          aceitas: form.regrasAceitas,
         },
         contexto.data.regras,
       )
@@ -146,18 +148,24 @@ export function useCalculoOrcamento(form: FormOrcamento, areaMinimaM2?: string, 
         return r ? { ...c, total: r.total, regras: r } : c
       })
       // Os índices das regras aplicadas passam a ser os da tela (itens sem produto ficam de fora do motor)
-      regras = { ...regras, aplicadas: regras.aplicadas.map((a) => ({ ...a, itens: a.itens.map((j) => validos[j]?.k ?? j) })) }
+      const daTela = (l: number[]) => l.map((j) => validos[j]?.k ?? j)
+      regras = { ...regras, aplicadas: regras.aplicadas.map((a) => ({ ...a, itens: daTela(a.itens) })), ofertas: regras.ofertas.map((o) => ({ ...o, itens: daTela(o.itens) })) }
     }
     const subtotal = itens.reduce((s, i) => s.plus(i.total), new Decimal(0))
     const ajuste = new Decimal(regras?.ajusteOrcamento ?? '0')
     const total = subtotal.minus(n(form.desconto) || '0').plus(n(form.acrescimo) || '0').plus(n(form.frete) || '0').plus(ajuste)
     const prazoDias = Math.max(0, ...itens.map((i) => i.prazoDias))
+    const doMotor = totaisDasRegras(regras)
     return {
       itens,
       produtos,
       subtotal: subtotal.toFixed(2),
       /** Regras comerciais no orçamento (com sinal) */
       ajusteRegras: ajuste.toFixed(2),
+      /** Itens antes das regras (só com o desconto do item) e o que as regras tiraram e somaram: a linha "Descontos" dos totais */
+      subtotalSemRegras: subtotal.minus(doMotor.ajusteItens).toFixed(2),
+      descontosRegras: doMotor.descontos,
+      acrescimosRegras: doMotor.acrescimos,
       total: total.toFixed(2),
       prazoDias,
       previsaoEntrega: adicionarDiasUteis(hojeISO(), prazoDias),
@@ -167,4 +175,28 @@ export function useCalculoOrcamento(form: FormOrcamento, areaMinimaM2?: string, 
       carregandoRegras: contexto.isPending,
     }
   }, [form, produtos, areaMinimaM2, contexto.data, contexto.isPending, origem])
+}
+
+/** Quanto as regras tiraram (descontos) e somaram (urgência, pedido mínimo…) e o ajuste que ficou dentro dos itens */
+export function totaisDasRegras(r: Pick<ResultadoRegras, 'aplicadas' | 'itens'> | null) {
+  const soma = (valores: string[]) => valores.reduce((s, v) => s.plus(v), new Decimal(0))
+  const valores = (r?.aplicadas ?? []).map((a) => a.valor)
+  return {
+    descontos: soma(valores.filter((v) => Number(v) < 0)).abs().toFixed(2),
+    acrescimos: soma(valores.filter((v) => Number(v) > 0)).toFixed(2),
+    ajusteItens: soma((r?.itens ?? []).map((i) => i.ajuste)).toFixed(2),
+  }
+}
+
+/**
+ * Selo do item quando as regras deram desconto nele: "−15%" (o quanto o item baixou) e a explicação ("Desconto por
+ * quantidade −R$ 23,50"). Sem desconto das regras, nada.
+ */
+export function seloDeDesconto(calculo: Pick<ItemCalculadoTela, 'regras'>): { selo: string; explicacao: string } | null {
+  const r = calculo.regras
+  const ajuste = Number(r?.ajuste ?? 0)
+  if (!r || ajuste >= 0 || Number(r.bruto) <= 0) return null
+  const pct = Math.round((-ajuste / Number(r.bruto)) * 1000) / 10
+  const explicacao = r.regras.map((e) => `${e.nome} ${Number(e.valor) < 0 ? '−' : '+'}${formatarMoeda(Math.abs(Number(e.valor)).toFixed(2))}`).join(' · ')
+  return { selo: `−${pct.toLocaleString('pt-BR')}%`, explicacao }
 }

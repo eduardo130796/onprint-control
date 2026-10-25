@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { PrismaClient } from '@prisma/client'
 import { Decimal, regraDoPreset, regraComercialSchema, type ItemParaRegras } from '@onprint/shared'
@@ -6,12 +8,13 @@ import { pedidoOrcamentoDeTexto } from '../src/modules/assistente/prompts-equipe
 import { comAjusteDasRegras } from '../src/modules/orcamentos/analise'
 import { aplicarRegrasNoCalculo, carregarRegras, totalDoOrcamento, type Recalculo } from '../src/modules/orcamentos/calculo'
 import { itemNoPedido, noPedido } from '../src/modules/orcamentos/conversao.service'
-import { liberacaoDoOrcamento, origemDoOrcamento } from '../src/modules/orcamentos/orcamentos.service'
+import { aceitasParaGravar, liberacaoDoOrcamento, origemDoOrcamento } from '../src/modules/orcamentos/orcamentos.service'
 
 /** Linha do banco como a tabela regras_comerciais guarda (JSON validado na gravação) */
 function linha(id: string, prioridade: number, preset: Parameters<typeof regraDoPreset>[0], ajuste: Record<string, unknown> = {}) {
   const r = regraComercialSchema.parse({ ...regraDoPreset(preset), ...ajuste })
-  return { id, prioridade, nome: r.nome, ativa: r.ativa, tipo: r.tipo, condicoes: r.condicoes, acao: r.acao, combinacao: r.combinacao }
+  // Sem modo dito: "sempre" (o comportamento destes testes); os do modo de uso passam o modoUso
+  return { id, prioridade, nome: r.nome, ativa: r.ativa, tipo: r.tipo, condicoes: r.condicoes, acao: r.acao, combinacao: r.combinacao, modoUso: (ajuste.modoUso as string | undefined) ?? 'sempre' }
 }
 
 function banco(linhas: ReturnType<typeof linha>[], tags: string[] = []) {
@@ -175,5 +178,45 @@ describe('manual do atendente no Assistente', () => {
     expect(v.itens).toHaveLength(1)
     // Resposta sem o campo (esquema anterior): nenhuma sugestão
     expect(p.validar({ itens: [], cliente_nome: null, prazo_desejado: null, observacoes: null, nao_identificados: [] }).sugestoes).toEqual([])
+  })
+})
+
+describe('modo de uso das regras (API)', () => {
+  it('carrega o modo gravado; desconto sem modo válido = sugerir; acréscimo = sempre', async () => {
+    const db = banco([
+      { ...linha('a', 1, 'desconto_quantidade'), modoUso: 'se_pedir' },
+      { ...linha('b', 2, 'desconto_a_vista'), modoUso: 'qualquer' },
+      { ...linha('c', 3, 'urgencia'), modoUso: 'sugerir' },
+    ])
+    expect((await carregarRegras(db)).map((r) => [r.id, r.modoUso])).toEqual([
+      ['a', 'se_pedir'],
+      ['b', 'sugerir'],
+      ['c', 'sempre'],
+    ])
+  })
+
+  it('sugerida não entra no salvamento até o vendedor aplicar; aplicada fica gravada e vale ao recalcular', async () => {
+    const regra = linha('11111111-1111-4111-8111-111111111111', 1, 'desconto_quantidade', { modoUso: 'sugerir' })
+    const db = banco([regra])
+    const sem = await aplicarRegrasNoCalculo(db, recalculo('1000', '0.20'), contexto)
+    expect(sem.regras.ajusteOrcamento).toBe('0.00')
+    expect(sem.calculo.subtotal).toBe('200.00')
+    expect(sem.regras.ofertas).toMatchObject([{ regraId: regra.id, modo: 'sugerir', valor: '20.00', texto: '10% por quantidade' }])
+    const aceitas = aceitasParaGravar([regra.id, regra.id], undefined)
+    expect(aceitas).toEqual([regra.id])
+    const com = await aplicarRegrasNoCalculo(db, recalculo('1000', '0.20'), { ...contexto, aceitas })
+    expect(com.calculo.subtotal).toBe('180.00')
+    expect(com.regras.aceitas).toEqual([regra.id])
+    // Salvar de novo sem mandar o campo (outra tela, duplicar): o que estava gravado continua
+    expect(aceitasParaGravar(undefined, [regra.id])).toEqual([regra.id])
+    expect(aceitasParaGravar([], [regra.id])).toEqual([])
+  })
+
+  it('migration: descontos existentes viram "sugerir" e os já aplicados nos orçamentos contam como aceitos', () => {
+    const sql = readFileSync(join(__dirname, '../prisma/migrations/20261102100000_regras_modo_uso/migration.sql'), 'utf8')
+    expect(sql).toMatch(/ADD COLUMN "modo_uso" TEXT NOT NULL DEFAULT 'sempre'/)
+    expect(sql).toMatch(/SET "modo_uso" = 'sugerir'\s+WHERE "acao"->>'tipo' IN \('desconto', 'preco_especial'\)/)
+    expect(sql).toMatch(/ADD COLUMN "regras_aceitas" TEXT\[\] NOT NULL DEFAULT ARRAY\[\]::TEXT\[\]/)
+    expect(sql).not.toMatch(/DROP|TRUNCATE|DELETE/i)
   })
 })

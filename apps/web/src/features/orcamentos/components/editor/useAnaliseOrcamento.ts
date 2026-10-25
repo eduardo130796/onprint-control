@@ -22,7 +22,18 @@ export function itensAnalisaveis(
   form: FormOrcamento,
   calculos: ItemCalculadoTela[],
   origem?: string,
-): { chaves: string[]; itens: OrcamentoItemInput[]; desconto: string; acrescimo: string; clienteId: string | null; sinalPercentual?: string; parcelas?: string; dataDesejada: string | null; origem?: string } {
+): {
+  chaves: string[]
+  itens: OrcamentoItemInput[]
+  desconto: string
+  acrescimo: string
+  clienteId: string | null
+  sinalPercentual?: string
+  parcelas?: string
+  dataDesejada: string | null
+  origem?: string
+  regrasAceitas: string[]
+} {
   const completo = payloadDoForm(form)
   const payload = completo.itens
   const chaves: string[] = []
@@ -36,7 +47,7 @@ export function itensAnalisaveis(
   const valor = (v: unknown) => (typeof v === 'string' && v.trim() ? v : '0')
   // O que as regras comerciais olham (o lucro sai como o orçamento vai ser gravado)
   const pagamento = resumoPagamentoDoForm(form, '0') ? { sinalPercentual: normalizarDecimal(form.sinalPercentual || '0'), parcelas: form.parcelas || '0' } : {}
-  return { chaves, itens, desconto: valor(completo.desconto), acrescimo: valor(completo.acrescimo), clienteId: form.cliente?.id ?? null, ...pagamento, dataDesejada: form.dataDesejada || null, origem: origem ?? (form.doAssistente ? 'assistente' : undefined) }
+  return { chaves, itens, desconto: valor(completo.desconto), acrescimo: valor(completo.acrescimo), clienteId: form.cliente?.id ?? null, ...pagamento, dataDesejada: form.dataDesejada || null, origem: origem ?? (form.doAssistente ? 'assistente' : undefined), regrasAceitas: form.regrasAceitas }
 }
 
 /**

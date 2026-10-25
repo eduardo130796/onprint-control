@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ArrowDown, ArrowUp, Copy, Palette, Tag, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -16,7 +17,7 @@ import { decimalParaInput } from '@/lib/mascaras'
 import { cn } from '@/lib/utils'
 import { buscarProdutos } from '../../buscas'
 import { itemComProduto, type ItemForm } from './formOrcamento'
-import { chaveProdutoCatalogo, type ItemCalculadoTela } from './useCalculoOrcamento'
+import { chaveProdutoCatalogo, seloDeDesconto, type ItemCalculadoTela } from './useCalculoOrcamento'
 
 interface ItemOrcamentoProps {
   indice: number
@@ -41,6 +42,8 @@ export function ItemOrcamento({ indice, total, item, calculo, analise, analiseDe
   const usaMedidas = modo === 'm2' || modo === 'metro_linear' || Boolean(produto?.acabamentos.some((a) => a.acabamento.tipoCobranca !== 'fixo' && a.acabamento.tipoCobranca !== 'por_unidade'))
   const id = (campo: string) => `item-${item.chave}-${campo}`
   const set = (dados: Partial<ItemForm>) => onChange({ ...item, ...dados })
+  const [verDesconto, setVerDesconto] = useState(false)
+  const desconto = seloDeDesconto(calculo)
 
   async function escolherProduto(opcao: OpcaoBusca | null) {
     if (!opcao) return set({ produto: null, acabamentoIds: [] })
@@ -147,24 +150,6 @@ export function ItemOrcamento({ indice, total, item, calculo, analise, analiseDe
         </fieldset>
       )}
 
-      {/* Regras comerciais no item: "−5% Desconto por quantidade" (o total abaixo já vem com elas) */}
-      {calculo.regras && calculo.regras.regras.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Regras comerciais no item">
-          {calculo.regras.regras.map((e) => (
-            <span
-              key={e.regraId}
-              title={`${e.nome}: ${Number(e.valor) < 0 ? '−' : '+'} ${formatarMoeda(Math.abs(Number(e.valor)).toFixed(2))}`}
-              className={cn(
-                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-                Number(e.valor) < 0 ? 'bg-verde/10 text-green-800 dark:text-green-300' : 'bg-ambar/15 text-amber-800 dark:text-amber-200',
-              )}
-            >
-              <Tag className="h-3 w-3" aria-hidden="true" /> {e.efeito} {e.nome}
-            </span>
-          ))}
-        </div>
-      )}
-
       {produto && r && (
         <div className="mt-4 flex flex-wrap items-end justify-between gap-2 border-t border-border pt-3 text-sm">
           {r.ok ? (
@@ -179,7 +164,22 @@ export function ItemOrcamento({ indice, total, item, calculo, analise, analiseDe
               <AlertTriangle className="h-4 w-4 shrink-0" /> {r.erros.join(' ')}
             </p>
           )}
-          <p className="text-lg font-semibold text-tinta">{formatarMoeda(calculo.total)}</p>
+          <p className="flex items-center gap-2 text-lg font-semibold text-tinta">
+            {desconto && (
+              // Um selo só, quando o item tem desconto das regras; a explicação no toque/hover
+              <button
+                type="button"
+                title={desconto.explicacao}
+                aria-expanded={verDesconto}
+                onClick={() => setVerDesconto((v) => !v)}
+                className="inline-flex items-center gap-1 rounded-full bg-verde/10 px-2 py-0.5 text-xs font-medium text-green-800 dark:text-green-300"
+              >
+                <Tag className="h-3 w-3" aria-hidden="true" /> {desconto.selo}
+              </button>
+            )}
+            {formatarMoeda(calculo.total)}
+          </p>
+          {desconto && verDesconto && <p className="w-full text-right text-xs text-green-800 dark:text-green-300">{desconto.explicacao}</p>}
           {r.ok && analise && <LucroDoItem analise={analise} desatualizado={analiseDesatualizada} className="w-full" />}
         </div>
       )}

@@ -3,7 +3,7 @@ import type { ProvedorIA as NomeProvedorIA } from '@onprint/shared'
 /** Tipos do provedor de IA (ver index.ts) */
 
 /** Tarefas conhecidas (o simulado responde cada uma com regras simples) */
-export type TarefaIA = 'classificar_resposta' | 'orcamento_texto' | 'produto_texto' | 'descricao'
+export type TarefaIA = 'classificar_resposta' | 'orcamento_texto' | 'produto_texto' | 'descricao' | 'regras_texto'
 
 /** Quanto o modelo raciocina antes de responder (output_config.effort da Anthropic) */
 export type EsforcoIA = 'low' | 'medium' | 'high'

@@ -18,6 +18,7 @@ export const VERSOES_PROMPTS: Record<TarefaIA, string> = {
   orcamento_texto: 'orcamento-de-texto@2',
   produto_texto: 'produto-de-texto@1',
   descricao: 'descricao-produto@1',
+  regras_texto: 'regras-de-texto@1',
 }
 
 /**
@@ -29,6 +30,7 @@ export const AJUSTES_TAREFAS: Record<TarefaIA, { esforco: EsforcoIA; maxTokens: 
   orcamento_texto: { esforco: 'medium', maxTokens: 4096 },
   produto_texto: { esforco: 'medium', maxTokens: 3072 },
   descricao: { esforco: 'low', maxTokens: 2048 },
+  regras_texto: { esforco: 'medium', maxTokens: 2048 },
 }
 
 /** Telefones, documentos (8+ dígitos, com ou sem separadores) e e-mails viram marcadores antes de sair do servidor */

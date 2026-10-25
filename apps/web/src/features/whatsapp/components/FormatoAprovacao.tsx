@@ -3,8 +3,8 @@ import { FORMATOS_APROVACAO, FORMATO_APROVACAO_ROTULOS, OPCOES_ENQUETE_ORCAMENTO
 import { cn } from '@/lib/utils'
 
 const EXPLICACAO: Record<FormatoAprovacao, string> = {
-  enquete: 'Logo depois do orçamento vai uma enquete. O cliente toca em Aprovado ou em Quero modificações.',
-  numeros: 'Sem enquete: o texto pede para responder 1 para aprovar ou 2 para pedir mudança. Bom para quem estranha enquete.',
+  enquete: 'Depois do orçamento vai uma enquete. O cliente toca em Aprovado ou em Quero modificações.',
+  numeros: 'O cliente responde 1 para aprovar ou 2 para pedir mudança. Bom para quem estranha enquete.',
 }
 
 /**
@@ -39,7 +39,7 @@ export function FormatoAprovacaoEscolha({ valor, onMudar, desabilitado }: { valo
           )
         })}
       </div>
-      <p className="text-xs text-texto-secundario">Nos dois, escrever “aprovado” na conversa também aprova. O link de aprovação continua no fim da mensagem.</p>
+      <p className="text-xs text-texto-secundario">Nos dois, escrever “aprovado” também aprova. O link de aprovação continua no fim da mensagem.</p>
     </fieldset>
   )
 }

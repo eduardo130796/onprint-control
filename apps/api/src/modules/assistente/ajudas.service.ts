@@ -7,12 +7,14 @@ import {
   TIPO_COBRANCA_ROTULOS,
   calcularPreco,
   nomeCliente,
+  normalizarEtiqueta,
   normalizarNumeroWhatsapp,
   type DescricaoSugerida,
   type ItemOrcamentoSugerido,
   type ModoCalculo,
   type OrcamentoDeTexto,
   type ProdutoSugerido,
+  type RegrasDeTexto,
   type descricaoAssistenteSchema,
 } from '@onprint/shared'
 import type { z } from 'zod'
@@ -21,6 +23,7 @@ import { palavras, pontuar } from '../../integrations/ia/texto'
 import type { ResultadoIA } from './assistente'
 import { criarAssistenteEmpresa, mensagemSemResultado, nomeDaGrafica } from './empresa.service'
 import { pedidoDescricao, pedidoOrcamentoDeTexto, pedidoProdutoDeTexto, type ItemLido, type ProdutoParaIA } from './prompts-equipe'
+import { pedidoRegrasDeTexto } from './prompts-regras'
 
 /*
  * Ajudas internas do Assistente GrafyGo: montar orçamento a partir do texto do cliente, preencher produto e escrever
@@ -335,6 +338,28 @@ export function criarAjudasAssistente(app: FastifyInstance) {
         }
       } else throw AppError.regraNegocio('Preencha o nome do produto antes de pedir a descrição.')
       return exigirResultado(await app.assistente.executar({ assinanteId, recurso, pedido: pedidoDescricao({ grafica, destino: dados.destino, produto }), contar: () => 1 }))
+    },
+
+    /**
+     * "Explique com suas palavras como você dá desconto": o texto do dono vira as respostas das perguntas das regras
+     * comerciais (nada é salvo: a tela preenche para o dono conferir). Vão junto as etiquetas que os clientes já usam.
+     */
+    async regrasDeTexto(texto: string): Promise<RegrasDeTexto> {
+      const { assinanteId, recurso } = await empresa.exigir('regras')
+      const [clientes, grafica] = await Promise.all([prisma.cliente.findMany({ where: { ativo: true, tags: { isEmpty: false } }, select: { tags: true }, take: 2000 }), nomeDaGrafica(prisma)])
+      // Sem repetir ("Revenda" = "revenda"): vale o primeiro jeito escrito
+      const porChave = new Map<string, string>()
+      for (const t of clientes.flatMap((c) => c.tags)) if (t.trim() && !porChave.has(normalizarEtiqueta(t))) porChave.set(normalizarEtiqueta(t), t.trim())
+      const etiquetas = [...porChave.values()].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+      return exigirResultado(
+        await app.assistente.executar({
+          assinanteId,
+          recurso,
+          pedido: pedidoRegrasDeTexto({ grafica, texto, etiquetas }),
+          // Quantas perguntas o texto respondeu
+          contar: (d) => [d.quantidade, d.aVista, d.especiais, d.urgencia, d.minimo, d.limite].filter(Boolean).length,
+        }),
+      )
     },
   }
 }

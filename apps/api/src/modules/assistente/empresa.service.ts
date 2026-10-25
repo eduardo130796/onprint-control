@@ -23,9 +23,9 @@ import { inicioDoMes, type ResultadoIA } from './assistente'
  * respostas do WhatsApp continua em whatsapp_config.assistente_respostas (a tela do WhatsApp mostra o mesmo campo).
  */
 
-const camposEmpresa = { assistenteAtivo: true, assistenteOrcamentoTexto: true, assistenteProdutos: true, assistenteDescricoes: true, assistenteSemClientes: true } as const
+const camposEmpresa = { assistenteAtivo: true, assistenteOrcamentoTexto: true, assistenteProdutos: true, assistenteDescricoes: true, assistenteRegras: true, assistenteSemClientes: true } as const
 
-type LinhaEmpresa = { assistenteAtivo: boolean; assistenteOrcamentoTexto: boolean; assistenteProdutos: boolean; assistenteDescricoes: boolean; assistenteSemClientes: boolean }
+type LinhaEmpresa = { assistenteAtivo: boolean; assistenteOrcamentoTexto: boolean; assistenteProdutos: boolean; assistenteDescricoes: boolean; assistenteRegras: boolean; assistenteSemClientes: boolean }
 
 /** Linhas do banco → controles (empresa ainda sem configuração: tudo no padrão) */
 export function controlesDasLinhas(e: LinhaEmpresa | null, w: { assistenteRespostas: boolean } | null): ControlesAssistente {
@@ -35,6 +35,7 @@ export function controlesDasLinhas(e: LinhaEmpresa | null, w: { assistenteRespos
     orcamentoTexto: e?.assistenteOrcamentoTexto ?? true,
     produtos: e?.assistenteProdutos ?? true,
     descricoes: e?.assistenteDescricoes ?? true,
+    regras: e?.assistenteRegras ?? true,
     semClientes: e?.assistenteSemClientes ?? false,
   }
 }
@@ -115,6 +116,7 @@ export function criarAssistenteEmpresa(app: FastifyInstance) {
             assistenteOrcamentoTexto: dados.orcamentoTexto,
             assistenteProdutos: dados.produtos,
             assistenteDescricoes: dados.descricoes,
+            assistenteRegras: dados.regras,
             assistenteSemClientes: dados.semClientes,
           },
         })

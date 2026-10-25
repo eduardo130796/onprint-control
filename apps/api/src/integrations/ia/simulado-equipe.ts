@@ -148,3 +148,56 @@ export function descricaoSimulada(conteudo: string) {
   const base = `${nome}${materiais ? `, feito com ${materiais.toLowerCase()}` : ''}.${acabamentos ? ` Acabamentos disponíveis: ${acabamentos.toLowerCase()}.` : ''}`
   return { texto: vitrine ? `${base}\n\nFale com a ${grafica} para combinar quantidade, medidas e arte do seu pedido.` : base }
 }
+
+/** Percentuais da frase ("5%", "3 por cento") */
+const percentuais = (t: string) => [...t.matchAll(/(\d+(?:[.,]\d+)?)\s*(?:%|por cento)/g)].map((m) => numero(m[1]!))
+const POR_EXTENSO: Record<string, number> = { um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9, dez: 10 }
+
+/** "sempre" | "sugerir" | "se_pedir" pelas palavras da frase (null = não disse) */
+function comoUsar(t: string): string | null {
+  if (/\b(se (o cliente )?(pedir|chorar|negociar)|so se|so quando (o cliente )?pedir|quando (o cliente )?pedir)\b/.test(t)) return 'se_pedir'
+  if (/\b(sugerir|sugira|sugere|oferecer|ofereca|oferece|lembrar|lembre)\b/.test(t)) return 'sugerir'
+  if (/\b(sempre|automatic|todo pedido|todos os pedidos)/.test(t)) return 'sempre'
+  return null
+}
+
+/**
+ * "Explique com suas palavras": cada frase do dono vira uma pergunta pelas palavras-chave (urgência, mínimo, à vista,
+ * cliente especial, quantidade, limite do vendedor, nessa ordem); o que não encaixa vai para nao_entendido.
+ */
+export function regrasSimuladas(conteudo: string) {
+  const texto = entre(conteudo, 'texto_do_dono')
+  const etiquetas = (/^Etiquetas que a gráfica já usa nos clientes: (.+)$/m.exec(conteudo)?.[1] ?? '').split(', ').filter(Boolean)
+  const r: Record<string, unknown> = { quantidade: null, a_vista: null, clientes_especiais: null, urgencia: null, pedido_minimo: null, limite_vendedor: null, nao_entendido: [] }
+  const naoEntendido: string[] = []
+  for (const frase of texto.split(/(?<=[.;!?])\s+|\n+/).map((f) => f.trim()).filter(Boolean)) {
+    const t = semAcentos(frase)
+    const pct = percentuais(t)
+    if (/urgen|pressa|correria/.test(t) && pct.length) {
+      const dias = /(\d+|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez)\s+dias?/.exec(t)?.[1]
+      r.urgencia = { percentual: pct[0]!, dias_uteis: dias ? (POR_EXTENSO[dias] ?? Number(dias)) : null }
+    } else if (/minimo/.test(t) && /r\$|reais/.test(t)) {
+      const valor = /r\$\s*(\d+(?:[.,]\d+)?)|(\d+(?:[.,]\d+)?)\s*reais/.exec(t)
+      if (valor) r.pedido_minimo = { valor: numero(valor[1] ?? valor[2]!) }
+      else naoEntendido.push(frase)
+    } else if (/\bpix\b|a vista/.test(t) && pct.length) {
+      r.a_vista = { percentual: pct[0]!, como_usar: comoUsar(t) }
+    } else if (/revend|\bvip\b|parceir|etiqueta|cliente especial/.test(t) && pct.length) {
+      const citada = /etiqueta\s+["“]?([\p{L}\d]+)/u.exec(frase)?.[1]
+      const palavra = citada ?? (/revend/.test(t) ? 'Revenda' : /\bvip\b/.test(t) ? 'VIP' : /parceir/.test(t) ? 'Parceiro' : null)
+      // Combina com uma etiqueta que a gráfica já usa ("revendedores" → "Revenda")
+      const etiqueta = palavra ? (etiquetas.find((e) => semAcentos(e).slice(0, 5) === semAcentos(palavra).slice(0, 5)) ?? palavra) : null
+      if (etiqueta) r.clientes_especiais = { lista: [{ etiqueta, percentual: pct[0]! }], como_usar: comoUsar(t) }
+      else naoEntendido.push(frase)
+    } else if (/unidade|peca|quantidade|acima de|a partir de/.test(t) && pct.length) {
+      const qtds = [...t.matchAll(/(\d{1,3}(?:\.\d{3})+|\d+)\s*(?:un\b|unidades|pecas|copias)/g)].map((m) => numero(m[1]!))
+      const faixas = qtds.map((q, i) => ({ a_partir_de: q, percentual: pct[i] ?? pct[pct.length - 1]! }))
+      if (faixas.length) r.quantidade = { faixas, como_usar: comoUsar(t) }
+      else naoEntendido.push(frase)
+    } else if (/vendedor|equipe|sem (me )?(perguntar|consultar|falar)/.test(t) && pct.length) {
+      r.limite_vendedor = { percentual: pct[0]! }
+    } else naoEntendido.push(frase)
+  }
+  r.nao_entendido = naoEntendido
+  return r
+}

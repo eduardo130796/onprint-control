@@ -1,4 +1,4 @@
-import type { EfeitoNoItem, RegraComercialInput, RegraComercialMotor, ResultadoRegras, SimulacaoRegrasInput } from '@onprint/shared'
+import type { EfeitoNoItem, RegraComercialInput, RegraComercialMotor, RespostasRegras, ResultadoRegras, SimulacaoRegrasInput } from '@onprint/shared'
 import { http } from './http'
 
 /** Regra como a lista devolve: com a frase "Quando… → …" e quem criou */
@@ -29,6 +29,8 @@ export const regrasApi = {
   atualizar: (id: string, dados: RegraComercialInput) => http<RegraComercialMotor>(`/regras-comerciais/${id}`, { method: 'PUT', body: dados }),
   ativar: (id: string, ativa: boolean) => http<RegraComercialMotor>(`/regras-comerciais/${id}/ativa`, { method: 'PATCH', body: { ativa } }),
   ordenar: (ids: string[]) => http<ListaRegras>('/regras-comerciais/ordem', { method: 'PUT', body: { ids } }),
+  /** As perguntas da tela (cria, atualiza ou desliga as regras de cada uma) */
+  salvarRespostas: (respostas: RespostasRegras) => http<ListaRegras>('/regras-comerciais/perguntas', { method: 'PUT', body: respostas }),
   remover: (id: string) => http<void>(`/regras-comerciais/${id}`, { method: 'DELETE' }),
   /** Com `regra`, a regra em edição (ainda não salva) entra no lugar da gravada */
   simular: (dados: SimulacaoRegrasInput & { regra?: (RegraComercialInput & { id?: string | null }) | null }) =>

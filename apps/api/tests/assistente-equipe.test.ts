@@ -19,6 +19,7 @@ import {
   pedidoProdutoDeTexto,
   type ProdutoParaIA,
 } from '../src/modules/assistente/prompts-equipe'
+import { ESQUEMA_REGRAS_TEXTO, numerosDoTexto, pedidoRegrasDeTexto, validarRegrasDeTexto } from '../src/modules/assistente/prompts-regras'
 import { LEITURA_PRESA_MS, VIA_LENDO, recuperarLeiturasPresas } from '../src/modules/whatsapp/leituras-presas'
 
 const env = carregarEnv({ NODE_ENV: 'test', DATABASE_URL: 'postgresql://x:x@localhost:1/x', JWT_ACCESS_SECRET: 'segredo-de-teste-jwt', JWT_REFRESH_SECRET: 'segredo-de-teste-2', LOG_LEVEL: 'silent' })
@@ -102,7 +103,9 @@ function appFalso(o: Falso = {}) {
   const enviados: PedidoEstruturado<unknown>[] = []
   const base = o.provedor ?? new SimuladoProvider()
   const provedor: ProvedorIA = { nome: 'simulado', modelo: 'x', estruturado: (p) => (enviados.push(p as PedidoEstruturado<unknown>), base.estruturado(p)) }
-  const cliente = { findMany: vi.fn(async ({ where }: { where: { OR: Record<string, { in?: string[]; contains?: string }>[] } }) => {
+  const cliente = { findMany: vi.fn(async ({ where }: { where: { OR: Record<string, { in?: string[]; contains?: string }>[]; tags?: unknown } }) => {
+    // Etiquetas que os clientes usam ("Explique com suas palavras")
+    if (where.tags) return [{ tags: ['Revenda', 'VIP'] }, { tags: ['revenda'] }]
     const telefones = where.OR.flatMap((c) => c.whatsapp?.in ?? [])
     if (telefones.includes('11988887777')) return [{ id: id(900), nome: 'Carlos Mendes', fantasia: null, tipoPessoa: 'PF' }]
     return []
@@ -143,6 +146,7 @@ function appFalso(o: Falso = {}) {
         assistenteOrcamentoTexto: true,
         assistenteProdutos: true,
         assistenteDescricoes: true,
+        assistenteRegras: true,
         assistenteSemClientes: false,
         ...o.empresa,
       }),
@@ -306,7 +310,7 @@ describe('Assistente: travas, limite e falhas das ajudas', () => {
     expect(mensagemSemResultado({ ok: false, motivo: 'desligado', erro: null })).toMatch(/não está disponível/)
   })
   it('controles da empresa: padrão tudo ligado; a leitura do WhatsApp vem de whatsapp_config', () => {
-    expect(controlesDasLinhas(null, null)).toEqual({ ativo: true, respostasWhatsapp: true, orcamentoTexto: true, produtos: true, descricoes: true, semClientes: false })
+    expect(controlesDasLinhas(null, null)).toEqual({ ativo: true, respostasWhatsapp: true, orcamentoTexto: true, produtos: true, descricoes: true, regras: true, semClientes: false })
     expect(controlesDasLinhas(null, { assistenteRespostas: false }).respostasWhatsapp).toBe(false)
   })
 })
@@ -474,4 +478,67 @@ function paraIA(p: typeof BANNER): ProdutoParaIA {
     alturaMaxima: '50',
     acabamentos: p.acabamentos.map((a) => ({ id: a.acabamento.id, nome: a.acabamento.nome, obrigatorio: a.obrigatorio, padrao: a.padrao })),
   }
+}
+
+describe('Assistente: regras de desconto com as palavras do dono', () => {
+  const TEXTO =
+    'Acima de 10 unidades dou 5% de desconto, o vendedor pode sugerir. Se o cliente pedir, dou 3% no Pix ou à vista. Revendedores têm 10%. ' +
+    'Urgência para menos de 2 dias úteis cobro 20% a mais. Pedido mínimo de R$ 50. O vendedor pode dar até 5% sem me perguntar. Na Black Friday faço promoção.'
+
+  it('preenche as seis perguntas com os números do texto (simulado, determinístico) e registra o uso', async () => {
+    const { ajudas, usos, enviados } = appFalso()
+    const r = await naEmpresa(() => ajudas.regrasDeTexto(TEXTO))
+    expect(r).toEqual({
+      quantidade: { faixas: [{ aPartirDe: '10', percentual: '5' }], modoUso: 'sugerir' },
+      aVista: { percentual: '3', modoUso: 'se_pedir' },
+      // "Revendedores" vira a etiqueta que a gráfica já usa
+      especiais: { lista: [{ etiqueta: 'Revenda', percentual: '10' }], modoUso: null },
+      urgencia: { percentual: '20', dias: '2' },
+      minimo: { valor: '50.00' },
+      limite: { percentual: '5' },
+      naoEntendido: ['Na Black Friday faço promoção.'],
+    })
+    expect(usos).toMatchObject([{ recurso: 'regras_texto', situacao: 'ok', itens: 6 }])
+    // As etiquetas vão sem repetir; o texto do dono vai marcado como dado
+    expect(enviados[0]!.conteudo).toContain('Etiquetas que a gráfica já usa nos clientes: Revenda, VIP')
+    expect(enviados[0]!.conteudo).toContain('<texto_do_dono>')
+  })
+
+  it('nunca inventa: número que não está no texto derruba a pergunta; etiqueta só do texto ou do cadastro', () => {
+    const c = { texto: 'Dou 5% acima de 100 unidades e revenda tem desconto.', etiquetas: ['Revenda'] }
+    const v = validarRegrasDeTexto(
+      {
+        quantidade: { faixas: [{ a_partir_de: 100, percentual: 5 }], como_usar: null },
+        a_vista: { percentual: 3, como_usar: 'sempre' },
+        clientes_especiais: { lista: [{ etiqueta: 'revenda', percentual: 12 }], como_usar: null },
+        urgencia: null,
+        pedido_minimo: { valor: 80 },
+        limite_vendedor: { percentual: 150 },
+        nao_entendido: [],
+      },
+      c,
+    )
+    expect(v.quantidade).toEqual({ faixas: [{ aPartirDe: '100', percentual: '5' }], modoUso: null })
+    // 3%, 12%, R$ 80 não foram escritos; 150% não é percentual
+    expect([v.aVista, v.especiais, v.minimo, v.limite]).toEqual([null, null, null, null])
+    const etiquetaInventada = validarRegrasDeTexto({ ...vazio(), clientes_especiais: { lista: [{ etiqueta: 'Atacado', percentual: 5 }], como_usar: null } }, c)
+    expect(etiquetaInventada.especiais).toBeNull()
+    expect(numerosDoTexto('1.000 cartões, 2,5% e dois dias, R$ 50,00')).toEqual(new Set([1000, 2.5, 50, 2]))
+  })
+
+  it('desligado em Configurações → Assistente: não chama a IA', async () => {
+    const { ajudas, usos } = appFalso({ empresa: { assistenteRegras: false } })
+    await expect(naEmpresa(() => ajudas.regrasDeTexto(TEXTO))).rejects.toMatchObject({ statusCode: 422, message: expect.stringMatching(/Regras de desconto com suas palavras/) })
+    expect(usos).toEqual([])
+  })
+
+  it('esquema da resposta: só as perguntas, tudo obrigatório', () => {
+    expect(Object.keys(ESQUEMA_REGRAS_TEXTO.properties)).toEqual(['quantidade', 'a_vista', 'clientes_especiais', 'urgencia', 'pedido_minimo', 'limite_vendedor', 'nao_entendido'])
+    expect(ESQUEMA_REGRAS_TEXTO.required).toEqual(Object.keys(ESQUEMA_REGRAS_TEXTO.properties))
+    expect(pedidoRegrasDeTexto({ grafica: 'Aurora', texto: 'Dou 5% no Pix, fone 11 98888-7777', etiquetas: [] }).conteudo).toContain('[número omitido]')
+  })
+})
+
+function vazio() {
+  return { quantidade: null, a_vista: null, clientes_especiais: null, urgencia: null, pedido_minimo: null, limite_vendedor: null, nao_entendido: [] }
 }

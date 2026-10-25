@@ -227,9 +227,9 @@ function Conteudo({ envio, onFechar }: { envio: EnvioWhatsapp; onFechar: () => v
                                   ? 'Vai como imagem'
                                   : 'Vai como PDF'
                                 : !conectado
-                                  ? 'Só pelo link (o wa.me não leva arquivo)'
+                                  ? 'Só pelo link (abrindo o WhatsApp, arquivo não vai)'
                                   : i.arquivo
-                                    ? 'Só pelo link (passou do limite de arquivos)'
+                                    ? 'Só pelo link (arquivos demais nesta mensagem)'
                                     : 'Só pelo link (formato que o celular não abre)',
                           ]
                             .filter(Boolean)
@@ -274,8 +274,8 @@ function Conteudo({ envio, onFechar }: { envio: EnvioWhatsapp; onFechar: () => v
             <p className="mt-2 flex items-start gap-2 rounded-xl bg-marca-suave p-2.5 text-xs text-marca-escuro">
               <ListChecks className="mt-0.5 h-4 w-4 shrink-0" />
               <span>
-                Logo depois vai uma enquete para o cliente tocar: <strong>{OPCOES_ENQUETE_ORCAMENTO.aprovar}</strong> ou <strong>{OPCOES_ENQUETE_ORCAMENTO.modificar}</strong>. A
-                resposta (ou um “aprovado” escrito) volta para o orçamento sozinha.
+                Depois vai uma enquete: <strong>{OPCOES_ENQUETE_ORCAMENTO.aprovar}</strong> ou <strong>{OPCOES_ENQUETE_ORCAMENTO.modificar}</strong>. A resposta
+                volta para o orçamento sozinha.
               </span>
             </p>
           )}
@@ -285,11 +285,10 @@ function Conteudo({ envio, onFechar }: { envio: EnvioWhatsapp; onFechar: () => v
               <span>
                 {textoPedeNumeros(texto) ? (
                   <>
-                    Sem enquete: o cliente responde <strong>1</strong> para aprovar ou <strong>2</strong> para pedir mudança. A resposta (ou um “aprovado” escrito) volta
-                    para o orçamento sozinha.
+                    O cliente responde <strong>1</strong> para aprovar ou <strong>2</strong> para pedir mudança. A resposta volta para o orçamento sozinha.
                   </>
                 ) : (
-                  <>O texto não pede mais “responda 1 ou 2”: só um “aprovado” escrito volta para o orçamento sozinho.</>
+                  <>O texto não pede mais “responda 1 ou 2”. Só um “aprovado” escrito volta sozinho para o orçamento.</>
                 )}
               </span>
             </p>
@@ -303,7 +302,7 @@ function Conteudo({ envio, onFechar }: { envio: EnvioWhatsapp; onFechar: () => v
               <span className="flex items-center gap-1.5 font-medium text-tinta">
                 <FileText className="h-4 w-4 text-marca-escuro" /> Anexar PDF
               </span>
-              <span className="block truncate text-xs text-texto-secundario">{conectado ? envio.pdf.rotulo : 'Só no envio pela conexão da gráfica (o wa.me não leva arquivo).'}</span>
+              <span className="block truncate text-xs text-texto-secundario">{conectado ? envio.pdf.rotulo : 'Só quando sai pelo WhatsApp da gráfica.'}</span>
             </span>
           </label>
         )}

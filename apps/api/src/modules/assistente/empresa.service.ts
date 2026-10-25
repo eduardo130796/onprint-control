@@ -89,6 +89,7 @@ export function criarAssistenteEmpresa(app: FastifyInstance) {
     return {
       controles,
       disponivel,
+      simulado: config.provedor === 'simulado',
       liberado: Object.fromEntries(FUNCOES_ASSISTENTE.map((f) => [f, disponivel && funcaoLiberada(controles, f)])) as Record<FuncaoAssistente, boolean>,
       uso: {
         mes: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(new Date()),
@@ -142,6 +143,17 @@ export function criarAssistenteEmpresa(app: FastifyInstance) {
         )
       }
       return { assinanteId: empresa.id, recurso: FUNCOES_ASSISTENTE_INFO[funcao].recurso }
+    },
+
+    /**
+     * Trava do "Peça ao Assistente" (entender o pedido, nota por foto/PDF): a central ligada e a chave geral da empresa
+     * (sem chave própria: cada tarefa que ele abre ainda respeita a sua — orçamento, produto). Lança 422.
+     */
+    async exigirLigado(recurso: RecursoIA): Promise<{ assinanteId: string; recurso: RecursoIA }> {
+      const empresa = contextoEmpresa.exigir()
+      if (!(await app.assistente.disponivel())) throw AppError.regraNegocio('O Assistente GrafyGo ainda não foi liberado pela GrafyGo.')
+      if (!(await controlesDaEmpresa(prisma)).ativo) throw AppError.regraNegocio('O Assistente GrafyGo está desligado em Configurações → Assistente.')
+      return { assinanteId: empresa.id, recurso }
     },
   }
 }

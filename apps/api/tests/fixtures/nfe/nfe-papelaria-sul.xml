@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Exemplo fictício: fornecedor já cadastrado, um código de produto já lembrado (CP300), desconto na nota, pago à vista (sem duplicatas). -->
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+  <NFe>
+    <infNFe Id="NFe43261077888999000181550020000009121000009126" versao="4.00">
+      <ide><serie>2</serie><nNF>912</nNF><dhEmi>2026-10-22T16:40:00-03:00</dhEmi></ide>
+      <emit>
+        <CNPJ>77888999000181</CNPJ>
+        <xNome>PAPELARIA ATACADO SUL COMERCIO DE PAPEIS LTDA</xNome>
+        <enderEmit><xLgr>AV. BRASIL</xLgr><nro>45</nro><xBairro>CENTRO</xBairro><xMun>Porto Alegre</xMun><UF>RS</UF><CEP>90010000</CEP></enderEmit>
+        <IE>0961234567</IE>
+      </emit>
+      <det nItem="1">
+        <prod><cProd>CP300</cProd><xProd>PAPEL COUCHE BRILHO 300G 66X96 PCT 125FLS</xProd><NCM>48102290</NCM><CFOP>6102</CFOP><uCom>PCT</uCom><qCom>5.0000</qCom><vUnCom>89.00</vUnCom><vProd>445.00</vProd></prod>
+      </det>
+      <det nItem="2">
+        <prod><cProd>VB-BR</cProd><xProd>VINIL ADESIVO BRANCO BRILHO 1,27X50M</xProd><NCM>39199090</NCM><CFOP>6102</CFOP><uCom>RL</uCom><qCom>1.0000</qCom><vUnCom>980.00</vUnCom><vProd>980.00</vProd></prod>
+      </det>
+      <total><ICMSTot><vProd>1425.00</vProd><vDesc>20.00</vDesc><vNF>1405.00</vNF></ICMSTot></total>
+      <pag><detPag><tPag>17</tPag><vPag>1405.00</vPag></detPag></pag>
+    </infNFe>
+  </NFe>
+</nfeProc>

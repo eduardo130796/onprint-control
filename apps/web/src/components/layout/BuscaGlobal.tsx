@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Clock, CornerDownLeft, FilePlus2, FileText, Loader2, Moon, Plus, Search, ShoppingCart, Sun, User, type LucideIcon } from 'lucide-react'
+import { Clock, CornerDownLeft, FilePlus2, FileText, Loader2, Moon, Plus, Search, ShoppingCart, Sparkles, Sun, User, type LucideIcon } from 'lucide-react'
 import { buscaApi } from '@/api/relatorios'
 import { paginas, podeAbrir } from '@/app/navigation'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { abrirAssistente, pareceFrase } from '@/features/assistente/abrirAssistente'
+import { useAssistente } from '@/features/assistente/useAssistente'
 import { useAuth } from '@/hooks/useAuth'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePermissoes } from '@/hooks/usePermission'
@@ -69,6 +71,9 @@ export function BuscaGlobal() {
   const lista = useRef<HTMLUListElement>(null)
   const termoApi = useDebounce(termo.trim(), 250)
   const pode = usePermissoes()
+  // Frase digitada na busca: a primeira opção é pedir ao Assistente (Enter já pede)
+  const assistente = useAssistente()
+  const assistenteLigado = Boolean(assistente.data?.disponivel && assistente.data.controles.ativo)
   const registros = useQuery({ queryKey: ['busca-global', termoApi], queryFn: () => buscaApi.buscar(termoApi), enabled: aberta && termoApi.length >= 2, staleTime: 30_000 })
 
   useEffect(() => {
@@ -116,14 +121,24 @@ export function BuscaGlobal() {
       // Atalho direto para os dois primeiros clientes encontrados
       ...(podeCriarOrcamento && i < 2 ? [{ chave: `oc:${c.id}`, grupo: 'Clientes', icone: FilePlus2, titulo: `Novo orçamento para ${c.nome}`, path: `/orcamentos/novo?cliente=${c.id}`, criar: true }] : []),
     ])
+    // "Pedir ao Assistente": primeiro quando o texto é uma frase ("quem está devendo?", "2 banners e mil cartões"),
+    // no fim quando parece uma busca (nome, número)
+    const frase = termo.trim()
+    const pedirAoAssistente: Resultado[] =
+      assistenteLigado && frase.length >= 3
+        ? [{ chave: 'assistente', grupo: 'Assistente', icone: Sparkles, titulo: `Pedir ao Assistente: “${frase.length > 60 ? `${frase.slice(0, 60)}…` : frase}”`, detalhe: 'Orçamento, nota, cliente, produto ou uma pergunta', acao: () => abrirAssistente({ texto: frase, enviar: true }), criar: true }]
+        : []
+    const primeiro = pareceFrase(frase)
     return [
+      ...(primeiro ? pedirAoAssistente : []),
       ...clientes,
       ...(r?.pedidos ?? []).map((p) => ({ chave: `p:${p.id}`, grupo: 'Pedidos', icone: ShoppingCart, titulo: p.numero, detalhe: p.cliente, status: { entidade: 'pedido' as const, codigo: p.status }, path: `/pedidos/${p.id}` })),
       ...(r?.orcamentos ?? []).map((o) => ({ chave: `o:${o.id}`, grupo: 'Orçamentos', icone: FileText, titulo: o.numero, detalhe: o.cliente, status: { entidade: 'orcamento' as const, codigo: o.status }, path: `/orcamentos/${o.id}` })),
       ...acoes,
       ...telas,
+      ...(primeiro ? [] : pedirAoAssistente),
     ]
-  }, [termo, termoApi, registros.data, pode, recentes, escuro, definirModoTela])
+  }, [termo, termoApi, registros.data, pode, recentes, escuro, definirModoTela, assistenteLigado])
 
   // Mantém o item escolhido à vista ao navegar com as setas
   useEffect(() => {
@@ -189,7 +204,7 @@ export function BuscaGlobal() {
                 setSelecionado(0)
               }}
               onKeyDown={onKeyDownLista}
-              placeholder="Buscar cliente, pedido, orçamento, tela ou ação…"
+              placeholder={assistenteLigado ? 'Buscar, ou pedir ao Assistente (ex.: quem está devendo?)' : 'Buscar cliente, pedido, orçamento, tela ou ação…'}
               className="h-14 flex-1 bg-transparent text-[0.9375rem] outline-none placeholder:text-muted-foreground"
               aria-label="Localizar"
               role="combobox"

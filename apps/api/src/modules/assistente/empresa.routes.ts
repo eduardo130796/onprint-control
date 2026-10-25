@@ -1,10 +1,11 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import type { FastifyRequest } from 'fastify'
 import type { Acao, Modulo } from '@onprint/shared'
-import { controlesAssistenteSchema, descricaoAssistenteSchema, orcamentoDeTextoSchema, produtoDeTextoSchema, regrasDeTextoSchema } from '@onprint/shared'
+import { controlesAssistenteSchema, descricaoAssistenteSchema, orcamentoDeTextoSchema, pedirAssistenteSchema, produtoDeTextoSchema, regrasDeTextoSchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { criarAjudasAssistente } from './ajudas.service'
 import { criarAssistenteEmpresa } from './empresa.service'
+import { criarPedirService, tipoDoArquivo } from './pedir.service'
 
 const tags = ['assistente']
 
@@ -15,6 +16,7 @@ const tags = ['assistente']
 export const assistenteEmpresaRoutes: FastifyPluginAsyncZod = async (app) => {
   const empresa = criarAssistenteEmpresa(app)
   const ajudas = criarAjudasAssistente(app)
+  const pedir = criarPedirService(app)
   // Uma IA por clique: limite generoso por pessoa (as descrições em lote vão uma a uma)
   const limite = (max: number) => ({ rateLimit: { max, timeWindow: '1 minute' } })
 
@@ -56,6 +58,24 @@ export const assistenteEmpresaRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: { tags, summary: 'Lê como o dono dá desconto e preenche as perguntas das regras comerciais (não salva)', body: regrasDeTextoSchema },
     },
     (request) => ajudas.regrasDeTexto(request.body.texto),
+  )
+  // "Peça ao Assistente" (barra do topo): entende o pedido e devolve o que abrir ou a resposta (não salva nada)
+  app.post(
+    '/pedir',
+    { onRequest: [app.autenticar], config: limite(30), schema: { tags, summary: 'Peça ao Assistente: entende o pedido (orçamento, nota, cliente, produto, pergunta)', body: pedirAssistenteSchema } },
+    (request) => pedir.pedir(request, request.body.texto),
+  )
+  app.post(
+    '/pedir/nota',
+    { onRequest: [app.autenticar], config: limite(20), schema: { tags, summary: 'Lê a nota de compra (XML exato; foto ou PDF pelo Assistente) para a entrada de estoque (multipart, campo "arquivo"; não salva)', consumes: ['multipart/form-data'] } },
+    async (request) => {
+      const parte = await request.file()
+      if (!parte) throw AppError.regraNegocio('Anexe o XML, a foto ou o PDF da nota.')
+      const conteudo = await parte.toBuffer()
+      const mediaType = tipoDoArquivo(conteudo)
+      if (!mediaType) throw AppError.regraNegocio('Envie o XML da nota, uma foto (JPG, PNG) ou o PDF do DANFE.')
+      return pedir.nota(request, { nome: parte.filename, mediaType, conteudo })
+    },
   )
   app.post(
     '/descricao',

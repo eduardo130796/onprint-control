@@ -42,6 +42,23 @@ export const entradaEstoqueSchema = z.object({
       categoriaId: uuidOpcional,
     })
     .optional(),
+  /**
+   * Nota lida pelo Assistente: código do produto no fornecedor → insumo que a pessoa confirmou. Fica guardado
+   * (fornecedor_produtos) para a próxima nota do mesmo fornecedor já vir com o insumo certo. Exige o fornecedor.
+   */
+  memoria: z
+    .array(
+      z.object({
+        codigo: z.string().trim().min(1).max(60),
+        produtoId: z.string().uuid(),
+        descricao: z.string().trim().max(200).optional(),
+        unidade: z.string().trim().max(10).optional(),
+        /** A quantidade da nota é de embalagens (rolos, caixas) */
+        emEmbalagem: z.boolean().default(false),
+      }),
+    )
+    .max(200)
+    .optional(),
 })
 export type EntradaEstoqueInput = z.input<typeof entradaEstoqueSchema>
 

@@ -29,6 +29,8 @@ export interface ItemForm {
   precisaArte: boolean
   /** Montado pelo Assistente GrafyGo: mostra o selo até a pessoa mexer no item (não vai para a API) */
   sugerido?: boolean
+  /** O Assistente não teve certeza: o que conferir ("confira" no item até a pessoa mexer; não vai para a API) */
+  conferir?: string | null
 }
 
 export interface FormOrcamento {
@@ -145,7 +147,27 @@ export function itemDoAssistente(s: ItemOrcamentoSugerido): ItemForm | null {
     observacao: s.observacao ?? '',
     precisaArte: s.produto.precisaArte,
     sugerido: true,
+    conferir: s.conferir ? [...s.avisos, ...(s.preco && !s.preco.ok ? s.preco.erros : [])][0] ?? 'o Assistente não teve certeza do produto ou da quantidade.' : null,
   }
+}
+
+/**
+ * Orçamento aberto já montado ("Peça ao Assistente"): todos os itens lidos entram, os incertos com "confira"; o que o
+ * Assistente não achou no catálogo vira uma linha para escolher o produto (com a quantidade do pedido).
+ */
+export function itensDoAssistente(itens: ItemOrcamentoSugerido[]): ItemForm[] {
+  return itens.map(
+    (s) =>
+      itemDoAssistente(s) ?? {
+        ...itemVazio(),
+        quantidade: quantidade(s.quantidade),
+        largura: medida(s.largura),
+        altura: medida(s.altura),
+        observacao: s.observacao ?? '',
+        sugerido: true,
+        conferir: `o pedido fala em “${s.descricao}”, mas o Assistente não achou o produto: escolha acima.`,
+      },
+  )
 }
 
 /** Itens novos no fim do orçamento, sem perder os que já estão (só a linha vazia, sem produto, sai) */

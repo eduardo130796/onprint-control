@@ -6,9 +6,11 @@ import {
   MODO_CALCULO_SUFIXO,
   TIPO_COBRANCA_ROTULOS,
   calcularPreco,
+  documentoDoTexto,
   nomeCliente,
   normalizarEtiqueta,
   normalizarNumeroWhatsapp,
+  type ClienteNovoSugerido,
   type DescricaoSugerida,
   type ItemOrcamentoSugerido,
   type ModoCalculo,
@@ -19,9 +21,19 @@ import {
 } from '@onprint/shared'
 import type { z } from 'zod'
 import { AppError } from '../../core/AppError'
-import { palavras, pontuar } from '../../integrations/ia/texto'
 import type { ResultadoIA } from './assistente'
-import { criarAssistenteEmpresa, mensagemSemResultado, nomeDaGrafica } from './empresa.service'
+import {
+  MAX_INSUMOS_NO_PROMPT,
+  MAX_PRODUTOS_NO_PROMPT,
+  contextoDoCerebro,
+  filtrarPorPalavras,
+  historicoDoCliente,
+  linhasDaMemoria,
+  montarCerebro,
+  selecionarProduto,
+  type ProdutoCatalogo,
+} from './cerebro'
+import { criarAssistenteEmpresa, mensagemSemResultado } from './empresa.service'
 import { pedidoDescricao, pedidoOrcamentoDeTexto, pedidoProdutoDeTexto, type ItemLido, type ProdutoParaIA } from './prompts-equipe'
 import { pedidoRegrasDeTexto } from './prompts-regras'
 
@@ -31,47 +43,12 @@ import { pedidoRegrasDeTexto } from './prompts-regras'
  * os preços com o motor de preços (@onprint/shared/pricing). Nada é salvo aqui: a tela mostra para a pessoa revisar.
  */
 
-/** Acima disto o catálogo vai filtrado pelas palavras do pedido (prompt menor e mais barato) */
-export const MAX_PRODUTOS_NO_PROMPT = 40
-export const MAX_INSUMOS_NO_PROMPT = 60
-
-/**
- * Catálogo grande: só os produtos com mais palavras em comum com o pedido (nome e categoria), até `max`. Nenhum em
- * comum: os primeiros (o Assistente diz que não achou). Catálogo pequeno vai inteiro.
- */
-export function filtrarPorPalavras<T>(lista: T[], texto: string, nome: (x: T) => string, max: number): T[] {
-  if (lista.length <= max) return lista
-  const pedido = palavras(texto)
-  const comNota = lista.map((x, i) => ({ x, i, nota: pontuar(pedido, palavras(nome(x))) }))
-  const achados = comNota.filter((c) => c.nota > 0).sort((a, b) => b.nota - a.nota || a.i - b.i)
-  return (achados.length ? achados : comNota).slice(0, max).map((c) => c.x)
-}
+// O catálogo (filtro por palavras, campos dos produtos) mora no cérebro da gráfica; reexportado para quem já usava
+export { MAX_INSUMOS_NO_PROMPT, MAX_PRODUTOS_NO_PROMPT, filtrarPorPalavras } from './cerebro'
 
 const decimal = (v: Prisma.Decimal | null | undefined) => (v === null || v === undefined ? null : v.toString())
 /** Número da IA → texto decimal da API ("2.5") */
 const paraDecimal = (n: number) => new Decimal(n).toDecimalPlaces(3).toString()
-
-const selecionarProduto = {
-  id: true,
-  nome: true,
-  codigo: true,
-  modoCalculo: true,
-  precisaArte: true,
-  precoVenda: true,
-  precoMinimo: true,
-  custo: true,
-  larguraPadrao: true,
-  alturaPadrao: true,
-  larguraMaxima: true,
-  alturaMaxima: true,
-  categoria: { select: { nome: true } },
-  acabamentos: {
-    orderBy: { createdAt: 'asc' },
-    select: { obrigatorio: true, padrao: true, acabamento: { select: { id: true, nome: true, tipoCobranca: true, valor: true, custo: true, ativo: true } } },
-  },
-} satisfies Prisma.ProdutoSelect
-
-type ProdutoCatalogo = Prisma.ProdutoGetPayload<{ select: typeof selecionarProduto }>
 
 /** Produto do banco → o que vai ao prompt (sem preço nem custo) */
 const paraIA = (p: ProdutoCatalogo): ProdutoParaIA => ({
@@ -159,6 +136,43 @@ export function telefonesDoTexto(texto: string): string[] {
   return [...new Set(numeros)]
 }
 
+/** O que o texto traz para achar ou cadastrar o cliente (lido no servidor, sem IA; nada disso vai ao prompt) */
+export interface DadosDoTexto {
+  documento: string | null
+  telefones: string[]
+  email: string | null
+}
+
+export function dadosDoTexto(texto: string): DadosDoTexto {
+  const documento = documentoDoTexto(texto)
+  // O CPF/CNPJ não é telefone (11 dígitos de CPF parecem celular)
+  const semDocumento = documento ? texto.replace(/\d[\d./-]{9,20}\d/g, (m) => (m.replace(/\D/g, '') === documento ? ' ' : m)) : texto
+  return {
+    documento,
+    telefones: telefonesDoTexto(semDocumento),
+    email: /[\w.+-]+@[\w-]+(\.[\w-]+)+/.exec(texto)?.[0]?.toLowerCase() ?? null,
+  }
+}
+
+/**
+ * Cliente novo com o que o texto trouxe (nome lido pela IA; documento, telefone e e-mail pelo servidor). Sem nome e sem
+ * documento não dá para cadastrar: null (a pessoa escolhe o cliente no orçamento).
+ */
+export function clienteNovo(d: DadosDoTexto, nome: string | null): ClienteNovoSugerido | null {
+  if (!nome && !d.documento) return null
+  const [primeiro] = d.telefones
+  // Celular (DDD + 9 dígitos começando com 9) = WhatsApp; fixo = telefone
+  const celular = primeiro && /^\d{2}9\d{8}$/.test(primeiro)
+  return {
+    nome,
+    tipoPessoa: d.documento?.length === 14 || (nome && /\b(ltda|me|eireli|s\.?a\.?|comercio|comércio|loja|padaria|grafica|gráfica|restaurante|mercado|farmacia|farmácia|escola|igreja|associacao|associação)\b/i.test(nome)) ? 'PJ' : 'PF',
+    documento: d.documento,
+    whatsapp: celular ? primeiro : null,
+    telefone: primeiro && !celular ? primeiro : null,
+    email: d.email,
+  }
+}
+
 export function criarAjudasAssistente(app: FastifyInstance) {
   const { prisma } = app
   const empresa = criarAssistenteEmpresa(app)
@@ -168,33 +182,61 @@ export function criarAjudasAssistente(app: FastifyInstance) {
     return r.dados
   }
 
-  /** Cliente do cadastro pelo telefone escrito no pedido ou, sem ele, pelo nome citado (só se for um só) */
-  async function acharCliente(texto: string, nome: string | null): Promise<{ id: string; rotulo: string } | null> {
-    const select = { id: true, nome: true, fantasia: true, tipoPessoa: true } as const
-    const locais = telefonesDoTexto(texto)
-    // O cadastro guarda sem o 55 (e às vezes com): procura dos dois jeitos
-    const telefones = [...locais, ...locais.map((t) => `55${t}`)]
-    if (telefones.length) {
-      const porTelefone = await prisma.cliente.findMany({ where: { ativo: true, OR: [{ whatsapp: { in: telefones } }, { telefone: { in: telefones } }] }, select, take: 2 })
-      if (porTelefone.length === 1) return { id: porTelefone[0]!.id, rotulo: nomeCliente(porTelefone[0]!) }
+  const selecionarCliente = { id: true, nome: true, fantasia: true, tipoPessoa: true, enderecos: { take: 1, select: { bairro: true, cidade: true } } } as const
+  type ClienteAchado = { id: string; nome: string; fantasia: string | null; enderecos?: { bairro: string | null; cidade: string }[] }
+  const opcao = (c: ClienteAchado) => ({ id: c.id, rotulo: nomeCliente(c), detalhe: c.enderecos?.[0] ? [c.enderecos[0].bairro, c.enderecos[0].cidade].filter(Boolean).join(', ') : null })
+
+  /**
+   * Cliente do texto, antes da IA (pelo CPF/CNPJ ou telefone escritos no pedido: ficam no servidor). Um só = achado;
+   * mais de um = a pessoa escolhe (o sistema não chuta).
+   */
+  async function clientePeloTexto(dados: DadosDoTexto): Promise<{ achado: ClienteAchado | null; candidatos: ClienteAchado[] }> {
+    if (dados.documento) {
+      const porDocumento = await prisma.cliente.findFirst({ where: { cpfCnpj: dados.documento, ativo: true }, select: selecionarCliente })
+      if (porDocumento) return { achado: porDocumento, candidatos: [] }
     }
-    if (!nome || nome.length < 3) return null
+    // O cadastro guarda sem o 55 (e às vezes com): procura dos dois jeitos
+    const telefones = [...dados.telefones, ...dados.telefones.map((t) => `55${t}`)]
+    if (!telefones.length) return { achado: null, candidatos: [] }
+    const porTelefone = await prisma.cliente.findMany({ where: { ativo: true, OR: [{ whatsapp: { in: telefones } }, { telefone: { in: telefones } }] }, select: selecionarCliente, take: 4 })
+    return porTelefone.length === 1 ? { achado: porTelefone[0]!, candidatos: [] } : { achado: null, candidatos: porTelefone }
+  }
+
+  /** Pelo nome que a IA leu (só se o texto não achou ninguém): um = achado; vários = escolher */
+  async function clientePeloNome(nome: string | null): Promise<{ achado: ClienteAchado | null; candidatos: ClienteAchado[] }> {
+    if (!nome || nome.length < 3) return { achado: null, candidatos: [] }
     const porNome = await prisma.cliente.findMany({
       where: { ativo: true, OR: [{ nome: { contains: nome, mode: 'insensitive' } }, { fantasia: { contains: nome, mode: 'insensitive' } }] },
-      select,
-      take: 2,
+      select: selecionarCliente,
+      take: 4,
     })
-    return porNome.length === 1 ? { id: porNome[0]!.id, rotulo: nomeCliente(porNome[0]!) } : null
+    return porNome.length === 1 ? { achado: porNome[0]!, candidatos: [] } : { achado: null, candidatos: porNome }
+  }
+
+  /** Memória do cliente para a tela ("Costuma pedir…"); sem histórico ou falhando, nada (nunca derruba o orçamento) */
+  async function memoria(clienteId: string): Promise<string[]> {
+    try {
+      const h = await historicoDoCliente(prisma, clienteId)
+      return h ? linhasDaMemoria(h) : []
+    } catch (erro) {
+      app.log.warn({ err: erro }, 'Memória do cliente indisponível')
+      return []
+    }
   }
 
   return {
-    /** "Montar com o Assistente": o pedido do cliente vira itens do catálogo com o preço do sistema */
+    /**
+     * "Montar com o Assistente": o pedido do cliente vira itens do catálogo com o preço do sistema. O cérebro da gráfica
+     * vai junto (empresa, regras em português, manual do dono e a memória do cliente achado pelo telefone ou documento).
+     * Cliente que não está no cadastro volta como "novo" (cadastrado com o orçamento); vários parecidos, para escolher.
+     */
     async orcamentoDeTexto(texto: string): Promise<OrcamentoDeTexto> {
       const { assinanteId, recurso } = await empresa.exigir('orcamentoTexto')
-      const [produtos, config, grafica] = await Promise.all([
+      const dados = dadosDoTexto(texto)
+      const pelaFrente = await clientePeloTexto(dados)
+      const [produtos, cerebro] = await Promise.all([
         prisma.produto.findMany({ where: { ativo: true, tipo: { in: ['produto', 'servico', 'revenda'] } }, select: selecionarProduto, orderBy: { nome: 'asc' } }),
-        prisma.empresaConfig.findFirst({ orderBy: { createdAt: 'asc' }, select: { areaMinimaM2: true, manualAtendente: true } }),
-        nomeDaGrafica(prisma),
+        montarCerebro(prisma, { empresa: true, regras: true, manual: true, clienteId: pelaFrente.achado?.id ?? null }),
       ])
       if (!produtos.length) throw AppError.regraNegocio('Cadastre seus produtos antes: o Assistente monta o orçamento com o catálogo da gráfica.')
       const catalogo = filtrarPorPalavras(produtos, texto, (p) => `${p.nome} ${p.categoria?.nome ?? ''}`, MAX_PRODUTOS_NO_PROMPT)
@@ -202,15 +244,23 @@ export function criarAjudasAssistente(app: FastifyInstance) {
         await app.assistente.executar({
           assinanteId,
           recurso,
-          pedido: pedidoOrcamentoDeTexto({ grafica, pedido: texto, catalogo: catalogo.map(paraIA), manual: config?.manualAtendente }),
+          pedido: pedidoOrcamentoDeTexto({ grafica: cerebro.grafica, pedido: texto, catalogo: catalogo.map(paraIA), manual: cerebro.manual, contexto: contextoDoCerebro(cerebro) || undefined }),
           contar: (d) => d.itens.filter((i) => i.produtoId).length,
         }),
       )
       const porId = new Map(catalogo.map((p) => [p.id, p]))
-      const area = config?.areaMinimaM2.toString() ?? null
+      const pelaIA = pelaFrente.achado || pelaFrente.candidatos.length ? { achado: null, candidatos: [] } : await clientePeloNome(leitura.clienteNome)
+      const achado = pelaFrente.achado ?? pelaIA.achado
+      const candidatos = [...pelaFrente.candidatos, ...pelaIA.candidatos]
       return {
-        itens: leitura.itens.map((i) => itemSugerido(i, i.produtoId ? porId.get(i.produtoId) : undefined, area)),
-        cliente: { mencionado: leitura.clienteNome, encontrado: await acharCliente(texto, leitura.clienteNome) },
+        itens: leitura.itens.map((i) => itemSugerido(i, i.produtoId ? porId.get(i.produtoId) : undefined, cerebro.areaMinimaM2)),
+        cliente: {
+          mencionado: leitura.clienteNome,
+          encontrado: achado ? { id: achado.id, rotulo: nomeCliente(achado) } : null,
+          memoria: achado ? (cerebro.cliente && pelaFrente.achado ? cerebro.cliente.linhas : await memoria(achado.id)) : [],
+          candidatos: achado ? [] : candidatos.map(opcao),
+          novo: achado || candidatos.length ? null : clienteNovo(dados, leitura.clienteNome),
+        },
         prazoDesejado: leitura.prazoDesejado,
         observacoes: leitura.observacoes,
         naoIdentificados: leitura.naoIdentificados,
@@ -221,7 +271,7 @@ export function criarAjudasAssistente(app: FastifyInstance) {
     /** "Preencher com o Assistente": a descrição da pessoa vira um cadastro sugerido (nada é salvo) */
     async produtoDeTexto(texto: string): Promise<ProdutoSugerido> {
       const { assinanteId, recurso } = await empresa.exigir('produtos')
-      const [categorias, unidades, insumos, acabamentos, processos, maquinas, grafica] = await Promise.all([
+      const [categorias, unidades, insumos, acabamentos, processos, maquinas, cerebro] = await Promise.all([
         prisma.categoria.findMany({ where: { ativo: true }, select: { id: true, nome: true, paiId: true }, orderBy: { nome: 'asc' } }),
         prisma.unidadeMedida.findMany({ where: { ativo: true }, select: { id: true, sigla: true, nome: true }, orderBy: { sigla: 'asc' } }),
         prisma.produto.findMany({
@@ -232,7 +282,7 @@ export function criarAjudasAssistente(app: FastifyInstance) {
         prisma.acabamento.findMany({ where: { ativo: true }, select: { id: true, nome: true, tipoCobranca: true }, orderBy: { nome: 'asc' } }),
         prisma.processo.findMany({ where: { ativo: true }, select: { id: true, nome: true, maquinaPadraoId: true }, orderBy: { nome: 'asc' } }),
         prisma.maquina.findMany({ where: { ativo: true }, select: { id: true, nome: true, tipo: true }, orderBy: { nome: 'asc' } }),
-        nomeDaGrafica(prisma),
+        montarCerebro(prisma, { empresa: true }),
       ])
       const nomesCategorias = new Map(categorias.map((c) => [c.id, c.nome]))
       const caminho = (c: { nome: string; paiId: string | null }) => (c.paiId && nomesCategorias.get(c.paiId) ? `${nomesCategorias.get(c.paiId)} › ${c.nome}` : c.nome)
@@ -245,7 +295,8 @@ export function criarAjudasAssistente(app: FastifyInstance) {
           assinanteId,
           recurso,
           pedido: pedidoProdutoDeTexto({
-            grafica,
+            grafica: cerebro.grafica,
+            contexto: contextoDoCerebro(cerebro) || undefined,
             descricao: texto,
             categorias: categorias.map((c) => ({ id: c.id, nome: caminho(c) })),
             unidades,
@@ -286,7 +337,7 @@ export function criarAjudasAssistente(app: FastifyInstance) {
     /** "Escrever com o Assistente": descrição do produto (orçamento) ou texto da vitrine, com os dados do cadastro */
     async descricao(dados: z.output<typeof descricaoAssistenteSchema>): Promise<DescricaoSugerida> {
       const { assinanteId, recurso } = await empresa.exigir('descricoes')
-      const grafica = await nomeDaGrafica(prisma)
+      const { grafica } = await montarCerebro(prisma)
       let produto: Parameters<typeof pedidoDescricao>[0]['produto']
       if (dados.produtoId) {
         const p = await prisma.produto.findFirst({
@@ -346,7 +397,7 @@ export function criarAjudasAssistente(app: FastifyInstance) {
      */
     async regrasDeTexto(texto: string): Promise<RegrasDeTexto> {
       const { assinanteId, recurso } = await empresa.exigir('regras')
-      const [clientes, grafica] = await Promise.all([prisma.cliente.findMany({ where: { ativo: true, tags: { isEmpty: false } }, select: { tags: true }, take: 2000 }), nomeDaGrafica(prisma)])
+      const [clientes, { grafica }] = await Promise.all([prisma.cliente.findMany({ where: { ativo: true, tags: { isEmpty: false } }, select: { tags: true }, take: 2000 }), montarCerebro(prisma)])
       // Sem repetir ("Revenda" = "revenda"): vale o primeiro jeito escrito
       const porChave = new Map<string, string>()
       for (const t of clientes.flatMap((c) => c.tags)) if (t.trim() && !porChave.has(normalizarEtiqueta(t))) porChave.set(normalizarEtiqueta(t), t.trim())

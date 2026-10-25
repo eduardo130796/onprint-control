@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, BookOpen } from 'lucide-react'
 import { formatarDataHora, nomeCliente } from '@onprint/shared'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -26,6 +26,7 @@ export function ClienteFichaPage() {
   const { id } = useParams()
   const novo = !id || id === 'novo'
   const navigate = useNavigate()
+  const [busca] = useSearchParams()
   const consulta = useCliente(novo ? undefined : id)
   const podeFinanceiro = usePermission('financeiro')
   const podeEditar = usePermission('clientes', 'editar')
@@ -43,7 +44,8 @@ export function ClienteFichaPage() {
     return (
       <>
         <PageHeader titulo="Novo cliente" subtitulo="Foto, endereços, contatos e anexos ficam disponíveis após salvar." acoes={voltar} />
-        <ClienteForm onSalvo={(c) => navigate(`/clientes/${c.id}`, { replace: true })} />
+        {/* "Peça ao Assistente": abre com o CPF/CNPJ (a Receita completa o resto) ou o nome */}
+        <ClienteForm key={busca.toString()} inicial={{ documento: busca.get('documento') ?? undefined, nome: busca.get('nome') ?? undefined }} onSalvo={(c) => navigate(`/clientes/${c.id}`, { replace: true })} />
       </>
     )
   }

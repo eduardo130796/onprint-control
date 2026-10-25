@@ -571,9 +571,32 @@ model Fornecedor {
   movimentacoesEstoque  EstoqueMovimentacao[] @relation("MovimentacaoFornecedor")
   contasPagar           ContaPagar[]          @relation("ContaPagarFornecedor")
   insumosPreferidos     Produto[]             @relation("InsumoFornecedorPreferido")
+  produtosDaNota        FornecedorProduto[]
 
   @@index([nome])
   @@map("fornecedores")
+}
+
+/// Memória das notas de compra: código do produto no fornecedor (cProd) → insumo confirmado na entrada
+model FornecedorProduto {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fornecedorId String   @map("fornecedor_id") @db.Uuid
+  codigo       String
+  produtoId    String   @map("produto_id") @db.Uuid
+  descricao    String?
+  unidade      String?
+  /// A quantidade da nota é de embalagens (rolos, caixas)
+  emEmbalagem  Boolean  @default(false) @map("em_embalagem")
+  usos         Int      @default(1)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  fornecedor Fornecedor @relation(fields: [fornecedorId], references: [id], onDelete: Cascade)
+  produto    Produto    @relation("ProdutoDaNota", fields: [produtoId], references: [id], onDelete: Cascade)
+
+  @@unique([fornecedorId, codigo])
+  @@index([produtoId])
+  @@map("fornecedor_produtos")
 }
 
 // ─── 8.3 Produtos ───────────────────────────────────────────────────────────
@@ -729,6 +752,7 @@ model Produto {
   vendaPdvItens        VendaPdvItem[]        @relation("VendaPdvItemProduto")
   imagens              ProdutoImagem[]
   solicitacaoItens     SolicitacaoItem[]
+  codigosFornecedor    FornecedorProduto[]   @relation("ProdutoDaNota")
 
   @@index([categoriaId])
   @@index([tipo])

@@ -3,7 +3,16 @@ import type { ProvedorIA as NomeProvedorIA } from '@onprint/shared'
 /** Tipos do provedor de IA (ver index.ts) */
 
 /** Tarefas conhecidas (o simulado responde cada uma com regras simples) */
-export type TarefaIA = 'classificar_resposta' | 'orcamento_texto' | 'produto_texto' | 'descricao' | 'regras_texto'
+export type TarefaIA = 'classificar_resposta' | 'orcamento_texto' | 'produto_texto' | 'descricao' | 'regras_texto' | 'intencao' | 'nota_compra'
+
+/** Arquivo lido junto do conteúdo (foto ou PDF do DANFE): vai antes do texto, como bloco de imagem ou documento */
+export interface AnexoIA {
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif' | 'application/pdf'
+  /** Conteúdo em base64 */
+  dados: string
+  /** Nome do arquivo (log e provedor simulado; não vai ao modelo) */
+  nome: string
+}
 
 /** Quanto o modelo raciocina antes de responder (output_config.effort da Anthropic) */
 export type EsforcoIA = 'low' | 'medium' | 'high'
@@ -22,6 +31,8 @@ export interface PedidoEstruturado<T> {
   maxTokens?: number
   /** Padrão "low" (classificar); tarefas de extração mais difíceis pedem "medium" */
   esforco?: EsforcoIA
+  /** Foto ou PDF lidos junto do conteúdo (tarefa nota_compra) */
+  anexos?: AnexoIA[]
 }
 
 export interface UsoTokens {

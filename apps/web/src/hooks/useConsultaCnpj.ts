@@ -20,18 +20,21 @@ interface OpcoesConsultaCnpj {
   aoEncontrar?: (dados: DadosCnpj) => void
   /** Depois de preencher: os dados e os rótulos do que entrou (para o aviso fixo no formulário) */
   aoPreencher?: (dados: DadosCnpj, preenchidos: string[]) => void
+  /** O formulário já abre com o CNPJ ("Peça ao Assistente"): busca uma vez ao abrir, mesmo com o nome preenchido */
+  buscarAoAbrir?: boolean
 }
 
 /**
  * Busca os dados públicos do CNPJ e preenche só os campos vazios. Automática uma vez quando o CNPJ
  * digitado fica completo e o nome ainda está vazio; senão pelo botão "Buscar dados".
  */
-export function useConsultaCnpj({ form, campoDocumento, campos, enderecoNoFormulario, aoReceberEndereco, aoEncontrar, aoPreencher }: OpcoesConsultaCnpj) {
+export function useConsultaCnpj({ form, campoDocumento, campos, enderecoNoFormulario, aoReceberEndereco, aoEncontrar, aoPreencher, buscarAoAbrir }: OpcoesConsultaCnpj) {
   const [buscando, setBuscando] = useState(false)
   const documento = somenteDigitos(String(useWatch({ control: form.control, name: campoDocumento }) ?? ''))
   const disponivel = documento.length === 14 && cnpjValido(documento)
   // O CNPJ que já veio carregado não dispara a busca automática
-  const ultimoAutomatico = useRef(documento)
+  const ultimoAutomatico = useRef(buscarAoAbrir ? '' : documento)
+  const forcar = useRef(Boolean(buscarAoAbrir))
   const opcoes = useRef({ form, campoDocumento, campos, enderecoNoFormulario, aoReceberEndereco, aoEncontrar, aoPreencher })
   useEffect(() => {
     opcoes.current = { form, campoDocumento, campos, enderecoNoFormulario, aoReceberEndereco, aoEncontrar, aoPreencher }
@@ -70,7 +73,8 @@ export function useConsultaCnpj({ form, campoDocumento, campos, enderecoNoFormul
     if (!disponivel || documento === ultimoAutomatico.current) return
     ultimoAutomatico.current = documento
     const nome = String(opcoes.current.form.getValues(opcoes.current.campos.razaoSocial) ?? '').trim()
-    if (!nome) void buscar()
+    if (!nome || forcar.current) void buscar()
+    forcar.current = false
   }, [documento, disponivel, buscar])
 
   return { buscar, buscando, disponivel }

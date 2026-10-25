@@ -228,7 +228,7 @@ describe('Assistente: chave da API (cofre e central)', () => {
     expect(decifrarChave(guardada, 'segredo-1')).toBe(chave)
     expect(decifrarChave(guardada, 'segredo-2')).toBeNull()
     const [v, iv, tag, c] = guardada.split(':')
-    expect(decifrarChave([v, iv, tag, `A${c!.slice(1)}`].join(':'), 'segredo-1')).toBeNull()
+    expect(decifrarChave([v, iv, tag, `${c![0] === 'A' ? 'B' : 'A'}${c!.slice(1)}`].join(':'), 'segredo-1')).toBeNull()
     expect(decifrarChave('texto-puro', 'segredo-1')).toBeNull()
     // Duas cifras da mesma chave são diferentes (IV aleatório) e a chave de cifra tem 32 bytes
     expect(cifrarChave(chave, 'segredo-1')).not.toBe(guardada)

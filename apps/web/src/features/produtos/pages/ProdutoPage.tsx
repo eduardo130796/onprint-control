@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeft, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
-import { TIPO_PRODUTO_ROTULOS, produtoSchema, type ProdutoDetalhe, type ProdutoInput, type ProdutoSugerido } from '@onprint/shared'
+import { TIPO_PRODUTO_ROTULOS, produtoSchema, type EstadoDoAssistente, type ProdutoDetalhe, type ProdutoInput, type ProdutoSugerido } from '@onprint/shared'
 import { produtosApi } from '@/api/produtos'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { EstadoErro } from '@/components/shared/EstadoErro'
@@ -63,8 +63,10 @@ function Formulario({ produto, sugestaoInicial }: { produto?: ProdutoDetalhe; su
   }, [form])
   // A sugestão veio pela navegação (produto recém-cadastrado): fica no estado da tela; recarregar não a traz de volta
   const location = useLocation()
+  // "Peça ao Assistente": o texto do produto chega pela navegação e é lido uma vez (recarregar não repete a IA)
+  const [textoAssistente] = useState(() => (produto ? undefined : (location.state as EstadoDoAssistente | null)?.produtoAssistente))
   useEffect(() => {
-    if (sugestaoInicial) navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+    if (sugestaoInicial || textoAssistente) navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
     // Só ao abrir
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -127,6 +129,7 @@ function Formulario({ produto, sugestaoInicial }: { produto?: ProdutoDetalhe; su
                 <PreencherComAssistente
                   form={form}
                   salvo={Boolean(produto)}
+                  textoInicial={textoAssistente}
                   onSugestao={(s, campos) => {
                     setSugestao(s)
                     setSugeridos(new Set(campos))

@@ -69,6 +69,22 @@ async function lancarContasPagar(
 }
 
 /**
+ * Memória das notas de compra (fornecedor_produtos): código do produto no fornecedor → insumo confirmado nesta entrada.
+ * Só os insumos que entraram de fato; o mesmo código com outro insumo passa a valer o novo (a pessoa corrigiu).
+ */
+export async function lembrarCodigos(tx: Prisma.TransactionClient, fornecedorId: string, memoria: NonNullable<Entrada['memoria']>, produtosDaEntrada: Set<string>) {
+  for (const m of memoria) {
+    if (!produtosDaEntrada.has(m.produtoId)) continue
+    const dados = { produtoId: m.produtoId, descricao: m.descricao ?? null, unidade: m.unidade ?? null, emEmbalagem: m.emEmbalagem }
+    await tx.fornecedorProduto.upsert({
+      where: { fornecedorId_codigo: { fornecedorId, codigo: m.codigo } },
+      create: { fornecedorId, codigo: m.codigo, ...dados },
+      update: { ...dados, usos: { increment: 1 } },
+    })
+  }
+}
+
+/**
  * Entradas de estoque (nota do fornecedor): cada item vira movimentação "entrada" e atualiza o custo médio.
  * Compra a prazo (`contaPagar`) gera as contas a pagar das parcelas na mesma transação.
  */
@@ -155,6 +171,8 @@ export function criarEntradasService(app: FastifyInstance) {
         }
         // Compra a prazo: as contas a pagar nascem na mesma transação da entrada
         const contasPagar = d.contaPagar && fornecedor ? await lancarContasPagar(tx, d.contaPagar, { numero: entrada.numero, notaFiscal: d.notaFiscal ?? null, fornecedor }, usuarioId) : []
+        // Nota lida pelo Assistente: lembra o código do produto neste fornecedor → insumo confirmado (próxima nota já vem certa)
+        if (fornecedor) await lembrarCodigos(tx, fornecedor.id, d.memoria ?? [], new Set(itens.map((i) => i.produtoId)))
         await registrarAuditoria(tx, { tabela: 'estoque_entradas', registroId: entrada.id, acao: 'criar', depois: { numero: entrada.numero, total, itens: itens.length, contasPagar }, usuarioId })
         return entrada.id
       })

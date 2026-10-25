@@ -13,6 +13,7 @@ import { numeroDoCliente, obterConfigWhatsapp, whatsappNoPlano } from './avisos'
 import { abrirVotoComIdentidades, ehLid, jidNormalizado, jidsUnicos, mascararJid, votoBrutoParaGuardar, votoDoBruto, type VotoAberto, type VotoCifrado } from './enquete'
 import { FUSO } from './regras'
 import { controlesDaEmpresa } from '../assistente/empresa.service'
+import { contextoDoCerebro, montarCerebro } from '../assistente/cerebro'
 import { pedidoClassificarResposta, primeiroNome } from '../assistente/prompts'
 import { VIA_LENDO, notificarEquipe, quemAvisar as quemAvisarNaEmpresa } from './leituras-presas'
 import {
@@ -450,15 +451,20 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
     void p.finally(() => emAndamento.delete(p))
   }
 
-  /** Contexto do orçamento para o Assistente: nome da gráfica, itens (com a categoria) e o primeiro nome do cliente */
+  /**
+   * Contexto do orçamento para o Assistente, pelo cérebro da gráfica: nome da gráfica, itens (com a categoria), o
+   * primeiro nome e a memória do cliente (o histórico ajuda a entender "pode fazer igual ao da outra vez")
+   */
   async function contextoDoOrcamento(empresa: EmpresaAtual, l: Linha, mensagem: string) {
-    const [config, itens] = await Promise.all([
-      prisma.empresaConfig.findFirst({ orderBy: { createdAt: 'asc' }, select: { nomeFantasia: true, razaoSocial: true } }),
+    const c = l.orcamento!.cliente
+    const [cerebro, itens] = await Promise.all([
+      // Sem a memória (falha ao montar) a leitura segue só com o orçamento
+      montarCerebro(prisma, { clienteId: c.id }).catch((erro) => (app.log.warn({ err: erro }, 'Cérebro da gráfica: memória do cliente indisponível'), null)),
       prisma.orcamentoItem.findMany({ where: { orcamentoId: l.orcamento!.id }, orderBy: { ordem: 'asc' }, take: 15, select: { descricao: true, quantidade: true, produto: { select: { categoria: { select: { nome: true } } } } } }),
     ])
-    const c = l.orcamento!.cliente
     return {
-      grafica: config?.nomeFantasia || config?.razaoSocial || empresa.nome,
+      grafica: cerebro?.grafica || empresa.nome,
+      contexto: cerebro ? contextoDoCerebro(cerebro) : undefined,
       orcamento: { numero: l.orcamento!.numero, itens: itens.map((i) => ({ descricao: i.descricao, quantidade: Number(i.quantidade).toLocaleString('pt-BR'), categoria: i.produto.categoria?.nome ?? null })) },
       cliente: c.tipoPessoa === 'PF' ? primeiroNome(c.nome) : null,
       mensagem,

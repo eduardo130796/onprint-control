@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Exemplo fictício para testes e demonstração (CNPJs inventados, com dígito válido). Fornecedor novo, 3 itens, frete e 2 duplicatas. -->
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+  <NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+    <infNFe Id="NFe35261044555666000181550010000048211000048217" versao="4.00">
+      <ide>
+        <cUF>35</cUF><natOp>VENDA DE MERCADORIA</natOp><mod>55</mod><serie>1</serie><nNF>4821</nNF>
+        <dhEmi>2026-10-20T10:15:00-03:00</dhEmi><tpNF>1</tpNF>
+      </ide>
+      <emit>
+        <CNPJ>44555666000181</CNPJ>
+        <xNome>DISTRIBUIDORA LONA FORTE LTDA</xNome>
+        <xFant>Lona Forte</xFant>
+        <enderEmit>
+          <xLgr>RUA DAS INDUSTRIAS</xLgr><nro>1200</nro><xCpl>GALPAO 3</xCpl><xBairro>DISTRITO INDUSTRIAL</xBairro>
+          <cMun>3509502</cMun><xMun>Campinas</xMun><UF>SP</UF><CEP>13050000</CEP><fone>1932320000</fone>
+        </enderEmit>
+        <IE>244555666111</IE><CRT>3</CRT>
+      </emit>
+      <dest><CNPJ>12398765000100</CNPJ><xNome>GRAFICA DEMONSTRACAO</xNome></dest>
+      <det nItem="1">
+        <prod>
+          <cProd>LF-440</cProd><cEAN>SEM GTIN</cEAN><xProd>LONA FRONT 440G BRANCA ROLO 3,20X50M</xProd><NCM>39219019</NCM><CFOP>5102</CFOP>
+          <uCom>RL</uCom><qCom>2.0000</qCom><vUnCom>1450.0000000000</vUnCom><vProd>2900.00</vProd>
+          <uTrib>RL</uTrib><qTrib>2.0000</qTrib><vUnTrib>1450.0000000000</vUnTrib><indTot>1</indTot>
+        </prod>
+        <imposto><ICMS><ICMS00><orig>0</orig><CST>00</CST></ICMS00></ICMS></imposto>
+      </det>
+      <det nItem="2">
+        <prod>
+          <cProd>IL-10</cProd><cEAN>SEM GTIN</cEAN><xProd>ILHOS LATAO N10 CX 1000 &amp; ARRUELAS</xProd><NCM>83089010</NCM><CFOP>5102</CFOP>
+          <uCom>CX</uCom><qCom>3.0000</qCom><vUnCom>38.5000000000</vUnCom><vProd>115.50</vProd><indTot>1</indTot>
+        </prod>
+      </det>
+      <det nItem="3">
+        <prod>
+          <cProd>TS-CY</cProd><cEAN>SEM GTIN</cEAN><xProd>TINTA ECO SOLVENTE CIANO 1L</xProd><NCM>32151900</NCM><CFOP>5102</CFOP>
+          <uCom>UN</uCom><qCom>2.0000</qCom><vUnCom>189.9000000000</vUnCom><vProd>379.80</vProd><indTot>1</indTot>
+        </prod>
+      </det>
+      <total>
+        <ICMSTot><vBC>3395.30</vBC><vICMS>611.15</vICMS><vProd>3395.30</vProd><vFrete>45.00</vFrete><vDesc>0.00</vDesc><vIPI>0.00</vIPI><vNF>3440.30</vNF></ICMSTot>
+      </total>
+      <cobr>
+        <fat><nFat>4821</nFat><vOrig>3440.30</vOrig><vLiq>3440.30</vLiq></fat>
+        <dup><nDup>001</nDup><dVenc>2026-11-19</dVenc><vDup>1720.15</vDup></dup>
+        <dup><nDup>002</nDup><dVenc>2026-12-19</dVenc><vDup>1720.15</vDup></dup>
+      </cobr>
+      <pag><detPag><tPag>15</tPag><vPag>3440.30</vPag></detPag></pag>
+    </infNFe>
+    <Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo><Reference URI="#NFe35261044555666000181550010000048211000048217"/></SignedInfo><SignatureValue>AAAA</SignatureValue></Signature>
+  </NFe>
+  <protNFe versao="4.00"><infProt><chNFe>35261044555666000181550010000048211000048217</chNFe><cStat>100</cStat></infProt></protNFe>
+</nfeProc>

@@ -1,9 +1,24 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Loader2, Plus, Save, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Brain, FileUp, Loader2, Plus, Save, Sparkles, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { TIPO_EMBALAGEM_ROTULOS, entradaEstoqueSchema, formatarMoeda, hojeISO, normalizarDecimal } from '@onprint/shared'
+import {
+  TIPO_EMBALAGEM_ROTULOS,
+  entradaEstoqueSchema,
+  formatarCpfCnpj,
+  formatarData,
+  formatarMoeda,
+  hojeISO,
+  normalizarDecimal,
+  type EstadoDoAssistente,
+  type FornecedorNotaCompra,
+  type NotaCompraLida,
+} from '@onprint/shared'
+import { assistenteApi } from '@/api/assistente'
+import { fornecedoresApi } from '@/api/cadastros'
+import { consultasApi } from '@/api/consultas'
+import { insumosApi } from '@/api/custos'
 import { estoqueApi } from '@/api/estoque'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
@@ -13,12 +28,16 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, Textarea } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
+import { useAssistente } from '@/features/assistente/useAssistente'
 import { formatarCusto } from '@/features/produtos/custos'
+import { useUnidades } from '@/features/produtos/hooks'
+import { usePermission } from '@/hooks/usePermission'
 import { decimalParaInput } from '@/lib/mascaras'
 import { cn } from '@/lib/utils'
 import { buscarFornecedoresEstoque, buscarProdutosEstoque } from '../buscas'
 import { PagamentoCompra } from '../components/PagamentoCompra'
 import { buscarEmbalagem, valoresDaLinha, type Embalagem } from '../embalagem'
+import { ehUnidadeDeEmbalagem, fecharParcelas, juntarIguais, nomeDoInsumo, parcelasDaNota, unidadeDoInsumoNovo, valoresDoItem, type ItemDaNota } from '../notaCompra'
 import { diferencaDasParcelas, pagamentoInicial, parcelasAtuais, parcelasParaApi, totalDaEntrada, type EstadoPagamento } from '../pagamento'
 import { useLocaisEstoque } from '../hooks'
 
@@ -33,6 +52,8 @@ interface Linha {
   porEmbalagem: boolean
   embalagens: string
   precoEmbalagem: string
+  /** Veio da nota lida pelo Assistente: o item como está na nota (e o código para lembrar o insumo) */
+  nota?: ItemDaNota
 }
 
 const PLURAL: Record<string, string> = { rolo: 'rolos', chapa: 'chapas', pacote: 'pacotes', caixa: 'caixas', galao: 'galões/frascos', unidade: 'unidades' }
@@ -40,11 +61,42 @@ const numero = (v: string) => Number(normalizarDecimal(v || '0')) || 0
 let proximaChave = 1
 const novaLinha = (): Linha => ({ chave: proximaChave++, produto: null, quantidade: '', custoUnitario: '', embalagem: null, porEmbalagem: false, embalagens: '', precoEmbalagem: '' })
 
-/** Nova entrada de estoque (/estoque/entradas/novo): dados da nota e itens com quantidade e custo. */
+/** Fornecedor novo da nota → cadastro (com o que faltar pela Receita, se o CNPJ responder) */
+async function cadastrarFornecedor(f: FornecedorNotaCompra): Promise<OpcaoBusca> {
+  const receita = f.cnpj?.length === 14 ? await consultasApi.cnpj(f.cnpj).catch(() => null) : null
+  const e = f.endereco
+  const salvo = await fornecedoresApi.criar({
+    tipoPessoa: f.cnpj?.length === 11 ? 'PF' : 'PJ',
+    nome: f.nome,
+    fantasia: f.fantasia ?? receita?.nomeFantasia ?? '',
+    cpfCnpj: f.cnpj ?? '',
+    ie: f.ie ?? '',
+    telefone: f.telefone && /^\d{10,11}$/.test(f.telefone) ? f.telefone : (receita?.telefone ?? ''),
+    email: receita?.email ?? '',
+    cep: e?.cep ?? receita?.endereco.cep ?? '',
+    logradouro: e?.logradouro ?? receita?.endereco.logradouro ?? '',
+    numero: e?.numero ?? receita?.endereco.numero ?? '',
+    complemento: e?.complemento ?? receita?.endereco.complemento ?? '',
+    bairro: e?.bairro ?? receita?.endereco.bairro ?? '',
+    cidade: e?.cidade ?? receita?.endereco.cidade ?? '',
+    uf: e?.uf ?? receita?.endereco.uf ?? '',
+  })
+  return { id: salvo.id, rotulo: salvo.nome }
+}
+
+/**
+ * Nova entrada de estoque (/estoque/entradas/novo): dados da nota e itens com quantidade e custo. Com a nota lida pelo
+ * Assistente (XML exato; foto/PDF com "confira") ela já abre preenchida: fornecedor (o novo é cadastrado ao registrar),
+ * itens com o insumo do cadastro, custos com o rateio da nota e as parcelas das duplicatas. Nada é salvo antes de
+ * "Registrar entrada"; ao registrar, o código de cada produto do fornecedor fica lembrado para a próxima nota.
+ */
 export function NovaEntradaPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const locais = useLocaisEstoque()
+  const unidades = useUnidades()
+  const assistente = useAssistente()
+  const podeCriarInsumo = usePermission('produtos', 'criar')
   const ativos = (locais.data ?? []).filter((l) => l.ativo)
   const [fornecedor, setFornecedor] = useState<OpcaoBusca | null>(null)
   const [localId, setLocalId] = useState('')
@@ -55,6 +107,14 @@ export function NovaEntradaPage() {
   const [erros, setErros] = useState<Record<string, string>>({})
   const [salvando, setSalvando] = useState(false)
   const [pagamento, setPagamento] = useState<EstadoPagamento>(pagamentoInicial)
+  // Nota lida pelo Assistente
+  const [nota, setNota] = useState<NotaCompraLida | null>(null)
+  const [fornecedorNovo, setFornecedorNovo] = useState<FornecedorNotaCompra | null>(null)
+  const [lendoNota, setLendoNota] = useState(false)
+  const [criandoInsumo, setCriandoInsumo] = useState<number | null>(null)
+  /** Parcelas vindas das duplicatas (fecham sozinhas com o total até a pessoa mexer nelas) */
+  const parcelasAutomaticas = useRef(false)
+  const arquivo = useRef<HTMLInputElement>(null)
   const local = localId || ativos.find((l) => l.padrao)?.id || ativos[0]?.id || ''
   const totalLinha = (l: Linha) => {
     const v = valoresDaLinha(l)
@@ -65,6 +125,7 @@ export function NovaEntradaPage() {
 
   const escolherFornecedor = (f: OpcaoBusca | null) => {
     setFornecedor(f)
+    if (f) setFornecedorNovo(null)
     // O aviso "escolha o fornecedor" some assim que ele é escolhido
     if (f)
       setErros((e) => {
@@ -77,11 +138,74 @@ export function NovaEntradaPage() {
 
   /** Ao escolher o item: se for insumo comprado em embalagem, já oferece o lançamento em embalagens. */
   async function escolherProduto(chave: number, produto: OpcaoBusca | null) {
+    const linha = linhas.find((l) => l.chave === chave)
     alterar(chave, { produto, embalagem: null, porEmbalagem: false })
     if (!produto) return
     const emb = (await buscarEmbalagem(produto.id))?.embalagem
+    // Linha da nota: os valores da nota na embalagem certa (a quantidade da nota é de rolos/caixas quando a unidade é de embalagem)
+    if (linha?.nota) {
+      const emEmbalagem = Boolean(emb) && ehUnidadeDeEmbalagem(linha.nota.unidade)
+      alterar(chave, { embalagem: emb ?? null, ...valoresDoItem({ quantidade: linha.nota.quantidade, custoUnitario: linha.nota.custoUnitario, emEmbalagem }, emb ?? null) })
+      return
+    }
     if (emb) alterar(chave, { embalagem: emb, porEmbalagem: true, precoEmbalagem: emb.precoEmbalagem ? decimalParaInput(emb.precoEmbalagem) : '' })
   }
+
+  /** Nota lida → tela preenchida (fornecedor, número, itens com embalagem, parcelas) */
+  async function carregarNota(n: NotaCompraLida) {
+    setNota(n)
+    setFornecedor(n.fornecedor.existente ? { id: n.fornecedor.existente.id, rotulo: n.fornecedor.existente.nome } : null)
+    setFornecedorNovo(n.fornecedor.existente ? null : n.fornecedor)
+    setNotaFiscal(n.numero ?? '')
+    setObservacoes(n.chave ? `NF-e ${n.chave}` : n.origem === 'xml' ? '' : 'Nota lida pelo Assistente a partir da imagem.')
+    // A embalagem de cada insumo (rolo de 3,20 × 50 m…) decide se a quantidade da nota é de embalagens
+    const embalagens = await Promise.all(n.itens.map((i) => (i.insumo ? buscarEmbalagem(i.insumo.id).then((r) => r?.embalagem ?? null) : Promise.resolve(null))))
+    setLinhas(
+      n.itens.map((i, k) => ({
+        ...novaLinha(),
+        produto: i.insumo ? { id: i.insumo.id, rotulo: i.insumo.nome, detalhe: i.insumo.codigo } : null,
+        embalagem: embalagens[k] ?? null,
+        ...valoresDoItem(i, embalagens[k] ?? null),
+        nota: { codigo: i.codigo, descricao: i.descricao, unidade: i.unidade, quantidade: i.quantidade, valorUnitario: i.valorUnitario, custoUnitario: i.custoUnitario, comoAchou: i.comoAchou, conferir: i.conferir },
+      })),
+    )
+    const parcelas = parcelasDaNota(n)
+    parcelasAutomaticas.current = parcelas.length > 0
+    setPagamento({ ...pagamentoInicial, aPrazo: parcelas.length > 0, vezes: Math.max(1, Math.min(12, parcelas.length)), editadas: parcelas.length ? parcelas : null })
+  }
+
+  /** "Ler a nota" na própria tela: XML (exato, sem IA) ou foto/PDF (Assistente) */
+  async function lerNota(f: File | undefined) {
+    if (!f) return
+    setLendoNota(true)
+    try {
+      await carregarNota(await assistenteApi.nota(f))
+      toast.success('Nota lida. Confira e registre a entrada.')
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setLendoNota(false)
+      if (arquivo.current) arquivo.current.value = ''
+    }
+  }
+
+  // Vindo do "Peça ao Assistente": a nota já lida chega pela navegação (uma vez; recarregar não repete)
+  const location = useLocation()
+  const [notaInicial] = useState(() => (location.state as EstadoDoAssistente | null)?.notaAssistente ?? null)
+  useEffect(() => {
+    if (!notaInicial) return
+    void carregarNota(notaInicial)
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+    // Só ao abrir
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Parcelas das duplicatas: os centavos do arredondamento (custo em 4 casas, embalagens) vão na última
+  useEffect(() => {
+    if (!parcelasAutomaticas.current || !pagamento.editadas) return
+    const fechadas = fecharParcelas(pagamento.editadas, total)
+    if (fechadas !== pagamento.editadas) setPagamento((p) => ({ ...p, editadas: fechadas }))
+  }, [total, pagamento.editadas])
 
   // Atalho da tela do insumo: /estoque/entradas/novo?produto=<id>
   const [params] = useSearchParams()
@@ -109,20 +233,48 @@ export function NovaEntradaPage() {
     }
   }, [produtoInicial])
 
+  /** Item da nota sem insumo: cadastra o insumo na hora (nome da nota, unidade, fornecedor) e já usa na linha */
+  async function cadastrarInsumo(l: Linha) {
+    if (!l.nota) return
+    setCriandoInsumo(l.chave)
+    try {
+      const unidadeMedidaId = unidadeDoInsumoNovo(l.nota.unidade, unidades.data ?? [])
+      if (!unidadeMedidaId) throw new Error('Cadastre a unidade "un" em Produtos → Unidades antes.')
+      const novo = await insumosApi.criar({ nome: nomeDoInsumo(l.nota.descricao), unidadeMedidaId, embalagem: 'unidade', controlaEstoque: true, estoqueMinimo: '0', ativo: true, fornecedorPreferidoId: fornecedor?.id ?? null })
+      alterar(l.chave, { produto: { id: novo.id, rotulo: novo.nome, detalhe: novo.codigo } })
+      void queryClient.invalidateQueries({ queryKey: ['insumos'] })
+      toast.success(`Insumo “${novo.nome}” cadastrado.`)
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setCriandoInsumo(null)
+    }
+  }
+
   async function salvar(e: React.FormEvent) {
     e.preventDefault()
-    const corpo = {
-      fornecedorId: fornecedor?.id ?? '',
-      localId: local,
-      notaFiscal,
-      dataEntrada,
-      observacoes,
-      // Em embalagens: converte para a unidade de uso (a API recebe sempre a unidade de uso)
-      itens: linhas
+    // Fornecedor novo da nota: a entrada é conferida antes (sem cadastro solto se algo estiver errado)
+    const novo = !fornecedor && fornecedorNovo ? fornecedorNovo : null
+    const montar = (fornecedorId: string) => {
+      const itens = linhas
         .map((l) => ({ l, v: valoresDaLinha(l) }))
         .filter(({ l, v }) => l.produto || v.quantidade || v.custoUnitario)
-        .map(({ l, v }) => ({ produtoId: l.produto?.id, quantidade: v.quantidade, custoUnitario: v.custoUnitario })),
+        .map(({ l, v }) => ({ produtoId: l.produto?.id, quantidade: v.quantidade, custoUnitario: v.custoUnitario }))
+      return {
+        fornecedorId,
+        localId: local,
+        notaFiscal,
+        dataEntrada,
+        observacoes,
+        // Em embalagens: converte para a unidade de uso (a API recebe sempre a unidade de uso); o mesmo insumo em duas linhas da nota vira uma
+        itens: juntarIguais(itens),
+        // O código de cada produto do fornecedor → insumo confirmado (a próxima nota já vem certa)
+        memoria: linhas.flatMap((l) =>
+          l.nota?.codigo && l.produto ? [{ codigo: l.nota.codigo, produtoId: l.produto.id, descricao: l.nota.descricao.slice(0, 200), unidade: l.nota.unidade?.slice(0, 10) ?? undefined, emEmbalagem: l.porEmbalagem }] : [],
+        ),
+      }
     }
+    const corpo = montar(fornecedor?.id ?? (novo ? '00000000-0000-4000-8000-000000000000' : ''))
     const parcelas = parcelasAtuais(pagamento, total, dataEntrada)
     const contaPagar = pagamento.aPrazo
       ? { parcelas: parcelasParaApi(parcelas), formaPagamentoId: pagamento.formaPagamentoId || null, categoriaId: pagamento.categoriaId || null }
@@ -130,7 +282,7 @@ export function NovaEntradaPage() {
     const r = entradaEstoqueSchema.safeParse({ ...corpo, contaPagar })
     const novosErros: Record<string, string> = r.success ? {} : Object.fromEntries(r.error.issues.map((i) => [i.path.join('.'), i.message]))
     if (pagamento.aPrazo) {
-      if (!fornecedor) novosErros.fornecedorId = 'Na compra a prazo, escolha o fornecedor.'
+      if (!fornecedor && !novo) novosErros.fornecedorId = 'Na compra a prazo, escolha o fornecedor.'
       if (Number(diferencaDasParcelas(total, parcelas)) !== 0) novosErros.contaPagar = 'A soma das parcelas precisa ser igual ao total da entrada.'
       else if (parcelas.some((p) => !(Number(parcelasParaApi([p])[0]!.valor) > 0) || !p.vencimento)) novosErros.contaPagar = 'Cada parcela precisa de vencimento e valor.'
     }
@@ -143,14 +295,21 @@ export function NovaEntradaPage() {
     setErros({})
     setSalvando(true)
     try {
-      const entrada = await estoqueApi.registrarEntrada(r.data)
+      let dados = r.data
+      if (novo) {
+        const f = await cadastrarFornecedor(novo)
+        setFornecedor(f)
+        setFornecedorNovo(null)
+        dados = { ...dados, fornecedorId: f.id }
+      }
+      const entrada = await estoqueApi.registrarEntrada(dados)
       toast.success(
         contaPagar
           ? `Entrada ${entrada.numero} registrada. ${contaPagar.parcelas.length === 1 ? 'Conta a pagar criada' : `${contaPagar.parcelas.length} contas a pagar criadas`} no Financeiro.`
           : `Entrada ${entrada.numero} registrada. Estoque atualizado.`,
       )
       // O custo dos insumos muda com a compra (e o dos produtos que os usam); a prazo, as contas a pagar
-      await Promise.all(['estoque', 'insumos', 'produtos', ...(contaPagar ? ['financeiro'] : [])].map((c) => queryClient.invalidateQueries({ queryKey: [c] })))
+      await Promise.all(['estoque', 'insumos', 'produtos', 'fornecedores', ...(contaPagar ? ['financeiro'] : [])].map((c) => queryClient.invalidateQueries({ queryKey: [c] })))
       navigate('/estoque/entradas')
     } catch (erro) {
       toast.error((erro as Error).message)
@@ -159,6 +318,7 @@ export function NovaEntradaPage() {
     }
   }
 
+  const ia = nota?.origem !== 'xml'
   return (
     <form onSubmit={(e) => void salvar(e)} noValidate>
       <PageHeader
@@ -171,17 +331,67 @@ export function NovaEntradaPage() {
                 <ArrowLeft /> Entradas
               </Link>
             </Button>
+            {/* XML lido sem IA (exato); foto/PDF só com o Assistente ligado */}
+            <Button type="button" variant="outline" disabled={lendoNota} onClick={() => arquivo.current?.click()} title="O XML preenche tudo exato; a foto ou o PDF são lidos pelo Assistente">
+              {lendoNota ? <Loader2 className="animate-spin" /> : <FileUp />} Ler a nota (XML)
+            </Button>
+            <input
+              ref={arquivo}
+              type="file"
+              className="hidden"
+              accept={assistente.data?.disponivel && assistente.data.controles.ativo ? '.xml,text/xml,application/xml,image/jpeg,image/png,image/webp,application/pdf' : '.xml,text/xml,application/xml'}
+              onChange={(e) => void lerNota(e.target.files?.[0])}
+            />
             <Button type="submit" disabled={salvando}>
               {salvando ? <Loader2 className="animate-spin" /> : <Save />} Registrar entrada
             </Button>
           </>
         }
       />
+
+      {nota && (
+        <Card className="mb-4 border border-marca/40">
+          <CardContent className="space-y-2 pt-5 text-sm">
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <Sparkles className="h-4 w-4 text-marca-escuro" aria-hidden="true" />
+              <strong>
+                Nota {nota.numero ?? 's/ nº'}
+                {nota.serie ? `/${nota.serie}` : ''}
+              </strong>
+              {nota.emissao && <span className="text-texto-secundario">emitida em {formatarData(nota.emissao)}</span>}
+              <span className="text-texto-secundario">· {formatarMoeda(nota.totalNota)}</span>
+              <span className={cn('rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold', ia ? 'bg-ambar/15 text-amber-800' : 'bg-verde/10 text-green-800')}>
+                {ia ? 'lida pelo Assistente: confira tudo' : 'lida do XML (exata)'}
+              </span>
+            </p>
+            {fornecedorNovo && !fornecedor && (
+              <p className="rounded-lg bg-marca-suave/60 px-3 py-2">
+                <strong>Fornecedor novo:</strong> {fornecedorNovo.nome}
+                {fornecedorNovo.cnpj ? ` · ${formatarCpfCnpj(fornecedorNovo.cnpj)}` : ''} — será cadastrado com os dados da nota quando você registrar a entrada.
+              </p>
+            )}
+            {nota.avisos.map((a) => (
+              <p key={a} className="flex items-start gap-1.5 text-amber-800">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {a}
+              </p>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="mb-4">
         <CardContent className="grid gap-4 pt-6 md:grid-cols-4">
           <div className="md:col-span-2">
             <CampoFormulario id="en-forn" rotulo={pagamento.aPrazo ? 'Fornecedor *' : 'Fornecedor'} erro={erros.fornecedorId}>
-              <SearchSelect id="en-forn" chave="estoque-fornecedores" buscar={buscarFornecedoresEstoque} valor={fornecedor} onChange={escolherFornecedor} placeholder="Buscar fornecedor…" invalido={Boolean(erros.fornecedorId)} />
+              <SearchSelect
+                id="en-forn"
+                chave="estoque-fornecedores"
+                buscar={buscarFornecedoresEstoque}
+                valor={fornecedor}
+                onChange={escolherFornecedor}
+                placeholder={fornecedorNovo ? `Novo: ${fornecedorNovo.nome}` : 'Buscar fornecedor…'}
+                invalido={Boolean(erros.fornecedorId)}
+              />
             </CampoFormulario>
           </div>
           <CampoFormulario id="en-nf" rotulo="Nota fiscal">
@@ -221,7 +431,23 @@ export function NovaEntradaPage() {
             const v = valoresDaLinha(l)
             const nomeEmb = emb ? TIPO_EMBALAGEM_ROTULOS[emb.tipo].toLowerCase() : ''
             return (
-              <div key={l.chave} className="space-y-3 rounded-xl border border-border p-3">
+              <div key={l.chave} className={cn('space-y-3 rounded-xl border p-3', l.nota?.conferir ? 'border-ambar/60' : 'border-border')}>
+                {l.nota && (
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-texto-secundario">
+                    <span className="[overflow-wrap:anywhere]">
+                      Na nota{l.nota.codigo ? ` (cód. ${l.nota.codigo})` : ''}: <strong className="text-tinta">{l.nota.descricao}</strong> · {decimalParaInput(l.nota.quantidade, 0)} {l.nota.unidade ?? ''} × {formatarMoeda(l.nota.valorUnitario)}
+                    </span>
+                    {l.nota.comoAchou === 'memoria' && l.produto ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-verde/10 px-2 py-0.5 font-semibold text-green-800">
+                        <Brain className="h-3 w-3" /> lembrado das notas anteriores
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-ambar/15 px-2 py-0.5 font-semibold text-amber-800">
+                        <AlertTriangle className="h-3 w-3" /> {l.produto ? 'confira o insumo' : 'escolha ou cadastre o insumo'}
+                      </span>
+                    )}
+                  </div>
+                )}
                 <div className="grid items-start gap-2 md:grid-cols-[1fr_8.75rem_10rem_7.5rem_2.5rem]">
                   <CampoFormulario id={`it-${l.chave}-produto`} rotulo="Produto" erro={erros[`itens.${i}.produtoId`] ? 'Escolha o produto.' : undefined}>
                     <SearchSelect id={`it-${l.chave}-produto`} chave="estoque-produtos-busca" buscar={buscarProdutosEstoque} valor={l.produto} onChange={(p) => void escolherProduto(l.chave, p)} placeholder="Insumo ou produto…" invalido={Boolean(erros[`itens.${i}.produtoId`])} />
@@ -261,6 +487,11 @@ export function NovaEntradaPage() {
                     <Trash2 />
                   </Button>
                 </div>
+                {l.nota && !l.produto && podeCriarInsumo && (
+                  <Button type="button" size="sm" variant="outline" disabled={criandoInsumo === l.chave} onClick={() => void cadastrarInsumo(l)}>
+                    {criandoInsumo === l.chave ? <Loader2 className="animate-spin" /> : <Plus />} Cadastrar “{nomeDoInsumo(l.nota.descricao)}” como insumo
+                  </Button>
+                )}
                 {emb && (
                   <div className="flex flex-wrap items-center gap-2 text-xs">
                     <div role="radiogroup" aria-label="Lançar em" className="flex rounded-lg bg-fundo p-0.5">
@@ -309,10 +540,14 @@ export function NovaEntradaPage() {
 
       <PagamentoCompra
         estado={pagamento}
-        onChange={(p) => setPagamento((atual) => ({ ...atual, ...p }))}
+        onChange={(p) => {
+          // Mexeu nas parcelas: deixam de fechar sozinhas
+          if (p.editadas !== undefined || p.vezes !== undefined) parcelasAutomaticas.current = false
+          setPagamento((atual) => ({ ...atual, ...p }))
+        }}
         total={total}
         dataCompra={dataEntrada}
-        temFornecedor={Boolean(fornecedor)}
+        temFornecedor={Boolean(fornecedor || fornecedorNovo)}
         erro={erros.fornecedorId ?? erros.contaPagar}
       />
     </form>

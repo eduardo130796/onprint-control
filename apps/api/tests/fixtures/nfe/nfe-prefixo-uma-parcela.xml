@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Exemplo fictício: só a NFe (sem nfeProc), com prefixo de namespace, layout antigo (dEmi) e uma duplicata. -->
+<nfe:NFe xmlns:nfe="http://www.portalfiscal.inf.br/nfe">
+  <nfe:infNFe Id="NFe31261011222333000181550010000000771000000771" versao="3.10">
+    <nfe:ide><nfe:serie>1</nfe:serie><nfe:nNF>77</nfe:nNF><nfe:dEmi>2026-10-05</nfe:dEmi></nfe:ide>
+    <nfe:emit><nfe:CNPJ>11222333000181</nfe:CNPJ><nfe:xNome>Tintas Minas Ltda</nfe:xNome></nfe:emit>
+    <nfe:det nItem="1">
+      <nfe:prod><nfe:cProd>9001</nfe:cProd><nfe:xProd>Tinta sublimática magenta 500 ml</nfe:xProd><nfe:uCom>FR</nfe:uCom><nfe:qCom>4</nfe:qCom><nfe:vUnCom>62.375</nfe:vUnCom><nfe:vProd>249.50</nfe:vProd></nfe:prod>
+    </nfe:det>
+    <nfe:total><nfe:ICMSTot><nfe:vProd>249.50</nfe:vProd><nfe:vIPI>12.48</nfe:vIPI><nfe:vNF>261.98</nfe:vNF></nfe:ICMSTot></nfe:total>
+    <nfe:cobr><nfe:dup><nfe:nDup>1</nfe:nDup><nfe:dVenc>2026-11-04</nfe:dVenc><nfe:vDup>261.98</nfe:vDup></nfe:dup></nfe:cobr>
+  </nfe:infNFe>
+</nfe:NFe>

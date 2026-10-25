@@ -32,7 +32,7 @@ export class AnthropicProvider implements ProvedorIA {
         model: this.modelo,
         max_tokens: pedido.maxTokens ?? 1024,
         system: pedido.sistema,
-        messages: [{ role: 'user', content: pedido.conteudo }],
+        messages: [{ role: 'user', content: conteudoDaMensagem(pedido) }],
         output_config: {
           format: { type: 'json_schema', schema: pedido.esquema },
           ...(SEM_ESFORCO.test(this.modelo) ? {} : { effort: pedido.esforco ?? 'low' }),
@@ -51,6 +51,20 @@ export class AnthropicProvider implements ProvedorIA {
       throw new ErroIA('resposta_invalida', 'A resposta do modelo não veio no formato esperado.', uso)
     }
   }
+}
+
+/**
+ * Conteúdo da mensagem: só o texto, ou (nota de compra por foto/PDF) os arquivos antes do texto — imagem em bloco
+ * "image" e PDF em bloco "document", ambos em base64 (a API lê o PDF página por página, texto e imagem).
+ */
+export function conteudoDaMensagem(pedido: Pick<PedidoEstruturado<unknown>, 'conteudo' | 'anexos'>): string | Anthropic.ContentBlockParam[] {
+  if (!pedido.anexos?.length) return pedido.conteudo
+  const arquivos = pedido.anexos.map((a): Anthropic.ContentBlockParam =>
+    a.mediaType === 'application/pdf'
+      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: a.dados } }
+      : { type: 'image', source: { type: 'base64', media_type: a.mediaType, data: a.dados } },
+  )
+  return [...arquivos, { type: 'text', text: pedido.conteudo }]
 }
 
 /** Erros tipados do SDK → ErroIA (do mais específico ao mais geral; nunca pela mensagem) */

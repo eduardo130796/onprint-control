@@ -82,6 +82,11 @@ export function ItemOrcamento({ indice, total, item, calculo, analise, analiseDe
       </div>
 
       {item.sugerido && <SeloSugerido className="mb-3 sm:hidden" />}
+      {item.conferir && (
+        <p className="mb-3 flex items-start gap-1.5 rounded-lg bg-ambar/15 px-2.5 py-1.5 text-xs font-medium text-amber-900 dark:text-amber-200">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Confira: {item.conferir}
+        </p>
+      )}
       {produto && (
         <fieldset disabled={!editavel} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">

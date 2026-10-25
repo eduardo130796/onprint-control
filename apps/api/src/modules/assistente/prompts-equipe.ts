@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { BASES_INSUMO, MODOS_CALCULO, MODO_CALCULO_ROTULOS, type BaseInsumo, type ModoCalculo } from '@onprint/shared'
 import type { PedidoEstruturado } from '../../integrations/ia'
-import { AJUSTES_TAREFAS, instrucoesDoDono, persona, semDadosPessoais } from './prompts'
+import { AJUSTES_TAREFAS, USO_DO_CEREBRO, instrucoesDoDono, persona, semDadosPessoais } from './prompts'
 
 /*
  * Prompts das ajudas internas da equipe (montar orçamento a partir do texto, preencher produto, escrever descrição).
@@ -62,6 +62,8 @@ export interface ContextoOrcamentoTexto {
   pedido: string
   /** Produtos que vão no prompt (já filtrados, se o catálogo é grande) */
   catalogo: ProdutoParaIA[]
+  /** Cérebro da gráfica (empresa, regras em português, memória do cliente): blocos de contextoDoCerebro */
+  contexto?: string
   /** Manual do atendente (orientações do dono; nunca mudam preço) */
   manual?: string | null
 }
@@ -199,6 +201,8 @@ export function pedidoOrcamentoDeTexto(c: ContextoOrcamentoTexto): PedidoEstrutu
     `Gráfica: ${c.grafica}`,
     'Catálogo (referência | produto | categoria | como cobra | medidas | acabamentos):',
     ...c.catalogo.map((p) => linhaDoCatalogo(produtos.refDoId.get(p.id)!, p, (id) => acabamentos.refDoId.get(id)!)),
+    // Cérebro da gráfica: empresa, regras (o sistema aplica) e a memória do cliente achado pelo telefone
+    ...(c.contexto ? ['', c.contexto] : []),
     '',
     `<pedido_do_cliente>\n${semDadosPessoais(c.pedido).slice(0, 3000)}\n</pedido_do_cliente>`,
   ].join('\n')
@@ -254,7 +258,7 @@ export function pedidoOrcamentoDeTexto(c: ContextoOrcamentoTexto): PedidoEstrutu
   return {
     tarefa: 'orcamento_texto',
     // O manual do atendente vem por último: orientações do dono, abaixo das regras do sistema
-    sistema: [persona(c.grafica), SISTEMA_ORCAMENTO, instrucoesDoDono(c.manual)].filter(Boolean).join('\n\n'),
+    sistema: [persona(c.grafica), SISTEMA_ORCAMENTO, c.contexto ? USO_DO_CEREBRO : '', instrucoesDoDono(c.manual)].filter(Boolean).join('\n\n'),
     conteudo,
     esquema: ESQUEMA_ORCAMENTO_TEXTO as unknown as Record<string, unknown>,
     validar,
@@ -275,6 +279,8 @@ export interface ContextoProdutoTexto {
   acabamentos: { id: string; nome: string; cobranca: string }[]
   processos: { id: string; nome: string; maquinaPadraoId: string | null }[]
   maquinas: { id: string; nome: string; tipo: string | null }[]
+  /** Cérebro da gráfica (só os dados da empresa): contextoDoCerebro */
+  contexto?: string
 }
 
 export interface LeituraProduto {
@@ -406,6 +412,7 @@ export function pedidoProdutoDeTexto(c: ContextoProdutoTexto): PedidoEstruturado
     ...lista('Acabamentos', acabamentos, c.acabamentos, (x) => `${x.nome} | ${x.cobranca}`),
     ...lista('Etapas de produção', processos, c.processos, (x) => `${x.nome}${x.maquinaPadraoId && maquinas.refDoId.get(x.maquinaPadraoId) ? ` | máquina padrão ${maquinas.refDoId.get(x.maquinaPadraoId)}` : ''}`),
     ...lista('Máquinas', maquinas, c.maquinas, (x) => `${x.nome}${x.tipo ? ` | ${x.tipo}` : ''}`),
+    ...(c.contexto ? ['', c.contexto] : []),
     '',
     `<descricao_da_equipe>\n${semDadosPessoais(c.descricao).slice(0, 2000)}\n</descricao_da_equipe>`,
   ].join('\n')

@@ -108,9 +108,27 @@ function appFalso(o: Falso = {}) {
     if (where.tags) return [{ tags: ['Revenda', 'VIP'] }, { tags: ['revenda'] }]
     const telefones = where.OR.flatMap((c) => c.whatsapp?.in ?? [])
     if (telefones.includes('11988887777')) return [{ id: id(900), nome: 'Carlos Mendes', fantasia: null, tipoPessoa: 'PF' }]
+    // Dois "Silva" no cadastro: o Assistente pergunta qual (não chuta)
+    const nome = where.OR.find((c) => c.nome)?.nome?.contains
+    if (nome === 'Silva') return [{ id: id(901), nome: 'Ana Silva', fantasia: null, enderecos: [{ bairro: 'Centro', cidade: 'Campinas' }] }, { id: id(902), nome: 'João Silva', fantasia: null, enderecos: [] }]
     return []
-  }) }
+  }),
+  // Pelo documento ninguém; pelo id, o Carlos (memória do cliente)
+  findFirst: vi.fn(async ({ where }: { where: { id?: string; cpfCnpj?: string } }) =>
+    where.id === id(900) ? { nome: 'Carlos Mendes', fantasia: null, tipoPessoa: 'PF', tags: ['VIP'], observacoes: 'Prefere retirar. Ligar no 11 98888-7777', createdAt: new Date('2025-03-01T12:00:00Z') } : null,
+  ) }
+  const pedidosDoCarlos = [
+    { numero: 'PED-2026-0010', createdAt: new Date('2026-09-10T12:00:00Z'), itens: [{ descricao: 'Banner', quantidade: D(2), produto: { nome: 'Banner em lona 440 g' }, acabamentos: [{ nome: 'Ilhós a cada 50 cm' }] }] },
+    { numero: 'PED-2026-0004', createdAt: new Date('2026-06-02T12:00:00Z'), itens: [{ descricao: 'Banner', quantidade: D(1), produto: { nome: 'Banner em lona 440 g' }, acabamentos: [{ nome: 'Ilhós a cada 50 cm' }] }] },
+  ]
   const prisma = {
+    pedido: { findMany: async () => pedidosDoCarlos, count: async () => pedidosDoCarlos.length },
+    contaReceber: {
+      findMany: async ({ where }: { where: { status: unknown } }) =>
+        where.status === 'pago' ? [{ formaPagamento: { nome: 'Pix' } }, { formaPagamento: { nome: 'Pix' } }] : [{ valor: D(300), valorPago: D(100), vencimento: new Date('2026-10-01T00:00:00Z') }],
+    },
+    vitrineConfig: { findFirst: async () => ({ horario: 'Seg a sex, 8h às 18h' }) },
+    regraComercial: { findMany: async () => [] },
     produto: {
       findMany: async ({ where }: { where: { tipo: unknown } }) =>
         where.tipo === 'insumo'
@@ -177,8 +195,14 @@ describe('Assistente: orçamento a partir de texto', () => {
     // ≥ 1000 unidades ficam como número inteiro (nada de "1.000" virar 1)
     expect(cartao).toMatchObject({ produto: { id: CARTAO.id, modoCalculo: 'milheiro' }, quantidade: '1000', observacao: 'Frente e verso' })
     expect(r.prazoDesejado).toBe('sexta')
-    expect(r.cliente).toEqual({ mencionado: 'Carlos Mendes', encontrado: { id: id(900), rotulo: 'Carlos Mendes' } })
+    expect(r.cliente).toMatchObject({ mencionado: 'Carlos Mendes', encontrado: { id: id(900), rotulo: 'Carlos Mendes' }, candidatos: [], novo: null })
+    // O CPF do texto não vira telefone: procura pelo documento e pelo celular
+    expect(cliente.findFirst.mock.calls[0]![0].where).toMatchObject({ cpfCnpj: '12345678909' })
     expect(cliente.findMany.mock.calls[0]![0].where.OR[0]).toEqual({ whatsapp: { in: ['11988887777', '5511988887777'] } })
+    // Memória do cliente (cérebro da gráfica), tirada do histórico: costume, como paga, quanto deve
+    expect(r.cliente.memoria).toEqual(
+      expect.arrayContaining(['Costuma pedir: Banner em lona 440 g.', 'Acabamentos de costume: Ilhós a cada 50 cm.', 'Costuma pagar com: Pix.', 'Em aberto: R$ 200,00 (R$ 200,00 vencidos).']),
+    )
     // Uso registrado com os itens montados
     expect(usos).toMatchObject([{ recurso: 'orcamento_texto', situacao: 'ok', itens: 2, assinanteId: EMPRESA.id }])
   })
@@ -269,6 +293,22 @@ describe('Assistente: orçamento a partir de texto', () => {
     expect(tudo).not.toMatch(/98888|7777|123\.456|789-09|carlos@/)
     expect(tudo).toContain('[número omitido]')
     expect(telefonesDoTexto(PEDIDO)).toEqual(['11988887777'])
+    // O cérebro vai junto: dados da gráfica e a memória do cliente (as observações com telefone saem mascaradas)
+    expect(tudo).toContain('<sobre_a_grafica>')
+    expect(tudo).toContain('Horário: Seg a sex, 8h às 18h')
+    expect(tudo).toContain('<memoria_do_cliente nome="Carlos">')
+    expect(tudo).toContain('Observações da equipe: Prefere retirar. Ligar no [número omitido]')
+  })
+
+  it('cliente que não está no cadastro vira "novo" (com o que o texto trouxe, lido no servidor); vários parecidos: escolher', async () => {
+    const { ajudas, enviados } = appFalso()
+    const r = await naEmpresa(() => ajudas.orcamentoDeTexto('Cliente Padaria Pão Quente, zap (11) 97777-6666, padaria@exemplo.com: 2 banners 3x1'))
+    expect(r.cliente.encontrado).toBeNull()
+    expect(r.cliente.novo).toEqual({ nome: 'Padaria Pão Quente', tipoPessoa: 'PJ', documento: null, whatsapp: '11977776666', telefone: null, email: 'padaria@exemplo.com' })
+    expect(`${enviados[0]!.sistema}${enviados[0]!.conteudo}`).not.toMatch(/97777|padaria@/)
+    // Dois "Silva": o sistema não chuta nem cria outro
+    const silva = await naEmpresa(() => appFalso().ajudas.orcamentoDeTexto('cliente Silva quer 2 banners 3x1'))
+    expect(silva.cliente).toMatchObject({ encontrado: null, novo: null, candidatos: [{ id: id(901), rotulo: 'Ana Silva', detalhe: 'Centro, Campinas' }, { id: id(902), rotulo: 'João Silva', detalhe: null }] })
   })
 
   it('catálogo grande vai filtrado pelas palavras do pedido; pequeno vai inteiro', () => {

@@ -1,6 +1,7 @@
 import { Eye, EyeOff, Menu } from 'lucide-react'
 import { useOcultarValores } from '@/lib/ocultarValores'
 import { cn } from '@/lib/utils'
+import { PecaAoAssistente } from '@/features/assistente/PecaAoAssistente'
 import { BuscaGlobal } from './BuscaGlobal'
 import { MarcaEmpresa } from './MarcaEmpresa'
 import { Notificacoes } from './Notificacoes'
@@ -37,7 +38,10 @@ export function Topbar({ onAbrirMenuMobile, menuRecolhido }: TopbarProps) {
 
       {/* Busca: usa o espaço que sobrar (no celular, só a lupa) */}
       <div className={cn('flex min-w-0 flex-1 items-center justify-end px-1 sm:px-3 md:justify-start', !menuRecolhido && 'lg:pl-8 lg:pr-6')}>
-        <BuscaGlobal />
+        <div className="flex min-w-0 items-center gap-2 md:w-full md:max-w-xl">
+          <BuscaGlobal />
+          <PecaAoAssistente />
+        </div>
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">

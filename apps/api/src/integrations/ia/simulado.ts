@@ -1,5 +1,6 @@
+import { intencaoSimulada, notaCompraSimulada } from './simulado-assistente'
 import { descricaoSimulada, orcamentoSimulado, produtoSimulado, regrasSimuladas } from './simulado-equipe'
-import { ErroIA, type PedidoEstruturado, type ProvedorIA, type RespostaEstruturada, type TarefaIA } from './tipos'
+import { ErroIA, type AnexoIA, type PedidoEstruturado, type ProvedorIA, type RespostaEstruturada, type TarefaIA } from './tipos'
 
 /*
  * Provedor simulado (desenvolvimento e testes): determinístico, sem rede e sem custo. Responde cada tarefa com regras
@@ -8,14 +9,14 @@ import { ErroIA, type PedidoEstruturado, type ProvedorIA, type RespostaEstrutura
  */
 
 /** Responde uma tarefa a partir do conteúdo enviado (o mesmo texto que iria ao modelo de verdade) */
-export type SimulacaoIA = (conteudo: string) => unknown
+export type SimulacaoIA = (conteudo: string, anexos?: AnexoIA[]) => unknown
 
 const sem = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 const tokens = (t: string) => Math.max(1, Math.ceil(t.length / 4))
 
 /** Só o texto livre (mensagem ou pedido do cliente, descrição da equipe), entre as marcas que o prompt usa */
 export const mensagemDoConteudo = (conteudo: string) =>
-  /<(mensagem_do_cliente|pedido_do_cliente|descricao_da_equipe|texto_do_dono)>\n?([\s\S]*?)\n?<\/\1>/.exec(conteudo)?.[2]?.trim() ?? conteudo
+  /<(mensagem_do_cliente|pedido_do_cliente|descricao_da_equipe|texto_do_dono|pedido_da_pessoa)>\n?([\s\S]*?)\n?<\/\1>/.exec(conteudo)?.[2]?.trim() ?? conteudo
 
 /** Classificação por palavras-chave: imita o modelo nos casos comuns, com confiança alta só no óbvio */
 export function classificarSimulado(conteudo: string) {
@@ -39,6 +40,8 @@ const SIMULACOES: Record<TarefaIA, SimulacaoIA> = {
   produto_texto: produtoSimulado,
   descricao: descricaoSimulada,
   regras_texto: regrasSimuladas,
+  intencao: intencaoSimulada,
+  nota_compra: notaCompraSimulada,
 }
 
 export class SimuladoProvider implements ProvedorIA {
@@ -51,7 +54,7 @@ export class SimuladoProvider implements ProvedorIA {
     const msg = mensagemDoConteudo(pedido.conteudo)
     if (msg.includes('[simular-lento]')) await new Promise((r) => setTimeout(r, 3000))
     if (msg.includes('[simular-erro]')) throw new ErroIA('indisponivel', 'Provedor simulado fora do ar (teste).')
-    const bruto = msg.includes('[simular-invalido]') ? { intencao: 'talvez' } : (this.simulacoes[pedido.tarefa] ?? SIMULACOES[pedido.tarefa])(pedido.conteudo)
+    const bruto = msg.includes('[simular-invalido]') ? { intencao: 'talvez' } : (this.simulacoes[pedido.tarefa] ?? SIMULACOES[pedido.tarefa])(pedido.conteudo, pedido.anexos)
     const uso = { entrada: tokens(pedido.sistema) + tokens(pedido.conteudo), saida: tokens(JSON.stringify(bruto)) }
     try {
       return { dados: pedido.validar(bruto), uso, modelo: this.modelo }

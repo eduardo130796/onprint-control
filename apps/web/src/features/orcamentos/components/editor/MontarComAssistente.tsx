@@ -11,10 +11,11 @@ import { SearchSelect, type OpcaoBusca } from '@/components/shared/SearchSelect'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Checkbox, Textarea } from '@/components/ui/form-controls'
-import { useAtualizarUsoAssistente } from '@/features/assistente/useAssistente'
+import { useAssistente, useAtualizarUsoAssistente } from '@/features/assistente/useAssistente'
 import { decimalParaCampo } from '@/lib/mascaras'
 import { cn } from '@/lib/utils'
 import { buscarProdutos } from '../../buscas'
+import type { ClientePendente } from './clienteNovo'
 import { itemComProduto, itemDoAssistente, itemVazio, notaDoAssistente, type ItemForm } from './formOrcamento'
 import { chaveProdutoCatalogo } from './useCalculoOrcamento'
 
@@ -24,6 +25,10 @@ export interface MontadoPeloAssistente {
   cliente: OpcaoBusca | null
   /** Prazo, observações e o que não virou item (vai para as observações internas) */
   nota: string | null
+  /** Cliente que não está no cadastro (novo, cadastrado ao salvar) ou com parecidos para escolher */
+  pendente: ClientePendente | null
+  /** O que o Assistente lembra do cliente achado (histórico) */
+  memoria: string[]
 }
 
 /**
@@ -55,6 +60,7 @@ function resumoDoItem(s: ItemOrcamentoSugerido) {
 export function MontarComAssistente({ onAdicionar, indisponivel }: { onAdicionar: (r: MontadoPeloAssistente) => void; indisponivel: Indisponivel }) {
   const queryClient = useQueryClient()
   const atualizarUso = useAtualizarUsoAssistente()
+  const simulado = Boolean(useAssistente().data?.simulado)
   const [aberto, setAberto] = useState(false)
   // Sem o Assistente: o botão fica, e o clique explica como ativar
   const [aviso, setAviso] = useState(false)
@@ -109,7 +115,9 @@ export function MontarComAssistente({ onAdicionar, indisponivel }: { onAdicionar
         }
       }
       const c = resultado.cliente.encontrado
-      onAdicionar({ itens, cliente: c ? { id: c.id, rotulo: c.rotulo } : null, nota: notaDoAssistente(resultado) })
+      const r = resultado.cliente
+      const pendente = !c && (r.novo || r.candidatos?.length) ? { novo: r.novo ?? null, candidatos: r.candidatos ?? [] } : null
+      onAdicionar({ itens, cliente: c ? { id: c.id, rotulo: c.rotulo } : null, nota: notaDoAssistente(resultado), pendente, memoria: c ? (r.memoria ?? []) : [] })
       toast.success(`${itens.length} item(ns) no orçamento. Confira e salve.`)
       fechar()
     } catch (e) {
@@ -157,6 +165,7 @@ export function MontarComAssistente({ onAdicionar, indisponivel }: { onAdicionar
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-tinta">Montar com o Assistente</p>
           <p className="text-sm text-texto-secundario">Cole o pedido como o cliente mandou. Nada muda no orçamento até você adicionar.</p>
+          {simulado && <p className="mt-1 text-xs font-medium text-amber-800">Modo de demonstração do Assistente: respostas simuladas, sem IA de verdade.</p>}
         </div>
         <AcaoIcone icone={X} rotulo="Fechar o Assistente" onClick={fechar} />
       </div>
@@ -258,13 +267,27 @@ export function MontarComAssistente({ onAdicionar, indisponivel }: { onAdicionar
                     <span>
                       Cliente: <strong>{resultado.cliente.encontrado.rotulo}</strong> (achado no cadastro)
                     </span>
+                  ) : resultado.cliente.candidatos?.length ? (
+                    <span>
+                      Cliente citado: <strong>{resultado.cliente.mencionado}</strong> — há {resultado.cliente.candidatos.length} parecidos no cadastro: você escolhe com um toque no orçamento.
+                    </span>
+                  ) : resultado.cliente.novo ? (
+                    <span>
+                      Cliente novo: <strong>{resultado.cliente.novo.nome ?? resultado.cliente.mencionado ?? 'pelo documento'}</strong> — será cadastrado junto com o orçamento.
+                    </span>
                   ) : (
                     <span>
-                      Cliente citado: <strong>{resultado.cliente.mencionado}</strong> — não achei no cadastro; escolha ou cadastre.
+                      Cliente citado: <strong>{resultado.cliente.mencionado}</strong> — não achei no cadastro; escolha no orçamento.
                     </span>
                   )}
                 </p>
               )}
+              {/* Memória do cliente (cérebro da gráfica): o que ele costuma pedir, como paga, o que deve */}
+              {resultado.cliente.memoria?.map((m) => (
+                <p key={m} className="pl-5 text-xs text-texto-secundario">
+                  {m}
+                </p>
+              ))}
               {resultado.prazoDesejado && <p>Prazo pedido: {resultado.prazoDesejado}</p>}
               {resultado.observacoes && <p>{resultado.observacoes}</p>}
               {resultado.naoIdentificados.length > 0 && <p className="text-amber-800">Não entendi: {resultado.naoIdentificados.join('; ')}</p>}

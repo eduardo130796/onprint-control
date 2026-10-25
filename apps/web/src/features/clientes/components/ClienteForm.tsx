@@ -66,17 +66,19 @@ const ENDERECO_VAZIO: EnderecoInput = { tipo: 'principal', cep: '', logradouro: 
 const enderecoUsado = (e: EnderecoInput) => [e.cep, e.logradouro, e.numero, e.complemento, e.bairro, e.cidade].some((v) => String(v ?? '').trim() !== '')
 
 interface ClienteFormProps {
+  /** Cliente novo já com o CPF/CNPJ ou o nome ("Peça ao Assistente"): com CNPJ, a Receita preenche o resto */
+  inicial?: { documento?: string; nome?: string }
   cliente?: ClienteDetalhe
   onSalvo: (cliente: Cliente) => void
 }
 
-export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
+export function ClienteForm({ cliente, inicial, onSalvo }: ClienteFormProps) {
   const podeSalvar = usePermission('clientes', cliente ? 'editar' : 'criar')
   const vendedores = useVendedores()
   const { mapa } = useStatusConfig()
   const form = useForm<ClienteInput, unknown, ClienteDados>({
     resolver: zodResolver(clienteSchema),
-    defaultValues: valoresIniciais(cliente),
+    defaultValues: { ...valoresIniciais(cliente), ...(!cliente && inicial?.documento ? { cpfCnpj: mascaraCpfCnpj(inicial.documento), tipoPessoa: inicial.documento.length === 14 ? 'PJ' : 'PF' } : {}), ...(!cliente && inicial?.nome ? { nome: inicial.nome } : {}) },
   })
   const { errors, isDirty } = form.formState
   const tipo = form.watch('tipoPessoa')
@@ -132,6 +134,7 @@ export function ClienteForm({ cliente, onSalvo }: ClienteFormProps) {
   const consultaCnpj = useConsultaCnpj({
     form,
     campoDocumento: 'cpfCnpj',
+    buscarAoAbrir: Boolean(!cliente && inicial?.documento?.length === 14),
     campos: { razaoSocial: 'nome', nomeFantasia: 'fantasia', email: 'email', telefone: 'telefone', whatsapp: 'whatsapp', ie: 'ie' },
     aoEncontrar: () => {
       if (form.getValues('tipoPessoa') !== 'PJ') form.setValue('tipoPessoa', 'PJ', { shouldDirty: true })

@@ -25,7 +25,7 @@ import { aplicarRegrasNoCalculo, carregarRegras, recalcularItens } from '../orca
 type Simulacao = z.output<typeof simulacaoRegrasSchema>
 
 /** Nomes dos cadastros citados nas regras (para "Quando o produto for Cartão…"); removidos ficam de fora */
-async function nomesDasRegras(prisma: FastifyInstance['prisma'], regras: { condicoes: CondicoesRegra; acao: AcaoRegra }[]) {
+export async function nomesDasRegras(prisma: FastifyInstance['prisma'], regras: { condicoes: CondicoesRegra; acao: AcaoRegra }[]) {
   const produtos = new Set<string>()
   const categorias = new Set<string>()
   const clientes = new Set<string>()

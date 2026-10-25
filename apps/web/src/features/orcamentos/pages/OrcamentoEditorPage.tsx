@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ArrowLeft, CheckCircle2, Globe, MessageSquareReply, Plus, RefreshCw, Sparkles, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { descreverRespostaWhatsapp, formatarDataHora, formatarDataSimples, orcamentoSchema } from '@onprint/shared'
+import { descreverRespostaWhatsapp, formatarDataHora, formatarDataSimples, orcamentoSchema, type EstadoDoAssistente, type OrcamentoDeTexto } from '@onprint/shared'
 import { clientesApi } from '@/api/cadastros'
 import { orcamentosApi, solicitacoesApi, type OrcamentoComAnalise } from '@/api/comercial'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -27,7 +27,9 @@ import { MontarComAssistente, type Indisponivel } from '../components/editor/Mon
 import { PagamentoOrcamento } from '../components/editor/PagamentoOrcamento'
 import { PedidoGerado } from '../components/editor/PedidoGerado'
 import { TotaisOrcamento } from '../components/editor/TotaisOrcamento'
-import { formDoOrcamento, itemComProduto, itemVazio, itensDaSolicitacao, juntarItens, novaChave, payloadDoForm, type FormOrcamento, type ItemForm } from '../components/editor/formOrcamento'
+import { ClienteDoAssistente } from '../components/editor/ClienteDoAssistente'
+import { cadastrarClienteNovo, clienteNovoCompleto, type ClientePendente } from '../components/editor/clienteNovo'
+import { formDoOrcamento, itemComProduto, itemVazio, itensDaSolicitacao, itensDoAssistente, juntarItens, notaDoAssistente, novaChave, payloadDoForm, type FormOrcamento, type ItemForm } from '../components/editor/formOrcamento'
 import { AvisosDasRegras, DetalhesDasRegras, SugestoesDasRegras } from '../components/editor/RegrasDoOrcamento'
 import { useAnaliseOrcamento } from '../components/editor/useAnaliseOrcamento'
 import { chaveProdutoCatalogo, useCalculoOrcamento } from '../components/editor/useCalculoOrcamento'
@@ -45,6 +47,7 @@ function Editor({
   solicitacaoId,
   clienteInicial,
   doSite,
+  doAssistente,
   onAlterado,
 }: {
   orcamento?: OrcamentoComAnalise
@@ -54,6 +57,8 @@ function Editor({
   clienteInicial?: { id: string; rotulo: string } | null
   /** Pedido do site: itens já montados com o que o cliente escolheu */
   doSite?: DoSite | null
+  /** "Peça ao Assistente": o pedido já lido (itens, cliente achado ou novo, prazo e observações) */
+  doAssistente?: { texto: string; leitura: OrcamentoDeTexto } | null
 }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -61,7 +66,27 @@ function Editor({
   const podeSalvar = usePermission('orcamentos', orcamento ? 'editar' : 'criar')
   // Orçamento novo: pagamento e observações de pagamento pelos padrões da empresa (a página espera carregar)
   const [inicial] = useState(() => formDoOrcamento(orcamento, clienteInicial, doSite?.itens, doSite ? `Pedido do site ${doSite.numero}.` : undefined, empresa.data))
-  const [form, setForm] = useState<FormOrcamento>(inicial)
+  // Montado pelo Assistente: já abre preenchido (e conta como alteração: sair avisa)
+  const lido = doAssistente?.leitura
+  const [form, setForm] = useState<FormOrcamento>(() =>
+    lido
+      ? {
+          ...inicial,
+          doAssistente: true,
+          cliente: inicial.cliente ?? lido.cliente.encontrado,
+          itens: lido.itens.length ? itensDoAssistente(lido.itens) : inicial.itens,
+          observacoesInternas: [inicial.observacoesInternas.trim(), notaDoAssistente(lido)].filter(Boolean).join('\n'),
+        }
+      : inicial,
+  )
+  // Cliente que não está no cadastro: novo (cadastrado ao salvar) ou parecidos para escolher
+  const [pendente, setPendente] = useState<ClientePendente | null>(() =>
+    lido && !lido.cliente.encontrado && (lido.cliente.novo || lido.cliente.candidatos?.length) ? { novo: lido.cliente.novo ?? null, candidatos: lido.cliente.candidatos ?? [] } : null,
+  )
+  // Memória do cliente achado (cérebro da gráfica): fica à vista enquanto ele for o cliente do orçamento
+  const [memoria, setMemoria] = useState<{ clienteId: string; linhas: string[] } | null>(() =>
+    lido?.cliente.encontrado && lido.cliente.memoria?.length ? { clienteId: lido.cliente.encontrado.id, linhas: lido.cliente.memoria } : null,
+  )
   const alterado = useMemo(() => JSON.stringify(form) !== JSON.stringify(inicial), [form, inicial])
   const editavel = podeSalvar && (!orcamento || ABERTOS.includes(orcamento.status))
   const calculo = useCalculoOrcamento(form, empresa.data?.areaMinimaM2, { origem: orcamento?.origem })
@@ -76,17 +101,17 @@ function Editor({
   const assistente = useAssistente()
   const podeConfigurar = usePermission('configuracoes', 'editar')
   const indisponivel: Indisponivel = assistente.data?.liberado.orcamentoTexto ? null : !podeConfigurar ? 'pedir_admin' : assistente.data && !assistente.data.disponivel ? 'central' : 'empresa'
-  const [clienteSugerido, setClienteSugerido] = useState(false)
+  const [clienteSugerido, setClienteSugerido] = useState(Boolean(doAssistente?.leitura.cliente.encontrado))
   const [detalhes, setDetalhes] = useState(false)
   /** Desconto sugerido pelas regras: o vendedor aplica (fica gravado no orçamento) ou desfaz */
   const aceitar = (regraId: string, sim: boolean) =>
     setForm((f) => ({ ...f, regrasAceitas: sim ? [...new Set([...f.regrasAceitas, regraId])] : f.regrasAceitas.filter((id) => id !== regraId) }))
 
   // Salvando: a versão que chegar é a minha (não é "alterado por outra pessoa")
-  const pendente = alterado && !salvar.isPending
+  const naoSalvo = alterado && !salvar.isPending
   useEffect(() => {
-    onAlterado?.(pendente)
-  }, [pendente, onAlterado])
+    onAlterado?.(naoSalvo)
+  }, [naoSalvo, onAlterado])
 
   // Avisa antes de sair com alterações não salvas
   useEffect(() => {
@@ -122,11 +147,24 @@ function Editor({
   }
 
   async function onSalvar() {
-    const payload = payloadDoForm(form, orcamento ? undefined : solicitacaoId)
-    const validacao = orcamentoSchema.safeParse(payload)
+    // Cliente novo lido pelo Assistente: o orçamento é conferido antes (sem cliente solto se algo falhar) e o cliente
+    // é cadastrado na hora de salvar, junto com o orçamento
+    const novoCliente = !form.cliente && pendente?.novo ? pendente.novo : null
+    if (novoCliente && !clienteNovoCompleto(novoCliente)) return toast.error('Cliente novo: informe o nome e um contato (WhatsApp, telefone ou e-mail), ou escolha um cliente.')
+    const conferir = novoCliente ? { ...form, cliente: { id: '00000000-0000-4000-8000-000000000000', rotulo: '' } } : form
+    const validacao = orcamentoSchema.safeParse(payloadDoForm(conferir, orcamento ? undefined : solicitacaoId))
     if (!validacao.success) return toast.error(validacao.error.issues[0]?.message ?? 'Verifique os dados.')
     if (calculo.temErros) return toast.error('Corrija os itens destacados antes de salvar.')
     try {
+      let dados = form
+      if (novoCliente) {
+        const cliente = await cadastrarClienteNovo(novoCliente)
+        dados = { ...form, cliente }
+        setForm(dados)
+        setPendente(null)
+        void queryClient.invalidateQueries({ queryKey: ['clientes'] })
+      }
+      const payload = payloadDoForm(dados, orcamento ? undefined : solicitacaoId)
       const salvo = await salvar.mutateAsync(payload)
       queryClient.setQueryData(['orcamentos', 'detalhe', salvo.id], salvo)
       toast.success(orcamento ? 'Orçamento salvo.' : `Orçamento ${salvo.numero} criado.`)
@@ -216,6 +254,24 @@ function Editor({
                   desabilitado={!editavel}
                 />
               </CampoFormulario>
+              {/* Cliente que o Assistente leu e não está no cadastro: cadastrado junto ao salvar (ou escolher um parecido) */}
+              {editavel && !form.cliente && pendente && (
+                <ClienteDoAssistente
+                  pendente={pendente}
+                  onMudar={setPendente}
+                  onEscolher={(c) => {
+                    setPendente(null)
+                    atualizar({ cliente: c })
+                  }}
+                />
+              )}
+              {memoria && form.cliente?.id === memoria.clienteId && (
+                <ul className="mt-2 space-y-0.5 rounded-xl bg-fundo px-3 py-2 text-xs text-texto-secundario" aria-label="O que o Assistente lembra deste cliente">
+                  {memoria.linhas.map((l) => (
+                    <li key={l}>{l}</li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
 
@@ -224,6 +280,8 @@ function Editor({
               indisponivel={indisponivel}
               onAdicionar={(r) => {
                 if (r.cliente && !form.cliente) setClienteSugerido(true)
+                if (!r.cliente && !form.cliente && r.pendente) setPendente(r.pendente)
+                if (r.cliente && !form.cliente && r.memoria.length) setMemoria({ clienteId: r.cliente.id, linhas: r.memoria })
                 setForm((f) => ({
                   ...f,
                   // Orçamento novo montado pelo Assistente: a origem vira "assistente" (regras por origem)
@@ -247,7 +305,7 @@ function Editor({
               analiseDesatualizada={analise.desatualizado}
               editavel={editavel}
               // Mexeu no item: deixa de ser "sugerido pelo Assistente"
-              onChange={(novo) => mudarItens((itens) => itens.map((x, j) => (j === i ? { ...novo, sugerido: false } : x)))}
+              onChange={(novo) => mudarItens((itens) => itens.map((x, j) => (j === i ? { ...novo, sugerido: false, conferir: null } : x)))}
               onRemover={() => mudarItens((itens) => itens.filter((_, j) => j !== i))}
               onDuplicar={() => mudarItens((itens) => [...itens.slice(0, i + 1), { ...item, chave: novaChave() }, ...itens.slice(i + 1)])}
               onMover={(d) =>
@@ -354,6 +412,9 @@ export function OrcamentoEditorPage() {
   const { id } = useParams()
   const [busca] = useSearchParams()
   const novo = !id || id === 'novo'
+  // Vindo do "Peça ao Assistente": o pedido já lido abre o editor preenchido
+  const local = useLocation()
+  const doAssistente = (local.state as EstadoDoAssistente | null)?.orcamentoAssistente ?? null
   const consulta = useQuery({ queryKey: ['orcamentos', 'detalhe', id], queryFn: () => orcamentosApi.obter(id!), enabled: !novo })
   // Versão no formulário: com alterações não salvas, uma mudança de fora (cliente aprovou, colega editou)
   // não reseta o formulário — fica a faixa avisando, e "Recarregar" troca para a versão nova
@@ -394,7 +455,7 @@ export function OrcamentoEditorPage() {
     return (
       <>
         {voltar}
-        <Editor solicitacaoId={solicitacaoId} clienteInicial={cliente.data ? { id: cliente.data.id, rotulo: cliente.data.nome } : null} doSite={doSite} />
+        <Editor key={doAssistente ? local.key : 'novo'} solicitacaoId={solicitacaoId} clienteInicial={cliente.data ? { id: cliente.data.id, rotulo: cliente.data.nome } : null} doSite={doSite} doAssistente={doAssistente} />
       </>
     )
   }

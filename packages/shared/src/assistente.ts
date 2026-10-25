@@ -44,7 +44,7 @@ export function custoEstimadoUsd(precos: PrecoModeloIA[], modelo: string, tokens
 }
 
 /** Onde a IA foi usada (uso_ia.recurso) */
-export const RECURSOS_IA = ['whatsapp_resposta', 'orcamento_texto', 'produto_texto', 'descricao', 'regras_texto', 'teste_central'] as const
+export const RECURSOS_IA = ['whatsapp_resposta', 'orcamento_texto', 'produto_texto', 'descricao', 'regras_texto', 'intencao', 'nota_compra', 'teste_central'] as const
 export type RecursoIA = (typeof RECURSOS_IA)[number]
 export const RECURSO_IA_ROTULOS: Record<RecursoIA, string> = {
   whatsapp_resposta: 'Respostas no WhatsApp',
@@ -52,6 +52,8 @@ export const RECURSO_IA_ROTULOS: Record<RecursoIA, string> = {
   produto_texto: 'Ajuda para criar produto',
   descricao: 'Descrições',
   regras_texto: 'Regras de desconto com suas palavras',
+  intencao: 'Peça ao Assistente (entender o pedido)',
+  nota_compra: 'Nota de compra por foto ou PDF',
   teste_central: 'Teste da central',
 }
 
@@ -228,6 +230,8 @@ export interface AssistenteEmpresa {
   controles: ControlesAssistente
   /** A central da GrafyGo ligou o Assistente (sem isso nada funciona, mesmo ligado aqui) */
   disponivel: boolean
+  /** Provedor simulado (desenvolvimento/demonstração): as telas avisam "modo de demonstração do Assistente" */
+  simulado: boolean
   /** Cada função funciona agora (central ligada + controles da empresa) */
   liberado: Record<FuncaoAssistente, boolean>
   uso: {
@@ -276,6 +280,18 @@ export interface ItemOrcamentoSugerido {
   preco: { ok: boolean; precoUnitario: string; total: string; erros: string[] } | null
 }
 
+/** Cliente novo tirado do texto do pedido (vira pré-cadastro ao salvar o orçamento) */
+export interface ClienteNovoSugerido {
+  nome: string | null
+  tipoPessoa: 'PF' | 'PJ'
+  /** CPF ou CNPJ válido (só dígitos); com CNPJ a tela busca razão social e endereço na Receita */
+  documento: string | null
+  /** DDD + número */
+  whatsapp: string | null
+  telefone: string | null
+  email: string | null
+}
+
 export interface OrcamentoDeTexto {
   itens: ItemOrcamentoSugerido[]
   cliente: {
@@ -283,6 +299,18 @@ export interface OrcamentoDeTexto {
     mencionado: string | null
     /** Cliente do cadastro com o mesmo nome ou telefone (procurado pelo sistema, nunca pela IA) */
     encontrado: { id: string; rotulo: string } | null
+    /**
+     * Memória do cliente achado, tirada do histórico pelo sistema ("Costuma pedir: …", "Paga com: Pix", "Em aberto:
+     * R$ …"); vazia sem cliente. A IA nunca escreve isto.
+     */
+    memoria?: string[]
+    /** Mais de um cliente do cadastro pode ser o citado: a pessoa escolhe com um toque (o sistema não chuta) */
+    candidatos?: { id: string; rotulo: string; detalhe: string | null }[]
+    /**
+     * Ninguém no cadastro: o cliente novo com o que o texto trouxe (nome, telefone, e-mail, CPF/CNPJ, lidos pelo
+     * servidor — nunca pela IA). Cadastrado como pré-cadastro junto com o orçamento, quando a pessoa salva.
+     */
+    novo?: ClienteNovoSugerido | null
   }
   /** Prazo como o cliente escreveu ("sexta", "dia 15") */
   prazoDesejado: string | null

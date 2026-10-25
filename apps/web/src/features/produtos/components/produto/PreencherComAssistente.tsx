@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Loader2, Plus, Sparkles, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -17,6 +17,8 @@ interface Props {
   /** Produto já salvo: materiais e acabamentos vão direto para as abas; novo: ficam para depois de cadastrar */
   salvo: boolean
   onSugestao: (s: ProdutoSugerido, campos: string[]) => void
+  /** Vindo do "Peça ao Assistente": já abre e preenche com este texto */
+  textoInicial?: string
 }
 
 /**
@@ -24,20 +26,29 @@ interface Props {
  * aba Geral e sugere materiais, etapas e acabamentos do cadastro. Nada é salvo: a pessoa revisa (principalmente os
  * custos) e salva.
  */
-export function PreencherComAssistente({ form, salvo, onSugestao }: Props) {
+export function PreencherComAssistente({ form, salvo, onSugestao, textoInicial }: Props) {
   const queryClient = useQueryClient()
   const atualizarUso = useAtualizarUsoAssistente()
-  const [aberto, setAberto] = useState(false)
-  const [texto, setTexto] = useState('')
+  const [aberto, setAberto] = useState(Boolean(textoInicial))
+  const [texto, setTexto] = useState(textoInicial ?? '')
   const [lendo, setLendo] = useState(false)
   const [sugestao, setSugestao] = useState<ProdutoSugerido | null>(null)
   const [criandoCategoria, setCriandoCategoria] = useState(false)
+  // "Peça ao Assistente": preenche uma vez ao abrir (o produto já chega preenchido)
+  const automatico = useRef(Boolean(textoInicial))
+  useEffect(() => {
+    if (!automatico.current || !textoInicial) return
+    automatico.current = false
+    void preencher(textoInicial)
+    // Só na montagem
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  async function preencher() {
-    if (texto.trim().length < 5) return toast.error('Descreva o produto.')
+  async function preencher(pedido = texto) {
+    if (pedido.trim().length < 5) return toast.error('Descreva o produto.')
     setLendo(true)
     try {
-      const s = await assistenteApi.produtoDeTexto(texto.trim())
+      const s = await assistenteApi.produtoDeTexto(pedido.trim())
       const campos = preencherFormulario(form, s)
       setSugestao(s)
       onSugestao(s, campos)

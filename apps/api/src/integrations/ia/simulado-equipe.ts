@@ -35,6 +35,49 @@ function melhor<T>(pedido: string[], opcoes: T[], nome: (x: T) => string): { ite
 
 const DIAS = 'segunda|terça|terca|quarta|quinta|sexta|sábado|sabado|domingo|amanhã|amanha|hoje'
 
+/** Números por extenso que aparecem em pedidos ("duas faixas", "quinhentos panfletos", "dois mil cartões") */
+const EXTENSO: Record<string, number> = {
+  um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9, dez: 10, doze: 12, quinze: 15, vinte: 20,
+  trinta: 30, quarenta: 40, cinquenta: 50, cem: 100, duzentos: 200, duzentas: 200, trezentos: 300, trezentas: 300, quinhentos: 500, quinhentas: 500,
+}
+const EXTENSO_RE = Object.keys(EXTENSO).join('|')
+
+/**
+ * Quantidade escrita no trecho (sem as medidas): "1.000", "1000", "2,5", "1k", "2 mil", "mil", "dois mil", "quinhentos".
+ * null = o trecho não diz quantidade.
+ */
+export function quantidadeDoTexto(trecho: string): number | null {
+  const t = semAcentos(trecho)
+  const n = /(\d{1,3}(?:\.\d{3})+|\d+(?:,\d+)?)\s*(mil\b|k\b|milheiros?\b)?/.exec(t)
+  if (n) return numero(n[1]!) * (n[2] ? 1000 : 1)
+  const e = new RegExp(`\\b(${EXTENSO_RE})(\\s+mil)?\\b`).exec(t)
+  if (e) return EXTENSO[e[1]!]! * (e[2] ? 1000 : 1)
+  return /\bmil\b/.test(t) ? 1000 : null
+}
+
+/** Expressões com "e" que não separam itens */
+const COM_E = /\b(frente e verso|preto e branco|branco e preto|corte e vinco|ida e volta)\b/gi
+
+/**
+ * Divide o pedido em itens: quebra de linha, ";", vírgula (fora de número: "2,5 m" fica), "+", "e", "mais", "também".
+ * O trecho que não é produto nem tem quantidade própria ("bainha" em "com ilhós e bainha") volta para o item
+ * anterior; trecho de prazo ("entrega sexta") fica sozinho. Assim um pedido com 3 itens dá 3 itens.
+ */
+export function partesDoPedido(pedido: string, ehProduto: (t: string) => boolean, ehPrazo: (t: string) => boolean = () => false): string[] {
+  const protegido = pedido.replace(COM_E, (m) => m.replace(/\s+e\s+/i, ' §e§ '))
+  const brutas = protegido
+    .split(/\n|;|,(?!\d)|\s+\+\s+|\s+(?:e|mais|tamb[eé]m)\s+/i)
+    .map((p) => p.replace(/§e§/g, 'e').replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+  const partes: string[] = []
+  for (const p of brutas) {
+    const temQuantidade = /^\s*(\d|(?:um|uma|dois|duas|tres|três|quatro|cinco|seis|sete|oito|nove|dez|cem|mil)\b)/i.test(p)
+    if (partes.length && !ehPrazo(p) && !temQuantidade && !ehProduto(p)) partes[partes.length - 1] += ` e ${p}`
+    else partes.push(p)
+  }
+  return partes
+}
+
 export function orcamentoSimulado(conteudo: string) {
   // Telefone e e-mail já chegam mascarados ("[número omitido]"): não viram item
   const pedido = entre(conteudo, 'pedido_do_cliente').replace(/\[[^\]]*omitido\]/g, ' ')
@@ -48,12 +91,13 @@ export function orcamentoSimulado(conteudo: string) {
       acabamentos: acabs === 'nenhum' ? [] : acabs.split(', ').flatMap((a) => (/\(sempre incluído\)/.test(a) ? [] : [{ ref: a.split(' ')[0]!, nome: a.slice(a.indexOf(' ') + 1) }])),
     }
   })
-  const partes = pedido.split(/\n|;|,|\s+e\s+(?=\d)|\s+mais\s+/i).map((p) => p.trim()).filter(Boolean)
   const itens: unknown[] = []
   const naoIdentificados: string[] = []
   let prazo: string | null = null
+  const dataDe = (t: string) => new RegExp(`(?:entrega|entregar|para|até|ate|prazo)\\s+(?:na |no |dia |até )?((?:${DIAS})(?:-feira)?|dia \\d+(?:/\\d+)?)`, 'i').exec(t)
+  const partes = partesDoPedido(pedido, (t) => melhor(palavras(t), catalogo, (x) => x.nome) !== null, (t) => dataDe(t) !== null)
   for (const parte of partes) {
-    const dataPedida = new RegExp(`(?:entrega|entregar|para|até|ate|prazo)\\s+(?:na |no |dia |até )?((?:${DIAS})(?:-feira)?|dia \\d+(?:/\\d+)?)`, 'i').exec(parte)
+    const dataPedida = dataDe(parte)
     const p = melhor(palavras(parte), catalogo, (x) => x.nome)
     if (!p) {
       if (dataPedida) prazo ??= dataPedida[1]!
@@ -62,8 +106,7 @@ export function orcamentoSimulado(conteudo: string) {
     }
     const medida = /(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(cm|mm|m)?\b/i.exec(parte)
     const semMedida = medida ? parte.replace(medida[0], ' ') : parte
-    const qtd = /(\d{1,3}(?:\.\d{3})+|\d+(?:,\d+)?)\s*(mil\b)?/i.exec(semMedida)
-    const quantidade = qtd ? numero(qtd[1]!) * (qtd[2] ? 1000 : 1) : /\bmil\b/i.test(semMedida) ? 1000 : null
+    const quantidade = quantidadeDoTexto(semMedida)
     let largura: number | null = null
     let altura: number | null = null
     if (medida && p.item.medidas) {
@@ -87,7 +130,8 @@ export function orcamentoSimulado(conteudo: string) {
     })
     if (dataPedida) prazo ??= dataPedida[1]!
   }
-  const cliente = /\b(?:cliente|sou (?:o|a)|aqui (?:é|e) (?:o|a))\s+([A-ZÀ-Ú][\p{L}]+(?:\s+[A-ZÀ-Ú][\p{L}]+)?)/u.exec(pedido)
+  // "cliente Padaria Pão Quente", "aqui é o Carlos Mendes": até 3 palavras com maiúscula
+  const cliente = /\b(?:[Cc]liente|sou (?:o|a)|aqui (?:é|e) (?:o|a))\s+([A-ZÀ-Ú][\p{L}]+(?:\s+[A-ZÀ-Ú][\p{L}]+){0,2})/u.exec(pedido)
   return {
     itens,
     cliente_nome: cliente?.[1] ?? null,

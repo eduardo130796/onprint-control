@@ -1,5 +1,5 @@
-import type { AssistenteEmpresa, ControlesAssistente, DescricaoAssistenteInput, DescricaoSugerida, OrcamentoDeTexto, ProdutoSugerido, RegrasDeTexto } from '@onprint/shared'
-import { http } from './http'
+import type { AssistenteEmpresa, ControlesAssistente, DescricaoAssistenteInput, DescricaoSugerida, NotaCompraLida, OrcamentoDeTexto, ProdutoSugerido, RegrasDeTexto, RespostaPedir } from '@onprint/shared'
+import { http, upload } from './http'
 
 /** Assistente GrafyGo na empresa: controles (Configurações → Assistente) e as ajudas internas (nada é salvo por elas). */
 export const assistenteApi = {
@@ -9,6 +9,10 @@ export const assistenteApi = {
   produtoDeTexto: (texto: string) => http<ProdutoSugerido>('/assistente/produto-texto', { method: 'POST', body: { texto } }),
   descricao: (dados: DescricaoAssistenteInput) => http<DescricaoSugerida>('/assistente/descricao', { method: 'POST', body: dados }),
   regrasDeTexto: (texto: string) => http<RegrasDeTexto>('/assistente/regras-texto', { method: 'POST', body: { texto } }),
+  /** "Peça ao Assistente": entende o pedido e devolve o que abrir (ou a resposta da pergunta) */
+  pedir: (texto: string) => http<RespostaPedir>('/assistente/pedir', { method: 'POST', body: { texto } }),
+  /** Nota de compra anexada (XML, foto ou PDF) → entrada preenchida para conferir */
+  nota: (arquivo: File) => upload<NotaCompraLida>('/assistente/pedir/nota', arquivo),
 }
 
 /** Chave do React Query (o uso do mês muda a cada ajuda: invalide depois de usar) */

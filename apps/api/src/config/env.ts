@@ -101,6 +101,13 @@ const envSchema = z.object({
    */
   WHATSAPP_WEBHOOK_URL: z.string().default(''),
   WHATSAPP_WEBHOOK_SEGREDO: z.string().default(''),
+  /**
+   * Assistente GrafyGo (IA). Opcionais: a chave da Anthropic é cadastrada na central (painel da plataforma) e fica
+   * cifrada no banco; ANTHROPIC_API_KEY só vale quando a central não tem chave. IA_SEGREDO (sem valor = derivado do
+   * JWT_ACCESS_SECRET) cifra a chave guardada: trocar o segredo obriga a cadastrar a chave de novo
+   */
+  ANTHROPIC_API_KEY: z.string().default(''),
+  IA_SEGREDO: z.string().default(''),
 })
 
 /** Segredos fracos ou de exemplo impedem a API de subir (fora dos testes automatizados). */

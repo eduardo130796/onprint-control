@@ -420,6 +420,14 @@ Crie índices em FKs, número, status, vencimento, whatsapp e cpf_cnpj. Use `onD
 - 00:10: marcar contas vencidas.
 - 07:00: gerar notificações de estoque baixo, contas do dia e entregas do dia.
 
+**Assistente GrafyGo (IA)**
+- Núcleo sem provedor fixo: `integrations/ia` define `ProvedorIA` (`estruturado(pedido)` → objeto validado + tokens + modelo; falhas viram `ErroIA`). Implementados: `AnthropicProvider` (SDK oficial `@anthropic-ai/sdk`, structured output por `output_config.format` json_schema, `effort: "low"`, 15 s por tentativa, sem `temperature`) e `SimuladoProvider` (testes e desenvolvimento, sem rede; só fora de produção).
+- `modules/assistente`: `prompts.ts` (persona "Assistente GrafyGo da <gráfica>", prompts em português e versionados, retirada de telefones/documentos/e-mails), `assistente.ts` (configuração da central, limite do mês por empresa, registro de cada chamada em `uso_ia` com custo estimado pela tabela de preços; nunca lança: sem IA, o chamador segue como antes) e a central (`central.routes.ts`, painel da plataforma → Assistente).
+- Tabelas no schema `plataforma`: `assistente_config` (chave cifrada com AES-256-GCM, chave de cifra por HKDF do `IA_SEGREDO` ou do `JWT_ACCESS_SECRET`) e `uso_ia`. A chave nunca volta para o navegador (só "••••1234"); `ANTHROPIC_API_KEY` vale só sem chave na central.
+- Primeiro uso: resposta do cliente ao orçamento no WhatsApp que as regras não entendem, ligada a um único orçamento aberto (`whatsapp/respostas.ts` → `vaiParaAssistente` / `decidirPeloAssistente`). A resposta é registrada na hora ("lendo") e a leitura roda em segundo plano (o webhook não espera). Age sozinho só em `aprova` com confiança ≥ 0,85 e sem pergunta, e em `quer_modificacoes` ≥ 0,8; o resto avisa o vendedor com o resumo. Erro, demora ou limite: só avisa, como antes.
+- **Novo provedor (OpenAI, Gemini…):** criar `integrations/ia/<nome>.ts` com uma classe que implementa `ProvedorIA` (pedir JSON pelo schema `pedido.esquema` no recurso de saída estruturada do provedor, passar o resultado por `pedido.validar`, devolver os tokens de entrada/saída e traduzir os erros do SDK para `ErroIA`); acrescentar o `case` em `criarProvedorIA` e o nome em `PROVEDORES_IA_DISPONIVEIS` (`packages/shared/src/assistente.ts`); colocar os preços do modelo na tabela da central. Nada mais muda: o núcleo, os limites, o registro de uso e a tela já tratam qualquer provedor.
+- **Novo uso:** um `pedido…` em `prompts.ts` (tarefa nova em `TarefaIA`, versão em `VERSOES_PROMPTS`, simulação em `simulado.ts`), um recurso em `RECURSOS_IA` e a chamada `app.assistente.executar({ assinanteId, recurso, pedido })`, tratando `ok: false` como "sem IA".
+
 ---
 
 ## 11. MÓDULOS E TELAS

@@ -6,6 +6,7 @@
 import { z } from 'zod'
 import { somenteDigitos } from './format'
 import type { CategoriaTemplate, VariavelTemplate } from './enums'
+import { NOME_ASSISTENTE, type IntencaoRespostaIA } from './assistente'
 
 /** Eventos que geram aviso; cada um usa o template da categoria de mesmo nome. */
 export const EVENTOS_WHATSAPP = ['pedido_confirmado', 'arte_aprovacao', 'pedido_pronto', 'pedido_em_entrega', 'pagamento_recebido', 'pedido_entregue'] as const
@@ -275,15 +276,22 @@ export const TIPO_RESPOSTA_WHATSAPP_ROTULOS: Record<TipoRespostaWhatsapp, string
 
 export interface RespostaWhatsapp {
   tipo: TipoRespostaWhatsapp
-  /** Votou na enquete ou escreveu na conversa */
-  via: 'enquete' | 'texto'
+  /** Votou na enquete, escreveu na conversa (regras) ou escreveu e o Assistente GrafyGo entendeu */
+  via: 'enquete' | 'texto' | 'assistente'
   /** O que o cliente escreveu (texto) ou a opção da enquete */
   texto: string | null
   em: string
+  /** O que o Assistente entendeu (via "assistente"); pendente = ainda lendo a resposta */
+  assistente?: { intencao: IntencaoRespostaIA; confianca: number; resumo: string } | { pendente: true } | null
 }
 
 /** "Resposta: ✅ Aprovado (enquete)" / "Resposta: ✏️ Quero modificações — “mudar a cor”" / "Resposta: “bom dia”" */
 export function descreverRespostaWhatsapp(r: RespostaWhatsapp): string {
+  if (r.assistente && 'pendente' in r.assistente) return `Resposta: “${r.texto ?? ''}” · o ${NOME_ASSISTENTE} está lendo`
+  if (r.via === 'assistente' && r.assistente) {
+    const base = r.tipo === 'outra' ? `${NOME_ASSISTENTE}: ${r.assistente.resumo}` : `Resposta: ${TIPO_RESPOSTA_WHATSAPP_ROTULOS[r.tipo]} — “${r.texto ?? ''}”`
+    return `${base} · entendido pelo ${NOME_ASSISTENTE}`
+  }
   if (r.tipo === 'outra') return r.texto ? `Resposta: “${r.texto}”` : `Resposta na enquete (opção não lida)`
   const base = `Resposta: ${TIPO_RESPOSTA_WHATSAPP_ROTULOS[r.tipo]}`
   if (r.via === 'enquete') return `${base} (enquete)`
@@ -340,6 +348,8 @@ export const whatsappConfigSchema = z
     aprovarPelaResposta: z.boolean().optional(),
     /** Como o cliente aprova o orçamento: enquete ou responder 1/2 */
     formatoAprovacao: z.enum(FORMATOS_APROVACAO).optional(),
+    /** Usar o Assistente GrafyGo para entender respostas fora do padrão */
+    assistenteRespostas: z.boolean().optional(),
   })
   .refine((v) => v.horarioInicio < v.horarioFim, { message: 'O fim precisa ser depois do início.', path: ['horarioFim'] })
 export type WhatsappConfigInput = z.input<typeof whatsappConfigSchema>
@@ -443,6 +453,10 @@ export interface WhatsappConfig {
   aprovarPelaResposta: boolean
   /** Como o cliente aprova o orçamento enviado por aqui */
   formatoAprovacao: FormatoAprovacao
+  /** Usar o Assistente GrafyGo para entender respostas fora do padrão (escolha da empresa) */
+  assistenteRespostas: boolean
+  /** A GrafyGo ligou o Assistente na central (sem isso a escolha acima não tem efeito) */
+  assistenteDisponivel: boolean
   /** Mensagens na fila agora */
   pendentes: number
 }

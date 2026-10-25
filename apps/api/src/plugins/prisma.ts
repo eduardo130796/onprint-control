@@ -32,7 +32,7 @@ declare module 'fastify' {
 }
 
 /** Tabelas que só existem de verdade no schema da plataforma. */
-const MODELOS_PLATAFORMA = new Set(['assinante', 'indiceLogin', 'tokenSenha', 'plano', 'assinatura', 'eventoAssinatura', 'cobranca', 'eventoGateway', 'adminPlataforma', 'cupom', 'cupomUso'])
+const MODELOS_PLATAFORMA = new Set(['assinante', 'indiceLogin', 'tokenSenha', 'plano', 'assinatura', 'eventoAssinatura', 'cobranca', 'eventoGateway', 'adminPlataforma', 'cupom', 'cupomUso', 'assistenteConfig', 'usoIa'])
 /** Propriedades sondadas por bibliotecas (await, Fastify, inspeção) que não devem exigir empresa. */
 const SONDAGENS = new Set(['then', 'getter', 'setter', 'toJSON', 'constructor', 'asymmetricMatch', '$$typeof', 'inspect'])
 const RECURSO = Symbol('onprint.contextoEmpresa')

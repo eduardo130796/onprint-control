@@ -58,7 +58,7 @@ export function WhatsAppPage({ titulo = 'WhatsApp' }: { titulo?: string }) {
           <ConexaoCard config={c!} podeEditar={podeEditar} />
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             {/* A chave remonta o formulário quando a configuração salva muda */}
-            <AvisosCard key={`${c!.eventos.join()}|${c!.horarioInicio}|${c!.horarioFim}|${c!.pausado}|${c!.aprovarPelaResposta}|${c!.formatoAprovacao}`} config={c!} podeEditar={podeEditar} />
+            <AvisosCard key={`${c!.eventos.join()}|${c!.horarioInicio}|${c!.horarioFim}|${c!.pausado}|${c!.aprovarPelaResposta}|${c!.formatoAprovacao}|${c!.assistenteRespostas}`} config={c!} podeEditar={podeEditar} />
             <MensagensCard podeEditar={podeEditar} conectado={c!.estado === 'conectado'} />
           </div>
         </div>

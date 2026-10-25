@@ -145,6 +145,15 @@ describe('preencherMensagem', () => {
     expect(descreverRespostaWhatsapp({ tipo: 'aprovado', via: 'enquete', texto: '✅ Aprovado', em: '' })).toBe('Resposta: ✅ Aprovado (enquete)')
     expect(descreverRespostaWhatsapp({ tipo: 'modificacoes', via: 'texto', texto: 'quero mudar a cor', em: '' })).toBe('Resposta: ✏️ Quero modificações — “quero mudar a cor”')
     expect(descreverRespostaWhatsapp({ tipo: 'outra', via: 'texto', texto: 'bom dia', em: '' })).toBe('Resposta: “bom dia”')
+    // Lida pelo Assistente GrafyGo
+    const leitura = { intencao: 'pergunta' as const, confianca: 0.9, resumo: 'O cliente perguntou se dá para entregar na sexta.' }
+    expect(descreverRespostaWhatsapp({ tipo: 'outra', via: 'assistente', texto: 'dá pra sexta?', em: '', assistente: leitura })).toBe(
+      'Assistente GrafyGo: O cliente perguntou se dá para entregar na sexta. · entendido pelo Assistente GrafyGo',
+    )
+    expect(descreverRespostaWhatsapp({ tipo: 'aprovado', via: 'assistente', texto: 'tá ótimo', em: '', assistente: { ...leitura, intencao: 'aprova' } })).toBe(
+      'Resposta: ✅ Aprovado — “tá ótimo” · entendido pelo Assistente GrafyGo',
+    )
+    expect(descreverRespostaWhatsapp({ tipo: 'outra', via: 'texto', texto: 'hmm', em: '', assistente: { pendente: true } })).toBe('Resposta: “hmm” · o Assistente GrafyGo está lendo')
   })
   it('todo texto padrão começa pela saudação, assina e tem no máximo um emoji e um link (no fim)', () => {
     for (const t of Object.values(TEXTOS_PADRAO_MENSAGEM)) {

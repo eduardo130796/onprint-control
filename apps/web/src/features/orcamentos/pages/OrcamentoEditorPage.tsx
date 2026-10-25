@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowLeft, CheckCircle2, Globe, MessageSquareReply, Plus, RefreshCw, XCircle } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle2, Globe, MessageSquareReply, Plus, RefreshCw, Sparkles, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { descreverRespostaWhatsapp, formatarDataHora, formatarDataSimples, orcamentoSchema } from '@onprint/shared'
 import { clientesApi } from '@/api/cadastros'
@@ -142,7 +142,7 @@ function Editor({
                 : 'mb-4 flex items-start gap-2 rounded-xl bg-marca-suave p-3 text-sm text-marca-escuro'
           }
         >
-          <MessageSquareReply className="mt-0.5 h-4 w-4 shrink-0" />
+          {orcamento.respostaWhatsapp.assistente ? <Sparkles className="mt-0.5 h-4 w-4 shrink-0" aria-label="Assistente GrafyGo" /> : <MessageSquareReply className="mt-0.5 h-4 w-4 shrink-0" />}
           <span className="[overflow-wrap:anywhere]">
             WhatsApp do cliente · {descreverRespostaWhatsapp(orcamento.respostaWhatsapp)} · {formatarDataHora(orcamento.respostaWhatsapp.em)}
           </span>

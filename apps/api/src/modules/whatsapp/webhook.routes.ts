@@ -12,6 +12,8 @@ import { empresaDaInstancia, lerAvisoWebhook, segredoConfere, segredoDaEmpresa, 
 export const whatsappWebhookRoutes: FastifyPluginAsyncZod = async (app) => {
   const respostas = criarRespostasWhatsapp(app)
   const segredoServidor = segredoDoServidor(app.config)
+  // Leituras do Assistente GrafyGo em segundo plano terminam antes de fechar o banco
+  app.addHook('onClose', () => respostas.aguardarAssistente())
 
   app.post(
     '/whatsapp/webhook/:segredo',

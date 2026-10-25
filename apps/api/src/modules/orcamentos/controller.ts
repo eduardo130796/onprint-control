@@ -9,7 +9,7 @@ import type {
 import type { z } from 'zod'
 import { AppError } from '../../core/AppError'
 import { contextoUsuario } from '../../core/escopo'
-import { respostaDaMensagem } from '../whatsapp/service'
+import { camposResposta, respostaDaMensagem } from '../whatsapp/service'
 import { comAnalise, parametrosDaEmpresaAtual, type analiseOrcamentoSchema } from './analise'
 import type { criarCatalogoService } from './catalogo.service'
 import type { ConversaoAutomatica } from './conversao-automatica'
@@ -66,7 +66,7 @@ export function criarOrcamentosController(app: FastifyInstance, s: Servicos) {
     const m = await app.prisma.mensagemWhatsapp.findFirst({
       where: { orcamentoId: o.id, evento: 'orcamento_enviado', resposta: { not: null } },
       orderBy: { respostaEm: 'desc' },
-      select: { resposta: true, respostaVia: true, respostaTexto: true, respostaEm: true },
+      select: camposResposta,
     })
     const comResposta = { ...comLucro, respostaWhatsapp: m ? respostaDaMensagem(m) : null }
     return c.veCustos ? comMargem(comResposta) : ocultarCustos(comResposta)

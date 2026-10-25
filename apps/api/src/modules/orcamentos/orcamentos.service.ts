@@ -202,7 +202,7 @@ export function criarOrcamentosService(app: FastifyInstance) {
      * "Registrar aprovação" ou, com canal "whatsapp", "Cliente aprovou pelo WhatsApp" (respondeu APROVADO na conversa).
      * Com `resposta`, foi o próprio sistema que leu a resposta do cliente na conversa (enquete ou texto).
      */
-    aprovarInterno: (id: string, nome: string, ctx: ContextoUsuario, canal?: 'whatsapp', resposta?: { via: 'enquete' | 'texto'; texto: string | null }) =>
+    aprovarInterno: (id: string, nome: string, ctx: ContextoUsuario, canal?: 'whatsapp', resposta?: { via: 'enquete' | 'texto' | 'assistente'; texto: string | null }) =>
       mudarStatus(
         id,
         ctx,
@@ -210,7 +210,7 @@ export function criarOrcamentosService(app: FastifyInstance) {
         {
           status: 'aprovado',
           aprovadoEm: new Date(),
-          aprovadoPorNome: `${nome} (${resposta ? `respondeu no WhatsApp${resposta.via === 'enquete' ? ', pela enquete' : ''}` : canal === 'whatsapp' ? 'pelo WhatsApp, registrado pela equipe' : 'registrado internamente'})`,
+          aprovadoPorNome: `${nome} (${resposta ? `respondeu no WhatsApp${resposta.via === 'enquete' ? ', pela enquete' : resposta.via === 'assistente' ? ', entendido pelo Assistente GrafyGo' : ''}` : canal === 'whatsapp' ? 'pelo WhatsApp, registrado pela equipe' : 'registrado internamente'})`,
           aprovadoIp: null,
         },
         'Este orçamento não pode ser aprovado.',

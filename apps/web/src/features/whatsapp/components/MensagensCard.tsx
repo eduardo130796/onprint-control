@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Ban, ExternalLink, FileText, Inbox, MessageSquareReply, RotateCcw } from 'lucide-react'
+import { Ban, ExternalLink, FileText, Inbox, MessageSquareReply, RotateCcw, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   STATUS_MENSAGEM_WHATSAPP,
@@ -167,7 +167,8 @@ function LinhaMensagem({
         )}
         {m.resposta && (
           <p className={cn('mt-1 flex items-start gap-1 text-xs font-medium', m.resposta.tipo === 'aprovado' ? 'text-green-800' : m.resposta.tipo === 'modificacoes' ? 'text-amber-800' : 'text-tinta')}>
-            <MessageSquareReply className="mt-0.5 h-3 w-3 shrink-0" />
+            {/* Lida pelo Assistente GrafyGo (ou ainda lendo) */}
+            {m.resposta.assistente ? <Sparkles className="mt-0.5 h-3 w-3 shrink-0" aria-label="Assistente GrafyGo" /> : <MessageSquareReply className="mt-0.5 h-3 w-3 shrink-0" />}
             <span className="[overflow-wrap:anywhere]">
               {descreverRespostaWhatsapp(m.resposta)} · {formatarDataHora(m.resposta.em)}
             </span>

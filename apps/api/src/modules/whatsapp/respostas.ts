@@ -1,4 +1,4 @@
-import { OPCOES_ENQUETE_ORCAMENTO, STATUS_ORCAMENTO_ABERTOS, type FormatoRespostaOrcamento, type TipoRespostaWhatsapp } from '@onprint/shared'
+import { OPCOES_ENQUETE_ORCAMENTO, STATUS_ORCAMENTO_ABERTOS, type FormatoRespostaOrcamento, type IntencaoRespostaIA, type TipoRespostaWhatsapp } from '@onprint/shared'
 
 /*
  * O cliente responde o orçamento na própria conversa: voto na enquete ("✅ Aprovado" / "✏️ Quero modificações") ou
@@ -95,12 +95,22 @@ export type MotivoNotificacao =
   | 'depois_de_aprovado'
   /** Respondeu um orçamento recusado ou expirado */
   | 'fechado'
+  /** O Assistente GrafyGo leu e não é caso de agir sozinho (pergunta, outro assunto, pouca certeza) */
+  | 'assistente'
+
+/** O que o Assistente GrafyGo entendeu do texto (vai junto da decisão para registrar e avisar a equipe) */
+export interface LeituraAssistente {
+  intencao: IntencaoRespostaIA
+  confianca: number
+  resumo: string
+  temPergunta: boolean
+}
 
 export type Decisao =
   | { acao: 'ignorar'; motivo: string }
-  | { acao: 'aprovar'; alvo: OrcamentoEnviado; resposta: TipoRespostaWhatsapp }
-  | { acao: 'modificar'; alvo: OrcamentoEnviado; resposta: TipoRespostaWhatsapp; responderCliente: boolean }
-  | { acao: 'notificar'; motivo: MotivoNotificacao; alvos: OrcamentoEnviado[]; resposta: TipoRespostaWhatsapp; avisarEquipe: boolean }
+  | { acao: 'aprovar'; alvo: OrcamentoEnviado; resposta: TipoRespostaWhatsapp; assistente?: LeituraAssistente }
+  | { acao: 'modificar'; alvo: OrcamentoEnviado; resposta: TipoRespostaWhatsapp; responderCliente: boolean; assistente?: LeituraAssistente }
+  | { acao: 'notificar'; motivo: MotivoNotificacao; alvos: OrcamentoEnviado[]; resposta: TipoRespostaWhatsapp; avisarEquipe: boolean; assistente?: LeituraAssistente }
 
 /** Texto sem citar a mensagem vale para o único orçamento aberto enviado ao número nestes dias */
 export const JANELA_RESPOSTA_MS = 30 * 86_400_000
@@ -165,12 +175,47 @@ export function decidirResposta(r: Recebida, candidatos: OrcamentoEnviado[], opc
   if (intencao === 'aprovar') {
     return opcoes.aprovarSozinho ? { acao: 'aprovar', alvo, resposta } : { acao: 'notificar', motivo: 'aprovacao_manual', alvos: [alvo], resposta, avisarEquipe: true }
   }
-  if (intencao === 'modificar') {
-    const jaRespondeu = alvo.resposta === 'modificacoes' && alvo.respostaEm !== null && opcoes.agora.getTime() - alvo.respostaEm.getTime() < SILENCIO_RESPOSTA_CLIENTE_MS
-    return { acao: 'modificar', alvo, resposta, responderCliente: !jaRespondeu }
-  }
+  if (intencao === 'modificar') return { acao: 'modificar', alvo, resposta, responderCliente: !jaRespondeuModificacao(alvo, opcoes.agora) }
   const recente = alvo.respostaEm !== null && opcoes.agora.getTime() - alvo.respostaEm.getTime() < SILENCIO_NOTIFICACAO_MS
   return { acao: 'notificar', motivo: 'texto', alvos: [alvo], resposta, avisarEquipe: !recente }
+}
+
+/** "Já avisei a equipe" saiu há pouco para este orçamento (não repete) */
+const jaRespondeuModificacao = (alvo: OrcamentoEnviado, agora: Date) =>
+  alvo.resposta === 'modificacoes' && alvo.respostaEm !== null && agora.getTime() - alvo.respostaEm.getTime() < SILENCIO_RESPOSTA_CLIENTE_MS
+
+// ─── Assistente GrafyGo: o texto que as regras não entenderam ───
+
+/** Certeza mínima para aprovar sozinho (e nunca com pergunta no texto) e para tratar como pedido de modificação */
+export const CONFIANCA_APROVAR = 0.85
+export const CONFIANCA_MODIFICAR = 0.8
+
+/**
+ * A resposta vai para o Assistente: texto (não número, não voto) sem intenção clara para as regras, ligado a um único
+ * orçamento aberto. Vários orçamentos, número desconhecido, orçamento fechado ou já aprovado continuam como antes.
+ */
+export function vaiParaAssistente(d: Decisao, r: Recebida): d is Extract<Decisao, { acao: 'notificar' }> {
+  return r.tipo === 'texto' && d.acao === 'notificar' && d.motivo === 'texto' && d.alvos.length === 1 && numeroDaResposta(r.texto) === null && r.texto.trim().length > 0
+}
+
+/**
+ * O que fazer com a leitura do Assistente. Age sozinho só no claro: aprova com confiança ≥ 0,85 e sem pergunta (nem no
+ * texto, nem na leitura); pedido de modificação com ≥ 0,8 segue o fluxo de modificação. O resto avisa o vendedor com o
+ * resumo ("Assistente: o cliente perguntou se dá para entregar sexta"). `base` é a decisão das regras (notificar).
+ */
+export function decidirPeloAssistente(leitura: LeituraAssistente, texto: string, base: Extract<Decisao, { acao: 'notificar' }>, opcoes: { aprovarSozinho: boolean; agora: Date }): Decisao {
+  const alvo = base.alvos[0]!
+  const pergunta = leitura.temPergunta || texto.includes('?')
+  if (leitura.intencao === 'aprova' && leitura.confianca >= CONFIANCA_APROVAR && !pergunta) {
+    return opcoes.aprovarSozinho
+      ? { acao: 'aprovar', alvo, resposta: 'aprovado', assistente: leitura }
+      : { acao: 'notificar', motivo: 'aprovacao_manual', alvos: [alvo], resposta: 'aprovado', avisarEquipe: true, assistente: leitura }
+  }
+  if (leitura.intencao === 'quer_modificacoes' && leitura.confianca >= CONFIANCA_MODIFICAR) {
+    return { acao: 'modificar', alvo, resposta: 'modificacoes', responderCliente: !jaRespondeuModificacao(alvo, opcoes.agora), assistente: leitura }
+  }
+  // Pergunta sempre avisa (mesmo logo depois de outra mensagem); o resto respeita o silêncio de 10 minutos
+  return { acao: 'notificar', motivo: 'assistente', alvos: [alvo], resposta: 'outra', avisarEquipe: pergunta || leitura.intencao === 'pergunta' || base.avisarEquipe, assistente: leitura }
 }
 
 /** Número com e sem o 9º dígito (celular antigo no WhatsApp: 55 + DDD + 8 dígitos) */

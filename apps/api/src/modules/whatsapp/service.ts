@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
 import type { z } from 'zod'
-import { CODIGOS_ERRO, type ConexaoWhatsapp, type RespostaWhatsapp, type TipoRespostaWhatsapp, type DisponibilidadeWhatsapp, type EventoWhatsapp, type MensagemWhatsapp, type TipoMensagemWhatsapp, type WhatsappConfig, type mensagensWhatsappQuerySchema, type whatsappConfigSchema } from '@onprint/shared'
+import { CODIGOS_ERRO, type IntencaoRespostaIA, type ConexaoWhatsapp, type RespostaWhatsapp, type TipoRespostaWhatsapp, type DisponibilidadeWhatsapp, type EventoWhatsapp, type MensagemWhatsapp, type TipoMensagemWhatsapp, type WhatsappConfig, type mensagensWhatsappQuerySchema, type whatsappConfigSchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
 import { contextoEmpresa } from '../../core/contexto-empresa'
@@ -41,10 +41,35 @@ export function formatarMensagem(m: Prisma.MensagemWhatsappGetPayload<{ include:
 }
 
 /** Resposta do cliente gravada na linha do orçamento enviado (null = ainda não respondeu) */
-export function respostaDaMensagem(m: { resposta: string | null; respostaVia: string | null; respostaTexto: string | null; respostaEm: Date | null }): RespostaWhatsapp | null {
+export function respostaDaMensagem(m: {
+  resposta: string | null
+  respostaVia: string | null
+  respostaTexto: string | null
+  respostaEm: Date | null
+  respostaIntencao?: string | null
+  respostaConfianca?: number | null
+  respostaResumo?: string | null
+}): RespostaWhatsapp | null {
   if (!m.resposta || !m.respostaEm) return null
-  return { tipo: m.resposta as TipoRespostaWhatsapp, via: m.respostaVia === 'enquete' ? 'enquete' : 'texto', texto: m.respostaTexto, em: m.respostaEm.toISOString() }
+  const base = { tipo: m.resposta as TipoRespostaWhatsapp, texto: m.respostaTexto, em: m.respostaEm.toISOString() }
+  // Lida pelo Assistente GrafyGo (ou ainda lendo)
+  if (m.respostaVia === 'assistente_pendente') return { ...base, via: 'texto', assistente: { pendente: true } }
+  if (m.respostaVia === 'assistente' && m.respostaIntencao && m.respostaResumo) {
+    return { ...base, via: 'assistente', assistente: { intencao: m.respostaIntencao as IntencaoRespostaIA, confianca: m.respostaConfianca ?? 0, resumo: m.respostaResumo } }
+  }
+  return { ...base, via: m.respostaVia === 'enquete' ? 'enquete' : 'texto' }
 }
+
+/** Campos da resposta do cliente (tela do orçamento) */
+export const camposResposta = {
+  resposta: true,
+  respostaVia: true,
+  respostaTexto: true,
+  respostaEm: true,
+  respostaIntencao: true,
+  respostaConfianca: true,
+  respostaResumo: true,
+} satisfies Prisma.MensagemWhatsappSelect
 
 /** Tela WhatsApp: conexão pelo QR code, eventos ligados, horário, pausa e a fila/histórico dos avisos. */
 export function criarWhatsappService(app: FastifyInstance) {
@@ -67,6 +92,8 @@ export function criarWhatsappService(app: FastifyInstance) {
       pausado: config.pausado,
       aprovarPelaResposta: config.aprovarPelaResposta,
       formatoAprovacao: formatoAprovacao(config),
+      assistenteRespostas: config.assistenteRespostas,
+      assistenteDisponivel: await app.assistente.disponivel(),
       pendentes: await prisma.mensagemWhatsapp.count({ where: { status: 'pendente' } }),
     }
   }
@@ -133,13 +160,14 @@ export function criarWhatsappService(app: FastifyInstance) {
             pausado: dados.pausado,
             ...(dados.aprovarPelaResposta === undefined ? {} : { aprovarPelaResposta: dados.aprovarPelaResposta }),
             ...(dados.formatoAprovacao === undefined ? {} : { formatoAprovacao: dados.formatoAprovacao }),
+            ...(dados.assistenteRespostas === undefined ? {} : { assistenteRespostas: dados.assistenteRespostas }),
           },
         })
         await registrarAuditoria(tx, {
           tabela: 'whatsapp_config',
           registroId: c.id,
           acao: 'editar',
-          antes: { eventos: antes.eventos, horarioInicio: antes.horarioInicio, horarioFim: antes.horarioFim, pausado: antes.pausado, aprovarPelaResposta: antes.aprovarPelaResposta, formatoAprovacao: antes.formatoAprovacao },
+          antes: { eventos: antes.eventos, horarioInicio: antes.horarioInicio, horarioFim: antes.horarioFim, pausado: antes.pausado, aprovarPelaResposta: antes.aprovarPelaResposta, formatoAprovacao: antes.formatoAprovacao, assistenteRespostas: antes.assistenteRespostas },
           depois: dados,
           usuarioId,
         })

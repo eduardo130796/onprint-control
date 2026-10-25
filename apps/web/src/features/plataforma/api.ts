@@ -1,5 +1,10 @@
 import type {
   AcaoAssinatura,
+  AssistenteCentral,
+  AssistenteConfigInput,
+  ProvedorIA,
+  TesteAssistente,
+  UsoAssistenteMes,
   CupomDetalhe,
   CupomInput,
   CupomPlataforma,
@@ -81,4 +86,9 @@ export const plataformaApi = {
   cupom: (id: string) => chamar<CupomDetalhe>(`/cupons/${id}`),
   salvarCupom: (id: string | null, dados: CupomInput) => chamar<CupomPlataforma>(id ? `/cupons/${id}` : '/cupons', { method: id ? 'PUT' : 'POST', body: dados }),
   conciliar: () => chamar<{ cobrancas: number; assinaturas: number; falhas: string[] }>('/conciliar', { method: 'POST' }),
+  // Assistente GrafyGo (a chave vai, nunca volta)
+  assistente: () => chamar<AssistenteCentral>('/assistente'),
+  salvarAssistente: (dados: AssistenteConfigInput) => chamar<AssistenteCentral>('/assistente', { method: 'PUT', body: dados }),
+  testarAssistente: (dados: { provedor?: ProvedorIA; modelo?: string; chave?: string }) => chamar<TesteAssistente>('/assistente/testar', { method: 'POST', body: dados }),
+  usoAssistente: (mes?: string) => chamar<UsoAssistenteMes>(`/assistente/uso${qs({ mes })}`),
 }

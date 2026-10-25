@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, Loader2, Pencil, Save } from 'lucide-react'
+import { ChevronDown, Loader2, Pencil, Save, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { EVENTOS_WHATSAPP, EVENTO_WHATSAPP_DESCRICOES, EVENTO_WHATSAPP_ROTULOS, whatsappConfigSchema, type EventoWhatsapp, type WhatsappConfig } from '@onprint/shared'
 import { templatesApi } from '@/api/configuracoes'
@@ -27,10 +27,12 @@ export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; pod
   const [pausado, setPausado] = useState(config.pausado)
   const [aprovarSozinho, setAprovarSozinho] = useState(config.aprovarPelaResposta)
   const [formato, setFormato] = useState(config.formatoAprovacao)
+  const [assistente, setAssistente] = useState(config.assistenteRespostas)
   const [aberto, setAberto] = useState<EventoWhatsapp | null>(null)
   const alterado =
     aprovarSozinho !== config.aprovarPelaResposta ||
     formato !== config.formatoAprovacao ||
+    assistente !== config.assistenteRespostas ||
     pausado !== config.pausado || inicio !== config.horarioInicio || fim !== config.horarioFim || [...eventos].sort().join() !== [...config.eventos].sort().join()
 
   const salvar = useMutation({
@@ -43,7 +45,7 @@ export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; pod
   })
 
   function enviar() {
-    const dados = whatsappConfigSchema.safeParse({ eventos, horarioInicio: inicio, horarioFim: fim, pausado, aprovarPelaResposta: aprovarSozinho, formatoAprovacao: formato })
+    const dados = whatsappConfigSchema.safeParse({ eventos, horarioInicio: inicio, horarioFim: fim, pausado, aprovarPelaResposta: aprovarSozinho, formatoAprovacao: formato, assistenteRespostas: assistente })
     if (!dados.success) return toast.error(dados.error.issues[0]?.message ?? 'Verifique o horário.')
     salvar.mutate(dados.data)
   }
@@ -130,6 +132,22 @@ export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; pod
                   conforme Configurações → Empresa → Pedidos. Desligado, o vendedor recebe a notificação e confirma. Pedido de modificação
                   {formato === 'enquete' ? '' : ' (o 2)'} sempre volta para negociação e avisa o vendedor.
                 </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 border-t border-tinta/10 pt-3">
+              <Interruptor rotulo="Usar o Assistente GrafyGo para entender respostas fora do padrão" marcado={assistente} onMudar={setAssistente} desabilitado={!podeEditar} className="mt-0.5" />
+              <div>
+                <p className="flex items-center gap-1.5 text-sm font-medium text-tinta">
+                  <Sparkles className="h-3.5 w-3.5 shrink-0 text-marca-escuro" aria-hidden="true" /> Usar o Assistente GrafyGo para entender respostas fora do padrão
+                </p>
+                <p className="text-xs text-texto-secundario">
+                  Quando o cliente escreve algo que não é um “aprovado” claro (ex.: “tá ótimo, pode mandar ver” ou “dá pra entregar sexta?”), o Assistente lê a
+                  resposta: aprova só quando tem certeza e não há pergunta{aprovarSozinho ? '' : ' (com “aprovar sozinho” desligado, avisa para confirmar)'}, passa
+                  para negociação se o cliente pedir ajustes e, no resto, avisa o vendedor com um resumo. O texto vai a um provedor de IA, sem o telefone do cliente.
+                </p>
+                {!config.assistenteDisponivel && (
+                  <p className="mt-1 text-xs font-medium text-amber-800">O Assistente ainda não foi liberado pela GrafyGo: a escolha passa a valer assim que ele for ligado.</p>
+                )}
               </div>
             </div>
           </div>

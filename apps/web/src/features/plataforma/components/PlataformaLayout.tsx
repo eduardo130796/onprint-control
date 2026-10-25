@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { NavLink, Navigate, Outlet, useNavigate } from 'react-router-dom'
-import { BellRing, Building2, Gauge, Layers, Loader2, LogOut, TicketPercent } from 'lucide-react'
+import { BellRing, Building2, Gauge, Layers, Loader2, LogOut, Sparkles, TicketPercent } from 'lucide-react'
 import { iniciais } from '@onprint/shared'
 import { TelaCarregando } from '@/components/shared/TelaCarregando'
 import { AvisoInatividade } from '@/features/auth/AvisoInatividade'
@@ -16,6 +16,7 @@ const LINKS = [
   { para: '/plataforma/cupons', rotulo: 'Cupons', Icone: TicketPercent },
   { para: '/plataforma/planos', rotulo: 'Planos', Icone: Layers },
   { para: '/plataforma/avisos', rotulo: 'Avisos do Asaas', Icone: BellRing },
+  { para: '/plataforma/assistente', rotulo: 'Assistente', Icone: Sparkles },
 ]
 
 /** Moldura do painel da plataforma: exige a sessão de administrador da plataforma. */

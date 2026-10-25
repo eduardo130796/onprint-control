@@ -34,6 +34,7 @@ export const PlanosPlataformaPage = carregar(() => import('@/features/plataforma
 export const AvisosGatewayPage = carregar(() => import('@/features/plataforma/pages/AvisosGatewayPage'), 'AvisosGatewayPage')
 export const CuponsPlataformaPage = carregar(() => import('@/features/plataforma/pages/CuponsPlataformaPage'), 'CuponsPlataformaPage')
 export const CupomPlataformaPage = carregar(() => import('@/features/plataforma/pages/CupomPlataformaPage'), 'CupomPlataformaPage')
+export const AssistentePlataformaPage = carregar(() => import('@/features/plataforma/pages/AssistentePlataformaPage'), 'AssistentePlataformaPage')
 export const MinhaAssinaturaPage = carregar(() => import('@/features/assinatura/pages/MinhaAssinaturaPage'), 'MinhaAssinaturaPage')
 export const UsuariosPage = carregar(() => import('@/features/configuracoes/pages/UsuariosPage'), 'UsuariosPage')
 export const FornecedorPage = carregar(() => import('@/features/fornecedores/pages/FornecedorPage'), 'FornecedorPage')

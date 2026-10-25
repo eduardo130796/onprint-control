@@ -118,7 +118,7 @@ export const TERMOS_DE_USO: DocumentoLegal = {
 
 export const POLITICA_PRIVACIDADE: DocumentoLegal = {
   titulo: 'Política de privacidade',
-  atualizadoEm: '2026-10-10',
+  atualizadoEm: '2026-10-25',
   resumo: `Como o ${MARCA.produto} trata dados pessoais, de acordo com a Lei Geral de Proteção de Dados (Lei 13.709/2018).`,
   secoes: [
     {
@@ -155,25 +155,32 @@ export const POLITICA_PRIVACIDADE: DocumentoLegal = {
       paragrafos: ['Não vendemos dados pessoais. Compartilhamos apenas o necessário com:'],
       itens: [
         'Asaas, para processar pagamentos (e emitir notas fiscais, quando aplicável);',
+        'provedor de inteligência artificial do Assistente GrafyGo (hoje, a Anthropic), só com os textos descritos no item 5;',
         'provedores de servidor, cópia de segurança e envio de e-mails, contratados com obrigações de sigilo e segurança;',
         'autoridades públicas, quando exigido por lei ou ordem judicial.',
       ],
     },
     {
-      titulo: '5. Segurança',
+      titulo: '5. Assistente GrafyGo (inteligência artificial)',
+      paragrafos: [
+        'Quando o cliente da gráfica responde um orçamento no WhatsApp com uma mensagem que o sistema não entende sozinho (algo diferente de "aprovado" ou de um pedido de mudança claro), o Assistente GrafyGo envia o texto dessa mensagem a um provedor de inteligência artificial para entender o que o cliente quer e avisar a equipe. Vão só o texto da mensagem, o número e os itens do orçamento, o primeiro nome do cliente e o nome da gráfica; telefones, documentos e e-mails escritos na mensagem são retirados antes do envio. O provedor trata esses textos apenas para gerar a resposta, nos termos do contrato comercial dele com a GrafyGo. A gráfica pode desligar o Assistente a qualquer momento na tela WhatsApp do sistema.',
+      ],
+    },
+    {
+      titulo: '6. Segurança',
       paragrafos: [
         'Usamos conexão criptografada (HTTPS), senhas com criptografia forte, separação dos dados de cada empresa, controle de acesso por permissões, registro de alterações e cópias de segurança diárias guardadas fora do servidor principal.',
         'Se ocorrer um incidente de segurança que possa causar risco ou dano relevante, avisaremos os afetados e a Autoridade Nacional de Proteção de Dados (ANPD), como determina a lei.',
       ],
     },
     {
-      titulo: '6. Por quanto tempo guardamos',
+      titulo: '7. Por quanto tempo guardamos',
       paragrafos: [
         'Enquanto a conta estiver ativa. Após o cancelamento, os dados ficam guardados por 90 dias (para o caso de voltar) e depois são excluídos ou anonimizados, exceto os que a lei obriga a manter (por exemplo, dados fiscais e registros de acesso, pelo prazo legal).',
       ],
     },
     {
-      titulo: '7. Seus direitos',
+      titulo: '8. Seus direitos',
       paragrafos: ['Você pode, a qualquer momento:'],
       itens: [
         'confirmar se tratamos seus dados e acessá-los;',
@@ -184,15 +191,15 @@ export const POLITICA_PRIVACIDADE: DocumentoLegal = {
       ],
     },
     {
-      titulo: '8. Cookies',
+      titulo: '9. Cookies',
       paragrafos: ['Usamos apenas o armazenamento necessário para manter você conectado e lembrar preferências (como o tema claro ou escuro). Não usamos cookies de publicidade de terceiros.'],
     },
     {
-      titulo: '9. Contato do encarregado (DPO)',
+      titulo: '10. Contato do encarregado (DPO)',
       paragrafos: [`Para exercer seus direitos ou tirar dúvidas sobre privacidade: ${MARCA.contato}. Respondemos em até 15 dias.`],
     },
     {
-      titulo: '10. Mudanças nesta política',
+      titulo: '11. Mudanças nesta política',
       paragrafos: ['Esta política pode ser atualizada. A data da última atualização fica no topo da página; mudanças relevantes são avisadas no sistema ou por e-mail.'],
     },
   ],

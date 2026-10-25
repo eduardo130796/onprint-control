@@ -12,7 +12,20 @@ import { avisarOrcamento } from '../orcamentos/tempo-real'
 import { numeroDoCliente, obterConfigWhatsapp, whatsappNoPlano } from './avisos'
 import { abrirVotoComIdentidades, ehLid, jidNormalizado, jidsUnicos, mascararJid, votoBrutoParaGuardar, votoDoBruto, type VotoAberto, type VotoCifrado } from './enquete'
 import { FUSO } from './regras'
-import { JANELA_RESPOSTA_MS, decidirResposta, numeroDaResposta, variantesDoNumero, type Decisao, type MotivoNotificacao, type OrcamentoEnviado, type Recebida } from './respostas'
+import { pedidoClassificarResposta, primeiroNome } from '../assistente/prompts'
+import {
+  JANELA_RESPOSTA_MS,
+  decidirPeloAssistente,
+  decidirResposta,
+  numeroDaResposta,
+  vaiParaAssistente,
+  variantesDoNumero,
+  type Decisao,
+  type LeituraAssistente,
+  type MotivoNotificacao,
+  type OrcamentoEnviado,
+  type Recebida,
+} from './respostas'
 import type { AvisoWebhook, EventoWebhook } from './webhook'
 
 const ABERTOS_RESPOSTA = ['enviado', 'em_negociacao'] as const
@@ -27,10 +40,14 @@ const incluirOrcamento = {
       vendedorId: true,
       createdBy: true,
       clienteId: true,
-      cliente: { select: { id: true, nome: true, fantasia: true, whatsapp: true, telefone: true, receberAvisosWhatsapp: true } },
+      cliente: { select: { id: true, nome: true, fantasia: true, tipoPessoa: true, whatsapp: true, telefone: true, receberAvisosWhatsapp: true } },
     },
   },
 } as const
+
+/** Resposta lida pelo Assistente GrafyGo (resposta_via): enquanto lê e depois de ler */
+const VIA_LENDO = 'assistente_pendente'
+const VIA_ASSISTENTE = 'assistente'
 
 /** "24/10/2026 10:12" no horário de Brasília */
 const dataHora = (d: Date) =>
@@ -87,11 +104,25 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
     }
   }
 
-  /** Grava a resposta na linha do orçamento enviado (a tela do orçamento e a lista do WhatsApp mostram) */
-  async function registrar(mensagemId: string, resposta: TipoRespostaWhatsapp, r: Recebida, textoResposta: string | null) {
+  /**
+   * Grava a resposta na linha do orçamento enviado (a tela do orçamento e a lista do WhatsApp mostram), com o que o
+   * Assistente entendeu quando foi ele quem leu (ou "lendo", enquanto a leitura não volta).
+   */
+  async function registrar(mensagemId: string, resposta: TipoRespostaWhatsapp, r: Recebida, textoResposta: string | null, assistente?: LeituraAssistente | 'lendo') {
+    const via = assistente === 'lendo' ? VIA_LENDO : assistente ? VIA_ASSISTENTE : r.tipo === 'voto' ? 'enquete' : 'texto'
+    const leitura = assistente && assistente !== 'lendo' ? assistente : null
     await prisma.mensagemWhatsapp.update({
       where: { id: mensagemId },
-      data: { resposta, respostaVia: r.tipo === 'voto' ? 'enquete' : 'texto', respostaTexto: textoResposta?.slice(0, 500) ?? null, respostaEm: new Date(), respostaIdExterno: r.idMensagem },
+      data: {
+        resposta,
+        respostaVia: via,
+        respostaTexto: textoResposta?.slice(0, 500) ?? null,
+        respostaEm: new Date(),
+        respostaIdExterno: r.idMensagem,
+        respostaIntencao: leitura?.intencao ?? null,
+        respostaConfianca: leitura?.confianca ?? null,
+        respostaResumo: leitura?.resumo.slice(0, 300) ?? null,
+      },
     })
   }
 
@@ -124,10 +155,20 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
     return nome ? `\n\n— ${nome}` : ''
   }
 
-  function textoDaNotificacao(motivo: MotivoNotificacao, cliente: string, alvos: OrcamentoEnviado[], resposta: TipoRespostaWhatsapp, escrito: string | null) {
+  function textoDaNotificacao(motivo: MotivoNotificacao, cliente: string, alvos: OrcamentoEnviado[], resposta: TipoRespostaWhatsapp, escrito: string | null, assistente?: LeituraAssistente) {
     const numero = alvos[0]!.numero
     const disse = escrito ? `“${escrito.slice(0, 200)}”` : TIPO_RESPOSTA_WHATSAPP_ROTULOS[resposta]
     switch (motivo) {
+      case 'assistente':
+        return {
+          titulo: `${cliente} respondeu o orçamento ${numero} no WhatsApp`,
+          mensagem: `Assistente: ${assistente?.resumo.replace(/\.$/, '') ?? 'resposta fora do padrão'} — ${cliente} escreveu ${disse}. Responda o cliente e confirme no orçamento.`,
+        }
+      case 'aprovacao_manual':
+        if (assistente) {
+          return { titulo: `${cliente} aprovou o orçamento ${numero} no WhatsApp`, mensagem: `${cliente} respondeu: ${disse} (entendido pelo Assistente GrafyGo). Confirme no orçamento ("Cliente aprovou pelo WhatsApp").` }
+        }
+        return { titulo: `${cliente} respondeu Aprovado no WhatsApp · orçamento ${numero}`, mensagem: `${cliente} respondeu: ${disse}. Confirme no orçamento ("Cliente aprovou pelo WhatsApp").` }
       case 'varios':
         return {
           titulo: `${cliente} respondeu no WhatsApp — confirme de qual orçamento`,
@@ -135,8 +176,6 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
         }
       case 'voto_ilegivel':
         return { titulo: `${cliente} votou na enquete do orçamento ${numero}`, mensagem: 'Não deu para ler a opção escolhida: confira a conversa no WhatsApp e registre no orçamento.' }
-      case 'aprovacao_manual':
-        return { titulo: `${cliente} respondeu Aprovado no WhatsApp · orçamento ${numero}`, mensagem: `${cliente} respondeu: ${disse}. Confirme no orçamento ("Cliente aprovou pelo WhatsApp").` }
       case 'depois_de_aprovado':
         return { titulo: `${cliente} respondeu de novo o orçamento ${numero} (já aprovado)`, mensagem: `${cliente} respondeu: ${disse}. A aprovação continua valendo; fale com o cliente.` }
       case 'fechado':
@@ -146,8 +185,10 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
     }
   }
 
-  async function aplicar(empresa: EmpresaAtual, d: Decisao, r: Recebida, linhas: Linha[], escrito: string | null) {
+  /** `gravar` false: outra resposta do cliente já foi registrada depois desta (a leitura do Assistente demorou) */
+  async function aplicar(empresa: EmpresaAtual, d: Decisao, r: Recebida, linhas: Linha[], escrito: string | null, gravar = true) {
     if (d.acao === 'ignorar') return d
+    const gravarResposta = (mensagemId: string, resposta: TipoRespostaWhatsapp) => (gravar ? registrar(mensagemId, resposta, r, escrito, d.assistente) : Promise.resolve())
     const linhaDe = (c: OrcamentoEnviado) => linhas.find((l) => l.id === c.mensagemId)!
     const autoria = { origem: 'cliente' as const, atorId: null, canal: 'whatsapp' as const }
 
@@ -158,14 +199,14 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
       const ator = o.vendedorId ?? o.createdBy ?? (await quemAvisar(null))[0] ?? ''
       const ctx: ContextoUsuario = { usuarioId: ator, veTodos: true, podeAprovar: true, veCustos: true }
       try {
-        await orcamentos.aprovarInterno(o.id, nome, ctx, 'whatsapp', { via: r.tipo === 'voto' ? 'enquete' : 'texto', texto: escrito })
+        await orcamentos.aprovarInterno(o.id, nome, ctx, 'whatsapp', { via: r.tipo === 'voto' ? 'enquete' : d.assistente ? 'assistente' : 'texto', texto: escrito })
       } catch (erro) {
         // Outra aprovação (ou recusa) chegou antes: só registra e avisa
         app.log.info({ err: erro, orcamento: o.numero }, 'Resposta do WhatsApp não aprovou: o orçamento mudou antes')
-        await registrar(l.id, d.resposta, r, escrito)
+        await gravarResposta(l.id, d.resposta)
         return d
       }
-      await registrar(l.id, d.resposta, r, escrito)
+      await gravarResposta(l.id, d.resposta)
       const resultado = await automatica.aposAprovacao({ id: o.id, numero: o.numero, vendedorId: o.vendedorId, createdBy: o.createdBy, cliente: o.cliente }, { ...autoria, nome })
       // Virou pedido e o aviso "pedido confirmado" vai sair (evento ligado, cliente aceita avisos): ele já confirma
       const config = await obterConfigWhatsapp(prisma)
@@ -184,7 +225,8 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
       const quando = dataHora(new Date())
       // Pelo "2" (formato 1/2) ou pela enquete ainda não há os detalhes do ajuste
       const porNumero = r.tipo === 'texto' && numeroDaResposta(r.texto) !== null
-      const detalhe = r.tipo === 'voto' ? ' (enquete; ainda sem os detalhes)' : porNumero ? ' (respondeu 2; ainda sem os detalhes)' : escrito ? `: “${escrito}”` : ''
+      const lido = d.assistente ? ` (Assistente GrafyGo: ${d.assistente.resumo.replace(/.$/, '')})` : ''
+      const detalhe = r.tipo === 'voto' ? ' (enquete; ainda sem os detalhes)' : porNumero ? ' (respondeu 2; ainda sem os detalhes)' : escrito ? `: “${escrito}”${lido}` : ''
       const nota = `[${quando} · WhatsApp] ${cliente} pediu modificações${detalhe}`
       const mudou = await prisma.$transaction(async (tx) => {
         const atual = await tx.orcamento.findUnique({ where: { id: o.id }, select: { status: true, observacoesInternas: true } })
@@ -199,12 +241,12 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
           registroId: o.id,
           acao: 'editar',
           antes: { status: atual.status },
-          depois: { status: 'em_negociacao', via: 'resposta no WhatsApp', resposta: escrito, por: r.tipo === 'voto' ? 'enquete' : 'texto' },
+          depois: { status: 'em_negociacao', via: 'resposta no WhatsApp', resposta: escrito, por: r.tipo === 'voto' ? 'enquete' : d.assistente ? 'assistente' : 'texto', ...(d.assistente ? { assistente: d.assistente } : {}) },
           usuarioId: null,
         })
         return true
       })
-      await registrar(l.id, d.resposta, r, escrito)
+      await gravarResposta(l.id, d.resposta)
       if (!mudou) return d
       await notificar(
         await quemAvisar(o.vendedorId),
@@ -213,7 +255,9 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
               ? 'Pela enquete do WhatsApp; fale com o cliente para combinar os ajustes.'
               : porNumero
                 ? 'Respondeu 2 no WhatsApp; fale com o cliente para combinar os ajustes.'
-                : `“${(escrito ?? '').slice(0, 200)}”`, link: `/orcamentos/${o.id}` },
+                : d.assistente
+                  ? `Assistente: ${d.assistente.resumo.replace(/.$/, '')} — “${(escrito ?? '').slice(0, 200)}”`
+                  : `“${(escrito ?? '').slice(0, 200)}”`, link: `/orcamentos/${o.id}` },
         // O aviso flutuante vem do evento do orçamento (negociação pelo cliente)
         false,
       )
@@ -223,10 +267,10 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
     }
 
     // Só avisa a equipe (e registra a resposta em cada orçamento envolvido)
-    for (const alvo of d.alvos) await registrar(alvo.mensagemId, d.resposta, r, escrito)
+    for (const alvo of d.alvos) await gravarResposta(alvo.mensagemId, d.resposta)
     const o = linhaDe(d.alvos[0]!).orcamento!
     if (d.avisarEquipe) {
-      const dados = textoDaNotificacao(d.motivo, nomeCliente(o.cliente), d.alvos, d.resposta, escrito)
+      const dados = textoDaNotificacao(d.motivo, nomeCliente(o.cliente), d.alvos, d.resposta, escrito, d.assistente)
       await notificar(await quemAvisar(o.vendedorId), { ...dados, link: `/orcamentos/${o.id}` }, true)
     }
     for (const alvo of d.alvos) {
@@ -395,7 +439,69 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
     const linhas = [...citadas, ...doNumero.filter((l) => !citadas.some((c) => c.id === l.id))]
     if (!linhas.length) return { acao: 'ignorar', motivo: 'sem orçamento para o número' } as Decisao
     const r: Recebida = { tipo: 'texto', idMensagem: e.idMensagem, texto: e.texto, citadoId: e.citadoId }
-    return aplicar(empresa, decidirResposta(r, linhas.map(paraCandidato), opcoes), r, linhas, e.texto)
+    const decisao = decidirResposta(r, linhas.map(paraCandidato), opcoes)
+    // Texto que as regras não entenderam, de um orçamento só: o Assistente GrafyGo lê (se a empresa e a central deixam)
+    if (vaiParaAssistente(decisao, r) && config.assistenteRespostas && (await app.assistente.disponivel())) {
+      // Registra já (o mesmo aviso do webhook repetido vira "repetida") e lê em segundo plano: o webhook não espera a IA
+      await registrar(decisao.alvos[0]!.mensagemId, 'outra', r, e.texto, 'lendo')
+      acompanhar(lerComAssistente(empresa, decisao, r, linhas, e.texto, opcoes))
+      return { acao: 'assistente', motivo: 'lendo a resposta' } as const
+    }
+    return aplicar(empresa, decisao, r, linhas, e.texto)
+  }
+
+  // ─── Assistente GrafyGo: respostas fora do padrão ───
+
+  /** Leituras em andamento (os testes e o desligamento da API esperam) */
+  const emAndamento = new Set<Promise<void>>()
+  function acompanhar(p: Promise<void>) {
+    emAndamento.add(p)
+    void p.finally(() => emAndamento.delete(p))
+  }
+
+  /** Contexto do orçamento para o Assistente: nome da gráfica, itens (com a categoria) e o primeiro nome do cliente */
+  async function contextoDoOrcamento(empresa: EmpresaAtual, l: Linha, mensagem: string) {
+    const [config, itens] = await Promise.all([
+      prisma.empresaConfig.findFirst({ orderBy: { createdAt: 'asc' }, select: { nomeFantasia: true, razaoSocial: true } }),
+      prisma.orcamentoItem.findMany({ where: { orcamentoId: l.orcamento!.id }, orderBy: { ordem: 'asc' }, take: 15, select: { descricao: true, quantidade: true, produto: { select: { categoria: { select: { nome: true } } } } } }),
+    ])
+    const c = l.orcamento!.cliente
+    return {
+      grafica: config?.nomeFantasia || config?.razaoSocial || empresa.nome,
+      orcamento: { numero: l.orcamento!.numero, itens: itens.map((i) => ({ descricao: i.descricao, quantidade: Number(i.quantidade).toLocaleString('pt-BR'), categoria: i.produto.categoria?.nome ?? null })) },
+      cliente: c.tipoPessoa === 'PF' ? primeiroNome(c.nome) : null,
+      mensagem,
+    }
+  }
+
+  /**
+   * Pede a leitura ao Assistente e aplica: aprova, modificação ou só avisa o vendedor com o resumo. Sem leitura
+   * (erro, demora, limite do mês, central desligada no meio) faz o de antes: avisa a equipe. Nunca lança.
+   */
+  async function lerComAssistente(empresa: EmpresaAtual, base: Extract<Decisao, { acao: 'notificar' }>, r: Extract<Recebida, { tipo: 'texto' }>, linhas: Linha[], escrito: string, opcoes: { aprovarSozinho: boolean; agora: Date }) {
+    const alvo = base.alvos[0]!
+    try {
+      const l = linhas.find((x) => x.id === alvo.mensagemId)!
+      const leitura = await app.assistente.executar({ assinanteId: empresa.id, recurso: 'whatsapp_resposta', pedido: pedidoClassificarResposta(await contextoDoOrcamento(empresa, l, escrito)) })
+      // Outra resposta do cliente chegou enquanto lia: a mais nova fica registrada (esta só avisa, nunca aprova)
+      const atual = await prisma.mensagemWhatsapp.findUnique({ where: { id: alvo.mensagemId }, select: { respostaIdExterno: true } })
+      const ultima = atual?.respostaIdExterno === r.idMensagem
+      let d: Decisao = base
+      if (leitura.ok) {
+        d = decidirPeloAssistente(leitura.dados, escrito, base, opcoes)
+        if (!ultima && d.acao !== 'notificar') d = { acao: 'notificar', motivo: 'assistente', alvos: [alvo], resposta: 'outra', avisarEquipe: true, assistente: leitura.dados }
+      } else {
+        app.log.info({ empresa: empresa.slug, orcamento: alvo.numero, motivo: leitura.motivo }, 'Resposta do WhatsApp sem a leitura do Assistente: só avisa a equipe')
+      }
+      await aplicar(empresa, d, r, linhas, escrito, ultima)
+    } catch (erro) {
+      app.log.error({ err: erro, empresa: empresa.slug, orcamento: alvo.numero }, 'Assistente GrafyGo: resposta do WhatsApp não processada; avisando a equipe')
+      try {
+        await aplicar(empresa, base, r, linhas, escrito)
+      } catch (erro2) {
+        app.log.error({ err: erro2, empresa: empresa.slug }, 'Resposta do WhatsApp não processada')
+      }
+    }
   }
 
   /** Conexão mudou (CONNECTION_UPDATE): grava o último estado conhecido (e o LID da conta, para abrir os votos) */
@@ -462,6 +568,11 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
     /** Tenta de novo os votos guardados que não abriram (voto_bruto), com as identidades conhecidas agora */
     async reprocessarVotos(empresa: EmpresaAtual) {
       return contextoEmpresa.com(empresa, () => reprocessarVotosGuardados(empresa))
+    },
+
+    /** Espera as leituras do Assistente em andamento (testes e desligamento) */
+    async aguardarAssistente() {
+      while (emAndamento.size) await Promise.all([...emAndamento])
     },
   }
 }

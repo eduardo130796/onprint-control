@@ -328,6 +328,8 @@ model WhatsappConfig {
   /// LID da conta conectada ("…@lid", sem o aparelho; credenciais da instância na Evolution): o voto da enquete no
   /// endereçamento novo é cifrado com ele como criador
   lid                 String?
+  /// Usar o Assistente GrafyGo (IA) para entender respostas fora do padrão (vale com a central ligada)
+  assistenteRespostas Boolean   @default(true) @map("assistente_respostas")
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -393,6 +395,11 @@ model MensagemWhatsapp {
   respostaIdExterno  String?                @map("resposta_id_externo")
   /// Orçamento: como saiu (enquete | numeros | texto) — o "1"/"2" do cliente só vale quando saiu como numeros
   formatoResposta    String?                @map("formato_resposta")
+  /// O que o Assistente GrafyGo entendeu da resposta (resposta_via "assistente"): aprova | quer_modificacoes |
+  /// pergunta | outro, a confiança (0 a 1) e o resumo de uma linha
+  respostaIntencao   String?                @map("resposta_intencao")
+  respostaConfianca  Float?                 @map("resposta_confianca")
+  respostaResumo     String?                @map("resposta_resumo")
   createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -2351,4 +2358,52 @@ model AdminPlataforma {
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@map("admins_plataforma")
+}
+
+// ─── Assistente GrafyGo (IA) ─────────────────────────────────────────────────
+// Usadas só no schema "plataforma" (existem vazias nos schemas das empresas, como as outras da plataforma).
+
+/// Configuração única da central: provedor, modelo, chave (cifrada), limites por empresa e preços
+model AssistenteConfig {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ativo             Boolean  @default(false)
+  provedor          String   @default("anthropic")
+  modelo            String   @default("claude-haiku-5-5")
+  /// AES-256-GCM (integrations/ia/cofre.ts); nunca volta para o navegador
+  chaveCifrada      String?  @map("chave_cifrada")
+  /// Últimos 4 caracteres, para mostrar "configurada ••••1234"
+  chaveFinal        String?  @map("chave_final")
+  /// Limites por empresa no mês (null = sem limite)
+  limiteChamadasMes Int?     @default(300) @map("limite_chamadas_mes")
+  limiteUsdMes      Decimal? @default(1.00) @map("limite_usd_mes") @db.Decimal(10, 4)
+  /// [{ modelo, entrada, saida }] em USD por milhão de tokens
+  precos            Json     @default("[{\"modelo\":\"claude-haiku-5-5\",\"entrada\":0.10,\"saida\":0.50}]")
+  cotacaoDolar      Decimal  @default(5.5) @map("cotacao_dolar") @db.Decimal(10, 4)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("assistente_config")
+}
+
+/// Uma chamada ao provedor de IA (ou evitada pelo limite): tokens, custo estimado e resultado
+model UsoIa {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// null = teste da central
+  assinanteId      String?  @map("assinante_id") @db.Uuid
+  /// whatsapp_resposta | teste_central | …
+  recurso          String
+  provedor         String
+  modelo           String
+  tokensEntrada    Int      @default(0) @map("tokens_entrada")
+  tokensSaida      Int      @default(0) @map("tokens_saida")
+  custoEstimadoUsd Decimal  @default(0) @map("custo_estimado_usd") @db.Decimal(12, 6)
+  /// ok | erro | limite (não chamou: a empresa passou do limite do mês)
+  situacao         String   @default("ok")
+  erro             String?
+  latenciaMs       Int?     @map("latencia_ms")
+  criadoEm         DateTime @default(now()) @map("criado_em") @db.Timestamptz(3)
+
+  @@index([assinanteId, criadoEm])
+  @@index([criadoEm])
+  @@map("uso_ia")
 }

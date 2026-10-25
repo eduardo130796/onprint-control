@@ -46,6 +46,8 @@ import { securityPlugin } from './plugins/security'
 import { storagePlugin } from './plugins/storage'
 import { swaggerPlugin } from './plugins/swagger'
 import { whatsappPlugin } from './plugins/whatsapp'
+import { assistentePlugin } from './plugins/assistente'
+import { assistenteCentralRoutes } from './modules/assistente/central.routes'
 import { definirUrlSistema } from './core/links'
 
 declare module 'fastify' {
@@ -87,6 +89,7 @@ export async function buildApp(config: Env) {
   await app.register(integracoesPlugin)
   await app.register(cronPlugin)
   await app.register(socketPlugin)
+  await app.register(assistentePlugin)
   await app.register(whatsappPlugin)
 
   await app.register(healthRoutes)
@@ -125,6 +128,7 @@ export async function buildApp(config: Env) {
       await v1.register(webhooksRoutes, { prefix: '/plataforma' })
       await v1.register(cadastroRoutes, { prefix: '/plataforma' })
       await v1.register(plataformaRoutes, { prefix: '/plataforma' })
+      await v1.register(assistenteCentralRoutes, { prefix: '/plataforma' })
     },
     { prefix: API_PREFIX },
   )

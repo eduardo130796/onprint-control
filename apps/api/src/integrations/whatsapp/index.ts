@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import type { FastifyBaseLogger } from 'fastify'
 import { vaiComoImagem, type EstadoConexaoWhatsapp } from '@onprint/shared'
 import type { Env } from '../../config/env'
@@ -6,8 +6,8 @@ import type { Env } from '../../config/env'
 /**
  * WhatsApp da própria gráfica (conexão por QR code, como o WhatsApp Web). Uma instância por empresa
  * ("grafygo-{id da empresa}"). Trocável: Log (desenvolvimento/testes) ou Evolution API (self-hosted, Baileys).
- * Mensagens recebidas (aprovar respondendo no WhatsApp) entram depois por um webhook da Evolution
- * (POST /webhook/set/{instancia}, eventos CONNECTION_UPDATE e MESSAGES_UPSERT).
+ * Mensagens recebidas (o cliente responde o orçamento: voto na enquete ou texto) entram pelo webhook da Evolution
+ * (POST /webhook/set/{instancia}, eventos CONNECTION_UPDATE e MESSAGES_UPSERT; ver modules/whatsapp/webhook.ts).
  */
 export interface SituacaoWhatsapp {
   estado: EstadoConexaoWhatsapp
@@ -51,6 +51,21 @@ export interface ProvedorWhatsapp {
   enviarTexto(instancia: string, numero: string, texto: string): Promise<{ id: string | null }>
   /** Arquivo com o nome que o cliente vê: imagem (JPEG/PNG/WebP, aparece na conversa) ou documento (PDF do orçamento, recibo, arte) */
   enviarDocumento(instancia: string, numero: string, documento: DocumentoWhatsapp): Promise<{ id: string | null }>
+  /**
+   * Enquete de uma escolha (renderiza no WhatsApp do celular, do computador e no Business). O voto chega cifrado
+   * no webhook: `segredo` (messageSecret da enquete, base64) e `jid` (para quem saiu) servem para abri-lo.
+   */
+  enviarEnquete(instancia: string, numero: string, pergunta: string, opcoes: string[]): Promise<EnqueteEnviada>
+  /** Liga o webhook da instância (mensagens recebidas e conexão) no endereço da API */
+  configurarWebhook(instancia: string, url: string): Promise<void>
+}
+
+export interface EnqueteEnviada {
+  id: string | null
+  /** messageContextInfo.messageSecret da enquete (base64): sem ele o voto não abre */
+  segredo: string | null
+  /** Jid do cliente usado no envio (a Evolution acerta o 9º dígito): entra no cálculo da chave do voto */
+  jid: string | null
 }
 
 export interface DocumentoWhatsapp {
@@ -70,6 +85,8 @@ export class LogWhatsappProvider implements ProvedorWhatsapp {
   readonly simulado = true
   readonly enviadas: { instancia: string; numero: string; texto: string }[] = []
   readonly documentos: { instancia: string; numero: string; nomeArquivo: string; mime: string; bytes: number }[] = []
+  readonly enquetes: { instancia: string; numero: string; pergunta: string; opcoes: string[]; id: string; segredo: string }[] = []
+  readonly webhooks: { instancia: string; url: string }[] = []
 
   constructor(private readonly log?: FastifyBaseLogger) {}
 
@@ -97,9 +114,40 @@ export class LogWhatsappProvider implements ProvedorWhatsapp {
     this.log?.info({ whatsapp: registro }, 'Documento do WhatsApp não enviado (WHATSAPP_PROVEDOR=log), registrado no log')
     return { id: `log-${randomUUID()}` }
   }
+
+  /** Como a Evolution: id e segredo de verdade (um voto simulado cifrado com eles abre igual ao real) */
+  async enviarEnquete(instancia: string, numero: string, pergunta: string, opcoes: string[]): Promise<EnqueteEnviada> {
+    const registro = { instancia, numero, pergunta, opcoes, id: `log-${randomUUID()}`, segredo: randomBytes(32).toString('base64') }
+    this.enquetes.push(registro)
+    if (this.enquetes.length > 50) this.enquetes.shift()
+    this.log?.info({ whatsapp: { instancia, numero, pergunta, opcoes, id: registro.id } }, 'Enquete do WhatsApp não enviada (WHATSAPP_PROVEDOR=log), registrada no log')
+    return { id: registro.id, segredo: registro.segredo, jid: `${numero}@s.whatsapp.net` }
+  }
+
+  async configurarWebhook(instancia: string, url: string): Promise<void> {
+    this.webhooks.push({ instancia, url })
+  }
 }
 
 type Fetch = typeof globalThis.fetch
+
+/**
+ * Bytes como a Evolution manda no JSON (Buffer/Uint8Array do Baileys): base64, { type: "Buffer", data: [...] },
+ * objeto indexado { "0": 12, "1": 200, ... } ou lista de números. null se não for nenhum desses.
+ */
+export function bytesDoWhatsapp(valor: unknown): Buffer | null {
+  if (valor == null) return null
+  if (typeof valor === 'string') return valor ? Buffer.from(valor, 'base64') : null
+  if (Buffer.isBuffer(valor) || valor instanceof Uint8Array) return Buffer.from(valor)
+  if (Array.isArray(valor)) return valor.every((n) => Number.isInteger(n) && n >= 0 && n < 256) ? Buffer.from(valor as number[]) : null
+  if (typeof valor === 'object') {
+    const o = valor as Record<string, unknown>
+    if (o.type === 'Buffer' && Array.isArray(o.data)) return bytesDoWhatsapp(o.data)
+    const chaves = Object.keys(o)
+    if (chaves.length && chaves.every((k) => /^\d+$/.test(k))) return bytesDoWhatsapp(chaves.sort((a, b) => Number(a) - Number(b)).map((k) => o[k]))
+  }
+  return null
+}
 
 const estadoEvolution = (state: unknown): EstadoConexaoWhatsapp => (state === 'open' ? 'conectado' : state === 'connecting' ? 'conectando' : 'desconectado')
 
@@ -216,6 +264,26 @@ export class EvolutionWhatsappProvider implements ProvedorWhatsapp {
       ...(d.legenda ? { caption: d.legenda } : {}),
     }, 60_000)
     return EvolutionWhatsappProvider.resultadoDoEnvio(r)
+  }
+
+  async enviarEnquete(instancia: string, numero: string, pergunta: string, opcoes: string[]): Promise<EnqueteEnviada> {
+    // POST /message/sendPoll/{i} { number, name, selectableCount: 1, values } → 201 { key: { remoteJid, id },
+    // message: { messageContextInfo: { messageSecret }, pollCreationMessageV3: { name, options } } }
+    // (o segredo vem como Uint8Array serializado: { "0": 12, "1": 200, ... })
+    const r = await this.chamar('POST', `/message/sendPoll/${encodeURIComponent(instancia)}`, { number: numero, name: pergunta, selectableCount: 1, values: opcoes })
+    const { id } = EvolutionWhatsappProvider.resultadoDoEnvio(r)
+    const dados = r.dados as { key?: { remoteJid?: string }; message?: { messageContextInfo?: { messageSecret?: unknown } } } | null
+    const segredo = bytesDoWhatsapp(dados?.message?.messageContextInfo?.messageSecret)
+    return { id, segredo: segredo?.length ? segredo.toString('base64') : null, jid: dados?.key?.remoteJid ?? null }
+  }
+
+  async configurarWebhook(instancia: string, url: string): Promise<void> {
+    // POST /webhook/set/{i} { webhook: { enabled, url, events, byEvents, base64 } } (upsert: pode repetir)
+    // Só mensagens recebidas (texto e voto da enquete) e a conexão; sem mídia em base64
+    const r = await this.chamar('POST', `/webhook/set/${encodeURIComponent(instancia)}`, {
+      webhook: { enabled: true, url, events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'], byEvents: false, base64: false },
+    })
+    if (r.status >= 400) throw new ErroWhatsapp(r.status === 404 ? 'desconectado' : 'temporario', `Não foi possível ligar o webhook: ${EvolutionWhatsappProvider.mensagemDeErro(r.dados)}`)
   }
 
   /** Resposta do envio (texto ou arquivo): id da mensagem ou o erro já classificado */

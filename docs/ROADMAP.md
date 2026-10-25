@@ -233,6 +233,7 @@ Especificação em `docs/PRECIFICACAO.md`, seção "Fase 3" (D207).
 
 - [x] **Página de venda** em `{DOMINIO_VITRINE}` e `www` (`features/site-grafygo`): recursos, fluxo do orçamento à entrega, Vitrine online em destaque, planos com chave mensal/anual (preços do painel), formas de pagamento, dúvidas e chamada final; ilustrações do produto em código; `?cupom=` segue para o cadastro
 - [x] **Planos de lançamento** (migration `planos_lancamento`): Essencial R$ 69 (3 usuários), Profissional R$ 129 (8), Completo R$ 199 (ilimitado + Vitrine online); WhatsApp "em breve"
+- [x] **Plano único** (migration `plano_unico`): GrafyGo R$ 99/mês ou R$ 990/ano, tudo incluído (WhatsApp e vitrine) e usuários ilimitados; os planos de lançamento saem da venda, mas quem paga por eles continua no preço atual e ganha todos os módulos e usuários ilimitados; teste e cortesia sem cobrança passam para o GrafyGo
 - [x] **Pagamento anual** (10 mensalidades = 2 meses grátis): `planos.valor_anual`, `assinaturas.ciclo`; Asaas `YEARLY`; cartão ou PIX/boleto; cupom só no mensal; troca de plano proporcional ao ano
 - [x] **Teste grátis com tudo liberado** (inclusive a Vitrine); o plano escolhido vale ao assinar
 - [x] Cadastro recebe `?plano=` e `?ciclo=` da página de venda; **termos de uso** e **política de privacidade** (`/termos`, `/privacidade`)

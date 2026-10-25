@@ -159,6 +159,7 @@ Troque **todos** os valores marcados com `TROQUE`:
 | `CADASTROS_POR_HORA` | teto de cadastros pela internet por hora, somando todos os IPs (padrão 30). Passou disso, o cadastro responde "tente de novo em alguns minutos" |
 | `ASAAS_*` | chave de **produção** do Asaas (`ASAAS_AMBIENTE=producao`), token do webhook e dados da NFS-e. Passo a passo no README (seção Pagamento online). O webhook aponta para `https://SEU_DOMINIO/api/v1/plataforma/webhooks/asaas` |
 | `EVOLUTION_API_KEY` e `WHATSAPP_PROVEDOR` | chave gerada (`openssl rand -hex 32`) que a API usa para falar com o container do WhatsApp (Evolution API, só na rede interna) e `evolution` para os avisos saírem de verdade (`log` desliga). Mais no passo 8 (WhatsApp) |
+| `WHATSAPP_WEBHOOK_URL` e `WHATSAPP_WEBHOOK_SEGREDO` (opcionais) | por onde a Evolution avisa a API das respostas dos clientes (voto na enquete do orçamento, "aprovado" escrito) e da conexão. Vazios = `http://api:3333/api/v1` (rede interna do compose) e segredo derivado do `JWT_ACCESS_SECRET`, um por gráfica. O webhook é ligado sozinho ao conectar o WhatsApp e, a cada subida da API, nas gráficas já conectadas; nenhuma porta nova é aberta |
 | `SMTP_*` e `EMAIL_REMETENTE` | dados SMTP do seu provedor de e-mail (tabela de exemplos no README). Sem eles, convites, "esqueci a senha" e a confirmação do pedido da vitrine não chegam a ninguém. Use `EMAIL_REMETENTE="GrafyGo <nao-responda@suaempresa.com.br>"` no seu domínio (com SPF/DKIM configurados no provedor): os e-mails das gráficas saem desse endereço com o **nome da gráfica** e "Responder para" o e-mail dela (Dados da empresa) |
 
 Salve (Ctrl+O, Enter, Ctrl+X) e proteja o arquivo:
@@ -292,7 +293,11 @@ Para uma VPS que já estava no ar antes desta versão:
    docker stats --no-stream         # evolution ~300 MB
    ```
    No sistema: **WhatsApp → Conectar** mostra o QR code; um pedido mostra **Link de acompanhamento**; em **Configurações → Empresa → Pedidos** a opção "criar o pedido automaticamente" vem ligada.
-5. **Avise as gráficas** do que mudou: orçamento aprovado vira pedido sozinho (dá para desligar em Configurações → Empresa → Pedidos); "Enviar pelo WhatsApp" em orçamento, arte, pedido e catálogo; avisos automáticos depois de conectar o WhatsApp (plano Completo e período de teste); link "Acompanhe seu pedido" para o cliente.
+5. **Avise as gráficas** do que mudou: orçamento aprovado vira pedido sozinho (dá para desligar em Configurações → Empresa → Pedidos); "Enviar pelo WhatsApp" em orçamento, arte, pedido e catálogo; avisos automáticos depois de conectar o WhatsApp (em todas as contas: o plano único inclui o WhatsApp); link "Acompanhe seu pedido" para o cliente.
+
+### Aprovação do orçamento pelo próprio WhatsApp (enquete)
+
+Nada a acrescentar no `.env.prod` (as variáveis `WHATSAPP_WEBHOOK_*` são opcionais). Ao subir, a API liga o webhook da Evolution nas gráficas já conectadas (e em toda conexão nova). O orçamento enviado pela conexão da gráfica sai com uma enquete "✅ Aprovado / ✏️ Quero modificações"; o voto (ou um "aprovado" escrito) aprova o orçamento sozinho (e vira pedido conforme Configurações → Empresa → Pedidos), ou volta para negociação avisando o vendedor. Cada gráfica liga/desliga em **WhatsApp → Aprovar sozinho quando o cliente responder Aprovado**. Para conferir: `onprint logs api | grep -i webhook` não deve mostrar "Webhook do WhatsApp não configurado".
 
 ## 11. Restaurar um backup
 

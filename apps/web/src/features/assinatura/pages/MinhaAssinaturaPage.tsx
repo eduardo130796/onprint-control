@@ -78,7 +78,7 @@ export function MinhaAssinaturaPage() {
               <EscolherAssinatura ref={assinar} a={a} />
             ) : (
               <section className="space-y-4">
-                <h2 className="font-titulo text-xl font-extrabold text-tinta">Planos</h2>
+                <h2 className="font-titulo text-xl font-extrabold text-tinta">{a.planos.length === 1 ? 'O plano' : 'Planos'}</h2>
                 <CartoesPlanos planos={a.planos} />
               </section>
             ))}
@@ -94,7 +94,7 @@ export function MinhaAssinaturaPage() {
             {(a.suporte || !a.pagamentoOnline || !a.podeGerenciar) && (
               <span className="inline-flex items-center gap-2 text-texto-secundario">
                 <MessageCircle className="h-5 w-5 text-marca-escuro" aria-hidden="true" />
-                {!a.podeGerenciar ? 'Só o administrador da empresa assina, troca de plano ou cancela.' : !a.pagamentoOnline ? 'Para pagar ou mudar de plano, fale com o suporte' : 'Dúvidas sobre a assinatura? Fale com o suporte'}
+                {!a.podeGerenciar ? 'Só o administrador da empresa assina ou cancela.' : !a.pagamentoOnline ? 'Para assinar ou pagar, fale com o suporte' : 'Dúvidas sobre a assinatura? Fale com o suporte'}
                 {a.suporte && (
                   <>
                     {' '}

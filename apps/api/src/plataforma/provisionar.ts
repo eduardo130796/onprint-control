@@ -3,7 +3,7 @@ import type { PrismaClient } from '@prisma/client'
 import { normalizarSlugEmpresa, subdominioReservado } from '@onprint/shared'
 import { semearEmpresa, type AdminInicial } from '../../prisma/seed/empresa'
 import { AppError } from '../core/AppError'
-import { criarAssinatura, planoPorCodigo, semearPlanos } from './assinaturas'
+import { PLANO_UNICO, criarAssinatura, planoPorCodigo, semearPlanos } from './assinaturas'
 import { criarIndiceLogin } from './indice-login'
 import { migrarSchema } from './migracoes'
 
@@ -17,7 +17,7 @@ export interface DadosNovaEmpresa {
   exemplos?: boolean
   /** Exemplos sem estoque mínimo (cadastro pelo site: o painel do primeiro dia não acusa "estoque baixo" de mentira) */
   exemplosSemMinimo?: boolean
-  /** Código do plano (padrão: profissional) */
+  /** Código do plano (padrão: o plano único, grafygo) */
   plano?: string
   /** Começa em teste grátis (padrão) ou já ativa */
   situacao?: 'teste' | 'ativa' | 'cortesia'
@@ -65,7 +65,7 @@ export async function provisionarEmpresa(deps: DependenciasProvisionamento, dado
     throw AppError.conflito('Este e-mail já é usado por outro usuário. Cada e-mail entra em uma única empresa.', { campo: 'email' })
   }
   await semearPlanos(plataforma)
-  const codigoPlano = dados.plano ?? 'profissional'
+  const codigoPlano = dados.plano ?? PLANO_UNICO
   await planoPorCodigo(plataforma, codigoPlano).catch((erro: Error) => {
     throw AppError.regraNegocio(erro.message)
   })

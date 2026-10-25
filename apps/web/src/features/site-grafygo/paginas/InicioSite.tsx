@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowRight, BadgeCheck, BellRing, Check, ChevronDown, CreditCard, FileText, Lock, Menu, MessageCircle, QrCode, Receipt, RefreshCw, ShieldCheck, Sparkles, Wallet, X } from 'lucide-react'
-import { MARCA, anosDireitos, documentoTitular } from '@/app/marca'
+import { formatarMoeda } from '@onprint/shared'
+import { MARCA, anosDireitos } from '@/app/marca'
 import { Logo } from '@/components/layout/Logo'
 import { cn } from '@/lib/utils'
-import { FLUXO, PERGUNTAS, RECURSOS, VITRINE_ITENS, WHATSAPP_ITENS } from '../conteudo'
+import { FLUXO, RECURSOS, VITRINE_ITENS, WHATSAPP_ITENS, perguntas } from '../conteudo'
 import { baseSistema, linkCadastro, usePlanosPublicos, whatsappSuporte, type PlanosPublicos } from '../dados'
 import { CelularImagem, MockAvisoAprovacao, MockMiniConversa, MockPainel, MockVitrine, MockWhatsappOrcamento, MockWhatsappPronto } from '../componentes/Mockups'
 import { Personalizacao } from '../componentes/Personalizacao'
@@ -16,7 +17,7 @@ const NAV = [
   { href: '#por-dentro', rotulo: 'Por dentro' },
   { href: '#recursos', rotulo: 'Recursos' },
   { href: '#vitrine', rotulo: 'Vitrine online' },
-  { href: '#planos', rotulo: 'Planos' },
+  { href: '#planos', rotulo: 'Preço' },
   { href: '#duvidas', rotulo: 'Dúvidas' },
   { href: '/ajuda', rotulo: 'Ajuda' },
 ]
@@ -115,16 +116,16 @@ function Hero({ dados, cupom }: { dados: PlanosPublicos | null; cupom: string | 
             Orçamento, pedido e produção da gráfica. <span className="text-[#0265DC]">O cliente aprova pelo WhatsApp.</span>
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-slate-600">
-            O orçamento chega completo no WhatsApp do cliente, ele responde “APROVADO” e o pedido nasce sozinho. Arte, produção, estoque e financeiro num só lugar, com avisos automáticos até a entrega.
+            O orçamento vai completo para o cliente, ele aprova pelo WhatsApp e o pedido nasce sozinho. Arte, produção, estoque e financeiro num só lugar, com avisos automáticos até a entrega.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
             <BotaoTestar dados={dados} cupom={cupom} />
             <a href="#planos" className="inline-flex h-12 items-center justify-center whitespace-nowrap rounded-full bg-white px-7 text-[0.9375rem] font-bold text-[#021A40] ring-1 ring-slate-300 transition hover:ring-slate-500">
-              Ver planos e preços
+              Ver o preço
             </a>
           </div>
           <ul className="mt-7 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-600">
-            {['14 dias grátis', 'Sem cartão de crédito', 'Cancele quando quiser'].map((t) => (
+            {['14 dias grátis', 'Sem cartão de crédito', 'Tudo incluído, um preço só'].map((t) => (
               <li key={t} className="flex items-center gap-1.5">
                 <Check className="h-4 w-4 text-emerald-600" aria-hidden="true" /> {t}
               </li>
@@ -177,7 +178,7 @@ function Whatsapp() {
   const automatico = [
     { icone: RefreshCw, titulo: 'Aprovou, virou pedido', texto: 'Sozinho, com os itens, o prazo e o pagamento combinado no orçamento.' },
     { icone: Wallet, titulo: 'Parcelas no financeiro', texto: 'A entrada e as parcelas do orçamento já entram nas contas a receber.' },
-    { icone: BellRing, titulo: 'Tela ao vivo', texto: 'Todo mundo vê na hora quando o cliente aprova, sem atualizar a página.' },
+    { icone: BellRing, titulo: 'Equipe avisada na hora', texto: 'Aparece na tela de todo mundo assim que o cliente aprova.' },
   ]
   return (
     <section id="whatsapp" className="relative scroll-mt-20 overflow-hidden bg-white py-20 sm:py-28" aria-labelledby="titulo-whatsapp">
@@ -189,11 +190,11 @@ function Whatsapp() {
               <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" /> WhatsApp no centro
             </p>
             <h2 id="titulo-whatsapp" className="mt-4 font-titulo text-3xl font-extrabold leading-tight text-[#021A40] sm:text-4xl">
-              O orçamento vai pelo WhatsApp. O cliente responde “APROVADO”. Pronto.
+              O orçamento vai pelo WhatsApp. O cliente aprova por lá. Pronto.
             </h2>
             <p className="mt-5 text-lg leading-relaxed text-slate-600">
-              Nada de copiar e colar: a mensagem sai do número da sua gráfica com itens, total, pagamento, prazo e validade, e o PDF anexado. Depois, os avisos do pedido seguem sozinhos até a
-              retirada.
+              Nada de copiar e colar: a mensagem sai do número da sua gráfica com itens, total, pagamento, prazo e validade, e o PDF junto. O cliente aprova pelo WhatsApp e o pedido nasce
+              sozinho (ou você confirma com um clique). Depois, os avisos do pedido seguem sozinhos até a retirada.
             </p>
             <ul className="mt-9 grid gap-4 sm:grid-cols-2">
               {WHATSAPP_ITENS.map((w) => (
@@ -209,7 +210,7 @@ function Whatsapp() {
               <QrCode className="mt-0.5 h-5 w-5 shrink-0 text-[#0265DC]" aria-hidden="true" />
               <span>
                 <strong className="font-semibold text-[#021A40]">Usa o número que você já tem</strong>, conectado por QR code como no WhatsApp Web, sem custo por mensagem. Só avisos dos pedidos
-                para os seus clientes, nunca envio em massa. O envio automático está no plano Completo; nos outros, a mensagem sai pronta e abre no seu WhatsApp.
+                para os seus clientes, nunca envio em massa.
               </span>
             </p>
           </div>
@@ -222,7 +223,7 @@ function Whatsapp() {
         <div className="mt-20 rounded-3xl bg-[#021A40] p-6 text-white sm:p-10">
           <div className="grid items-center gap-8 lg:grid-cols-[1fr_1.6fr]">
             <div>
-              <Sobretitulo claro>Automático e ao vivo</Sobretitulo>
+              <Sobretitulo claro>Automático</Sobretitulo>
               <h3 className="mt-3 font-titulo text-2xl font-extrabold sm:text-3xl">O cliente aprovou? O sistema já fez o resto.</h3>
               <MockAvisoAprovacao className="mt-6 max-w-sm" />
             </div>
@@ -272,7 +273,6 @@ function Acompanhe() {
               </li>
             ))}
           </ul>
-          <p className="mt-6 text-sm text-slate-500">Em todos os planos.</p>
         </div>
       </Container>
     </section>
@@ -385,7 +385,7 @@ function Vitrine({ dados, cupom }: { dados: PlanosPublicos | null; cupom: string
       <div className="pointer-events-none absolute -right-32 top-10 h-96 w-96 rounded-full bg-[#02BAF8]/25 blur-3xl" aria-hidden="true" />
       <Container className="relative grid items-center gap-16 lg:grid-cols-[1.1fr_1fr]">
         <div>
-          <Sobretitulo claro>Vitrine online · plano Completo</Sobretitulo>
+          <Sobretitulo claro>Vitrine online · já incluída</Sobretitulo>
           <h2 id="titulo-vitrine" className="mt-3 font-titulo text-3xl font-extrabold leading-tight sm:text-5xl">
             Seu catálogo vendendo no WhatsApp, 24 horas por dia
           </h2>
@@ -451,7 +451,9 @@ function Pagamento({ notaFiscal }: { notaFiscal: boolean }) {
   )
 }
 
-function Duvidas() {
+function Duvidas({ dados }: { dados: PlanosPublicos | null }) {
+  const plano = dados?.planos[0]
+  const lista = perguntas(plano ? { mensal: formatarMoeda(plano.valorMensal), anual: plano.valorAnual ? formatarMoeda(plano.valorAnual) : null } : null)
   return (
     <section id="duvidas" className="scroll-mt-20 py-20 sm:py-24" aria-labelledby="titulo-duvidas">
       <Container className="max-w-3xl">
@@ -462,7 +464,7 @@ function Duvidas() {
           </h2>
         </div>
         <div className="mt-10 space-y-3">
-          {PERGUNTAS.map((p) => (
+          {lista.map((p) => (
             <details key={p.pergunta} className="group rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 open:ring-[#0265DC]/40">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-2xl px-6 py-5 font-semibold text-[#021A40] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0265DC] [&::-webkit-details-marker]:hidden">
                 {p.pergunta}
@@ -527,7 +529,7 @@ function Rodape({ dados }: { dados: PlanosPublicos | null }) {
             </li>
             <li>
               <a href="#planos" className="hover:text-slate-900 hover:underline">
-                Planos e preços
+                Preço
               </a>
             </li>
             <li>
@@ -572,9 +574,10 @@ function Rodape({ dados }: { dados: PlanosPublicos | null }) {
       <div className="border-t border-slate-100">
         <Container className="flex flex-col items-center justify-between gap-2 py-6 text-xs text-slate-500 sm:flex-row">
           <p>
-            © {anosDireitos()} {MARCA.empresa}
-            {MARCA.titular ? ` · ${MARCA.titular}` : ''}
-            {documentoTitular() ? ` · ${documentoTitular()}` : ''} · Todos os direitos reservados
+            © {anosDireitos()} {MARCA.empresa} · Todos os direitos reservados ·{' '}
+            <Link to="/termos" className="hover:text-slate-700 hover:underline">
+              Quem somos e termos
+            </Link>
           </p>
           <p>Feito no Brasil para quem imprime o Brasil.</p>
         </Container>
@@ -583,7 +586,7 @@ function Rodape({ dados }: { dados: PlanosPublicos | null }) {
   )
 }
 
-/** grafygo.com.br: a página de venda (recursos, vitrine, planos com mensal/anual, pagamento e dúvidas) */
+/** grafygo.com.br: a página de venda (WhatsApp, recursos, vitrine, o plano único com mensal/anual, pagamento e dúvidas) */
 export function InicioSite() {
   const { dados } = usePlanosPublicos()
   const [params] = useSearchParams()
@@ -609,11 +612,11 @@ export function InicioSite() {
         <section id="planos" className="scroll-mt-20 py-20 sm:py-28" aria-labelledby="titulo-planos">
           <Container>
             <div className="mx-auto max-w-2xl text-center">
-              <Sobretitulo>Planos e preços</Sobretitulo>
+              <Sobretitulo>Preço</Sobretitulo>
               <h2 id="titulo-planos" className="mt-3 font-titulo text-3xl font-extrabold text-[#021A40] sm:text-4xl">
-                Preço justo para gráfica de todo tamanho
+                Um plano só, com tudo dentro
               </h2>
-              <p className="mt-4 text-lg text-slate-600">Teste 14 dias com tudo liberado. Escolha o plano só quando for assinar.</p>
+              <p className="mt-4 text-lg text-slate-600">Sem pacote extra e sem cobrança por usuário ou por mensagem. Teste 14 dias grátis e assine só se gostar.</p>
             </div>
             <div className="mt-10">
               <Planos dados={dados} cupom={cupom} />
@@ -621,7 +624,7 @@ export function InicioSite() {
           </Container>
         </section>
         <Pagamento notaFiscal={Boolean(dados?.notaFiscal)} />
-        <Duvidas />
+        <Duvidas dados={dados} />
         <ChamadaFinal dados={dados} cupom={cupom} />
       </main>
       <Rodape dados={dados} />

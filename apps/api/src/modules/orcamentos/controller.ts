@@ -9,6 +9,7 @@ import type {
 import type { z } from 'zod'
 import { AppError } from '../../core/AppError'
 import { contextoUsuario } from '../../core/escopo'
+import { respostaDaMensagem } from '../whatsapp/service'
 import { comAnalise, parametrosDaEmpresaAtual, type analiseOrcamentoSchema } from './analise'
 import type { criarCatalogoService } from './catalogo.service'
 import type { ConversaoAutomatica } from './conversao-automatica'
@@ -61,7 +62,14 @@ export function criarOrcamentosController(app: FastifyInstance, s: Servicos) {
   async function detalhe(req: FastifyRequest, o: Awaited<ReturnType<OrcamentosService['obter']>>) {
     const c = await ctx(req)
     const comLucro = comAnalise(o, await parametrosDaEmpresaAtual(app.prisma), c.veCustos)
-    return c.veCustos ? comMargem(comLucro) : ocultarCustos(comLucro)
+    // A resposta mais recente do cliente na conversa (enquete ou texto), se o orçamento foi pelo WhatsApp
+    const m = await app.prisma.mensagemWhatsapp.findFirst({
+      where: { orcamentoId: o.id, evento: 'orcamento_enviado', resposta: { not: null } },
+      orderBy: { respostaEm: 'desc' },
+      select: { resposta: true, respostaVia: true, respostaTexto: true, respostaEm: true },
+    })
+    const comResposta = { ...comLucro, respostaWhatsapp: m ? respostaDaMensagem(m) : null }
+    return c.veCustos ? comMargem(comResposta) : ocultarCustos(comResposta)
   }
 
   return {

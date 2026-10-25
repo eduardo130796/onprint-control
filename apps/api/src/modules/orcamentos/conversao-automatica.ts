@@ -92,7 +92,10 @@ interface OrcamentoAprovado {
 export interface Aprovacao extends Autoria {
   /** Nome de quem aprovou (cliente) */
   nome: string
-  /** A equipe registrou que o cliente respondeu APROVADO no WhatsApp */
+  /**
+   * Pelo WhatsApp: com origem "equipe", a equipe registrou que o cliente respondeu APROVADO; com origem "cliente",
+   * o próprio sistema leu a resposta na conversa (enquete ou texto)
+   */
   canal?: 'whatsapp'
 }
 
@@ -125,7 +128,9 @@ export function criarConversaoAutomatica(app: FastifyInstance, conversao: Return
       const ator = await autorDoSistema(o, aprovacao)
       const via =
         aprovacao.origem === 'cliente'
-          ? 'conversão automática · aprovação do cliente (link público)'
+          ? aprovacao.canal === 'whatsapp'
+            ? 'conversão automática · cliente aprovou respondendo no WhatsApp'
+            : 'conversão automática · aprovação do cliente (link público)'
           : aprovacao.canal === 'whatsapp'
             ? 'conversão automática · cliente aprovou pelo WhatsApp (registrado pela equipe)'
             : 'conversão automática · aprovação registrada pela equipe'
@@ -172,7 +177,9 @@ export function criarConversaoAutomatica(app: FastifyInstance, conversao: Return
           const pedido = resultado.situacao === 'convertido' ? resultado.pedido : null
           const quem =
             aprovacao.origem === 'cliente'
-              ? `${cliente} aprovou pelo link (${aprovacao.nome}).`
+              ? aprovacao.canal === 'whatsapp'
+                ? `${cliente} respondeu Aprovado no WhatsApp.`
+                : `${cliente} aprovou pelo link (${aprovacao.nome}).`
               : aprovacao.canal === 'whatsapp'
                 ? `${cliente} aprovou pelo WhatsApp (registrado pela equipe).`
                 : `Aprovação registrada pela equipe (${aprovacao.nome}).`

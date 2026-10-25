@@ -22,6 +22,25 @@ interface PlanosPublicos {
   planos: { codigo: string; nome: string; descricao: string | null; valorMensal: string; valorAnual: string | null; limiteUsuarios: number | null; diasTeste: number }[]
 }
 
+type PlanoPublico = PlanosPublicos['planos'][number]
+
+/** Plano único: o que vem depois do teste, sem nada para escolher */
+function PlanoUnico({ plano, ciclo }: { plano: PlanoPublico; ciclo: CicloAssinatura }) {
+  const anual = ciclo === 'anual' && plano.valorAnual
+  return (
+    <div className="flex items-start gap-3 rounded-xl border border-marca/40 bg-marca-suave/60 p-3 text-sm">
+      <Check className="mt-0.5 h-4 w-4 shrink-0 text-marca-escuro" aria-hidden="true" />
+      <p className="min-w-0 flex-1">
+        <span className="font-semibold text-tinta">
+          Depois do teste: {plano.nome} por {formatarMoeda(anual ? mensalNoAnual(plano.valorAnual as string) : plano.valorMensal)}/mês
+        </span>
+        {anual && <span className="text-texto-secundario"> no anual ({formatarMoeda(plano.valorAnual as string)} por ano)</span>}
+        <span className="block text-xs text-texto-secundario">Tudo incluído, com WhatsApp e vitrine online, e usuários ilimitados. Sem fidelidade.</span>
+      </p>
+    </div>
+  )
+}
+
 async function publico<T>(caminho: string, body?: unknown): Promise<T> {
   const r = await fetch(`${API_BASE}/plataforma${caminho}`, { method: body ? 'POST' : 'GET', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body === undefined ? undefined : JSON.stringify(body) })
   const corpo = await r.json().catch(() => null)
@@ -77,9 +96,11 @@ export function CriarContaPage() {
   }
 
   return (
-    <AuthLayout titulo="Criar conta" descricao={`${diasTeste} dias grátis com tudo liberado, sem cartão. Você escolhe o plano de verdade só quando for assinar.`}>
+    <AuthLayout titulo="Criar conta" descricao={`${diasTeste} dias grátis com tudo liberado, sem cartão. Você só paga se decidir continuar.`}>
       <form onSubmit={criar} className="space-y-4" noValidate>
-        {info.data && (
+        {info.data?.planos.length === 1 && info.data.planos[0] ? (
+          <PlanoUnico plano={info.data.planos[0]} ciclo={ciclo} />
+        ) : info.data ? (
           <fieldset>
             <legend className="mb-2 text-sm font-medium">Plano de interesse {ciclo === 'anual' && <span className="font-normal text-texto-secundario">(pagamento anual)</span>}</legend>
             <div className="grid gap-2">
@@ -95,7 +116,7 @@ export function CriarContaPage() {
               ))}
             </div>
           </fieldset>
-        )}
+        ) : null}
         <CampoFormulario id="cc-empresa" rotulo="Nome da empresa" erro={errors.empresa?.message}>
           <Input id="cc-empresa" autoComplete="organization" {...form.register('empresa')} />
         </CampoFormulario>

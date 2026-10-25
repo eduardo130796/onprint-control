@@ -13,7 +13,7 @@ import type { PrismaClient } from '@prisma/client'
 import argon2 from 'argon2'
 import { SCHEMA_LEGADO } from '../src/core/banco'
 import { StoragePorEmpresa } from '../src/core/storage/por-empresa'
-import { criarAssinatura, semearPlanos } from '../src/plataforma/assinaturas'
+import { PLANO_UNICO, criarAssinatura, planoPadraoAVenda, semearPlanos } from '../src/plataforma/assinaturas'
 import { semearEmpresa } from './seed/empresa'
 import { conexoesDosScripts, executarScript } from './scripts-banco'
 
@@ -24,7 +24,7 @@ const ADMIN_SENHA = process.env.ADMIN_SENHA_INICIAL || (PRODUCAO ? '' : 'admin12
 const EXEMPLOS = (process.env.SEED_EXEMPLOS ?? (PRODUCAO ? 'false' : 'true')) === 'true'
 const SLUG_PADRAO = process.env.EMPRESA_PADRAO_SLUG || 'principal'
 const UPLOAD_DIR = resolve(process.env.UPLOAD_DIR || './uploads')
-const PLANO_PADRAO = process.env.PLANO_PADRAO || 'profissional'
+const PLANO_PADRAO = process.env.PLANO_PADRAO || PLANO_UNICO
 // Painel da plataforma: em produção só com as variáveis definidas
 const PLATAFORMA_EMAIL = (process.env.PLATAFORMA_ADMIN_EMAIL || (PRODUCAO ? '' : 'plataforma@onprint.local')).toLowerCase()
 const PLATAFORMA_SENHA = process.env.PLATAFORMA_ADMIN_SENHA || (PRODUCAO ? '' : 'plataforma123')
@@ -75,13 +75,15 @@ async function sincronizarIndice(empresaId: string, prisma: PrismaClient) {
   }
 }
 
-/** Toda empresa tem assinatura: a padrão (dona do sistema) no plano completo, cortesia; as demais em teste. */
+/** Toda empresa tem assinatura: a padrão (dona do sistema) em cortesia; as demais em teste. Sempre no plano à venda. */
 async function garantirAssinaturas() {
   const sem = await banco.plataforma.assinante.findMany({ where: { assinatura: null } })
+  if (sem.length === 0) return
+  const plano = (await planoPadraoAVenda(banco.plataforma, PLANO_PADRAO))?.codigo ?? PLANO_UNICO
   for (const empresa of sem) {
     const padrao = empresa.schema === SCHEMA_LEGADO
-    await criarAssinatura(banco.plataforma, empresa.id, padrao ? 'completo' : PLANO_PADRAO, padrao ? 'cortesia' : 'teste', 'seed')
-    console.log(`[${empresa.slug}] Assinatura criada (${padrao ? 'completo, cortesia' : `${PLANO_PADRAO}, teste grátis`}).`)
+    await criarAssinatura(banco.plataforma, empresa.id, plano, padrao ? 'cortesia' : 'teste', 'seed')
+    console.log(`[${empresa.slug}] Assinatura criada (${plano}, ${padrao ? 'cortesia' : 'teste grátis'}).`)
   }
 }
 
@@ -99,7 +101,7 @@ async function adminPlataforma() {
 
 executarScript(async () => {
   await adminPlataforma()
-  if (await semearPlanos(banco.plataforma)) console.log('Planos padrão criados (Essencial, Profissional, Completo).')
+  if (await semearPlanos(banco.plataforma)) console.log('Plano padrão criado (GrafyGo, tudo incluído).')
   await registrarEmpresaPadrao()
   await garantirAssinaturas()
   const empresas = await banco.plataforma.assinante.findMany({ where: { ativo: true }, orderBy: { createdAt: 'asc' } })

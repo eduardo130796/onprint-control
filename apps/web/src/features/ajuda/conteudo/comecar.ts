@@ -147,7 +147,7 @@ export const TUTORIAIS_COMECAR: Tutorial[] = [
   {
     slug: 'assinar-plano',
     titulo: 'Assinar a GrafyGo',
-    resumo: 'Escolha o plano, mensal ou anual, a forma de pagamento e continue sem perder nenhum dia do teste.',
+    resumo: 'Escolha mensal ou anual, a forma de pagamento e continue sem perder nenhum dia do teste.',
     categoria: 'conta',
     minutos: 2,
     telas: ['/assinatura'],
@@ -159,8 +159,8 @@ export const TUTORIAIS_COMECAR: Tutorial[] = [
         imagem: '/ajuda/assinar-plano/1.webp',
       },
       {
-        titulo: 'Escolha o plano',
-        texto: 'Toque em "Assinar agora" e escolha o plano: Essencial, Profissional ou Completo. Cada cartão mostra o que vem incluído e quantos usuários cabem.',
+        titulo: 'Confira o plano',
+        texto: 'Toque em "Assinar agora". A GrafyGo tem um plano só, com tudo incluído (WhatsApp automático e vitrine online também) e usuários ilimitados.',
         imagem: '/ajuda/assinar-plano/2.webp',
       },
       {

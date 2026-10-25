@@ -11,7 +11,8 @@ export const MARCA = {
   anoInicio: 2026,
   /**
    * Quem vende o serviço (exigido no site pelo Decreto 7.962/2013): nome completo e CPF enquanto for pessoa física,
-   * razão social e CNPJ quando abrir a empresa. Aparece nos termos de uso, na privacidade e no rodapé da página de venda.
+   * razão social e CNPJ quando abrir a empresa. Aparece só nos termos de uso e na privacidade (fora do rodapé, para evitar golpes
+   * com o CPF exposto; o rodapé leva aos termos).
    */
   titular: 'Eduardo Roquête Cabral Júnior',
   /** CPF ou CNPJ, com pontuação (ex.: 123.456.789-00 ou 12.345.678/0001-90) */

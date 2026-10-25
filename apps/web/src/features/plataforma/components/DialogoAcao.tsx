@@ -105,7 +105,7 @@ export function DialogoAcao({ pedido, onFechar }: { pedido: PedidoAcao; onFechar
               ?.filter((p) => p.ativo)
               .map((p) => (
                 <option key={p.codigo} value={p.codigo}>
-                  {p.nome} · {formatarMoeda(p.valorMensal)}/mês
+                  {p.nome} · {formatarMoeda(p.valorMensal)}/mês{p.publico ? '' : ' (fora da venda)'}
                 </option>
               ))}
           </Select>

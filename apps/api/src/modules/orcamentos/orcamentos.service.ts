@@ -89,12 +89,24 @@ export function criarOrcamentosService(app: FastifyInstance) {
     permitidos: string[],
     data: Prisma.OrcamentoUpdateInput,
     mensagem: string,
+    /** Feito pelo sistema (resposta do cliente no WhatsApp): auditoria sem usuário, com o "via" e o detalhe */
+    sistema?: { via: string; detalhe?: Record<string, unknown> },
   ) {
     const antes = await obter(id, ctx)
     if (!permitidos.includes(antes.status)) throw AppError.regraNegocio(mensagem)
     return prisma.$transaction(async (tx) => {
+      // Transição atômica: só grava se o status ainda for o lido acima (duas respostas ao mesmo tempo)
+      const { count } = await tx.orcamento.updateMany({ where: { id, status: antes.status }, data: { status: antes.status } })
+      if (count !== 1) throw AppError.regraNegocio(mensagem)
       const o = await tx.orcamento.update({ where: { id }, data, include: incluirDetalhe })
-      await registrarAuditoria(tx, { tabela: 'orcamentos', registroId: id, acao: 'editar', antes: { status: antes.status }, depois: { status: o.status }, usuarioId: ctx.usuarioId })
+      await registrarAuditoria(tx, {
+        tabela: 'orcamentos',
+        registroId: id,
+        acao: 'editar',
+        antes: { status: antes.status },
+        depois: { status: o.status, ...(sistema ? { via: sistema.via, ...sistema.detalhe } : {}) },
+        usuarioId: sistema ? null : ctx.usuarioId,
+      })
       return o
     })
   }
@@ -186,14 +198,23 @@ export function criarOrcamentosService(app: FastifyInstance) {
     emNegociacao: (id: string, ctx: ContextoUsuario) =>
       mudarStatus(id, ctx, ['enviado'], { status: 'em_negociacao' }, 'Só orçamentos enviados podem ir para negociação.'),
 
-    /** "Registrar aprovação" ou, com canal "whatsapp", "Cliente aprovou pelo WhatsApp" (respondeu APROVADO na conversa) */
-    aprovarInterno: (id: string, nome: string, ctx: ContextoUsuario, canal?: 'whatsapp') =>
+    /**
+     * "Registrar aprovação" ou, com canal "whatsapp", "Cliente aprovou pelo WhatsApp" (respondeu APROVADO na conversa).
+     * Com `resposta`, foi o próprio sistema que leu a resposta do cliente na conversa (enquete ou texto).
+     */
+    aprovarInterno: (id: string, nome: string, ctx: ContextoUsuario, canal?: 'whatsapp', resposta?: { via: 'enquete' | 'texto'; texto: string | null }) =>
       mudarStatus(
         id,
         ctx,
         [...STATUS_ORCAMENTO_ABERTOS],
-        { status: 'aprovado', aprovadoEm: new Date(), aprovadoPorNome: `${nome} (${canal === 'whatsapp' ? 'pelo WhatsApp, registrado pela equipe' : 'registrado internamente'})`, aprovadoIp: null },
+        {
+          status: 'aprovado',
+          aprovadoEm: new Date(),
+          aprovadoPorNome: `${nome} (${resposta ? `respondeu no WhatsApp${resposta.via === 'enquete' ? ', pela enquete' : ''}` : canal === 'whatsapp' ? 'pelo WhatsApp, registrado pela equipe' : 'registrado internamente'})`,
+          aprovadoIp: null,
+        },
         'Este orçamento não pode ser aprovado.',
+        resposta ? { via: 'resposta no WhatsApp', detalhe: { resposta: resposta.texto, por: resposta.via } } : undefined,
       ),
 
     recusar: (id: string, motivo: string, ctx: ContextoUsuario) =>

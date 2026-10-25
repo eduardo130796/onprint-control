@@ -3,7 +3,7 @@
  * Uso: npm run assinatura -w @onprint/api -- --listar
  *      npm run assinatura -w @onprint/api -- --empresa principal [opções]
  * Opções (podem ser combinadas; executadas nesta ordem):
- *   --plano essencial|profissional|completo     troca de plano (também no Asaas, se assinar online)
+ *   --plano grafygo                             troca de plano (também no Asaas, se assinar online)
  *   --ativar                                    assinatura paga e em dia (sai do teste, limpa o atraso)
  *   --atraso-desde AAAA-MM-DD | nenhum          vencimento da cobrança mais antiga não paga
  *   --proximo-vencimento AAAA-MM-DD             (junto com --ativar)

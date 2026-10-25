@@ -13,7 +13,7 @@ import { PreviaTroca } from './PreviaTroca'
 
 const ICONE: Record<FormaAssinatura, typeof QrCode> = { pix_automatico: QrCode, cartao: CreditCard, pix_boleto: Receipt }
 
-/** Quem já assina online: forma de pagamento, cobrança em aberto, troca de plano/forma e cancelamento. */
+/** Quem já assina online: forma de pagamento, cobrança em aberto, troca de forma, mudança para o plano à venda (quem está num plano antigo) e cancelamento. */
 export function GerenciarAssinatura({ a }: { a: MinhaAssinatura }) {
   const queryClient = useQueryClient()
   const [dialogo, setDialogo] = useState<'plano' | 'forma' | 'cancelar' | null>(null)
@@ -29,6 +29,9 @@ export function GerenciarAssinatura({ a }: { a: MinhaAssinatura }) {
   const atualPlano = a.planos.find((p) => p.atual)
   // Entre cartão e PIX/boleto troca na hora; PIX Automático é autorização no banco (cancela e assina de novo)
   const trocaveis = (['cartao', 'pix_boleto'] as FormaAssinatura[]).filter((f) => f !== atual)
+  // Com um plano só, "Trocar plano" aparece apenas para quem ainda está num plano antigo
+  const outrosPlanos = a.planos.filter((p) => !p.atual)
+  const unico = a.planos.length === 1
 
   return (
     <section className="rounded-3xl bg-card p-6 shadow-suave sm:p-8" aria-label="Pagamento da assinatura">
@@ -54,9 +57,11 @@ export function GerenciarAssinatura({ a }: { a: MinhaAssinatura }) {
         </div>
         {a.podeGerenciar && (
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setDialogo('plano')}>
-              <ArrowUpRight /> Trocar plano
-            </Button>
+            {outrosPlanos.length > 0 && (
+              <Button variant="outline" onClick={() => setDialogo('plano')}>
+                <ArrowUpRight /> {unico ? `Mudar para o plano ${outrosPlanos[0]?.nome}` : 'Trocar plano'}
+              </Button>
+            )}
             {atual !== 'pix_automatico' && (
               <Button variant="outline" onClick={() => setDialogo('forma')}>
                 <RefreshCw /> Forma de pagamento
@@ -116,8 +121,11 @@ export function GerenciarAssinatura({ a }: { a: MinhaAssinatura }) {
 
       <Dialog open={dialogo === 'plano'} onOpenChange={(x) => !x && setDialogo(null)}>
         <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto">
-          <DialogTitle className="font-titulo text-2xl font-extrabold">Trocar de plano</DialogTitle>
-          <DialogDescription>Upgrade: libera na hora e você paga só a diferença dos dias que faltam no período. Downgrade: o plano atual, já pago, vale até o fim do período. Mensalidades vencidas não mudam de valor.</DialogDescription>
+          <DialogTitle className="font-titulo text-2xl font-extrabold">{unico ? `Mudar para o plano ${outrosPlanos[0]?.nome ?? ''}` : 'Trocar de plano'}</DialogTitle>
+          <DialogDescription>
+            Se o novo valor for maior, a mudança vale na hora e você paga só a diferença dos dias que faltam no período. Se for menor, o plano atual, já pago, vale até o fim do período. Mensalidades vencidas não
+            mudam de valor.
+          </DialogDescription>
           <div className="mt-4">
             <CartoesPlanos planos={a.planos} acao="Mudar para este plano" onEscolher={(codigo) => setPlanoNovo(codigo)} />
           </div>

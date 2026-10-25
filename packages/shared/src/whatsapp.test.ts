@@ -3,7 +3,11 @@ import { resumoCondicoesPagamento } from './pagamento'
 import { inserirAntesDoFim, linhaItemMensagem, listaArtesMensagem, listaItensMensagem, textoPrazoDias, valorEmAberto, valoresArtesAprovacao } from './mensagens'
 import {
   ANEXOS_ARTE_MAX,
+  OPCOES_ENQUETE_ORCAMENTO,
   TEXTOS_PADRAO_MENSAGEM,
+  descreverRespostaWhatsapp,
+  perguntaEnqueteOrcamento,
+  textoSemEnquete,
   arquivoVisivelDaArte,
   escolherAnexosArte,
   vaiComoImagem,
@@ -95,7 +99,7 @@ describe('preencherMensagem', () => {
         'Prazo de produção: *5 dias úteis*',
         'Válido até *20/10/2026*',
         '',
-        'Responda *APROVADO* aqui mesmo ou peça o ajuste que precisar.',
+        'Toque em uma opção logo abaixo ou responda *APROVADO* aqui mesmo.',
         '',
         '— Ponto Visual',
         '',
@@ -105,8 +109,20 @@ describe('preencherMensagem', () => {
     )
     // Com o PDF anexado, o aviso entra antes da assinatura (depois do "responda APROVADO")
     expect(inserirAntesDoFim(texto, 'O orçamento em PDF vai logo abaixo.')).toContain(
-      'Responda *APROVADO* aqui mesmo ou peça o ajuste que precisar.\n\nO orçamento em PDF vai logo abaixo.\n\n— Ponto Visual\n\nSe preferir',
+      'Toque em uma opção logo abaixo ou responda *APROVADO* aqui mesmo.\n\nO orçamento em PDF vai logo abaixo.\n\n— Ponto Visual\n\nSe preferir',
     )
+    // Sem a conexão (wa.me, copiar) não vai enquete: a linha volta a ser "Responda APROVADO..."
+    const semEnquete = textoSemEnquete(texto)
+    expect(semEnquete).toContain('Válido até *20/10/2026*\n\nResponda *APROVADO* aqui mesmo ou peça o ajuste que precisar.\n\n— Ponto Visual')
+    expect(semEnquete).not.toContain('opção')
+    expect(textoSemEnquete('texto editado sem a linha')).toBe('texto editado sem a linha')
+  })
+  it('enquete do orçamento: pergunta com o número e duas opções; a resposta descrita para a equipe', () => {
+    expect(perguntaEnqueteOrcamento('ORC-2026-0042')).toBe('Aprovar o orçamento ORC-2026-0042?')
+    expect(Object.values(OPCOES_ENQUETE_ORCAMENTO)).toEqual(['✅ Aprovado', '✏️ Quero modificações'])
+    expect(descreverRespostaWhatsapp({ tipo: 'aprovado', via: 'enquete', texto: '✅ Aprovado', em: '' })).toBe('Resposta: ✅ Aprovado (enquete)')
+    expect(descreverRespostaWhatsapp({ tipo: 'modificacoes', via: 'texto', texto: 'quero mudar a cor', em: '' })).toBe('Resposta: ✏️ Quero modificações — “quero mudar a cor”')
+    expect(descreverRespostaWhatsapp({ tipo: 'outra', via: 'texto', texto: 'bom dia', em: '' })).toBe('Resposta: “bom dia”')
   })
   it('todo texto padrão começa pela saudação, assina e tem no máximo um emoji e um link (no fim)', () => {
     for (const t of Object.values(TEXTOS_PADRAO_MENSAGEM)) {

@@ -36,10 +36,12 @@ function Titulo({ passo, children, detalhe }: { passo: number; children: React.R
   )
 }
 
-/** Assinar pelo pagamento online em três passos: plano, forma de pagamento e dados da cobrança. */
+/** Assinar pelo pagamento online em três passos: plano (com um plano só, mensal ou anual), forma de pagamento e dados da cobrança. */
 export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }>(function EscolherAssinatura({ a }, ref) {
   const queryClient = useQueryClient()
-  const [plano, setPlano] = useState(a.plano.codigo)
+  // O plano atual, se ainda está à venda; senão (plano antigo) o primeiro à venda
+  const [plano, setPlano] = useState(a.planos.some((p) => p.codigo === a.plano.codigo) ? a.plano.codigo : (a.planos[0]?.codigo ?? a.plano.codigo))
+  const unico = a.planos.length === 1
   const temAnual = a.planos.some((p) => p.valorAnual)
   const [ciclo, setCiclo] = useState<CicloAssinatura>(temAnual ? a.ciclo : 'mensal')
   const anual = ciclo === 'anual'
@@ -83,12 +85,14 @@ export const EscolherAssinatura = forwardRef<HTMLElement, { a: MinhaAssinatura }
     <section ref={ref} className="scroll-mt-24 space-y-8 rounded-3xl bg-card p-6 shadow-suave sm:p-8" aria-label="Assinar">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-marca-escuro">{a.situacao === 'teste' || a.situacao === 'cortesia' ? 'Continue sem interrupção' : a.situacao === 'cancelada' ? 'Volte a usar a GrafyGo' : 'Regularize pelo pagamento online'}</p>
-        <h2 className="mt-1 font-titulo text-2xl font-extrabold text-tinta sm:text-3xl">Escolha como assinar</h2>
+        <h2 className="mt-1 font-titulo text-2xl font-extrabold text-tinta sm:text-3xl">{unico ? `Assine a ${a.planos[0]?.nome ?? 'GrafyGo'}` : 'Escolha como assinar'}</h2>
       </div>
 
       <div>
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <Titulo passo={1}>Plano</Titulo>
+          <Titulo passo={1} detalhe={unico ? 'Um plano só, com tudo incluído. Pague por mês ou o ano de uma vez.' : undefined}>
+            {unico ? 'Mensal ou anual' : 'Plano'}
+          </Titulo>
           {temAnual && (
             <div role="radiogroup" aria-label="Como pagar" className="inline-flex rounded-full bg-fundo p-1 ring-1 ring-border">
               {(['mensal', 'anual'] as const).map((c) => (

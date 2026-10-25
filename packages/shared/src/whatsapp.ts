@@ -45,12 +45,16 @@ export type CategoriaMensagemPedido = (typeof CATEGORIAS_MENSAGEM_PEDIDO)[number
 
 export const mensagemPedidoQuerySchema = z.object({ tipo: z.enum(CATEGORIAS_MENSAGEM_PEDIDO) })
 
-/** O que está registrado em mensagens_whatsapp: aviso automático ou envio da equipe */
-export type TipoMensagemWhatsapp = EventoWhatsapp | TipoEnvioWhatsapp
+/**
+ * O que está registrado em mensagens_whatsapp: aviso automático, envio da equipe ou a resposta curta que o sistema
+ * manda sozinho quando o cliente responde o orçamento na conversa ("resposta_orcamento")
+ */
+export type TipoMensagemWhatsapp = EventoWhatsapp | TipoEnvioWhatsapp | 'resposta_orcamento'
 
 export const TIPO_MENSAGEM_WHATSAPP_ROTULOS: Record<TipoMensagemWhatsapp, string> = {
   ...EVENTO_WHATSAPP_ROTULOS,
   orcamento_enviado: 'Orçamento',
+  resposta_orcamento: 'Resposta ao cliente',
   pedido_acompanhamento: 'Acompanhamento do pedido',
   recibo: 'Recibo',
   catalogo: 'Catálogo',
@@ -70,11 +74,13 @@ const ASSINATURA = '— {{empresa_nome}}'
  * Textos padrão das mensagens (também os templates criados para cada empresa). As linhas cuja variável
  * fica vazia somem (preencherMensagem). Empresas antigas com o texto anterior intacto recebem estes pelas
  * migrations 20261020100000_mensagens_whatsapp_formatadas, 20261022100000_arte_aprovacao_simples,
- * 20261024100000_mensagens_pedido_completas e 20261025100000_orcamento_pagamento (as editadas ficam como estão).
+ * 20261024100000_mensagens_pedido_completas, 20261025100000_orcamento_pagamento e 20261027100000_whatsapp_respostas
+ * (as editadas ficam como estão).
  */
 export const TEXTOS_PADRAO_MENSAGEM = {
-  // Já com o pagamento combinado (o "pedido confirmado" fala das parcelas: o cliente viu aqui antes) e a aprovação
-  // como na arte: responder APROVADO na conversa; o link fica para quem preferir
+  // Já com o pagamento combinado (o "pedido confirmado" fala das parcelas: o cliente viu aqui antes) e a aprovação na
+  // própria conversa: logo depois sai a enquete "✅ Aprovado / ✏️ Quero modificações" (ou o cliente responde APROVADO);
+  // o link fica para quem preferir. Sem a conexão da gráfica (wa.me) não há enquete: textoSemEnquete troca a linha
   orcamento_enviado: [
     'Olá, {{cliente_nome}}!',
     '',
@@ -86,7 +92,7 @@ export const TEXTOS_PADRAO_MENSAGEM = {
     'Prazo de produção: *{{prazo_producao}}*',
     'Válido até *{{validade}}*',
     '',
-    'Responda *APROVADO* aqui mesmo ou peça o ajuste que precisar.',
+    'Toque em uma opção logo abaixo ou responda *APROVADO* aqui mesmo.',
     '',
     ASSINATURA,
     '',
@@ -201,6 +207,48 @@ export const TEXTOS_PADRAO_MENSAGEM = {
   boas_vindas: ['Olá, {{cliente_nome}}!', '', 'Obrigado pelo contato. Em que podemos ajudar?', '', ASSINATURA].join('\n'),
 } satisfies Record<CategoriaTemplate, string>
 
+// ─── Aprovação do orçamento pela própria conversa (enquete ou resposta em texto) ───
+
+/** Linha do orçamento enviado pela conexão da gráfica (logo depois vai a enquete) */
+export const LINHA_APROVACAO_COM_ENQUETE = 'Toque em uma opção logo abaixo ou responda *APROVADO* aqui mesmo.'
+/** A mesma linha quando não há enquete (wa.me, copiar): o texto da versão anterior */
+export const LINHA_APROVACAO_SEM_ENQUETE = 'Responda *APROVADO* aqui mesmo ou peça o ajuste que precisar.'
+
+/** Opções da enquete que segue o orçamento (o voto chega pelo webhook com o nome da opção) */
+export const OPCOES_ENQUETE_ORCAMENTO = { aprovar: '✅ Aprovado', modificar: '✏️ Quero modificações' } as const
+
+export const perguntaEnqueteOrcamento = (numero: string) => `Aprovar o orçamento ${numero}?`
+
+/** Sem a enquete (o "Abrir no WhatsApp" e o "Copiar" não levam enquete), a linha que fala dela vira "Responda APROVADO..." */
+export function textoSemEnquete(texto: string): string {
+  return texto.split(LINHA_APROVACAO_COM_ENQUETE).join(LINHA_APROVACAO_SEM_ENQUETE)
+}
+
+/** O que o cliente respondeu ao orçamento na conversa */
+export type TipoRespostaWhatsapp = 'aprovado' | 'modificacoes' | 'outra'
+export const TIPO_RESPOSTA_WHATSAPP_ROTULOS: Record<TipoRespostaWhatsapp, string> = {
+  aprovado: '✅ Aprovado',
+  modificacoes: '✏️ Quero modificações',
+  outra: 'Respondeu',
+}
+
+export interface RespostaWhatsapp {
+  tipo: TipoRespostaWhatsapp
+  /** Votou na enquete ou escreveu na conversa */
+  via: 'enquete' | 'texto'
+  /** O que o cliente escreveu (texto) ou a opção da enquete */
+  texto: string | null
+  em: string
+}
+
+/** "Resposta: ✅ Aprovado (enquete)" / "Resposta: ✏️ Quero modificações — “mudar a cor”" / "Resposta: “bom dia”" */
+export function descreverRespostaWhatsapp(r: RespostaWhatsapp): string {
+  if (r.tipo === 'outra') return r.texto ? `Resposta: “${r.texto}”` : `Resposta na enquete (opção não lida)`
+  const base = `Resposta: ${TIPO_RESPOSTA_WHATSAPP_ROTULOS[r.tipo]}`
+  if (r.via === 'enquete') return `${base} (enquete)`
+  return r.texto ? `${base} — “${r.texto}”` : base
+}
+
 /** Textos padrão dos avisos automáticos (os mesmos das categorias de template de mesmo nome) */
 export const TEXTOS_PADRAO_WHATSAPP: Record<EventoWhatsapp, string> = {
   pedido_confirmado: TEXTOS_PADRAO_MENSAGEM.pedido_confirmado,
@@ -247,6 +295,8 @@ export const whatsappConfigSchema = z
     horarioInicio: horarioSchema,
     horarioFim: horarioSchema,
     pausado: z.boolean(),
+    /** Cliente respondeu "Aprovado" (enquete ou texto): aprova sozinho (e vira pedido se a empresa deixou ligado) */
+    aprovarPelaResposta: z.boolean().optional(),
   })
   .refine((v) => v.horarioInicio < v.horarioFim, { message: 'O fim precisa ser depois do início.', path: ['horarioFim'] })
 export type WhatsappConfigInput = z.input<typeof whatsappConfigSchema>
@@ -346,6 +396,8 @@ export interface WhatsappConfig {
   horarioInicio: string
   horarioFim: string
   pausado: boolean
+  /** Aprova sozinho quando o cliente responde "Aprovado" na conversa (enquete ou texto) */
+  aprovarPelaResposta: boolean
   /** Mensagens na fila agora */
   pendentes: number
 }
@@ -392,6 +444,8 @@ export interface MensagemWhatsapp {
   pedido: { id: string; numero: string } | null
   orcamento: { id: string; numero: string } | null
   usuario: { id: string; nome: string } | null
+  /** Orçamento: a resposta do cliente na conversa (enquete ou texto), a mais recente */
+  resposta: RespostaWhatsapp | null
 }
 
 /** Resposta do "Enviar pelo WhatsApp" (aviso: o texto foi, mas o PDF não) */

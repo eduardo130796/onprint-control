@@ -118,7 +118,7 @@ docker compose exec api npm run assinatura -w @onprint/api -- --listar
 docker compose exec api npm run assinatura -w @onprint/api -- --empresa grafica-x --ativar --proximo-vencimento 2026-11-10
 docker compose exec api npm run assinatura -w @onprint/api -- --empresa grafica-x --atraso-desde 2026-10-01
 docker compose exec api npm run assinatura -w @onprint/api -- --empresa grafica-x --liberar-ate 2026-10-25
-docker compose exec api npm run assinatura -w @onprint/api -- --empresa grafica-x --plano completo
+docker compose exec api npm run assinatura -w @onprint/api -- --empresa grafica-x --plano grafygo
 ```
 
 Outras opções: `--teste-ate`, `--bloquear "motivo"` / `--desbloquear`, `--cancelar` / `--reativar`, `--modulos-extras estoque,relatorios`. Toda alteração fica no histórico (`plataforma.eventos_assinatura`). A empresa nova nasce em teste grátis no plano `PLANO_PADRAO` (ou `--plano` no `empresa:criar`).

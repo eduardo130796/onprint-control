@@ -60,18 +60,20 @@ describe('migration 20261025100000_orcamento_pagamento', () => {
   const lista = trocas('20261025100000_orcamento_pagamento')
   const anteriores = trocas('20261020100000_mensagens_whatsapp_formatadas')
   const padraoAnterior = anteriores.find((v) => v.categoria === 'orcamento_enviado')!
+  // O texto padrão desta versão = o "antigo" da migration seguinte (20261027100000_whatsapp_respostas)
+  const padraoDaVersao = trocas('20261027100000_whatsapp_respostas')[0]!.antigo
 
-  it('só mexe no orçamento e troca para o texto padrão de agora, byte a byte', () => {
+  it('só mexe no orçamento e troca para o texto padrão da versão, byte a byte', () => {
     expect(lista.length).toBeGreaterThan(0)
     for (const v of lista) {
       expect(v.categoria).toBe('orcamento_enviado')
-      expect(v.novo).toBe(TEXTOS_PADRAO_MENSAGEM.orcamento_enviado)
+      expect(v.novo).toBe(padraoDaVersao)
     }
   })
 
   it('o texto padrão anterior (intacto) e o ainda mais antigo passam para o novo', () => {
-    expect(aplicar(lista, { categoria: 'orcamento_enviado', conteudo: padraoAnterior.novo })).toBe(TEXTOS_PADRAO_MENSAGEM.orcamento_enviado)
-    expect(aplicar(lista, { categoria: 'orcamento_enviado', conteudo: padraoAnterior.antigo })).toBe(TEXTOS_PADRAO_MENSAGEM.orcamento_enviado)
+    expect(aplicar(lista, { categoria: 'orcamento_enviado', conteudo: padraoAnterior.novo })).toBe(padraoDaVersao)
+    expect(aplicar(lista, { categoria: 'orcamento_enviado', conteudo: padraoAnterior.antigo })).toBe(padraoDaVersao)
   })
 
   it('template editado fica como está', () => {
@@ -79,9 +81,38 @@ describe('migration 20261025100000_orcamento_pagamento', () => {
     expect(aplicar(lista, { categoria: 'orcamento_enviado', conteudo: editado })).toBe(editado)
   })
 
-  it('o novo texto traz o pagamento e a aprovação como na arte', () => {
-    const t = TEXTOS_PADRAO_MENSAGEM.orcamento_enviado
-    expect(t).toContain('Pagamento: {{condicoes_pagamento}}')
-    expect(t).toContain('Responda *APROVADO* aqui mesmo ou peça o ajuste que precisar.\n\n— {{empresa_nome}}\n\nSe preferir, veja e aprove pelo link:\n{{link_aprovacao}}')
+  it('o texto da versão traz o pagamento e a aprovação como na arte', () => {
+    expect(padraoDaVersao).toContain('Pagamento: {{condicoes_pagamento}}')
+    expect(padraoDaVersao).toContain('Responda *APROVADO* aqui mesmo ou peça o ajuste que precisar.\n\n— {{empresa_nome}}\n\nSe preferir, veja e aprove pelo link:\n{{link_aprovacao}}')
+  })
+})
+
+describe('migration 20261027100000_whatsapp_respostas', () => {
+  const lista = trocas('20261027100000_whatsapp_respostas')
+  const anteriores = [...trocas('20261025100000_orcamento_pagamento'), ...trocas('20261020100000_mensagens_whatsapp_formatadas')].filter((v) => v.categoria === 'orcamento_enviado')
+
+  it('só mexe no orçamento e troca para o texto padrão de agora (com a enquete), byte a byte', () => {
+    expect(lista.length).toBe(3)
+    for (const v of lista) {
+      expect(v.categoria).toBe('orcamento_enviado')
+      expect(v.novo).toBe(TEXTOS_PADRAO_MENSAGEM.orcamento_enviado)
+    }
+    expect(TEXTOS_PADRAO_MENSAGEM.orcamento_enviado).toContain('Válido até *{{validade}}*\n\nToque em uma opção logo abaixo ou responda *APROVADO* aqui mesmo.\n\n— {{empresa_nome}}')
+  })
+
+  it('o padrão anterior e os mais antigos (intactos) passam para o novo; só muda a linha da aprovação', () => {
+    for (const v of anteriores) {
+      expect(aplicar(lista, { categoria: 'orcamento_enviado', conteudo: v.novo })).toBe(TEXTOS_PADRAO_MENSAGEM.orcamento_enviado)
+      expect(aplicar(lista, { categoria: 'orcamento_enviado', conteudo: v.antigo })).toBe(TEXTOS_PADRAO_MENSAGEM.orcamento_enviado)
+    }
+    expect(lista[0]!.antigo.replace('Responda *APROVADO* aqui mesmo ou peça o ajuste que precisar.', 'Toque em uma opção logo abaixo ou responda *APROVADO* aqui mesmo.')).toBe(
+      TEXTOS_PADRAO_MENSAGEM.orcamento_enviado,
+    )
+  })
+
+  it('template editado (ou de outra categoria) fica como está', () => {
+    const editado = lista[0]!.antigo.replace('Se preferir', 'Ou, se preferir')
+    expect(aplicar(lista, { categoria: 'orcamento_enviado', conteudo: editado })).toBe(editado)
+    expect(aplicar(lista, { categoria: 'arte_aprovacao', conteudo: lista[0]!.antigo })).toBe(lista[0]!.antigo)
   })
 })

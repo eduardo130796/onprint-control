@@ -24,8 +24,11 @@ export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; pod
   const [inicio, setInicio] = useState(config.horarioInicio)
   const [fim, setFim] = useState(config.horarioFim)
   const [pausado, setPausado] = useState(config.pausado)
+  const [aprovarSozinho, setAprovarSozinho] = useState(config.aprovarPelaResposta)
   const [aberto, setAberto] = useState<EventoWhatsapp | null>(null)
-  const alterado = pausado !== config.pausado || inicio !== config.horarioInicio || fim !== config.horarioFim || [...eventos].sort().join() !== [...config.eventos].sort().join()
+  const alterado =
+    aprovarSozinho !== config.aprovarPelaResposta ||
+    pausado !== config.pausado || inicio !== config.horarioInicio || fim !== config.horarioFim || [...eventos].sort().join() !== [...config.eventos].sort().join()
 
   const salvar = useMutation({
     mutationFn: whatsappApi.salvar,
@@ -37,7 +40,7 @@ export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; pod
   })
 
   function enviar() {
-    const dados = whatsappConfigSchema.safeParse({ eventos, horarioInicio: inicio, horarioFim: fim, pausado })
+    const dados = whatsappConfigSchema.safeParse({ eventos, horarioInicio: inicio, horarioFim: fim, pausado, aprovarPelaResposta: aprovarSozinho })
     if (!dados.success) return toast.error(dados.error.issues[0]?.message ?? 'Verifique o horário.')
     salvar.mutate(dados.data)
   }
@@ -110,6 +113,18 @@ export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; pod
                 <p className="text-sm font-medium text-tinta">Pausar os avisos</p>
                 <p className="text-xs text-texto-secundario">Nada sai enquanto estiver pausado. Avisos parados há mais de 48 horas são descartados.</p>
               </div>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 rounded-xl border border-tinta/10 p-3">
+            <Interruptor rotulo="Aprovar sozinho quando o cliente responder Aprovado" marcado={aprovarSozinho} onMudar={setAprovarSozinho} desabilitado={!podeEditar} className="mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-tinta">Aprovar sozinho quando o cliente responder Aprovado</p>
+              <p className="text-xs text-texto-secundario">
+                O orçamento enviado por aqui leva uma enquete “✅ Aprovado / ✏️ Quero modificações”. Se o cliente tocar em Aprovado (ou responder APROVADO), o
+                orçamento é aprovado e vira pedido conforme Configurações → Empresa → Pedidos. Desligado, o vendedor recebe a notificação e confirma. Pedido de
+                modificação sempre volta para negociação e avisa o vendedor.
+              </p>
             </div>
           </div>
         </fieldset>

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowLeft, CheckCircle2, Globe, Plus, RefreshCw, XCircle } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle2, Globe, MessageSquareReply, Plus, RefreshCw, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatarDataHora, formatarDataSimples, orcamentoSchema } from '@onprint/shared'
+import { descreverRespostaWhatsapp, formatarDataHora, formatarDataSimples, orcamentoSchema } from '@onprint/shared'
 import { clientesApi } from '@/api/cadastros'
 import { orcamentosApi, solicitacoesApi, type OrcamentoComAnalise } from '@/api/comercial'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -130,6 +130,22 @@ function Editor({
         <p className="mb-4 flex items-center gap-2 rounded-xl bg-verde/10 p-3 text-sm text-green-800">
           <CheckCircle2 className="h-4 w-4" /> Aprovado por {orcamento.aprovadoPorNome} em {formatarDataHora(orcamento.aprovadoEm)}
           {orcamento.aprovadoIp && ` (link público, IP ${orcamento.aprovadoIp})`}.
+        </p>
+      )}
+      {orcamento?.respostaWhatsapp && (
+        <p
+          className={
+            orcamento.respostaWhatsapp.tipo === 'aprovado'
+              ? 'mb-4 flex items-start gap-2 rounded-xl bg-verde/10 p-3 text-sm text-green-800'
+              : orcamento.respostaWhatsapp.tipo === 'modificacoes'
+                ? 'mb-4 flex items-start gap-2 rounded-xl bg-ambar/10 p-3 text-sm text-amber-800'
+                : 'mb-4 flex items-start gap-2 rounded-xl bg-marca-suave p-3 text-sm text-marca-escuro'
+          }
+        >
+          <MessageSquareReply className="mt-0.5 h-4 w-4 shrink-0" />
+          <span className="[overflow-wrap:anywhere]">
+            WhatsApp do cliente · {descreverRespostaWhatsapp(orcamento.respostaWhatsapp)} · {formatarDataHora(orcamento.respostaWhatsapp.em)}
+          </span>
         </p>
       )}
       {orcamento?.status === 'recusado' && (

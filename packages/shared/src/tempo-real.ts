@@ -36,6 +36,8 @@ export interface EventoOrcamento {
   cliente?: string
   pedidoId?: string | null
   pedidoNumero?: string | null
+  /** O cliente respondeu na conversa do WhatsApp (enquete ou texto), não pelo link */
+  canal?: 'whatsapp'
 }
 
 export type AcaoSolicitacaoTempoReal = 'criada' | 'assumida' | 'descartada' | 'orcada'

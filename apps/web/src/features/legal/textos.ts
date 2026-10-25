@@ -21,13 +21,14 @@ const TITULAR = titularCompleto()
 
 export const TERMOS_DE_USO: DocumentoLegal = {
   titulo: 'Termos de uso',
-  atualizadoEm: '2026-10-10',
+  atualizadoEm: '2026-10-24',
   resumo: `Regras para usar o ${MARCA.produto}: teste grátis, assinatura, pagamento, cancelamento e as responsabilidades de cada parte.`,
   secoes: [
     {
       titulo: '1. Quem somos e o que é o serviço',
       paragrafos: [
         `O ${MARCA.produto} é um sistema de gestão on-line (software como serviço) para gráficas, comunicação visual e empresas de personalizados, oferecido por ${TITULAR} ("${MARCA.empresa}", "nós").`,
+        `Fornecedor do serviço (Decreto 7.962/2013): ${TITULAR}. Atendimento: ${MARCA.contato}.`,
         'Ao criar uma conta ou usar o sistema, a empresa contratante ("cliente", "você") concorda com estes termos. Quem cria a conta declara ter poderes para representar a empresa.',
       ],
     },
@@ -35,7 +36,7 @@ export const TERMOS_DE_USO: DocumentoLegal = {
       titulo: '2. Conta e acesso',
       paragrafos: ['Você é responsável pelos dados informados no cadastro, por manter a senha em sigilo e por tudo o que for feito com os acessos da sua empresa.'],
       itens: [
-        'Cada usuário deve ter o próprio acesso; o número de usuários ativos depende do plano.',
+        'Cada usuário deve ter o próprio acesso (o plano atual não limita o número de usuários).',
         'O administrador da empresa define quem acessa e o que cada um pode ver e fazer (papéis e permissões).',
         'Avise-nos imediatamente se suspeitar de uso indevido da sua conta.',
       ],
@@ -49,7 +50,7 @@ export const TERMOS_DE_USO: DocumentoLegal = {
     {
       titulo: '4. Planos, preços e pagamento',
       paragrafos: [
-        'Os planos, os recursos de cada um e os preços estão na página de planos. A cobrança é recorrente, mensal ou anual, conforme a escolha no momento da assinatura, e é processada pelo Asaas (instituição de pagamento autorizada pelo Banco Central). Os dados de cartão são digitados no ambiente do Asaas e não passam pelos nossos servidores.',
+        'O plano, o que ele inclui e o preço estão na página de venda e em "Minha assinatura". A cobrança é recorrente, mensal ou anual, conforme a escolha no momento da assinatura, e é processada pelo Asaas (instituição de pagamento autorizada pelo Banco Central). Os dados de cartão são digitados no ambiente do Asaas e não passam pelos nossos servidores.',
         'O comprovante de cada pagamento fica disponível no sistema e a nota fiscal de serviço é emitida quando aplicável, conforme a legislação do prestador. Cupons de desconto valem conforme as condições informadas e somente no pagamento mensal, salvo indicação em contrário.',
         'Podemos reajustar os preços com aviso prévio de pelo menos 30 dias. O novo valor vale a partir da renovação seguinte ao aviso; quem paga o ano mantém o valor até o fim do período pago.',
       ],
@@ -64,9 +65,9 @@ export const TERMOS_DE_USO: DocumentoLegal = {
       ],
     },
     {
-      titulo: '6. Troca de plano e cancelamento',
+      titulo: '6. Mudança de plano e cancelamento',
       paragrafos: [
-        'Você pode trocar de plano a qualquer momento em "Minha assinatura". Ao subir de plano, os novos recursos são liberados na hora e é cobrada apenas a diferença proporcional aos dias restantes do período. Ao descer de plano, a mudança vale na renovação seguinte.',
+        'Quem assinou um plano anterior pode passar para o plano atual em "Minha assinatura". Se o novo valor for maior, a mudança vale na hora e é cobrada apenas a diferença proporcional aos dias restantes do período; se for menor, vale na renovação seguinte.',
         'O cancelamento é feito pelo próprio sistema, sem multa e sem fidelidade. O acesso continua até o fim do período já pago; não há devolução proporcional de período em uso, exceto quando exigido por lei.',
         'Contratações feitas pela internet podem ser desistidas em até 7 dias da primeira cobrança paga (direito de arrependimento), com devolução integral do valor pago.',
       ],
@@ -90,7 +91,7 @@ export const TERMOS_DE_USO: DocumentoLegal = {
     {
       titulo: '9. Vitrine online',
       paragrafos: [
-        'Nos planos com a Vitrine online, você é responsável pelo conteúdo publicado no seu site (textos, imagens, preços e informações de contato) e por ter o direito de usá-lo. Pedidos de orçamento feitos pela vitrine são enviados à sua empresa; a negociação, a venda e a entrega são de sua responsabilidade.',
+        'Ao usar a Vitrine online, você é responsável pelo conteúdo publicado no seu site (textos, imagens, preços e informações de contato) e por ter o direito de usá-lo. Pedidos de orçamento feitos pela vitrine são enviados à sua empresa; a negociação, a venda e a entrega são de sua responsabilidade.',
         'Ao usar um domínio próprio, a manutenção do domínio e do apontamento no DNS cabe a você.',
       ],
     },

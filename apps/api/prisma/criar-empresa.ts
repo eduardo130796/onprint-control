@@ -1,6 +1,6 @@
 /**
  * Cria uma empresa assinante pela linha de comando (schema, migrations, dados padrão e admin).
- * Uso: npm run empresa:criar -- --nome "Gráfica X" --email admin@graficax.com.br --senha "Senha123" [--slug graficax] [--plano essencial] [--ativa] [--exemplos]
+ * Uso: npm run empresa:criar -- --nome "Gráfica X" --email admin@graficax.com.br --senha "Senha123" [--slug graficax] [--plano grafygo] [--ativa] [--exemplos]
  * Sem --ativa, começa em teste grátis (dias definidos no plano).
  * O admin entra com essa senha e é obrigado a trocá-la no primeiro login.
  */

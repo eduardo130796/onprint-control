@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { OrcamentoDetalhe, PedidoDetalhe } from '@onprint/shared'
+import { textoSemEnquete, type OrcamentoDetalhe, type PedidoDetalhe } from '@onprint/shared'
 import { definirEmpresaAtual } from '@/lib/empresaAtual'
 import { mensagemDoOrcamento } from '@/features/orcamentos/mensagem'
 import { mensagemRecibo } from '@/features/pedidos/mensagens'
@@ -61,10 +61,12 @@ describe('mensagens da equipe', () => {
     expect(texto).toContain(
       'Total: *R$ 219,90*\nPagamento: Entrada de R$ 109,95 (50%) na aprovação + 1× de R$ 54,97 e 1× de R$ 54,98 a cada 30 dias\nPrazo de produção: *5 dias úteis*\nVálido até *20/10/2026*',
     )
-    expect(texto).toContain('Válido até *20/10/2026*\n\nResponda *APROVADO* aqui mesmo ou peça o ajuste que precisar.\n\n— Ponto Visual')
+    // Pela conexão da gráfica a enquete vai logo depois; sem ela (wa.me, copiar), "Responda APROVADO..."
+    expect(texto).toContain('Válido até *20/10/2026*\n\nToque em uma opção logo abaixo ou responda *APROVADO* aqui mesmo.\n\n— Ponto Visual')
+    expect(textoSemEnquete(texto)).toContain('Válido até *20/10/2026*\n\nResponda *APROVADO* aqui mesmo ou peça o ajuste que precisar.\n\n— Ponto Visual')
     expect(texto.endsWith('Se preferir, veja e aprove pelo link:\nhttps://app.grafygo.com.br/aprovar/ponto-visual/tok')).toBe(true)
     const comPdf = mensagemDoOrcamento(orcamento, [], 'Ponto Visual', true)
-    expect(comPdf).toContain('peça o ajuste que precisar.\n\nO orçamento em PDF vai logo abaixo.\n\n— Ponto Visual\n\n')
+    expect(comPdf).toContain('responda *APROVADO* aqui mesmo.\n\nO orçamento em PDF vai logo abaixo.\n\n— Ponto Visual\n\n')
   })
 
   it('o template editado da empresa vale mais que o padrão', () => {

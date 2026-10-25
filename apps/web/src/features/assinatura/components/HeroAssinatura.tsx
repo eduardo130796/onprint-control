@@ -150,7 +150,7 @@ export function HeroAssinatura({ a, onAssinar }: { a: MinhaAssinatura; onAssinar
               <dt className="flex items-center gap-1.5 text-white/60">
                 <Layers className="h-4 w-4" aria-hidden="true" /> Módulos
               </dt>
-              <dd className="mt-1 font-semibold">{modulos.length} incluídos</dd>
+              <dd className="mt-1 font-semibold">{modulos.length === a.modulos.length ? 'Tudo incluído' : `${modulos.length} incluídos`}</dd>
             </div>
           </dl>
 

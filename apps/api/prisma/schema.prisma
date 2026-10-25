@@ -138,9 +138,9 @@ model PapelPermissao {
 
 /// Linha única com os dados da empresa e padrões comerciais.
 model EmpresaConfig {
-  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  razaoSocial           String   @map("razao_social")
-  nomeFantasia          String?  @map("nome_fantasia")
+  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  razaoSocial           String      @map("razao_social")
+  nomeFantasia          String?     @map("nome_fantasia")
   cnpj                  String?
   ie                    String?
   email                 String?
@@ -153,27 +153,27 @@ model EmpresaConfig {
   complemento           String?
   bairro                String?
   cidade                String?
-  uf                    String?  @db.Char(2)
-  logoArquivoId         String?  @map("logo_arquivo_id") @db.Uuid
+  uf                    String?     @db.Char(2)
+  logoArquivoId         String?     @map("logo_arquivo_id") @db.Uuid
   /// Cor do tema do sistema (paleta TEMAS: verde, azul, roxo…); null = azul GrafyGo
-  corTema               String?  @map("cor_tema")
+  corTema               String?     @map("cor_tema")
   /// Minutos sem uso até o sistema sair sozinho (15, 30, 60, 120 ou 240)
-  inatividadeMinutos    Int      @default(30) @map("inatividade_minutos")
-  validadeOrcamentoDias Int      @default(7) @map("validade_orcamento_dias")
-  condicoesPadrao       String?  @map("condicoes_padrao")
-  sinalPercentual       Decimal  @default(50) @map("sinal_percentual") @db.Decimal(5, 2)
-  chavePix              String?  @map("chave_pix")
-  areaMinimaM2          Decimal  @default(0) @map("area_minima_m2") @db.Decimal(10, 3)
+  inatividadeMinutos    Int         @default(30) @map("inatividade_minutos")
+  validadeOrcamentoDias Int         @default(7) @map("validade_orcamento_dias")
+  condicoesPadrao       String?     @map("condicoes_padrao")
+  sinalPercentual       Decimal     @default(50) @map("sinal_percentual") @db.Decimal(5, 2)
+  chavePix              String?     @map("chave_pix")
+  areaMinimaM2          Decimal     @default(0) @map("area_minima_m2") @db.Decimal(10, 3)
   /// Precificação: percentuais sobre o preço, rateio dos custos fixos e lucro padrão (docs/PRECIFICACAO.md)
-  impostosPercentual    Decimal  @default(0) @map("impostos_percentual") @db.Decimal(5, 2)
-  comissaoPercentual    Decimal  @default(0) @map("comissao_percentual") @db.Decimal(5, 2)
-  custoFixoPercentual   Decimal  @default(0) @map("custo_fixo_percentual") @db.Decimal(5, 2)
+  impostosPercentual    Decimal     @default(0) @map("impostos_percentual") @db.Decimal(5, 2)
+  comissaoPercentual    Decimal     @default(0) @map("comissao_percentual") @db.Decimal(5, 2)
+  custoFixoPercentual   Decimal     @default(0) @map("custo_fixo_percentual") @db.Decimal(5, 2)
   /// nenhum | percentual | por_hora
-  rateioModo            String   @default("nenhum") @map("rateio_modo")
-  custoFixoMensal       Decimal  @default(0) @map("custo_fixo_mensal") @db.Decimal(12, 2)
-  horasProdutivasMes    Int      @default(0) @map("horas_produtivas_mes")
-  lucroDesejadoPadrao   Decimal  @default(30) @map("lucro_desejado_padrao") @db.Decimal(5, 2)
-  lucroMinimoPadrao     Decimal  @default(15) @map("lucro_minimo_padrao") @db.Decimal(5, 2)
+  rateioModo            String      @default("nenhum") @map("rateio_modo")
+  custoFixoMensal       Decimal     @default(0) @map("custo_fixo_mensal") @db.Decimal(12, 2)
+  horasProdutivasMes    Int         @default(0) @map("horas_produtivas_mes")
+  lucroDesejadoPadrao   Decimal     @default(30) @map("lucro_desejado_padrao") @db.Decimal(5, 2)
+  lucroMinimoPadrao     Decimal     @default(15) @map("lucro_minimo_padrao") @db.Decimal(5, 2)
   /// Pedidos: orçamento aprovado (pelo link ou registrado pela equipe) vira pedido sozinho, com os padrões abaixo
   converterAoAprovar    Boolean     @default(true) @map("converter_ao_aprovar")
   /// Parcelas do saldo depois do sinal e o intervalo entre elas
@@ -181,9 +181,9 @@ model EmpresaConfig {
   intervaloDiasPadrao   Int         @default(30) @map("intervalo_dias_padrao")
   tipoEntregaPadrao     TipoEntrega @default(retirada) @map("tipo_entrega_padrao")
   prioridadePadrao      Prioridade  @default(normal) @map("prioridade_padrao")
-  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  createdBy             String?  @map("created_by") @db.Uuid
+  createdAt             DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdBy             String?     @map("created_by") @db.Uuid
 
   logo Arquivo? @relation(fields: [logoArquivoId], references: [id], onDelete: SetNull)
 
@@ -308,21 +308,23 @@ model MensagemTemplate {
 /// Configuração única da empresa: conexão (último estado conhecido), eventos ligados, horário e pausa.
 /// A instância na Evolution é "grafygo-{id da empresa}" (não precisa guardar).
 model WhatsappConfig {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  conectado      Boolean   @default(false)
-  numero         String?
-  nomePerfil     String?   @map("nome_perfil")
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conectado           Boolean   @default(false)
+  numero              String?
+  nomePerfil          String?   @map("nome_perfil")
   /// Primeira leitura do QR (null = nunca conectou ou desconectou de propósito: não enfileira)
-  conectadoEm    DateTime? @map("conectado_em") @db.Timestamptz(3)
+  conectadoEm         DateTime? @map("conectado_em") @db.Timestamptz(3)
   /// Queda da conexão (os avisos ficam na fila até ler o QR de novo)
-  desconectadoEm DateTime? @map("desconectado_em") @db.Timestamptz(3)
-  eventos        String[]  @default(["pedido_confirmado", "arte_aprovacao", "pedido_pronto", "pedido_em_entrega"])
+  desconectadoEm      DateTime? @map("desconectado_em") @db.Timestamptz(3)
+  eventos             String[]  @default(["pedido_confirmado", "arte_aprovacao", "pedido_pronto", "pedido_em_entrega"])
   /// Janela de envio no horário de Brasília
-  horarioInicio  String    @default("08:00") @map("horario_inicio")
-  horarioFim     String    @default("20:00") @map("horario_fim")
-  pausado        Boolean   @default(false)
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  horarioInicio       String    @default("08:00") @map("horario_inicio")
+  horarioFim          String    @default("20:00") @map("horario_fim")
+  pausado             Boolean   @default(false)
+  /// Cliente respondeu "Aprovado" na conversa (enquete ou texto): aprova sozinho (e vira pedido se a empresa deixou)
+  aprovarPelaResposta Boolean   @default(true) @map("aprovar_pela_resposta")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@map("whatsapp_config")
 }
@@ -367,6 +369,18 @@ model MensagemWhatsapp {
   agrupadaComId      String?                @map("agrupada_com_id") @db.Uuid
   /// Id da mensagem no WhatsApp (key.id da Evolution)
   idExterno          String?                @map("id_externo")
+  /// Orçamento: enquete "✅ Aprovado / ✏️ Quero modificações" que saiu logo depois (id no WhatsApp, chave do voto
+  /// em base64 e o jid do cliente usado no envio) — o voto chega cifrado pelo webhook e é aberto com ela
+  enqueteId          String?                @map("enquete_id")
+  enqueteSegredo     String?                @map("enquete_segredo")
+  enqueteJid         String?                @map("enquete_jid")
+  /// Resposta do cliente na conversa (a mais recente): aprovado | modificacoes | outra, por enquete | texto
+  resposta           String?
+  respostaVia        String?                @map("resposta_via")
+  respostaTexto      String?                @map("resposta_texto")
+  respostaEm         DateTime?              @map("resposta_em") @db.Timestamptz(3)
+  /// Id da mensagem recebida (o mesmo aviso do webhook duas vezes não é aplicado de novo)
+  respostaIdExterno  String?                @map("resposta_id_externo")
   createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -379,6 +393,9 @@ model MensagemWhatsapp {
   @@index([pedidoId])
   @@index([orcamentoId])
   @@index([evento, pedidoId, createdAt])
+  @@index([enqueteId])
+  @@index([idExterno])
+  @@index([evento, telefone])
   @@map("mensagens_whatsapp")
 }
 
@@ -409,38 +426,38 @@ enum TipoEndereco {
 }
 
 model Cliente {
-  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tipoPessoa    TipoPessoa      @default(PF) @map("tipo_pessoa")
-  nome          String
-  fantasia      String?
-  cpfCnpj       String?         @unique @map("cpf_cnpj")
-  ie            String?
-  email         String?
-  telefone      String?
-  whatsapp      String?         @unique
-  origem        String?
-  situacao      SituacaoCliente @default(pre_cadastro)
-  limiteCredito Decimal         @default(0) @map("limite_credito") @db.Decimal(12, 2)
-  vendedorId    String?         @map("vendedor_id") @db.Uuid
-  observacoes   String?
-  tags          String[]        @default([])
+  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tipoPessoa            TipoPessoa      @default(PF) @map("tipo_pessoa")
+  nome                  String
+  fantasia              String?
+  cpfCnpj               String?         @unique @map("cpf_cnpj")
+  ie                    String?
+  email                 String?
+  telefone              String?
+  whatsapp              String?         @unique
+  origem                String?
+  situacao              SituacaoCliente @default(pre_cadastro)
+  limiteCredito         Decimal         @default(0) @map("limite_credito") @db.Decimal(12, 2)
+  vendedorId            String?         @map("vendedor_id") @db.Uuid
+  observacoes           String?
+  tags                  String[]        @default([])
   /// Avisos automáticos do pedido pelo WhatsApp (opt-out)
-  receberAvisosWhatsapp Boolean @default(true) @map("receber_avisos_whatsapp")
-  fotoArquivoId String?         @map("foto_arquivo_id") @db.Uuid
-  ativo         Boolean         @default(true)
-  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
-  createdBy     String?         @map("created_by") @db.Uuid
+  receberAvisosWhatsapp Boolean         @default(true) @map("receber_avisos_whatsapp")
+  fotoArquivoId         String?         @map("foto_arquivo_id") @db.Uuid
+  ativo                 Boolean         @default(true)
+  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdBy             String?         @map("created_by") @db.Uuid
 
-  vendedor      Usuario?               @relation("ClienteVendedor", fields: [vendedorId], references: [id], onDelete: Restrict)
-  foto          Arquivo?               @relation("ClienteFoto", fields: [fotoArquivoId], references: [id], onDelete: SetNull)
-  enderecos     ClienteEndereco[]
-  contatos      ClienteContato[]
-  solicitacoes  SolicitacaoOrcamento[]
-  orcamentos    Orcamento[]
-  pedidos       Pedido[]
-  contasReceber ContaReceber[]
-  vendasPdv     VendaPdv[]             @relation("VendaPdvCliente")
+  vendedor          Usuario?               @relation("ClienteVendedor", fields: [vendedorId], references: [id], onDelete: Restrict)
+  foto              Arquivo?               @relation("ClienteFoto", fields: [fotoArquivoId], references: [id], onDelete: SetNull)
+  enderecos         ClienteEndereco[]
+  contatos          ClienteContato[]
+  solicitacoes      SolicitacaoOrcamento[]
+  orcamentos        Orcamento[]
+  pedidos           Pedido[]
+  contasReceber     ContaReceber[]
+  vendasPdv         VendaPdv[]             @relation("VendaPdvCliente")
   mensagensWhatsapp MensagemWhatsapp[]
 
   @@index([situacao])
@@ -956,8 +973,8 @@ model SolicitacaoOrcamento {
   updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdBy         String?           @map("created_by") @db.Uuid
 
-  cliente     Cliente?    @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  responsavel Usuario?    @relation("SolicitacaoResponsavel", fields: [responsavelId], references: [id], onDelete: Restrict)
+  cliente     Cliente?          @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  responsavel Usuario?          @relation("SolicitacaoResponsavel", fields: [responsavelId], references: [id], onDelete: Restrict)
   orcamentos  Orcamento[]
   itens       SolicitacaoItem[]
 
@@ -1942,13 +1959,13 @@ model VendaPdv {
 }
 
 model VendaPdvItem {
-  id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  vendaId       String  @map("venda_id") @db.Uuid
-  produtoId     String  @map("produto_id") @db.Uuid
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendaId       String   @map("venda_id") @db.Uuid
+  produtoId     String   @map("produto_id") @db.Uuid
   descricao     String
-  quantidade    Decimal @db.Decimal(12, 3)
-  precoUnitario Decimal @map("preco_unitario") @db.Decimal(12, 2)
-  total         Decimal @db.Decimal(12, 2)
+  quantidade    Decimal  @db.Decimal(12, 3)
+  precoUnitario Decimal  @map("preco_unitario") @db.Decimal(12, 2)
+  total         Decimal  @db.Decimal(12, 2)
   /// Custo direto da venda (materiais da composição/ficha ou custo do produto), para os relatórios
   custo         Decimal? @db.Decimal(12, 2)
 
@@ -1964,28 +1981,28 @@ model VendaPdvItem {
 // como todos os schemas recebem as mesmas migrations, estas tabelas também existem (vazias) neles.
 
 model Assinante {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nome      String
+  id                         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome                       String
   /**
    * Identificador curto, usado nos links públicos (/aprovar/{slug}/{token}) e no subdomínio da vitrine;
    * a empresa pode trocar (Vitrine → Endereço da vitrine)
    */
-  slug      String   @unique
+  slug                       String    @unique
   /**
    * Slugs usados antes da troca: links antigos (aprovação, vitrine, CNAME do domínio próprio) continuam valendo
    */
-  slugsAnteriores String[]  @default([]) @map("slugs_anteriores")
+  slugsAnteriores            String[]  @default([]) @map("slugs_anteriores")
   /**
    * Última troca do slug (limite de uma troca por dia)
    */
-  slugAlteradoEm  DateTime? @map("slug_alterado_em") @db.Timestamptz(3)
+  slugAlteradoEm             DateTime? @map("slug_alterado_em") @db.Timestamptz(3)
   /**
    * Schema do PostgreSQL com os dados da empresa
    */
-  schema    String   @unique
-  email     String?
-  cnpj      String?
-  ativo     Boolean  @default(true)
+  schema                     String    @unique
+  email                      String?
+  cnpj                       String?
+  ativo                      Boolean   @default(true)
   /**
    * Domínio próprio da vitrine (ex.: www.suagrafica.com.br), apontado por CNAME para {slug}.{DOMINIO_VITRINE}
    */
@@ -1994,8 +2011,8 @@ model Assinante {
    * Quando o domínio passou a responder pela vitrine: só então os links gerados usam ele
    */
   dominioVitrineVerificadoEm DateTime? @map("dominio_vitrine_verificado_em") @db.Timestamptz(3)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdAt                  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   logins       IndiceLogin[]
   tokensSenha  TokenSenha[]

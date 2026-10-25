@@ -1,7 +1,7 @@
 import { BarChart3, Boxes, Calculator, ClipboardList, Factory, Gauge, Globe, LayoutDashboard, MapPinned, MessageCircle, Palette, ShoppingBag, Smartphone, Store, Wallet, type LucideIcon } from 'lucide-react'
 
 /**
- * Visita guiada da página de venda: uma tela de verdade por área (capturas da empresa de demonstração
+ * Visita guiada da página de venda (textos para quem compra, sem termos técnicos): uma tela de verdade por área (capturas da empresa de demonstração
  * "Ponto Visual" com Playwright, 1600 × 1000; as telas do celular vão montadas em três aparelhos; ficam em public/site/).
  */
 export interface AreaTour {
@@ -23,7 +23,7 @@ export const TOUR: AreaTour[] = [
     icone: LayoutDashboard,
     titulo: 'O dia da gráfica numa tela só',
     texto: 'Ao abrir o sistema você já vê vendas, o que está em produção, o que vence hoje e o que precisa de atenção.',
-    pontos: ['Indicadores do mês com a variação', 'Entregas e orçamentos vencendo', 'Atalhos para o que você mais faz', 'Busca rápida de tudo (Ctrl+K)'],
+    pontos: ['Indicadores do mês com a variação', 'Entregas e orçamentos vencendo', 'Atalhos para o que você mais faz', 'Busca rápida de clientes, pedidos e produtos'],
     imagem: '/site/tour-painel.webp',
     alt: 'Painel com indicadores de vendas, produção e contas a receber',
     endereco: 'app.grafygo.com.br',
@@ -34,7 +34,7 @@ export const TOUR: AreaTour[] = [
     icone: Calculator,
     titulo: 'Orçamento calculado na hora e enviado no WhatsApp',
     texto: 'Escolha o produto, as medidas e os acabamentos: o preço sai pelo custo real e pela margem. A mensagem já vai pronta, com o PDF.',
-    pontos: ['Itens, total, pagamento, prazo e validade na mensagem', 'Entrada e parcelas combinadas em cada orçamento', '"Precisa de arte" marcado por item', 'O cliente responde "APROVADO" ou aprova pelo link'],
+    pontos: ['Itens, total, pagamento, prazo e validade na mensagem', 'Entrada e parcelas combinadas em cada orçamento', '"Precisa de arte" marcado por item', 'O cliente aprova pelo WhatsApp ou pelo link'],
     imagem: '/site/tour-orcamentos.webp',
     alt: 'Envio do orçamento pelo WhatsApp com a prévia da mensagem e o PDF anexado',
     endereco: 'app.grafygo.com.br/orcamentos',
@@ -45,7 +45,7 @@ export const TOUR: AreaTour[] = [
     icone: MessageCircle,
     titulo: 'Avisos do pedido saindo sozinhos, do seu número',
     texto: 'Conecte o WhatsApp da gráfica lendo um QR code, como no WhatsApp Web. O cliente recebe os avisos do pedido sem ninguém digitar nada.',
-    pontos: ['Pedido confirmado, pronto, saiu para entrega e pagamento', 'Horário de envio e intervalo entre mensagens', 'Avisos do mesmo pedido numa mensagem só', 'Tudo registrado: enviadas, na fila e com falha'],
+    pontos: ['Pedido confirmado, pronto, saiu para entrega e pagamento', 'Envios só no horário comercial', 'Avisos do mesmo pedido numa mensagem só', 'Você vê o que já foi enviado e o que falta'],
     imagem: '/site/tour-whatsapp.webp',
     alt: 'Tela do WhatsApp com a conexão, os avisos automáticos e as mensagens enviadas',
     endereco: 'app.grafygo.com.br/whatsapp',
@@ -55,10 +55,10 @@ export const TOUR: AreaTour[] = [
     rotulo: 'Pedidos e entregas',
     icone: ClipboardList,
     titulo: 'Aprovou, virou pedido. Sozinho',
-    texto: 'O orçamento aprovado vira pedido na hora, com itens, prazo e as parcelas combinadas. A tela de todo mundo atualiza ao vivo.',
-    pontos: ['Sinal, parcelas e o que falta pagar', 'Aviso na tela quando o cliente aprova', 'Kanban de pedidos com o andamento da arte', 'Etiquetas e ficha do entregador'],
+    texto: 'O orçamento aprovado vira pedido na hora, com itens, prazo e as parcelas combinadas. A equipe vê na hora, sem atualizar a tela.',
+    pontos: ['Sinal, parcelas e o que falta pagar', 'Aviso na tela quando o cliente aprova', 'Quadro de pedidos com o andamento da arte', 'Etiquetas e ficha do entregador'],
     imagem: '/site/tour-pedidos.webp',
-    alt: 'Kanban de pedidos por etapa',
+    alt: 'Quadro de pedidos por etapa',
     endereco: 'app.grafygo.com.br/pedidos',
   },
   {
@@ -88,21 +88,21 @@ export const TOUR: AreaTour[] = [
     rotulo: 'Produção',
     icone: Factory,
     titulo: 'A produção andando, à vista de todos',
-    texto: 'Cada pedido vira ordem de produção com etapas. Arraste no kanban e veja na hora o que está atrasado.',
-    pontos: ['Etapas: arte, impressão, acabamento, instalação', 'Prazo e prioridade em cada cartão', 'Ficha da OP com QR code', 'Aviso do que vence hoje'],
+    texto: 'Cada pedido vira ordem de produção com etapas. Arraste no quadro e veja na hora o que está atrasado.',
+    pontos: ['Etapas: arte, impressão, acabamento, instalação', 'Prazo e prioridade em cada cartão', 'Ficha de produção impressa', 'Aviso do que vence hoje'],
     imagem: '/site/tour-producao.webp',
-    alt: 'Kanban de produção com ordens por etapa',
+    alt: 'Quadro da produção com as ordens por etapa',
     endereco: 'app.grafygo.com.br/producao',
   },
   {
     id: 'pcp',
-    rotulo: 'PCP',
+    rotulo: 'Planejamento',
     icone: Gauge,
     titulo: 'Planejamento e carga das máquinas',
     texto: 'Veja a fila de cada máquina e o que cabe na semana antes de prometer prazo para o cliente.',
     pontos: ['Carga por máquina e por dia', 'Ordens atrasadas em destaque', 'Replaneje arrastando', 'Prazo que você consegue cumprir'],
     imagem: '/site/tour-pcp.webp',
-    alt: 'Cockpit de PCP com a carga das máquinas',
+    alt: 'Planejamento da produção com a carga das máquinas',
     endereco: 'app.grafygo.com.br/pcp',
   },
   {
@@ -143,7 +143,7 @@ export const TOUR: AreaTour[] = [
     rotulo: 'Caixa e balcão',
     icone: Store,
     titulo: 'Venda de balcão em segundos',
-    texto: 'O PDV para o que sai na hora (cópias, cartões, brindes), com abertura e fechamento de caixa conferidos.',
+    texto: 'O caixa do balcão para o que sai na hora (cópias, cartões, brindes), com abertura e fechamento conferidos.',
     pontos: ['Venda rápida com busca', 'Sangria e suprimento', 'Recebimento de pedidos no caixa', 'Fechamento com conferência'],
     imagem: '/site/tour-caixa.webp',
     alt: 'Tela de venda balcão (PDV)',

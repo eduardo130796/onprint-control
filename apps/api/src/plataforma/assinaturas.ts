@@ -9,43 +9,26 @@ export interface AssinaturaContexto {
   acesso: AcessoAssinatura
 }
 
-const COMERCIAL = ['orcamentos', 'pedidos', 'artes', 'clientes', 'fornecedores', 'produtos', 'financeiro', 'caixa'] as const
-const OPERACAO = [...COMERCIAL, 'producao', 'pcp', 'estoque', 'relatorios'] as const
+/** Tudo o que o sistema tem (os essenciais entram sempre, em qualquer plano) */
+export const MODULOS_DO_PLANO_UNICO = ['orcamentos', 'pedidos', 'artes', 'producao', 'pcp', 'clientes', 'fornecedores', 'produtos', 'estoque', 'financeiro', 'caixa', 'relatorios', 'whatsapp', 'vitrine'] as const
+
+/** Código do plano único (o que a página de venda, o cadastro e a assinatura mostram) */
+export const PLANO_UNICO = 'grafygo'
 
 /**
- * Planos criados numa plataforma nova (preços e módulos se ajustam depois, no painel). Preço de lançamento pensado
- * para volume; o anual sai por 10 mensalidades (2 meses grátis). O WhatsApp entra no Completo quando ficar pronto.
+ * Plano criado numa plataforma nova (preço e prazos se ajustam depois, no painel): um plano só, com tudo incluído e
+ * usuários ilimitados; o anual sai por 10 mensalidades (2 meses grátis).
  */
 export const PLANOS_PADRAO = [
   {
-    codigo: 'essencial',
-    nome: 'Essencial',
-    descricao: 'Para começar organizado: orçamentos, pedidos, aprovação de arte, financeiro e caixa.',
-    valorMensal: '69.00',
-    valorAnual: '690.00',
-    modulos: [...COMERCIAL],
-    limiteUsuarios: 3,
-    ordem: 1,
-  },
-  {
-    codigo: 'profissional',
-    nome: 'Profissional',
-    descricao: 'Tudo do Essencial + produção, PCP, estoque e relatórios.',
-    valorMensal: '129.00',
-    valorAnual: '1290.00',
-    modulos: [...OPERACAO],
-    limiteUsuarios: 8,
-    ordem: 2,
-  },
-  {
-    codigo: 'completo',
-    nome: 'Completo',
-    descricao: 'Tudo do Profissional + Vitrine online e usuários ilimitados.',
-    valorMensal: '199.00',
-    valorAnual: '1990.00',
-    modulos: [...OPERACAO, 'vitrine', 'whatsapp'],
+    codigo: PLANO_UNICO,
+    nome: 'GrafyGo',
+    descricao: 'Tudo incluído: orçamentos, pedidos, arte, produção, estoque, financeiro, WhatsApp automático e vitrine online.',
+    valorMensal: '99.00',
+    valorAnual: '990.00',
+    modulos: [...MODULOS_DO_PLANO_UNICO],
     limiteUsuarios: null,
-    ordem: 3,
+    ordem: 0,
   },
 ] as const
 
@@ -59,7 +42,7 @@ export const paraDia = (iso: string) => new Date(`${iso.slice(0, 10)}T00:00:00Z`
 export function resumirAssinatura(a: Assinatura & { plano: Plano }, hoje = hojeISO()): AssinaturaContexto {
   return {
     plano: { codigo: a.plano.codigo, nome: a.plano.nome },
-    // Teste grátis com tudo liberado (inclusive a Vitrine): a pessoa experimenta o sistema inteiro e escolhe o plano ao assinar
+    // Teste grátis com tudo liberado (inclusive WhatsApp e vitrine): a pessoa experimenta o sistema inteiro antes de assinar
     modulos: a.situacao === 'teste' ? modulosLiberados(MODULOS, a.modulosExtras) : modulosLiberados(a.plano.modulos, a.modulosExtras),
     limiteUsuarios: a.plano.limiteUsuarios,
     acesso: calcularAcesso(
@@ -83,6 +66,16 @@ export async function semearPlanos(plataforma: PrismaClient): Promise<boolean> {
   if ((await plataforma.plano.count()) > 0) return false
   for (const p of PLANOS_PADRAO) await plataforma.plano.create({ data: { ...p, modulos: [...p.modulos] } })
   return true
+}
+
+/**
+ * Plano das empresas novas: o configurado (PLANO_PADRAO), se estiver à venda; senão o primeiro à venda
+ * (um PLANO_PADRAO antigo no .env não quebra o cadastro).
+ */
+export async function planoPadraoAVenda(plataforma: PrismaClient, configurado: string) {
+  const plano = await plataforma.plano.findUnique({ where: { codigo: configurado } })
+  if (plano?.ativo && plano.publico) return plano
+  return plataforma.plano.findFirst({ where: { ativo: true, publico: true }, orderBy: { ordem: 'asc' } })
 }
 
 export async function planoPorCodigo(plataforma: PrismaClient, codigo: string) {

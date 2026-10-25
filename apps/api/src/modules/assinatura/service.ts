@@ -31,6 +31,9 @@ import { inicioPeriodoAtual, recalcularAssinatura, registrarEvento, salvarCobran
 
 const ABERTAS = ['pendente', 'vencida']
 
+/** Nome na cobrança do Asaas: "GrafyGo" no plano único; "GrafyGo - plano X" nos planos antigos */
+export const nomeNaCobranca = (nomePlano: string) => (nomePlano.trim().toLowerCase() === 'grafygo' ? 'GrafyGo' : `GrafyGo - plano ${nomePlano}`)
+
 /** Para a tela: vencimento que conta (o original, se foi reajustada) e "vencida" se ele já passou. */
 export function resumoCobranca(c: Cobranca, hoje = hojeISO()): CobrancaResumo {
   const aberta = ABERTAS.includes(c.situacao)
@@ -113,7 +116,7 @@ export function criarAssinaturaService(app: FastifyInstance) {
         clienteId,
         valor: plano.valor,
         inicio,
-        descricao: `GrafyGo ${plano.nome}`,
+        descricao: nomeNaCobranca(plano.nome),
         contrato: `ONP-${assinanteId.slice(0, 8)}-${Date.now().toString(36)}`,
       }),
     )
@@ -300,7 +303,7 @@ export function criarAssinaturaService(app: FastifyInstance) {
           valor: valorInicial,
           proximoVencimento: primeiroVencimento,
           forma: dados.forma,
-          descricao: `GrafyGo - plano ${plano.nome}${nomeCiclo} (${config?.nomeFantasia || empresa.nome})`,
+          descricao: `${nomeNaCobranca(plano.nome)}${nomeCiclo} (${config?.nomeFantasia || empresa.nome})`,
           referencia: empresa.id,
           ciclo,
         }),

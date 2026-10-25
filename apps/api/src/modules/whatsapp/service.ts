@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import type { FastifyInstance } from 'fastify'
 import type { z } from 'zod'
-import { CODIGOS_ERRO, type ConexaoWhatsapp, type DisponibilidadeWhatsapp, type EventoWhatsapp, type MensagemWhatsapp, type TipoMensagemWhatsapp, type WhatsappConfig, type mensagensWhatsappQuerySchema, type whatsappConfigSchema } from '@onprint/shared'
+import { CODIGOS_ERRO, type ConexaoWhatsapp, type RespostaWhatsapp, type TipoRespostaWhatsapp, type DisponibilidadeWhatsapp, type EventoWhatsapp, type MensagemWhatsapp, type TipoMensagemWhatsapp, type WhatsappConfig, type mensagensWhatsappQuerySchema, type whatsappConfigSchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
 import { contextoEmpresa } from '../../core/contexto-empresa'
@@ -36,7 +36,14 @@ export function formatarMensagem(m: Prisma.MensagemWhatsappGetPayload<{ include:
     pedido: m.pedido,
     orcamento: m.orcamento,
     usuario: m.usuario,
+    resposta: respostaDaMensagem(m),
   }
+}
+
+/** Resposta do cliente gravada na linha do orçamento enviado (null = ainda não respondeu) */
+export function respostaDaMensagem(m: { resposta: string | null; respostaVia: string | null; respostaTexto: string | null; respostaEm: Date | null }): RespostaWhatsapp | null {
+  if (!m.resposta || !m.respostaEm) return null
+  return { tipo: m.resposta as TipoRespostaWhatsapp, via: m.respostaVia === 'enquete' ? 'enquete' : 'texto', texto: m.respostaTexto, em: m.respostaEm.toISOString() }
 }
 
 /** Tela WhatsApp: conexão pelo QR code, eventos ligados, horário, pausa e a fila/histórico dos avisos. */
@@ -58,6 +65,7 @@ export function criarWhatsappService(app: FastifyInstance) {
       horarioInicio: config.horarioInicio,
       horarioFim: config.horarioFim,
       pausado: config.pausado,
+      aprovarPelaResposta: config.aprovarPelaResposta,
       pendentes: await prisma.mensagemWhatsapp.count({ where: { status: 'pendente' } }),
     }
   }
@@ -71,8 +79,9 @@ export function criarWhatsappService(app: FastifyInstance) {
         where: { id: config.id },
         data: { conectado: true, numero: s.numero, nomePerfil: s.nomePerfil, conectadoEm: config.conectado ? config.conectadoEm : new Date(), desconectadoEm: null },
       })
-      // Avisos que esperavam a conexão voltam a sair
+      // Avisos que esperavam a conexão voltam a sair; o webhook (respostas dos clientes) passa a apontar para cá
       app.whatsapp.marcarFila(contextoEmpresa.exigir().id)
+      if (!config.conectado) await app.whatsapp.ligarWebhook(contextoEmpresa.exigir().id)
       return atualizada
     }
     if (!config.conectado) return config
@@ -106,8 +115,24 @@ export function criarWhatsappService(app: FastifyInstance) {
     async salvar(dados: z.output<typeof whatsappConfigSchema>, usuarioId: string) {
       const antes = await obterConfigWhatsapp(prisma)
       const depois = await prisma.$transaction(async (tx) => {
-        const c = await tx.whatsappConfig.update({ where: { id: antes.id }, data: { eventos: [...new Set(dados.eventos)], horarioInicio: dados.horarioInicio, horarioFim: dados.horarioFim, pausado: dados.pausado } })
-        await registrarAuditoria(tx, { tabela: 'whatsapp_config', registroId: c.id, acao: 'editar', antes: { eventos: antes.eventos, horarioInicio: antes.horarioInicio, horarioFim: antes.horarioFim, pausado: antes.pausado }, depois: dados, usuarioId })
+        const c = await tx.whatsappConfig.update({
+          where: { id: antes.id },
+          data: {
+            eventos: [...new Set(dados.eventos)],
+            horarioInicio: dados.horarioInicio,
+            horarioFim: dados.horarioFim,
+            pausado: dados.pausado,
+            ...(dados.aprovarPelaResposta === undefined ? {} : { aprovarPelaResposta: dados.aprovarPelaResposta }),
+          },
+        })
+        await registrarAuditoria(tx, {
+          tabela: 'whatsapp_config',
+          registroId: c.id,
+          acao: 'editar',
+          antes: { eventos: antes.eventos, horarioInicio: antes.horarioInicio, horarioFim: antes.horarioFim, pausado: antes.pausado, aprovarPelaResposta: antes.aprovarPelaResposta },
+          depois: dados,
+          usuarioId,
+        })
         return c
       })
       if (antes.pausado && !depois.pausado) app.whatsapp.marcarFila(contextoEmpresa.exigir().id)
@@ -139,6 +164,8 @@ export function criarWhatsappService(app: FastifyInstance) {
           return { estado: 'conectado', numero: s.numero, qrBase64: null }
         }
         await registrarAuditoria(prisma, { tabela: 'whatsapp_config', registroId: config.id, acao: 'editar', depois: { conexao: 'qr code gerado' }, usuarioId })
+        // Instância criada: o webhook já fica ligado (o "conectado" chega por ele assim que o QR for lido)
+        await app.whatsapp.ligarWebhook(contextoEmpresa.exigir().id)
         return { estado: r.estado, numero: null, qrBase64: r.qrBase64 }
       } catch (erro) {
         return erroDoProvedor(erro)

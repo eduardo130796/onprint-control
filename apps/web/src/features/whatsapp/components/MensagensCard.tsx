@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Ban, ExternalLink, FileText, Inbox, RotateCcw } from 'lucide-react'
+import { Ban, ExternalLink, FileText, Inbox, MessageSquareReply, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   STATUS_MENSAGEM_WHATSAPP,
   STATUS_MENSAGEM_WHATSAPP_ROTULOS,
   TIPO_MENSAGEM_WHATSAPP_ROTULOS,
+  descreverRespostaWhatsapp,
   formatarDataHora,
   linkWaMe,
   nomeCliente,
@@ -162,6 +163,14 @@ function LinhaMensagem({
         {m.anexoNome && (
           <p className="mt-0.5 flex items-center gap-1 text-xs text-texto-secundario">
             <FileText className="h-3 w-3" /> {m.anexoNome}
+          </p>
+        )}
+        {m.resposta && (
+          <p className={cn('mt-1 flex items-start gap-1 text-xs font-medium', m.resposta.tipo === 'aprovado' ? 'text-green-800' : m.resposta.tipo === 'modificacoes' ? 'text-amber-800' : 'text-tinta')}>
+            <MessageSquareReply className="mt-0.5 h-3 w-3 shrink-0" />
+            <span className="[overflow-wrap:anywhere]">
+              {descreverRespostaWhatsapp(m.resposta)} · {formatarDataHora(m.resposta.em)}
+            </span>
           </p>
         )}
         {m.erro && <p className="mt-1 text-xs text-coral-escuro">{m.erro}</p>}

@@ -17,7 +17,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
-/** Textos da página de venda (grafygo.com.br). Preços e planos vêm da API (/plataforma/planos-publicos). */
+/** Textos da página de venda (grafygo.com.br): linguagem de quem compra, sem termos técnicos. O preço vem do painel da plataforma. */
 
 export interface Recurso {
   icone: LucideIcon
@@ -36,14 +36,14 @@ export const RECURSOS: Recurso[] = [
   {
     icone: MessageCircle,
     titulo: 'Orçamento no WhatsApp',
-    texto: 'Itens, total, pagamento, prazo e validade no corpo da mensagem, com o PDF anexado. O cliente responde "APROVADO".',
-    itens: ['Aprovação registrada em um clique', 'Ou pelo link, se o cliente preferir', 'Sai pelo número da própria gráfica'],
+    texto: 'Itens, total, pagamento, prazo e validade na própria mensagem, com o PDF junto. O cliente aprova pelo WhatsApp e o pedido nasce sozinho.',
+    itens: ['Sai pelo número da própria gráfica', 'Aprovação também pelo link, se o cliente preferir', 'Ou você confirma com um clique'],
   },
   {
     icone: Zap,
     titulo: 'Aprovou, virou pedido',
-    texto: 'O orçamento aprovado vira pedido sozinho, com as parcelas combinadas já nas contas a receber. A tela avisa na hora.',
-    itens: ['Aviso ao vivo: "Fulano aprovou · virou o pedido"', 'Sinal e parcelas com o que falta pagar', 'Etiquetas e ficha para o entregador'],
+    texto: 'O orçamento aprovado vira pedido sozinho, com as parcelas combinadas já nas contas a receber. A equipe fica sabendo na hora.',
+    itens: ['Aviso na tela: "Fulano aprovou · virou o pedido"', 'Sinal e parcelas com o que falta pagar', 'Etiquetas e ficha para o entregador'],
   },
   {
     icone: Palette,
@@ -54,8 +54,8 @@ export const RECURSOS: Recurso[] = [
   {
     icone: Factory,
     titulo: 'Produção organizada',
-    texto: 'Ordens de produção com etapas, máquinas e prazos. O kanban mostra o que está atrasado antes de virar problema.',
-    itens: ['PCP com a carga de cada máquina', 'Ficha da OP com QR code', 'Prazo de entrega sempre à vista'],
+    texto: 'Ordens de produção com etapas, máquinas e prazos. O quadro mostra o que está atrasado antes de virar problema.',
+    itens: ['Carga de cada máquina na semana', 'Ficha de produção impressa para a bancada', 'Prazo de entrega sempre à vista'],
   },
   {
     icone: ShoppingBag,
@@ -78,14 +78,14 @@ export const RECURSOS: Recurso[] = [
   {
     icone: Wallet,
     titulo: 'Financeiro e caixa',
-    texto: 'Contas a pagar e a receber, fluxo de caixa, comissões e o caixa do balcão (PDV) conversando com os pedidos.',
+    texto: 'Contas a pagar e a receber, fluxo de caixa, comissões e o caixa do balcão, tudo ligado aos pedidos.',
     itens: ['Venda balcão rápida', 'Calendário de vencimentos', 'Comissão por vendedor'],
   },
   {
     icone: BarChart3,
     titulo: 'Números do negócio',
     texto: 'Vendas, lucratividade, conversão de orçamentos e produção. Decida pelo que os números mostram.',
-    itens: ['Painel do dia com o que precisa de atenção', 'Lucro por produto e por cliente', 'Relatórios em PDF e CSV'],
+    itens: ['Painel do dia com o que precisa de atenção', 'Lucro por produto e por cliente', 'Relatórios em PDF e planilha'],
   },
   {
     icone: EyeOff,
@@ -104,10 +104,10 @@ export const RECURSOS: Recurso[] = [
 /** "Do orçamento à entrega": o fluxo que o sistema cobre */
 export const FLUXO: { icone: LucideIcon; titulo: string; texto: string }[] = [
   { icone: MessageCircle, titulo: 'Orçamento', texto: 'Calculado na hora e enviado no WhatsApp, com o PDF.' },
-  { icone: CheckCheck, titulo: '"APROVADO"', texto: 'O cliente responde na conversa ou aprova pelo link.' },
+  { icone: CheckCheck, titulo: 'Aprovação', texto: 'O cliente aprova pelo WhatsApp ou pelo link.' },
   { icone: Zap, titulo: 'Vira pedido', texto: 'Sozinho, com as parcelas no contas a receber.' },
   { icone: Palette, titulo: 'Arte', texto: 'Só nos itens que precisam. O resto já segue.' },
-  { icone: Factory, titulo: 'Produção', texto: 'OP no kanban, com etapas, máquina e prazo.' },
+  { icone: Factory, titulo: 'Produção', texto: 'Ordem de produção com etapas, máquina e prazo.' },
   { icone: ClipboardList, titulo: 'Avisos', texto: 'Pronto, saiu para entrega: o cliente sabe sem ligar.' },
   { icone: Receipt, titulo: 'Financeiro', texto: 'Recebido, a receber e o lucro de cada pedido.' },
 ]
@@ -116,7 +116,7 @@ export const FLUXO: { icone: LucideIcon; titulo: string; texto: string }[] = [
 export const WHATSAPP_ITENS: { titulo: string; texto: string }[] = [
   {
     titulo: 'Orçamento completo na mensagem',
-    texto: 'Itens, total, entrada e parcelas, prazo de produção e validade em negrito, com o PDF anexado. O cliente responde "APROVADO" e você registra em um clique.',
+    texto: 'Itens, total, entrada e parcelas, prazo de produção e validade em destaque, com o PDF junto. O cliente aprova ali mesmo.',
   },
   {
     titulo: 'Avisos do pedido, sozinhos',
@@ -124,11 +124,11 @@ export const WHATSAPP_ITENS: { titulo: string; texto: string }[] = [
   },
   {
     titulo: 'Arte na conversa',
-    texto: 'Os arquivos vão anexados (imagem ou PDF), uma mensagem por pedido. Quando o cliente aprova por ali, você marca todas as artes num clique.',
+    texto: 'Os arquivos vão junto (imagem ou PDF), uma mensagem por pedido. Quando o cliente aprova por ali, você marca todas as artes num clique.',
   },
   {
     titulo: 'Com educação de WhatsApp',
-    texto: 'Respeita o horário comercial, dá um intervalo entre as mensagens e junta avisos do mesmo pedido: nada de mensagem repetida.',
+    texto: 'Só manda no horário comercial e junta os avisos do mesmo pedido: nada de mensagem repetida ou fora de hora.',
   },
 ]
 
@@ -139,78 +139,97 @@ export const VITRINE_ITENS: { titulo: string; texto: string }[] = [
   { titulo: 'Seu endereço, seu domínio', texto: 'Escolha o endereço suagrafica.grafygo.com.br ou use o seu próprio www.suagrafica.com.br.' },
 ]
 
-/** Todos os planos incluem */
-export const INCLUSO: string[] = [
-  'Teste grátis de 14 dias com tudo liberado',
-  'Documentos com a sua logo e cores',
-  'Mensagens prontas para o WhatsApp',
+/** O plano único: tudo o que a gráfica recebe (lista do cartão de preço) */
+export const TUDO_INCLUIDO: string[] = [
+  'Orçamentos calculados na hora, com PDF da sua marca',
+  'Orçamento e avisos do pedido pelo WhatsApp da gráfica',
+  'O cliente aprova pelo WhatsApp e o pedido nasce sozinho',
+  'Arte, produção e prazos sob controle',
   'Página "Acompanhe seu pedido" para o cliente',
-  'Atualizações e backup diário sem custo',
-  'Acesso pelo computador e pelo celular',
-  'Suporte pelo WhatsApp e e-mail',
-  'Sem fidelidade: cancele quando quiser',
+  'Vitrine online: seu catálogo no celular do cliente',
+  'Estoque, compras e alerta de material acabando',
+  'Financeiro, caixa do balcão e comissões',
+  'Relatórios de vendas e lucro',
+  'Usuários ilimitados, cada um com o seu acesso',
 ]
 
-export const PERGUNTAS: { pergunta: string; resposta: string }[] = [
-  {
-    pergunta: 'Preciso de cartão de crédito para testar?',
-    resposta: 'Não. Você cria a conta com nome, e-mail e senha e usa tudo por 14 dias, inclusive o WhatsApp automático e a vitrine. Só escolhe o plano e a forma de pagamento se quiser continuar.',
-  },
-  {
-    pergunta: 'Preciso da API oficial do WhatsApp? Tem custo por mensagem?',
-    resposta:
-      'Não e não. O sistema usa o número que a gráfica já tem: você conecta lendo um QR code, como no WhatsApp Web, e o celular continua funcionando normalmente. Não há cobrança por mensagem. Os envios automáticos são só os avisos dos pedidos para os seus clientes, nunca propaganda em massa. O envio automático faz parte do plano Completo; nos outros planos, a mensagem sai pronta e abre no seu WhatsApp para você mandar.',
-  },
-  {
-    pergunta: 'Meu cliente precisa instalar alguma coisa?',
-    resposta:
-      'Não. Ele recebe tudo no WhatsApp que já usa. Se quiser, abre o link do pedido no navegador do celular, sem login e sem app: vê a situação, a previsão de entrega, os itens, a arte, o que já pagou e o que falta, e onde retirar.',
-  },
-  {
-    pergunta: 'E se eu não quiser que o cliente veja a arte antes?',
-    resposta:
-      'Você decide. Mandar a arte para o cliente é uma escolha, não uma etapa obrigatória: a aprovação pode ser interna, com um clique em "Cliente aprovou todas as artes". E no orçamento você já marca quais itens precisam de arte; os outros vão direto para a produção.',
-  },
-  {
-    pergunta: 'Posso esconder o faturamento da tela?',
-    resposta:
-      'Pode. O olho no topo do sistema borra os valores na hora, como nos apps de banco. Em Aparência, cada usuário escolhe o que esconder: o painel, o financeiro, os totais dos orçamentos, custo e lucro, ou tudo. PDFs e mensagens para o cliente continuam com os valores.',
-  },
-  {
-    pergunta: 'O que acontece quando o teste acaba?',
-    resposta:
-      'Se você assinar durante o teste, a primeira cobrança só vence no último dia dele: você não perde nenhum dia. Se não assinar, o acesso fica limitado e os seus dados continuam guardados, caso queira voltar.',
-  },
-  {
-    pergunta: 'Como funciona o pagamento?',
-    resposta:
-      'Pelo Asaas, instituição autorizada pelo Banco Central: cartão de crédito (renova sozinho), PIX ou boleto. No plano anual você paga uma vez por ano e ganha 2 meses. O comprovante de cada pagamento fica no sistema.',
-  },
-  {
-    pergunta: 'Posso trocar de plano ou cancelar?',
-    resposta:
-      'Sim, a qualquer momento, pelo próprio sistema. Ao subir de plano, os recursos liberam na hora e você paga só a diferença dos dias que faltam. Não há fidelidade nem multa para cancelar.',
-  },
-  {
-    pergunta: 'Vou conseguir aprender sozinho?',
-    resposta:
-      'Sim. Ao criar a conta, o painel mostra os primeiros passos, um de cada vez, e você já começa com produtos de exemplo para fazer um orçamento no primeiro minuto. Cada tela tem o botão "Como usar", com vídeo curto e passo a passo, e a central de ajuda fica aberta em grafygo.com.br/ajuda.',
-  },
-  {
-    pergunta: 'Funciona no celular?',
-    resposta: 'Funciona no navegador do computador, do tablet e do celular, sem instalar nada. Seus clientes aprovam orçamentos, veem a arte e acompanham o pedido pelo celular também.',
-  },
-  {
-    pergunta: 'Consigo trazer meus clientes e produtos?',
-    resposta:
-      'Sim. Para empresas, basta digitar o CNPJ: nome, nome fantasia, telefone e endereço vêm da Receita Federal. Os produtos você cadastra com o custo e o preço (a conta já vem com exemplos), e os clientes também chegam pelos pedidos da vitrine. Nosso suporte ajuda na implantação.',
-  },
-  {
-    pergunta: 'Meus dados ficam seguros?',
-    resposta: 'Os dados de cada empresa ficam separados, com conexão criptografada, senhas protegidas, permissões por usuário e cópia de segurança diária. Seguimos a LGPD.',
-  },
-  {
-    pergunta: 'A vitrine online precisa de site ou domínio?',
-    resposta: 'Não. Ela já vem com um endereço suagrafica.grafygo.com.br, que você pode escolher. Se tiver um domínio próprio, é só apontar e o site passa a abrir nele também.',
-  },
-]
+/** O que vem junto com a assinatura */
+export const SEMPRE_INCLUSO: string[] = ['Atualizações e backup diário', 'Suporte pelo WhatsApp e e-mail', 'No computador e no celular', 'Sem fidelidade: cancele quando quiser']
+
+export interface PrecoFaq {
+  mensal: string
+  anual: string | null
+}
+
+/** Dúvidas frequentes; a do preço usa os valores do painel (sem eles, fala sem número) */
+export function perguntas(preco: PrecoFaq | null): { pergunta: string; resposta: string }[] {
+  const valores = preco
+    ? `${preco.mensal} por mês${preco.anual ? `, ou ${preco.anual} pagando o ano de uma vez (2 meses grátis)` : ''}`
+    : 'um valor mensal fixo, com 2 meses grátis pagando o ano de uma vez'
+  return [
+    {
+      pergunta: 'Quanto custa?',
+      resposta: `Um plano só, com tudo incluído: ${valores}. WhatsApp automático, vitrine online e usuários ilimitados já estão no preço, sem cobrança por mensagem e sem pacote extra.`,
+    },
+    {
+      pergunta: 'Preciso de cartão de crédito para testar?',
+      resposta: 'Não. Você cria a conta com nome, e-mail e senha e usa tudo por 14 dias, inclusive o WhatsApp automático e a vitrine. Só informa a forma de pagamento se quiser continuar.',
+    },
+    {
+      pergunta: 'Preciso de outro número de WhatsApp? Pago por mensagem?',
+      resposta:
+        'Não e não. O sistema usa o número que a gráfica já tem: você conecta lendo um QR code, como no WhatsApp Web, e o celular continua funcionando normalmente. Não há cobrança por mensagem. Os envios automáticos são só os avisos dos pedidos para os seus clientes, nunca propaganda em massa.',
+    },
+    {
+      pergunta: 'Meu cliente precisa instalar alguma coisa?',
+      resposta:
+        'Não. Ele recebe tudo no WhatsApp que já usa. Se quiser, abre o link do pedido no celular, sem senha e sem aplicativo: vê a situação, a previsão de entrega, os itens, a arte, o que já pagou e o que falta, e onde retirar.',
+    },
+    {
+      pergunta: 'E se eu não quiser que o cliente veja a arte antes?',
+      resposta:
+        'Você decide. Mandar a arte para o cliente é uma escolha, não uma etapa obrigatória: a aprovação pode ser interna, com um clique em "Cliente aprovou todas as artes". E no orçamento você já marca quais itens precisam de arte; os outros vão direto para a produção.',
+    },
+    {
+      pergunta: 'Posso esconder o faturamento da tela?',
+      resposta:
+        'Pode. O olho no topo do sistema borra os valores na hora, como nos apps de banco. Cada usuário escolhe o que esconder: o painel, o financeiro, os totais dos orçamentos, custo e lucro, ou tudo. PDFs e mensagens para o cliente continuam com os valores.',
+    },
+    {
+      pergunta: 'O que acontece quando o teste acaba?',
+      resposta:
+        'Se você assinar durante o teste, a primeira cobrança só vence no último dia dele: você não perde nenhum dia. Se não assinar, o acesso fica limitado e os seus dados continuam guardados, caso queira voltar.',
+    },
+    {
+      pergunta: 'Como funciona o pagamento?',
+      resposta:
+        'Pelo Asaas, instituição autorizada pelo Banco Central: cartão de crédito (renova sozinho), PIX ou boleto. Pagando o ano de uma vez, você ganha 2 meses. O comprovante de cada pagamento fica no sistema.',
+    },
+    {
+      pergunta: 'Tem fidelidade? Posso cancelar?',
+      resposta: 'Não há fidelidade nem multa. Você cancela pelo próprio sistema, quando quiser, e continua usando até o fim do período já pago.',
+    },
+    {
+      pergunta: 'Vou conseguir aprender sozinho?',
+      resposta:
+        'Sim. Ao criar a conta, o painel mostra os primeiros passos, um de cada vez, e você já começa com produtos de exemplo para fazer um orçamento no primeiro minuto. Cada tela tem o botão "Como usar", com vídeo curto e passo a passo, e a central de ajuda fica aberta em grafygo.com.br/ajuda.',
+    },
+    {
+      pergunta: 'Funciona no celular?',
+      resposta: 'Funciona no navegador do computador, do tablet e do celular, sem instalar nada. Seus clientes aprovam orçamentos, veem a arte e acompanham o pedido pelo celular também.',
+    },
+    {
+      pergunta: 'Consigo trazer meus clientes e produtos?',
+      resposta:
+        'Sim. Para empresas, basta digitar o CNPJ: nome, nome fantasia, telefone e endereço vêm da Receita Federal. Os produtos você cadastra com o custo e o preço (a conta já vem com exemplos), e os clientes também chegam pelos pedidos da vitrine. Nosso suporte ajuda no começo.',
+    },
+    {
+      pergunta: 'Meus dados ficam seguros?',
+      resposta: 'Os dados de cada empresa ficam separados, com conexão protegida, senhas guardadas com segurança, permissões por usuário e cópia de segurança diária. Seguimos a LGPD.',
+    },
+    {
+      pergunta: 'A vitrine online precisa de site ou domínio?',
+      resposta: 'Não. Ela já vem com um endereço suagrafica.grafygo.com.br, que você escolhe. Se tiver um domínio próprio (www.suagrafica.com.br), o site pode abrir nele também.',
+    },
+  ]
+}

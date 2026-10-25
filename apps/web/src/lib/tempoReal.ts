@@ -65,8 +65,11 @@ export function avisoDoOrcamento(e: EventoOrcamento, eu: Espectador): AvisoTempo
 
   if (e.origem === 'cliente') {
     const cliente = e.cliente || 'O cliente'
-    if (e.acao === 'aprovado' || e.acao === 'convertido') return { mensagem: `${cliente} aprovou o orçamento ${e.numero}${virou}`, acao: pedido?.acao ?? abrirOrcamento }
+    const peloWhatsapp = e.canal === 'whatsapp' ? ' pelo WhatsApp' : ''
+    if (e.acao === 'aprovado' || e.acao === 'convertido') return { mensagem: `${cliente} aprovou o orçamento ${e.numero}${peloWhatsapp}${virou}`, acao: pedido?.acao ?? abrirOrcamento }
     if (e.acao === 'recusado') return { mensagem: `${cliente} recusou o orçamento ${e.numero}`, acao: abrirOrcamento }
+    // Respondeu "Quero modificações" na conversa: o orçamento volta para negociação
+    if (e.acao === 'negociacao') return { mensagem: `${cliente} pediu modificações no orçamento ${e.numero}${peloWhatsapp}`, acao: abrirOrcamento }
     return null
   }
   // Pela equipe: só no orçamento do próprio vendedor (alguém registrou a aprovação, a recusa ou converteu)

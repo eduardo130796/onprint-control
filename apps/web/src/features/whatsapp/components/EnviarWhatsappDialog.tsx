@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Copy, ExternalLink, FileText, Loader2, Pencil, RotateCcw, Send, UserRound } from 'lucide-react'
+import { Copy, ExternalLink, FileText, ListChecks, Loader2, Pencil, RotateCcw, Send, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
-import { escolherAnexosArte, formatarNumeroWhatsapp, normalizarNumeroWhatsapp, vaiComoImagem, type TipoEnvioWhatsapp } from '@onprint/shared'
+import { OPCOES_ENQUETE_ORCAMENTO, escolherAnexosArte, formatarNumeroWhatsapp, normalizarNumeroWhatsapp, textoSemEnquete, vaiComoImagem, type TipoEnvioWhatsapp } from '@onprint/shared'
 import { CHAVE_WHATSAPP, whatsappApi } from '@/api/whatsapp'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
@@ -74,7 +74,9 @@ function Conteudo({ envio, onFechar }: { envio: EnvioWhatsapp; onFechar: () => v
   const { anexos: arquivosJuntos } = escolherAnexosArte(conectado ? selecionados.flatMap((i) => (i.arquivo ? [i.arquivo] : [])) : [])
   const vaiJunto = (i: ItemSelecaoEnvio) => Boolean(i.arquivo && arquivosJuntos.includes(i.arquivo))
   const semSelecao = Boolean(envio.selecao) && selecionados.length === 0
-  const padrao = envio.mensagem(anexar, marcados)
+  // Orçamento pela conexão: logo depois vai a enquete de aprovação; no wa.me e no "Copiar" não há enquete
+  const comEnquete = envio.tipo === 'orcamento_enviado' && conectado
+  const padrao = comEnquete ? envio.mensagem(anexar, marcados) : textoSemEnquete(envio.mensagem(anexar, marcados))
   const texto = editado ?? padrao
   const numero = outroNumero ? normalizarNumeroWhatsapp(digitado) : numeroCadastro
   // Nome de exibição inteiro ("Pet Feliz", não "Pet"); só encurta nome muito longo para caber no botão
@@ -122,13 +124,13 @@ function Conteudo({ envio, onFechar }: { envio: EnvioWhatsapp; onFechar: () => v
   }
 
   function abrirNoWhatsapp() {
-    window.open(linkWhatsappEnvio(numero, texto), '_blank', 'noopener')
+    window.open(linkWhatsappEnvio(numero, textoSemEnquete(texto)), '_blank', 'noopener')
     concluir('wame')
   }
 
   async function copiar() {
     try {
-      await navigator.clipboard.writeText(texto)
+      await navigator.clipboard.writeText(textoSemEnquete(texto))
       toast.success('Mensagem copiada. Cole no WhatsApp do cliente.')
       concluir('copiado')
     } catch {
@@ -254,6 +256,15 @@ function Conteudo({ envio, onFechar }: { envio: EnvioWhatsapp; onFechar: () => v
               anexo={anexar ? envio.pdf?.rotulo : null}
               arquivos={selecionados.filter(vaiJunto).map((i) => ({ nome: i.arquivo!.nome, imagem: vaiComoImagem(i.arquivo!.mime), miniaturaUrl: i.miniaturaUrl, legenda: i.titulo }))}
             />
+          )}
+          {comEnquete && (
+            <p className="mt-2 flex items-start gap-2 rounded-xl bg-marca-suave p-2.5 text-xs text-marca-escuro">
+              <ListChecks className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                Logo depois vai uma enquete para o cliente tocar: <strong>{OPCOES_ENQUETE_ORCAMENTO.aprovar}</strong> ou <strong>{OPCOES_ENQUETE_ORCAMENTO.modificar}</strong>. A
+                resposta (ou um “aprovado” escrito) volta para o orçamento sozinha.
+              </span>
+            </p>
           )}
         </section>
 

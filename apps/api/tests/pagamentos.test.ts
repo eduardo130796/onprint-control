@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { MODULOS, MODULOS_ESSENCIAIS, economiaAnual, mensalNoAnual } from '@onprint/shared'
 import { carregarEnv } from '../src/config/env'
 import { cobrancaDoAsaas, dataHoraAsaas, notaDoAsaas, situacaoAsaas, situacaoAutorizacaoAsaas, situacaoNotaAsaas } from '../src/integrations/pagamentos/asaas'
 import { criarGateway } from '../src/integrations/pagamentos'
+import { nomeNaCobranca } from '../src/modules/assinatura/service'
+import { MODULOS_DO_PLANO_UNICO, PLANOS_PADRAO, PLANO_UNICO } from '../src/plataforma/assinaturas'
 
 describe('Asaas: situação da cobrança', () => {
   it('pagas, vencidas, estornadas e removidas', () => {
@@ -70,5 +73,23 @@ describe('gateway e segurança', () => {
   it('com chave: Asaas, e exige token forte no webhook', () => {
     expect(() => carregarEnv({ ...base, ASAAS_API_KEY: '$aact_x', ASAAS_WEBHOOK_TOKEN: 'curto' })).toThrow(/ASAAS_WEBHOOK_TOKEN/)
     expect(criarGateway(carregarEnv({ ...base, ASAAS_API_KEY: '$aact_x', ASAAS_WEBHOOK_TOKEN: 'x'.repeat(32) }))?.nome).toBe('asaas')
+  })
+})
+
+describe('Plano único', () => {
+  it('um plano só, com todos os módulos, usuários ilimitados, R$ 99/mês ou R$ 990/ano', () => {
+    expect(PLANOS_PADRAO).toHaveLength(1)
+    const [p] = PLANOS_PADRAO
+    expect(p.codigo).toBe(PLANO_UNICO)
+    expect(p.limiteUsuarios).toBeNull()
+    expect([...MODULOS_DO_PLANO_UNICO].sort()).toEqual(MODULOS.filter((m) => !MODULOS_ESSENCIAIS.includes(m)).sort())
+    expect(p.valorMensal).toBe('99.00')
+    expect(economiaAnual(p.valorMensal, p.valorAnual)).toBe('198.00')
+    expect(mensalNoAnual(p.valorAnual)).toBe('82.50')
+  })
+
+  it('nome na cobrança do Asaas sem repetir a marca', () => {
+    expect(nomeNaCobranca('GrafyGo')).toBe('GrafyGo')
+    expect(nomeNaCobranca('Profissional')).toBe('GrafyGo - plano Profissional')
   })
 })

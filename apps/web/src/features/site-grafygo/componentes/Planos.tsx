@@ -1,67 +1,56 @@
 import { useState } from 'react'
-import { Check, Crown, Sparkles } from 'lucide-react'
+import { ArrowRight, Check, ShieldCheck } from 'lucide-react'
 import { economiaAnual, formatarMoeda, mensalNoAnual, type CicloAssinatura } from '@onprint/shared'
 import { cn } from '@/lib/utils'
-import { INCLUSO } from '../conteudo'
+import { SEMPRE_INCLUSO, TUDO_INCLUIDO } from '../conteudo'
 import { linkCadastro, type PlanoPublico, type PlanosPublicos } from '../dados'
 
-/** O que cada módulo entrega, em linguagem de venda (a ordem segue os planos) */
-const RECURSO_DO_MODULO: Record<string, string> = {
-  orcamentos: 'Orçamentos com cálculo e pagamento combinado',
-  pedidos: 'Pedidos, entregas e etiquetas',
-  artes: 'Arte na conversa, aprovação interna ou por link',
-  clientes: 'Clientes pelo CNPJ, com histórico de compras',
-  fornecedores: 'Fornecedores',
-  produtos: 'Catálogo, insumos e precificação',
-  financeiro: 'Contas a pagar e a receber',
-  caixa: 'Caixa e venda balcão (PDV)',
-  producao: 'Ordens de produção e kanban',
-  pcp: 'PCP: carga de máquinas e prazos',
-  estoque: 'Estoque, compras e alertas',
-  relatorios: 'Relatórios e lucratividade',
-  vitrine: 'Vitrine online: site + catálogo no WhatsApp',
-  whatsapp: 'WhatsApp automático: orçamento e avisos do pedido pelo seu número',
-}
-/** Módulos em destaque na lista do plano (ícone e texto mais fortes) */
-const DESTAQUES = new Set(['vitrine', 'whatsapp'])
-
 function Preco({ p, ciclo }: { p: PlanoPublico; ciclo: CicloAssinatura }) {
-  if (ciclo === 'anual' && p.valorAnual) {
-    return (
-      <div className="mt-5">
-        <p className="flex items-baseline gap-1">
-          <span className="font-titulo text-[2.75rem] font-extrabold leading-none tracking-tight text-[#021A40]">{formatarMoeda(mensalNoAnual(p.valorAnual))}</span>
-          <span className="text-sm text-slate-500">/mês</span>
-        </p>
-        <p className="mt-2 text-sm text-slate-500">
-          {formatarMoeda(p.valorAnual)} por ano · <span className="whitespace-nowrap font-semibold text-emerald-700">economize {formatarMoeda(economiaAnual(p.valorMensal, p.valorAnual))}</span>
-        </p>
-      </div>
-    )
-  }
+  const anual = ciclo === 'anual' && p.valorAnual
   return (
-    <div className="mt-5">
-      <p className="flex items-baseline gap-1">
-        <span className="font-titulo text-[2.75rem] font-extrabold leading-none tracking-tight text-[#021A40]">{formatarMoeda(p.valorMensal)}</span>
-        <span className="text-sm text-slate-500">/mês</span>
+    <div className="mt-6">
+      <p className="flex items-baseline gap-1.5">
+        <span className="font-titulo text-[3.25rem] font-extrabold leading-none tracking-tight text-[#021A40] sm:text-6xl">{formatarMoeda(anual ? mensalNoAnual(p.valorAnual as string) : p.valorMensal)}</span>
+        <span className="text-base text-slate-500">/mês</span>
       </p>
-      <p className="mt-2 text-sm text-slate-500">Cobrado todo mês · sem fidelidade</p>
+      <p className="mt-3 text-sm text-slate-600">
+        {anual ? (
+          <>
+            {formatarMoeda(p.valorAnual as string)} pagos uma vez por ano · <span className="whitespace-nowrap font-semibold text-emerald-700">você economiza {formatarMoeda(economiaAnual(p.valorMensal, p.valorAnual as string))}</span>
+          </>
+        ) : p.valorAnual ? (
+          <>
+            Cobrado todo mês, sem fidelidade. <span className="whitespace-nowrap">Ou {formatarMoeda(p.valorAnual)} no anual (2 meses grátis).</span>
+          </>
+        ) : (
+          'Cobrado todo mês, sem fidelidade.'
+        )}
+      </p>
     </div>
   )
 }
 
+/** Página de venda: um plano só, com tudo incluído. Mensal ou anual; o botão leva ao cadastro com o ciclo escolhido. */
 export function Planos({ dados, cupom }: { dados: PlanosPublicos | null; cupom: string | null }) {
-  const temAnual = Boolean(dados?.planos.some((p) => p.valorAnual))
-  const [ciclo, setCiclo] = useState<CicloAssinatura>('anual')
+  const plano = dados?.planos[0]
+  const temAnual = Boolean(plano?.valorAnual)
+  const [ciclo, setCiclo] = useState<CicloAssinatura>('mensal')
   const cicloEfetivo: CicloAssinatura = temAnual ? ciclo : 'mensal'
-  const planos = dados?.planos ?? []
-  const destaque = planos.length === 3 ? planos[1]?.codigo : undefined
+  const garantias = [...SEMPRE_INCLUSO, ...(dados?.notaFiscal ? ['Nota fiscal de cada pagamento'] : [])]
+
+  if (!plano) {
+    return <div className="mx-auto h-[34rem] max-w-5xl animate-pulse rounded-[2rem] bg-white/70 ring-1 ring-slate-200" aria-busy="true" aria-label="Carregando o preço" />
+  }
 
   return (
-    <div>
-      {temAnual && (
-        <div className="flex justify-center">
-          <div role="radiogroup" aria-label="Forma de cobrança" className="inline-flex rounded-full bg-white p-1 shadow-sm ring-1 ring-slate-200">
+    <article className="mx-auto grid max-w-5xl overflow-hidden rounded-[2rem] bg-white shadow-[0_2rem_4rem_-1.5rem_rgba(2,101,220,0.35)] ring-2 ring-[#0265DC] lg:grid-cols-[1fr_1.1fr]">
+      <div className="flex flex-col p-7 sm:p-10">
+        <p className="inline-flex w-fit items-center rounded-full bg-[#E6F2FE] px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[#0265DC]">Tudo incluído</p>
+        <h3 className="mt-4 font-titulo text-3xl font-extrabold text-[#021A40]">{plano.nome}</h3>
+        <p className="mt-2 text-slate-600">O sistema inteiro, com WhatsApp e vitrine online, para quantas pessoas da equipe você precisar.</p>
+
+        {temAnual && (
+          <div role="radiogroup" aria-label="Forma de cobrança" className="mt-7 inline-flex w-fit rounded-full bg-slate-100 p-1">
             {(['mensal', 'anual'] as const).map((c) => (
               <button
                 key={c}
@@ -70,7 +59,7 @@ export function Planos({ dados, cupom }: { dados: PlanosPublicos | null; cupom: 
                 aria-checked={cicloEfetivo === c}
                 onClick={() => setCiclo(c)}
                 className={cn(
-                  'rounded-full px-5 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0265DC]',
+                  'rounded-full px-4 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0265DC] sm:px-5',
                   cicloEfetivo === c ? 'bg-[#021A40] text-white shadow' : 'text-slate-600 hover:text-slate-900',
                 )}
               >
@@ -79,82 +68,40 @@ export function Planos({ dados, cupom }: { dados: PlanosPublicos | null; cupom: 
               </button>
             ))}
           </div>
-        </div>
-      )}
+        )}
 
-      {!dados ? (
-        <div className="mt-10 grid gap-6 lg:grid-cols-3" aria-busy="true" aria-label="Carregando planos">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-[30rem] animate-pulse rounded-3xl bg-white/70 ring-1 ring-slate-200" />
-          ))}
-        </div>
-      ) : (
-        <div className="mt-10 grid items-stretch gap-6 lg:grid-cols-3">
-          {planos.map((p, i) => {
-            const anterior = planos[i - 1]
-            const novos = p.modulos.filter((m) => RECURSO_DO_MODULO[m] && !anterior?.modulos.includes(m))
-            const ehDestaque = p.codigo === destaque
-            return (
-              <article
-                key={p.codigo}
-                className={cn(
-                  'relative flex flex-col rounded-3xl p-7 sm:p-8',
-                  ehDestaque ? 'bg-white shadow-[0_2rem_4rem_-1.5rem_rgba(2,101,220,0.45)] ring-2 ring-[#0265DC] lg:-my-4 lg:py-11' : 'bg-white shadow-sm ring-1 ring-slate-200',
-                )}
-              >
-                {ehDestaque && (
-                  <span className="absolute -top-3.5 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-[#0265DC] px-3.5 py-1 text-xs font-bold text-white shadow">
-                    <Crown className="h-3.5 w-3.5" aria-hidden="true" /> Mais escolhido
-                  </span>
-                )}
-                <h3 className="font-titulo text-2xl font-extrabold text-[#021A40]">{p.nome}</h3>
-                <p className="mt-2 min-h-[3rem] text-sm leading-relaxed text-slate-600">{p.descricao}</p>
-                <Preco p={p} ciclo={cicloEfetivo} />
-                <a
-                  href={linkCadastro(dados, { plano: p.codigo, ciclo: cicloEfetivo, cupom })}
-                  className={cn(
-                    'mt-7 inline-flex h-12 items-center justify-center rounded-full px-6 text-[0.9375rem] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0265DC] focus-visible:ring-offset-2',
-                    ehDestaque ? 'bg-[#0265DC] text-white shadow-lg shadow-[#0265DC]/30 hover:bg-[#024DCC]' : 'bg-[#021A40] text-white hover:bg-[#0B2A5C]',
-                  )}
-                >
-                  Testar grátis por {p.diasTeste} dias
-                </a>
-                <p className="mt-2 text-center text-xs text-slate-500">Sem cartão de crédito</p>
+        <Preco p={plano} ciclo={cicloEfetivo} />
 
-                <ul className="mt-7 space-y-3 border-t border-slate-100 pt-7 text-sm">
-                  <li className="flex items-start gap-2.5 font-semibold text-[#021A40]">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#0265DC]" aria-hidden="true" />
-                    {p.limiteUsuarios ? `Até ${p.limiteUsuarios} usuários` : 'Usuários ilimitados'}
-                  </li>
-                  {anterior && (
-                    <li className="flex items-start gap-2.5 font-semibold text-[#021A40]">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#0265DC]" aria-hidden="true" />
-                      Tudo do {anterior.nome}, mais:
-                    </li>
-                  )}
-                  {novos.map((m) => (
-                    <li key={m} className={cn('flex items-start gap-2.5 text-slate-700', DESTAQUES.has(m) && 'font-semibold text-[#021A40]')}>
-                      {DESTAQUES.has(m) ? <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[#F97316]" aria-hidden="true" /> : <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#0265DC]" aria-hidden="true" />}
-                      {RECURSO_DO_MODULO[m]}
-                    </li>
-                  ))}
-                </ul>
-              </article>
-            )
-          })}
-        </div>
-      )}
+        <a
+          href={linkCadastro(dados, { ciclo: cicloEfetivo, cupom })}
+          className="mt-8 inline-flex h-14 items-center justify-center gap-2 rounded-full bg-[#0265DC] px-7 text-base font-bold text-white shadow-lg shadow-[#0265DC]/30 transition hover:bg-[#024DCC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0265DC] focus-visible:ring-offset-2"
+        >
+          Testar grátis por {plano.diasTeste} dias <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </a>
+        <p className="mt-3 text-center text-sm text-slate-500">Sem cartão de crédito. Você só paga se decidir continuar.</p>
 
-      <div className="mt-14 rounded-3xl bg-white p-7 shadow-sm ring-1 ring-slate-200 sm:p-9">
-        <h3 className="text-center font-titulo text-lg font-extrabold text-[#021A40]">Todos os planos incluem</h3>
-        <ul className="mt-6 grid gap-x-6 gap-y-3 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
-          {[...INCLUSO, ...(dados?.notaFiscal ? ['Nota fiscal de cada pagamento'] : [])].map((t) => (
+        <ul className="mt-auto grid gap-2 border-t border-slate-100 pt-6 text-sm text-slate-600 sm:grid-cols-2 lg:mt-8">
+          {garantias.map((t) => (
             <li key={t} className="flex items-start gap-2">
-              <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" /> {t}
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" /> {t}
             </li>
           ))}
         </ul>
       </div>
-    </div>
+
+      <div className="bg-[#F5F8FC] p-7 sm:p-10">
+        <h4 className="font-titulo text-lg font-extrabold text-[#021A40]">O que vem no plano</h4>
+        <ul className="mt-5 space-y-3.5">
+          {TUDO_INCLUIDO.map((t) => (
+            <li key={t} className="flex items-start gap-3 text-[0.9375rem] text-slate-700">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0265DC] text-white">
+                <Check className="h-3 w-3" aria-hidden="true" />
+              </span>
+              {t}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </article>
   )
 }

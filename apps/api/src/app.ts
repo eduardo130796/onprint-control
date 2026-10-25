@@ -13,6 +13,7 @@ import { fornecedoresRoutes } from './modules/fornecedores/routes'
 import { orcamentosRoutes } from './modules/orcamentos/routes'
 import { previaPedidoRoutes } from './modules/publico/previa.routes'
 import { publicoRoutes } from './modules/publico/routes'
+import { whatsappWebhookRoutes } from './modules/whatsapp/webhook.routes'
 import { healthRoutes } from './modules/health/routes'
 import { insumosRoutes } from './modules/insumos/routes'
 import { artesRoutes } from './modules/artes/routes'
@@ -120,6 +121,7 @@ export async function buildApp(config: Env) {
       await v1.register(vitrinePublicaRoutes, { prefix: '/publico/:empresa/vitrine' })
       await v1.register(vitrinePermitidaRoutes, { prefix: '/publico' })
       await v1.register(previaPedidoRoutes, { prefix: '/publico' })
+      await v1.register(whatsappWebhookRoutes, { prefix: '/publico' })
       await v1.register(webhooksRoutes, { prefix: '/plataforma' })
       await v1.register(cadastroRoutes, { prefix: '/plataforma' })
       await v1.register(plataformaRoutes, { prefix: '/plataforma' })

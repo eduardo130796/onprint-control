@@ -55,7 +55,7 @@ const envSchema = z.object({
   /** Teto de cadastros pela internet por hora, somando todos os IPs */
   CADASTROS_POR_HORA: z.coerce.number().int().min(0).default(30),
   /** Plano das empresas novas (cadastro e comando empresa:criar) */
-  PLANO_PADRAO: z.string().default('profissional'),
+  PLANO_PADRAO: z.string().default('grafygo'),
   /** Asaas: sem chave, o pagamento online fica desligado (modo manual, o suporte registra as cobranças) */
   ASAAS_API_KEY: z.string().default(''),
   ASAAS_AMBIENTE: z.enum(['sandbox', 'producao']).default('sandbox'),
@@ -90,6 +90,12 @@ const envSchema = z.object({
   EVOLUTION_URL: z.string().default(''),
   /** Chave global da Evolution (AUTHENTICATION_API_KEY do container dela) */
   EVOLUTION_API_KEY: z.string().default(''),
+  /**
+   * Webhook da Evolution (o cliente responde o orçamento na conversa). Opcionais: o endereço padrão é o da rede
+   * interna do compose (http://api:PORT/api/v1) e o segredo, sem valor, é derivado do JWT_ACCESS_SECRET
+   */
+  WHATSAPP_WEBHOOK_URL: z.string().default(''),
+  WHATSAPP_WEBHOOK_SEGREDO: z.string().default(''),
 })
 
 /** Segredos fracos ou de exemplo impedem a API de subir (fora dos testes automatizados). */

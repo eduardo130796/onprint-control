@@ -1,5 +1,6 @@
 /** Respostas da API do módulo comercial (datas ISO, valores como string decimal). */
 import type { OrigemCliente, TipoCobranca } from './enums'
+import type { RespostaWhatsapp } from './whatsapp'
 import type {
   Prioridade,
   StatusArte,
@@ -140,6 +141,8 @@ export interface OrcamentoDetalhe extends Orcamento {
   /** Só para quem vê custos */
   custoEstimado?: string
   margemPercentual?: string | null
+  /** O que o cliente respondeu na conversa do WhatsApp (enquete ou texto), a mais recente */
+  respostaWhatsapp?: RespostaWhatsapp | null
 }
 
 /** O que o cliente vê no link público (sem dados internos). */

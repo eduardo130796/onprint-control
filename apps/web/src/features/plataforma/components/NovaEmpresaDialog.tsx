@@ -17,7 +17,7 @@ export function NovaEmpresaDialog({ onFechar }: { onFechar: () => void }) {
   const planos = useQuery({ queryKey: ['plataforma', 'planos'], queryFn: plataformaApi.planos })
   const form = useForm<NovaEmpresaInput>({
     resolver: zodResolver(novaEmpresaSchema),
-    defaultValues: { nome: '', email: '', responsavel: '', senhaProvisoria: '', plano: 'profissional', situacao: 'teste', exemplos: false },
+    defaultValues: { nome: '', email: '', responsavel: '', senhaProvisoria: '', plano: 'grafygo', situacao: 'teste', exemplos: false },
   })
   const { errors, isSubmitting } = form.formState
 
@@ -51,6 +51,7 @@ export function NovaEmpresaDialog({ onFechar }: { onFechar: () => void }) {
               .map((p) => (
                 <option key={p.codigo} value={p.codigo}>
                   {p.nome}
+                  {p.publico ? '' : ' (fora da venda)'}
                 </option>
               ))}
           </Select>

@@ -3,6 +3,8 @@ import type { z } from 'zod'
 import {
   ANEXO_WHATSAPP_MAX_MB,
   EVENTOS_WHATSAPP,
+  OPCOES_ENQUETE_ORCAMENTO,
+  perguntaEnqueteOrcamento,
   envioWhatsappSchema,
   normalizarNumeroWhatsapp,
   type Acao,
@@ -13,7 +15,7 @@ import {
 } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { contextoEmpresa } from '../../core/contexto-empresa'
-import { ErroWhatsapp, instanciaDaEmpresa, type DocumentoWhatsapp } from '../../integrations/whatsapp'
+import { ErroWhatsapp, instanciaDaEmpresa, type DocumentoWhatsapp, type EnqueteEnviada } from '../../integrations/whatsapp'
 import { anexosEscolhidos, anexosJson, enviarAnexos, nomesDosAnexos } from './anexos-arte'
 import { obterConfigWhatsapp, whatsappNoPlano } from './avisos'
 import { formatarMensagem, incluirMensagem } from './service'
@@ -55,12 +57,14 @@ export function validarPdf(conteudo: Buffer, nome: string): DocumentoWhatsapp {
  * "Enviar pelo WhatsApp" da equipe: sai na hora pela conexão da gráfica (respeita a pausa, não o horário dos avisos),
  * fica registrado em mensagens_whatsapp (manual) e tira da fila o mesmo aviso automático, se estiver esperando.
  * Primeiro o texto (com o link no fim, que mostra a prévia), depois o PDF ou os arquivos das artes (até 6).
+ * Orçamento: por último a enquete "✅ Aprovado / ✏️ Quero modificações"; o voto (ou um "aprovado" escrito) volta
+ * pelo webhook e segue sozinho (respostas.service.ts).
  */
 export function criarEnvioManual(app: FastifyInstance) {
   const { prisma } = app
 
   async function vinculos(d: DadosEnvio) {
-    const orcamento = d.orcamentoId ? await prisma.orcamento.findUnique({ where: { id: d.orcamentoId }, select: { id: true, clienteId: true } }) : null
+    const orcamento = d.orcamentoId ? await prisma.orcamento.findUnique({ where: { id: d.orcamentoId }, select: { id: true, clienteId: true, numero: true } }) : null
     if (d.orcamentoId && !orcamento) throw AppError.naoEncontrado('Orçamento não encontrado.')
     const pedido = d.pedidoId ? await prisma.pedido.findUnique({ where: { id: d.pedidoId }, select: { id: true, clienteId: true } }) : null
     if (d.pedidoId && !pedido) throw AppError.naoEncontrado('Pedido não encontrado.')
@@ -69,7 +73,7 @@ export function criarEnvioManual(app: FastifyInstance) {
       if (!arte) throw AppError.naoEncontrado('Arte não encontrada.')
     }
     if (d.clienteId && !(await prisma.cliente.findUnique({ where: { id: d.clienteId }, select: { id: true } }))) throw AppError.naoEncontrado('Cliente não encontrado.')
-    return { clienteId: d.clienteId ?? orcamento?.clienteId ?? pedido?.clienteId ?? null }
+    return { clienteId: d.clienteId ?? orcamento?.clienteId ?? pedido?.clienteId ?? null, orcamento }
   }
 
   return async function enviar(d: DadosEnvio, anexo: DocumentoWhatsapp | null, usuarioId: string): Promise<ResultadoEnvioWhatsapp> {
@@ -79,7 +83,7 @@ export function criarEnvioManual(app: FastifyInstance) {
     if (config.pausado) throw AppError.regraNegocio('Os envios pelo WhatsApp estão pausados. Tire a pausa na tela WhatsApp ou use "Abrir no WhatsApp".')
     const provedor = app.whatsapp.provedor
     if (!provedor.simulado && !config.conectado) throw AppError.regraNegocio('O WhatsApp da gráfica não está conectado. Use "Abrir no WhatsApp" ou conecte pelo QR code.')
-    const { clienteId } = await vinculos(d)
+    const { clienteId, orcamento } = await vinculos(d)
     // Artes: os arquivos (já no servidor) vão logo depois do texto, dentro do limite
     const anexosArte = d.pedidoId && d.arquivoIds?.length ? await anexosEscolhidos(prisma, d.pedidoId, d.arquivoIds) : []
     const numero = normalizarNumeroWhatsapp(d.telefone)!
@@ -121,8 +125,27 @@ export function criarEnvioManual(app: FastifyInstance) {
     }
     if (anexosArte.length) aviso = await enviarAnexos(app, provedor, instancia, numero, anexosArte)
 
+    // Orçamento: a enquete de aprovação logo depois (o cliente toca numa opção em vez de digitar)
+    let enquete: EnqueteEnviada | null = null
+    if (d.tipo === 'orcamento_enviado' && orcamento) {
+      try {
+        enquete = await provedor.enviarEnquete(instancia, numero, perguntaEnqueteOrcamento(orcamento.numero), Object.values(OPCOES_ENQUETE_ORCAMENTO))
+      } catch (erro) {
+        aviso = [aviso, 'A enquete de aprovação não foi; o cliente ainda pode responder APROVADO na conversa.'].filter(Boolean).join(' ')
+        app.log.warn({ err: erro, empresa: empresa.slug }, 'Enquete do orçamento não enviada')
+      }
+    }
+
     const criada = await prisma.mensagemWhatsapp.create({
-      data: { ...base, status: 'enviada', enviadaEm: new Date(), idExterno, tentativas: 1, erro: aviso },
+      data: {
+        ...base,
+        status: 'enviada',
+        enviadaEm: new Date(),
+        idExterno,
+        tentativas: 1,
+        erro: aviso,
+        ...(enquete ? { enqueteId: enquete.id, enqueteSegredo: enquete.segredo, enqueteJid: enquete.jid } : {}),
+      },
       include: incluirMensagem,
     })
     // O mesmo aviso automático esperando na fila (arte, pedido pronto) não sai de novo

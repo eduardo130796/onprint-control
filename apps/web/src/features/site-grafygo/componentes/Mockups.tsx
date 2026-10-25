@@ -1,4 +1,4 @@
-import { ArrowUpRight, CheckCheck, ChevronLeft, ClipboardList, Factory, FileText, LayoutDashboard, MessageCircle, Phone, Search, ShoppingBag, Video, Wallet, Zap } from 'lucide-react'
+import { ArrowUpRight, Check, CheckCheck, ChevronLeft, ClipboardList, Factory, FileText, LayoutDashboard, MessageCircle, Phone, Search, ShoppingBag, Video, Wallet, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -258,6 +258,37 @@ function BalaoPdf({ nome, hora }: { nome: string; hora: string }) {
   )
 }
 
+/** Enquete do WhatsApp logo depois do orçamento: o cliente toca em "Aprovado" (marcado) ou "Quero modificações" */
+function BalaoEnquete({ pergunta, hora, compacta }: { pergunta: string; hora: string; compacta?: boolean }) {
+  const opcoes = [
+    { texto: '✅ Aprovado', votada: true },
+    { texto: '✏️ Quero modificações', votada: false },
+  ]
+  return (
+    <div className={cn('rounded-lg rounded-tl-none bg-white p-1.5 shadow-sm', compacta ? 'mr-4' : 'mr-5')}>
+      <p className="px-0.5 text-[0.5625rem] font-bold leading-snug text-slate-800">{pergunta}</p>
+      <p className="px-0.5 text-[0.4375rem] text-slate-500">Selecione uma opção.</p>
+      <div className="mt-1 space-y-1">
+        {opcoes.map((o) => (
+          <div key={o.texto} className="px-0.5">
+            <div className="flex items-center gap-1.5 text-[0.5625rem] text-slate-800">
+              <span className={cn('flex h-2.5 w-2.5 shrink-0 items-center justify-center rounded-full border', o.votada ? 'border-[#00A884] bg-[#00A884]' : 'border-slate-400')}>
+                {o.votada && <Check className="h-1.5 w-1.5 text-white" strokeWidth={4} />}
+              </span>
+              <span className="flex-1">{o.texto}</span>
+              <span className="text-[0.5rem] text-slate-500">{o.votada ? 1 : 0}</span>
+            </div>
+            <div className="ml-4 mt-0.5 h-0.5 rounded-full bg-slate-200">
+              <div className={cn('h-0.5 rounded-full bg-[#00A884]', o.votada ? 'w-full' : 'w-0')} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-1 text-right text-[0.4375rem] text-slate-500">{hora}</p>
+    </div>
+  )
+}
+
 function TelaWhatsapp({ children, contato }: { children: React.ReactNode; contato: string }) {
   return (
     <>
@@ -292,7 +323,7 @@ Pagamento: Entrada de R$ 175,00 (50%) na aprovação + 1× de R$ 175,00 em 30 di
 Prazo de produção: *3 dias úteis*
 Válido até *31/10/2026*
 
-Responda *APROVADO* aqui mesmo ou peça o ajuste que precisar.
+Toque em uma opção logo abaixo ou responda *APROVADO* aqui mesmo.
 
 — Gráfica Horizonte
 
@@ -324,7 +355,7 @@ Pix para pagar: *financeiro@horizonte.com.br*
 Detalhes do pedido:
 https://app.grafygo.com.br/pedido/…`
 
-/** O orçamento chega no WhatsApp com tudo no corpo e o PDF; o cliente responde APROVADO */
+/** O orçamento chega no WhatsApp com tudo no corpo, o PDF e a enquete; o cliente toca em "Aprovado" */
 export function MockWhatsappOrcamento({ className }: { className?: string }) {
   return (
     <Celular className={className}>
@@ -332,7 +363,7 @@ export function MockWhatsappOrcamento({ className }: { className?: string }) {
         <Dia>Hoje</Dia>
         <BalaoRecebido texto={MSG_ORCAMENTO} hora="09:12" previa={{ titulo: 'Orçamento ORC-0142 · Gráfica Horizonte', site: 'app.grafygo.com.br' }} />
         <BalaoPdf nome="ORC-0142 - Mariana Costa.pdf" hora="09:12" />
-        <BalaoEnviado texto="*APROVADO* 👍" hora="09:20" />
+        <BalaoEnquete pergunta="Aprovar o orçamento ORC-0142?" hora="09:20" />
       </TelaWhatsapp>
     </Celular>
   )
@@ -368,7 +399,7 @@ export function MockAvisoAprovacao({ className }: { className?: string }) {
   )
 }
 
-/** Mini conversa do hero: o cliente respondeu APROVADO */
+/** Mini conversa do hero: o cliente tocou em "Aprovado" na enquete */
 export function MockMiniConversa({ className }: { className?: string }) {
   return (
     <div className={cn('overflow-hidden rounded-2xl bg-[#EFEAE2] shadow-xl ring-1 ring-slate-900/10', className)} aria-hidden="true">
@@ -378,13 +409,13 @@ export function MockMiniConversa({ className }: { className?: string }) {
       </div>
       <div className="space-y-1.5 p-2">
         <div className="mr-4 whitespace-pre-line rounded-lg rounded-tl-none bg-white px-2 py-1 text-[0.5625rem] leading-snug text-slate-800 shadow-sm">
-          <Negrito texto={'Orçamento *ORC-0142*\nTotal: *R$ 350,00*\nResponda *APROVADO* aqui mesmo'} />
+          <Negrito texto={'Orçamento *ORC-0142*\nTotal: *R$ 350,00*'} />
         </div>
         <div className="mr-4 flex items-center gap-1.5 rounded-lg bg-white px-2 py-1 shadow-sm">
           <FileText className="h-3 w-3 text-[#E5484D]" />
           <span className="text-[0.5rem] text-slate-600">ORC-0142.pdf</span>
         </div>
-        <BalaoEnviado texto="*APROVADO* 👍" hora="09:20" />
+        <BalaoEnquete pergunta="Aprovar o orçamento ORC-0142?" hora="09:20" compacta />
       </div>
     </div>
   )

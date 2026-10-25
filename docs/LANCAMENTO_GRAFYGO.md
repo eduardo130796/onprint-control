@@ -50,14 +50,14 @@ Ordem: **0** código pronto → **1** VPS → **2** DNS → **3** e-mail → **4
 
 ## 0. Antes de tudo: o código (no seu computador)
 
-- [x] **Titular do serviço** em `apps/web/src/app/marca.ts`: Eduardo Roquête Cabral Júnior, CPF 030.154.681-97 (a lei
-      do comércio eletrônico exige mostrar quem vende; aparece nos termos, na privacidade e no rodapé). Quando tiver
-      CNPJ, troque pela razão social e pelo CNPJ.
+- [x] **Titular do serviço** em `apps/web/src/app/marca.ts`: o seu nome completo e CPF (o Decreto 7.962/2013 pede que
+      o site mostre quem vende). Para evitar golpe, eles aparecem **só** nos Termos de uso e na Política de privacidade,
+      não no rodapé (o rodapé tem o link "Quem somos e termos"). Quando tiver CNPJ, troque pela razão social e pelo CNPJ.
 - [x] `contato: 'contato@grafygo.com.br'` no mesmo arquivo.
 - [ ] Revise os textos de `apps/web/src/features/legal/textos.ts` (de preferência com um advogado).
 - [x] Já está no GitHub.
 
-> Dica: abrir um **MEI** resolve duas coisas de uma vez: o site deixa de mostrar o seu CPF e você passa a poder emitir
+> Dica: abrir um **MEI** resolve duas coisas de uma vez: os termos deixam de mostrar o seu CPF e você passa a poder emitir
 > nota fiscal (aí é só ligar `ASAAS_NF_ATIVA=true`, ver etapa 4).
 
 ## 1. Contratar a VPS
@@ -202,7 +202,7 @@ SMTP_USUARIO=contato@grafygo.com.br
 SMTP_SENHA=<senha da caixa de e-mail>
 EMAIL_REMETENTE=GrafyGo <contato@grafygo.com.br>
 
-PLANO_PADRAO=profissional
+PLANO_PADRAO=grafygo
 # Aparece no botão "Falar com a gente" da página de venda e em "Minha assinatura" (WhatsApp com DDD)
 SUPORTE_CONTATO=(61) 99352-6884
 CADASTRO_PUBLICO=true
@@ -236,20 +236,20 @@ echo "alias onprint='docker compose -f ~/onprint/docker-compose.prod.yml --env-f
 onprint ps
 ```
 
-Os três containers devem estar `Up` e a API `(healthy)`. O primeiro start aplica as migrations, cria os planos de
-lançamento (R$ 69 / 129 / 199, anual com 2 meses grátis), a empresa principal e o seu acesso à plataforma.
+Os três containers devem estar `Up` e a API `(healthy)`. O primeiro start aplica as migrations, cria o plano único
+**GrafyGo** (R$ 99/mês ou R$ 990/ano, tudo incluído, usuários ilimitados), a empresa principal e o seu acesso à plataforma.
 
 Se algo não subir: `onprint logs --tail=100 api` (ou `web`). Os problemas comuns estão na seção 14 do DEPLOY_VPS.md.
 
 ## 8. Conferir no ar
 
 - [ ] `https://grafygo.com.br` abre a **página de venda** (cadeado no navegador); `www.grafygo.com.br` também.
-- [ ] Os **preços** aparecem nos planos (vêm da API); a chave mensal/anual funciona.
-- [ ] `https://grafygo.com.br/termos` e `/privacidade` mostram o seu nome e CPF.
-- [ ] "Testar grátis" leva para `https://app.grafygo.com.br/criar-conta?plano=...`.
+- [ ] O **preço** aparece na seção Preço (vem da API: R$ 99/mês; no anual, R$ 82,50/mês e R$ 990/ano); a chave mensal/anual funciona.
+- [ ] `https://grafygo.com.br/termos` e `/privacidade` mostram o seu nome e CPF (e o rodapé da página de venda **não** mostra).
+- [ ] "Testar grátis" leva para `https://app.grafygo.com.br/criar-conta` (com `?ciclo=anual` se o anual estiver marcado).
 - [ ] `https://app.grafygo.com.br` abre o login. Entre com `ADMIN_EMAIL` e troque a senha.
 - [ ] `https://app.grafygo.com.br/plataforma` abre o painel da plataforma com `PLATAFORMA_ADMIN_*`.
-      Confira em **Planos** os 3 planos e os valores anuais.
+      Confira em **Planos** o GrafyGo (R$ 99,00 / R$ 990,00, público). Os planos antigos ficam fora da venda.
 - [ ] Saúde: `curl -s https://app.grafygo.com.br/api/v1/health` responde ok.
 - [ ] **E-mail:** no login, "Esqueci minha senha" com o seu e-mail; ele precisa chegar (veja também o spam).
 - [ ] **Webhook do Asaas** cadastrado (etapa 4). No Asaas, a fila de webhooks deve ficar sem erros.
@@ -270,14 +270,13 @@ Siga a seção 9 do [DEPLOY_VPS.md](DEPLOY_VPS.md):
 
 Antes de divulgar, faça uma compra real pequena:
 
-- [ ] Em uma janela anônima: `grafygo.com.br` → **Testar grátis** no Essencial → crie uma gráfica de teste com outro e-mail.
+- [ ] Em uma janela anônima: `grafygo.com.br` → **Testar grátis** → crie uma gráfica de teste com outro e-mail.
 - [ ] Confira o e-mail de boas-vindas.
-- [ ] No sistema da gráfica de teste: **Configurações → Minha assinatura → Assinar agora**, Essencial **mensal**,
+- [ ] No sistema da gráfica de teste: **Configurações → Minha assinatura → Assinar agora**, **mensal**,
       **PIX/boleto**, com o seu CPF.
-- [ ] Pague o PIX (R$ 69). Em segundos, "Minha assinatura" deve mostrar **Ativa / em dia**. É o webhook funcionando.
+- [ ] Pague o PIX (R$ 99). Em segundos, "Minha assinatura" deve mostrar **Ativa / em dia**. É o webhook funcionando.
 - [ ] No painel da plataforma, a empresa aparece como ativa e o "recebido no mês" mostra o valor.
-- [ ] **Vitrine:** no painel da plataforma, mude a gráfica de teste para o **Completo** (ou use o teste grátis, que já
-      libera tudo), ative a vitrine e publique um produto. Abra `https://{slug}.grafygo.com.br` (o primeiro acesso
+- [ ] **Vitrine:** (já incluída no plano e no teste grátis) ative a vitrine e publique um produto. Abra `https://{slug}.grafygo.com.br` (o primeiro acesso
       pode levar alguns segundos, enquanto o certificado é emitido). Mande o link para você mesmo no WhatsApp e veja
       a prévia com foto.
 - [ ] Depois: cancele a assinatura de teste em "Minha assinatura" e, se quiser, estorne o PIX pelo painel do Asaas.
@@ -331,7 +330,8 @@ Antes de divulgar, faça uma compra real pequena:
 | 60 a 120 | ~5–6 GB | passa de 100 GB | subir para **KVM 4** (16 GB, 200 GB) ou levar os arquivos para fora (abaixo) |
 | 120+ | | | KVM 8, ou banco num servidor separado e arquivos em armazenamento de objetos |
 
-Com 30 gráficas pagando o Profissional, a receita (~R$ 3.900/mês) cobre a VPS dezenas de vezes: dá para subir de
+Com 30 gráficas no plano único (R$ 99), a receita (~R$ 3.000/mês; menos se boa parte pagar o anual, ~R$ 2.475/mês)
+cobre a VPS dezenas de vezes: dá para subir de
 plano antes de apertar. Na Hostinger, a troca KVM 2 → KVM 4 é feita pelo painel e mantém os dados.
 
 **Acompanhe uma vez por mês** (na VPS):

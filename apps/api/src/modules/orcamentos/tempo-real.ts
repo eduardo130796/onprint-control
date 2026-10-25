@@ -26,6 +26,8 @@ interface OrcamentoAvisado {
 export interface Autoria {
   origem: OrigemTempoReal
   atorId: string | null
+  /** O cliente respondeu na conversa do WhatsApp (o aviso diz "pelo WhatsApp") */
+  canal?: 'whatsapp'
 }
 
 /** Monta o `orcamento:atualizado` (função pura, testável sem Socket.IO). */
@@ -41,6 +43,7 @@ export function eventoOrcamento(o: OrcamentoAvisado, acao: AcaoOrcamentoTempoRea
     cliente: o.cliente ? nomeCliente(o.cliente) : undefined,
     pedidoId: o.pedidoId,
     pedidoNumero: pedidoNumero ?? o.pedido?.numero ?? null,
+    ...(autoria.canal && autoria.origem === 'cliente' ? { canal: autoria.canal } : {}),
   }
 }
 

@@ -3,17 +3,20 @@ import { z } from 'zod'
 import { CODIGOS_ERRO, cadastroPublicoSchema, codigoCupom, formatarDataSimples, hojeISO } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { emailBoasVindas } from '../../integrations/email/modelos'
-import { diaISO } from '../../plataforma/assinaturas'
+import { diaISO, planoPadraoAVenda } from '../../plataforma/assinaturas'
 import { aplicarCupom, descricaoCupom, validarCupom } from '../../plataforma/beneficios'
 import { provisionarEmpresa } from '../../plataforma/provisionar'
 
 /** Sem login: planos à venda e o cadastro com teste grátis ("Criar conta"). */
 export const cadastroRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get('/planos-publicos', { schema: { tags: ['plataforma'], summary: 'Planos à venda (página de cadastro)' } }, async () => {
-    const planos = await app.plataforma.plano.findMany({ where: { ativo: true, publico: true }, orderBy: { ordem: 'asc' } })
+    const [planos, padrao] = await Promise.all([
+      app.plataforma.plano.findMany({ where: { ativo: true, publico: true }, orderBy: { ordem: 'asc' } }),
+      planoPadraoAVenda(app.plataforma, app.config.PLANO_PADRAO),
+    ])
     return {
       cadastroAberto: app.config.CADASTRO_PUBLICO,
-      planoPadrao: app.config.PLANO_PADRAO,
+      planoPadrao: padrao?.codigo ?? app.config.PLANO_PADRAO,
       // Página de venda (grafygo.com.br) leva o "Testar grátis" para o endereço do sistema
       urlSistema: app.config.APP_URL,
       suporte: app.config.SUPORTE_CONTATO,
@@ -66,9 +69,11 @@ export const cadastroRoutes: FastifyPluginAsyncZod = async (app) => {
         throw new AppError(429, CODIGOS_ERRO.MUITAS_TENTATIVAS, 'Muitos cadastros neste momento. Tente de novo em alguns minutos ou fale com o suporte.')
       }
       const d = request.body
-      const codigoPlano = d.plano || app.config.PLANO_PADRAO
-      const plano = await app.plataforma.plano.findUnique({ where: { codigo: codigoPlano } })
-      if (!plano?.ativo || !plano.publico) throw AppError.regraNegocio('Plano indisponível.')
+      // Plano vindo de um link antigo (?plano=profissional) cai no plano à venda
+      const pedido = d.plano ? await app.plataforma.plano.findUnique({ where: { codigo: d.plano } }) : null
+      const plano = pedido?.ativo && pedido.publico ? pedido : await planoPadraoAVenda(app.plataforma, app.config.PLANO_PADRAO)
+      if (!plano) throw AppError.regraNegocio('Plano indisponível.')
+      const codigoPlano = plano.codigo
       if (d.cupom) {
         await validarCupom(app.plataforma, d.cupom, codigoPlano, hojeISO(), { publico: true }).catch((erro: Error) => {
           throw AppError.regraNegocio(erro.message, { campo: 'cupom' })

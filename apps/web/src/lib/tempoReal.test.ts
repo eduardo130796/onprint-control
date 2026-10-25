@@ -32,6 +32,11 @@ describe('Tempo real: aviso de orçamento', () => {
   it('cliente recusou', () => {
     expect(avisoDoOrcamento({ ...aprovadoPeloCliente, acao: 'recusado', status: 'recusado' }, vendedor)?.mensagem).toBe('Pet Feliz recusou o orçamento ORC-2026-0007')
   })
+  it('cliente respondeu na conversa do WhatsApp: aprovou ou pediu modificações', () => {
+    expect(avisoDoOrcamento({ ...aprovadoPeloCliente, canal: 'whatsapp' }, vendedor)?.mensagem).toBe('Pet Feliz aprovou o orçamento ORC-2026-0007 pelo WhatsApp · virou o pedido PED-2026-0003')
+    const modificar = { ...aprovadoPeloCliente, acao: 'negociacao' as const, status: 'em_negociacao' as const, pedidoId: null, pedidoNumero: null, canal: 'whatsapp' as const }
+    expect(avisoDoOrcamento(modificar, vendedor)).toEqual({ mensagem: 'Pet Feliz pediu modificações no orçamento ORC-2026-0007 pelo WhatsApp', acao: { rotulo: 'Abrir orçamento', link: '/orcamentos/o1' } })
+  })
   it('sem "ver todos", o orçamento de outro vendedor não gera aviso', () => {
     expect(avisoDoOrcamento(aprovadoPeloCliente, outroVendedor)).toBeNull()
   })

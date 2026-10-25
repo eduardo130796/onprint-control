@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ComposicaoProdutoDetalhe } from '@onprint/shared'
-import { assinatura, calcular, estadoDoDetalhe, notaReferencia, paraEnvio } from './estadoComposicao'
+import { aplicarSugestao, assinatura, calcular, estadoDoDetalhe, notaReferencia, paraEnvio, temSugestaoCusto } from './estadoComposicao'
 
 const detalhe: ComposicaoProdutoDetalhe = {
   produtoId: '00000000-0000-0000-0000-000000000001',
@@ -60,5 +60,34 @@ describe('estado da composição', () => {
   it('explica a medida de referência', () => {
     expect(notaReferencia({ modoCalculo: 'm2', larguraPadrao: null, alturaPadrao: null })).toBe('Calculado para 1 m²')
     expect(notaReferencia({ modoCalculo: 'm2', larguraPadrao: '2', alturaPadrao: '1' })).toContain('2 × 1 m')
+  })
+})
+
+describe('sugestão do Assistente na composição', () => {
+  const sugestao = {
+    insumos: [
+      // Já está na composição: não repete
+      { insumoId: '00000000-0000-0000-0000-000000000002', nome: 'Lona', unidade: 'm²', custoUnitario: '9.0625', quantidade: '1', base: 'por_m2' as const },
+      { insumoId: '00000000-0000-0000-0000-000000000009', nome: 'Vinil branco', unidade: 'm²', custoUnitario: '12.5', quantidade: '1.05', base: 'por_m2' as const },
+    ],
+    processos: [{ processoId: '00000000-0000-0000-0000-000000000008', nome: 'Recorte', maquinaId: null }],
+    margem: '60',
+  }
+  it('acrescenta só o que falta, com o selo, liga a composição e usa o lucro dito; tempos ficam em branco', () => {
+    const e = aplicarSugestao({ ...estadoDoDetalhe(detalhe), modoCusto: 'simples' }, sugestao, 'por_m2')
+    expect(e.modoCusto).toBe('composicao')
+    expect(e.materiais.map((m) => [m.nome, m.quantidade, Boolean(m.sugerido)])).toEqual([
+      ['Lona', '1', false],
+      ['Vinil branco', '1,05', true],
+    ])
+    expect(e.producao.at(-1)).toMatchObject({ processoId: '00000000-0000-0000-0000-000000000008', minutos: '', base: 'por_m2', sugerido: true })
+    expect(e.lucroDesejado).toBe('60')
+    // O selo não vai para a API
+    expect(JSON.stringify(paraEnvio(e))).not.toContain('sugerido')
+  })
+  it('sem margem dita, o lucro fica como estava; sugestão vazia não aparece', () => {
+    expect(aplicarSugestao(estadoDoDetalhe(detalhe), { ...sugestao, margem: null }, 'por_m2').lucroDesejado).toBe('')
+    expect(temSugestaoCusto({ insumos: [], processos: [], margem: null })).toBe(false)
+    expect(temSugestaoCusto(sugestao)).toBe(true)
   })
 })

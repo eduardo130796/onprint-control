@@ -1,4 +1,14 @@
-import { nomeCliente, normalizarDecimal, resumoCondicoesPagamento, type EmpresaConfig, type OrcamentoDetalhe, type OrcamentoInput, type ProdutoCatalogo, type SolicitacaoItem } from '@onprint/shared'
+import {
+  nomeCliente,
+  normalizarDecimal,
+  resumoCondicoesPagamento,
+  type EmpresaConfig,
+  type ItemOrcamentoSugerido,
+  type OrcamentoDetalhe,
+  type OrcamentoInput,
+  type ProdutoCatalogo,
+  type SolicitacaoItem,
+} from '@onprint/shared'
 import type { OpcaoBusca } from '@/components/shared/SearchSelect'
 import { decimalParaCampo, decimalParaInput } from '@/lib/mascaras'
 
@@ -17,6 +27,8 @@ export interface ItemForm {
   observacao: string
   /** O item espera a arte antes de produzir (padrão do produto ao escolher; vai para o pedido) */
   precisaArte: boolean
+  /** Montado pelo Assistente GrafyGo: mostra o selo até a pessoa mexer no item (não vai para a API) */
+  sugerido?: boolean
 }
 
 export interface FormOrcamento {
@@ -106,6 +118,45 @@ export function itensDaSolicitacao(itens: SolicitacaoItem[], produtos: ProdutoCa
     })
   }
   return { itens: resultado, ignorados: itens.length - resultado.length }
+}
+
+/**
+ * Item que o Assistente montou (e a pessoa manteve) → linha do formulário, com o selo "sugerido". Quantidade e medidas
+ * pelo decimalParaCampo (sem separador de milhar: 1000 continua 1000). Preço vazio = o do produto (a API recalcula).
+ */
+export function itemDoAssistente(s: ItemOrcamentoSugerido): ItemForm | null {
+  if (!s.produto) return null
+  return {
+    chave: novaChave(),
+    produto: { id: s.produto.id, rotulo: s.produto.nome, detalhe: s.produto.codigo },
+    descricao: '',
+    quantidade: quantidade(s.quantidade),
+    largura: medida(s.largura),
+    altura: medida(s.altura),
+    precoUnitario: '',
+    acabamentoIds: s.acabamentos.map((a) => a.id),
+    desconto: '0,00',
+    observacao: s.observacao ?? '',
+    precisaArte: s.produto.precisaArte,
+    sugerido: true,
+  }
+}
+
+/** Itens novos no fim do orçamento, sem perder os que já estão (só a linha vazia, sem produto, sai) */
+export function juntarItens(atuais: ItemForm[], novos: ItemForm[]): ItemForm[] {
+  const vazia = (i: ItemForm) => !i.produto && !i.descricao.trim() && !i.observacao.trim()
+  const mantidos = atuais.filter((i) => !vazia(i))
+  return [...mantidos, ...novos].length ? [...mantidos, ...novos] : [itemVazio()]
+}
+
+/** Prazo, observações e o que não virou item vão para as observações internas (a equipe confere com o cliente) */
+export function notaDoAssistente(r: { prazoDesejado: string | null; observacoes: string | null; naoIdentificados: string[] }): string | null {
+  const partes = [
+    r.prazoDesejado ? `prazo pedido pelo cliente: ${r.prazoDesejado}` : null,
+    r.observacoes,
+    r.naoIdentificados.length ? `não entendido: ${r.naoIdentificados.join('; ')}` : null,
+  ].filter(Boolean)
+  return partes.length ? `Pedido lido pelo Assistente GrafyGo — ${partes.join(' · ')}` : null
 }
 
 export function formDoOrcamento(

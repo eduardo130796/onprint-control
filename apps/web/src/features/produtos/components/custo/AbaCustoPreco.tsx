@@ -2,7 +2,15 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Calculator, Layers, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
-import { MODO_CALCULO_SUFIXO, composicaoProdutoSchema, formatarMoeda, type ComposicaoProdutoDetalhe, type Maquina, type ModoCusto, type Processo } from '@onprint/shared'
+import {
+  MODO_CALCULO_SUFIXO,
+  composicaoProdutoSchema,
+  formatarMoeda,
+  type ComposicaoProdutoDetalhe,
+  type Maquina,
+  type ModoCusto,
+  type Processo,
+} from '@onprint/shared'
 import { composicaoApi } from '@/api/custos'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { EstadoErro } from '@/components/shared/EstadoErro'
@@ -15,7 +23,19 @@ import { BlocoMateriais } from './BlocoMateriais'
 import { BlocoExtras, BlocoProducao } from './BlocoProducao'
 import { ResumoCusto } from './ResumoCusto'
 import { CartaoOpcao, Dica, Secao } from './Secao'
-import { assinatura, baseSugerida, calcular, dadosDaProducao, estadoDoDetalhe, notaReferencia, paraEnvio, type EstadoComposicao } from './estadoComposicao'
+import {
+  aplicarSugestao,
+  assinatura,
+  baseSugerida,
+  calcular,
+  dadosDaProducao,
+  estadoDoDetalhe,
+  notaReferencia,
+  paraEnvio,
+  temSugestaoCusto,
+  type EstadoComposicao,
+  type SugestaoCusto,
+} from './estadoComposicao'
 
 const NIVEIS: { modo: ModoCusto; icone: typeof Calculator; titulo: string; descricao: string }[] = [
   { modo: 'simples', icone: Calculator, titulo: 'Sei meu custo', descricao: 'Digite quanto custa produzir. Rápido: o sistema calcula o preço e o lucro.' },
@@ -28,9 +48,11 @@ interface EditorProps {
   maquinas: Maquina[]
   editavel: boolean
   geralPendente: boolean
+  sugestao?: SugestaoCusto | null
+  onSugestaoAplicada?: () => void
 }
 
-function Editor({ inicial, processos, maquinas, editavel, geralPendente }: EditorProps) {
+function Editor({ inicial, processos, maquinas, editavel, geralPendente, sugestao, onSugestaoAplicada }: EditorProps) {
   const queryClient = useQueryClient()
   const [detalhe, setDetalhe] = useState(inicial)
   const [estado, setEstado] = useState(() => estadoDoDetalhe(inicial))
@@ -86,6 +108,36 @@ function Editor({ inicial, processos, maquinas, editavel, geralPendente }: Edito
           <p className="flex items-start gap-2 rounded-2xl bg-amber-50 p-3 text-sm text-amber-800">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> Você alterou a aba Geral. Salve-a para o custo usar a nova forma de cobrança e as medidas.
           </p>
+        )}
+
+        {editavel && sugestao && temSugestaoCusto(sugestao) && (
+          <div className="flex flex-col gap-3 rounded-3xl bg-marca-suave p-5 sm:flex-row sm:items-center">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-marca text-marca-contraste">
+              <Sparkles className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-tinta">Sugestão do Assistente para o custo</p>
+              <p className="text-sm text-texto-secundario [overflow-wrap:anywhere]">
+                {[
+                  sugestao.insumos.length ? `Materiais: ${sugestao.insumos.map((i) => i.nome).join(', ')}` : null,
+                  sugestao.processos.length ? `Etapas: ${sugestao.processos.map((p) => p.nome).join(', ')}` : null,
+                  sugestao.margem ? `Lucro desejado: ${sugestao.margem.replace('.', ',')}%` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+                . Confira quanto vai de cada material, a perda e os tempos antes de salvar.
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={() => {
+                setEstado((e) => aplicarSugestao(e, sugestao, base === 'por_m2' ? 'por_m2' : base === 'por_metro_linear' ? 'por_metro_linear' : 'por_unidade'))
+                onSugestaoAplicada?.()
+              }}
+            >
+              <Sparkles /> Usar na composição
+            </Button>
+          </div>
         )}
 
         <div role="radiogroup" aria-label="Como calcular o custo" className="grid gap-3 sm:grid-cols-2">
@@ -175,7 +227,20 @@ function Editor({ inicial, processos, maquinas, editavel, geralPendente }: Edito
 }
 
 /** Aba "Custo e preço" do produto: nível (simples/composição), composição e resumo ao vivo. Um Salvar só. */
-export function AbaCustoPreco({ produtoId, podeEditar, geralPendente }: { produtoId: string; podeEditar: boolean; geralPendente: boolean }) {
+export function AbaCustoPreco({
+  produtoId,
+  podeEditar,
+  geralPendente,
+  sugestao,
+  onSugestaoAplicada,
+}: {
+  produtoId: string
+  podeEditar: boolean
+  geralPendente: boolean
+  /** Sugestão do Assistente ("Preencher com o Assistente"), aplicada só quando a pessoa pede */
+  sugestao?: SugestaoCusto | null
+  onSugestaoAplicada?: () => void
+}) {
   const consulta = useComposicao(produtoId)
   const processos = useProcessosOpcoes()
   const maquinas = useMaquinasOpcoes()
@@ -183,5 +248,5 @@ export function AbaCustoPreco({ produtoId, podeEditar, geralPendente }: { produt
   if (consulta.isError) return <Card><EstadoErro erro={consulta.error} onTentarNovamente={() => void consulta.refetch()} /></Card>
   const d = consulta.data
   // Mudou a forma de cobrança/medidas (aba Geral salva): recomeça com o detalhe novo
-  return <Editor key={`${produtoId}-${d.modoCalculo}-${d.larguraPadrao}-${d.alturaPadrao}`} inicial={consulta.data} processos={processos.data ?? []} maquinas={maquinas.data ?? []} editavel={podeEditar} geralPendente={geralPendente} />
+  return <Editor key={`${produtoId}-${d.modoCalculo}-${d.larguraPadrao}-${d.alturaPadrao}`} inicial={consulta.data} processos={processos.data ?? []} maquinas={maquinas.data ?? []} editavel={podeEditar} geralPendente={geralPendente} sugestao={sugestao} onSugestaoAplicada={onSugestaoAplicada} />
 }

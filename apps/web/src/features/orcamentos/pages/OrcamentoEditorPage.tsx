@@ -15,16 +15,19 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/form-controls'
 import { Skeleton } from '@/components/ui/skeleton'
+import { SeloSugerido } from '@/features/assistente/SeloSugerido'
+import { useAjudaLiberada } from '@/features/assistente/useAssistente'
 import { useEmpresa } from '@/features/configuracoes/hooks'
 import { useMutacao } from '@/hooks/useMutacao'
 import { usePermission } from '@/hooks/usePermission'
 import { buscarClientes } from '../buscas'
 import { AcoesOrcamento } from '../components/editor/AcoesOrcamento'
 import { ItemOrcamento } from '../components/editor/ItemOrcamento'
+import { MontarComAssistente } from '../components/editor/MontarComAssistente'
 import { PagamentoOrcamento } from '../components/editor/PagamentoOrcamento'
 import { PedidoGerado } from '../components/editor/PedidoGerado'
 import { TotaisOrcamento } from '../components/editor/TotaisOrcamento'
-import { formDoOrcamento, itemVazio, itensDaSolicitacao, novaChave, payloadDoForm, type FormOrcamento, type ItemForm } from '../components/editor/formOrcamento'
+import { formDoOrcamento, itemVazio, itensDaSolicitacao, juntarItens, novaChave, payloadDoForm, type FormOrcamento, type ItemForm } from '../components/editor/formOrcamento'
 import { useAnaliseOrcamento } from '../components/editor/useAnaliseOrcamento'
 import { useCalculoOrcamento } from '../components/editor/useCalculoOrcamento'
 
@@ -64,6 +67,9 @@ function Editor({
   // Semáforo do lucro: o salvo (GET) ou ao vivo (POST /orcamentos/analisar) para quem pode editar
   const analise = useAnaliseOrcamento(form, calculo.itens, { orcamento, alterado, podeAnalisar: editavel })
   const salvar = useMutacao(['orcamentos', 'solicitacoes'], (dados: unknown) => (orcamento ? orcamentosApi.atualizar(orcamento.id, dados) : orcamentosApi.criar(dados)))
+  // Assistente GrafyGo: monta itens a partir do texto do cliente (o cliente achado fica com o selo até ser trocado)
+  const assistenteLiberado = useAjudaLiberada('orcamentoTexto')
+  const [clienteSugerido, setClienteSugerido] = useState(false)
 
   // Salvando: a versão que chegar é a minha (não é "alterado por outra pessoa")
   const pendente = alterado && !salvar.isPending
@@ -163,11 +169,36 @@ function Editor({
         <div className="min-w-0 space-y-4">
           <Card>
             <CardContent className="pt-6">
-              <CampoFormulario id="orc-cliente" rotulo="Cliente *">
-                <SearchSelect id="orc-cliente" chave="clientes-busca" buscar={buscarClientes} valor={form.cliente} onChange={(c) => atualizar({ cliente: c })} placeholder="Buscar cliente…" desabilitado={!editavel} />
+              <CampoFormulario id="orc-cliente" rotulo="Cliente *" acao={clienteSugerido ? <SeloSugerido /> : undefined}>
+                <SearchSelect
+                  id="orc-cliente"
+                  chave="clientes-busca"
+                  buscar={buscarClientes}
+                  valor={form.cliente}
+                  onChange={(c) => {
+                    setClienteSugerido(false)
+                    atualizar({ cliente: c })
+                  }}
+                  placeholder="Buscar cliente…"
+                  desabilitado={!editavel}
+                />
               </CampoFormulario>
             </CardContent>
           </Card>
+
+          {editavel && assistenteLiberado && (
+            <MontarComAssistente
+              onAdicionar={(r) => {
+                if (r.cliente && !form.cliente) setClienteSugerido(true)
+                setForm((f) => ({
+                  ...f,
+                  itens: juntarItens(f.itens, r.itens),
+                  cliente: f.cliente ?? r.cliente,
+                  observacoesInternas: r.nota ? [f.observacoesInternas.trim(), r.nota].filter(Boolean).join('\n') : f.observacoesInternas,
+                }))
+              }}
+            />
+          )}
 
           {form.itens.map((item, i) => (
             <ItemOrcamento
@@ -179,7 +210,8 @@ function Editor({
               analise={analise.itens.get(item.chave)}
               analiseDesatualizada={analise.desatualizado}
               editavel={editavel}
-              onChange={(novo) => mudarItens((itens) => itens.map((x, j) => (j === i ? novo : x)))}
+              // Mexeu no item: deixa de ser "sugerido pelo Assistente"
+              onChange={(novo) => mudarItens((itens) => itens.map((x, j) => (j === i ? { ...novo, sugerido: false } : x)))}
               onRemover={() => mudarItens((itens) => itens.filter((_, j) => j !== i))}
               onDuplicar={() => mudarItens((itens) => [...itens.slice(0, i + 1), { ...item, chave: novaChave() }, ...itens.slice(i + 1)])}
               onMover={(d) =>

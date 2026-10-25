@@ -5,12 +5,14 @@ import { ChevronDown, Loader2, Pencil, Save, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { EVENTOS_WHATSAPP, EVENTO_WHATSAPP_DESCRICOES, EVENTO_WHATSAPP_ROTULOS, whatsappConfigSchema, type EventoWhatsapp, type WhatsappConfig } from '@onprint/shared'
 import { templatesApi } from '@/api/configuracoes'
+import { CHAVE_ASSISTENTE } from '@/api/assistente'
 import { CHAVE_WHATSAPP, whatsappApi } from '@/api/whatsapp'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils'
+import { useAssistente } from '@/features/assistente/useAssistente'
 import { Interruptor } from '@/features/vitrine/components/Interruptor'
 import { previaDoEvento } from '../previa'
 import { BolhaWhatsapp } from './BolhaWhatsapp'
@@ -28,6 +30,8 @@ export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; pod
   const [aprovarSozinho, setAprovarSozinho] = useState(config.aprovarPelaResposta)
   const [formato, setFormato] = useState(config.formatoAprovacao)
   const [assistente, setAssistente] = useState(config.assistenteRespostas)
+  // Chave geral do Assistente na empresa (Configurações → Assistente GrafyGo)
+  const assistenteEmpresa = useAssistente()
   const [aberto, setAberto] = useState<EventoWhatsapp | null>(null)
   const alterado =
     aprovarSozinho !== config.aprovarPelaResposta ||
@@ -39,6 +43,8 @@ export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; pod
     mutationFn: whatsappApi.salvar,
     onSuccess: (c) => {
       queryClient.setQueryData(CHAVE_WHATSAPP, c)
+      // O mesmo ajuste aparece em Configurações → Assistente GrafyGo
+      void queryClient.invalidateQueries({ queryKey: CHAVE_ASSISTENTE })
       toast.success('Avisos do WhatsApp salvos.')
     },
     onError: (e) => toast.error((e as Error).message),
@@ -147,6 +153,15 @@ export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; pod
                 </p>
                 {!config.assistenteDisponivel && (
                   <p className="mt-1 text-xs font-medium text-amber-800">O Assistente ainda não foi liberado pela GrafyGo: a escolha passa a valer assim que ele for ligado.</p>
+                )}
+                {config.assistenteDisponivel && assistenteEmpresa.data && !assistenteEmpresa.data.controles.ativo && (
+                  <p className="mt-1 text-xs font-medium text-amber-800">
+                    O Assistente está desligado para a empresa em{' '}
+                    <Link to="/configuracoes/assistente" className="underline">
+                      Configurações → Assistente GrafyGo
+                    </Link>
+                    : a escolha vale quando ele for ligado.
+                  </p>
                 )}
               </div>
             </div>

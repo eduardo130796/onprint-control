@@ -99,12 +99,18 @@ export function criarCentralAssistente(app: FastifyInstance) {
       const desde = mes ? new Date(`${mes}-01T00:00:00-03:00`) : inicioDoMes(new Date())
       const ate = new Date(desde)
       ate.setUTCMonth(ate.getUTCMonth() + 1)
-      const [grupos, erros] = await Promise.all([
+      const [grupos, gruposRecurso, erros] = await Promise.all([
         plataforma.usoIa.groupBy({
           by: ['assinanteId', 'situacao'],
           where: { criadoEm: { gte: desde, lt: ate } },
           _count: { _all: true },
           _sum: { tokensEntrada: true, tokensSaida: true, custoEstimadoUsd: true },
+        }),
+        plataforma.usoIa.groupBy({
+          by: ['recurso', 'situacao'],
+          where: { criadoEm: { gte: desde, lt: ate } },
+          _count: { _all: true },
+          _sum: { tokensEntrada: true, tokensSaida: true, custoEstimadoUsd: true, itens: true },
         }),
         plataforma.usoIa.findMany({ where: { situacao: { in: ['erro', 'limite'] }, criadoEm: { gte: desde, lt: ate } }, orderBy: { criadoEm: 'desc' }, take: 15 }),
       ])
@@ -112,20 +118,30 @@ export function criarCentralAssistente(app: FastifyInstance) {
       const assinantes = new Map((await plataforma.assinante.findMany({ where: { id: { in: ids } }, select: { id: true, nome: true, slug: true } })).map((a) => [a.id, a]))
 
       const vazio = (): Omit<UsoEmpresaIA, 'empresa'> => ({ chamadas: 0, erros: 0, bloqueadas: 0, tokensEntrada: 0, tokensSaida: 0, custoUsd: 0, custoBrl: 0 })
+      /** Soma um grupo (empresa ou recurso × situação) na linha */
+      function somar(alvo: Omit<UsoEmpresaIA, 'empresa'>, g: (typeof grupos)[number]) {
+        if (g.situacao === 'limite') alvo.bloqueadas += g._count._all
+        else alvo.chamadas += g._count._all
+        if (g.situacao === 'erro') alvo.erros += g._count._all
+        alvo.tokensEntrada += g._sum.tokensEntrada ?? 0
+        alvo.tokensSaida += g._sum.tokensSaida ?? 0
+        alvo.custoUsd += Number(g._sum.custoEstimadoUsd ?? 0)
+      }
       const porEmpresa = new Map<string, UsoEmpresaIA>()
       const totais = vazio()
       for (const g of grupos) {
         const chave = g.assinanteId ?? 'central'
         const linhaEmpresa = porEmpresa.get(chave) ?? { empresa: g.assinanteId ? (assinantes.get(g.assinanteId) ?? { id: g.assinanteId, nome: 'Empresa removida', slug: '' }) : null, ...vazio() }
-        for (const alvo of [linhaEmpresa, totais]) {
-          if (g.situacao === 'limite') alvo.bloqueadas += g._count._all
-          else alvo.chamadas += g._count._all
-          if (g.situacao === 'erro') alvo.erros += g._count._all
-          alvo.tokensEntrada += g._sum.tokensEntrada ?? 0
-          alvo.tokensSaida += g._sum.tokensSaida ?? 0
-          alvo.custoUsd += Number(g._sum.custoEstimadoUsd ?? 0)
-        }
+        somar(linhaEmpresa, g)
+        somar(totais, g)
         porEmpresa.set(chave, linhaEmpresa)
+      }
+      const porRecurso = new Map<string, Omit<UsoEmpresaIA, 'empresa'> & { recurso: string; itens: number }>()
+      for (const g of gruposRecurso) {
+        const linhaRecurso = porRecurso.get(g.recurso) ?? { recurso: g.recurso, itens: 0, ...vazio() }
+        somar(linhaRecurso, { ...g, assinanteId: null })
+        linhaRecurso.itens += g._sum.itens ?? 0
+        porRecurso.set(g.recurso, linhaRecurso)
       }
       const fechar = <T extends Omit<UsoEmpresaIA, 'empresa'>>(u: T): T => ({ ...u, custoUsd: Math.round(u.custoUsd * 1e6) / 1e6, custoBrl: brl(u.custoUsd, c.cotacaoDolar) })
       return {
@@ -133,6 +149,7 @@ export function criarCentralAssistente(app: FastifyInstance) {
         cotacaoDolar: c.cotacaoDolar,
         totais: fechar(totais),
         empresas: [...porEmpresa.values()].map(fechar).sort((a, b) => b.custoUsd - a.custoUsd || b.chamadas - a.chamadas),
+        porRecurso: [...porRecurso.values()].map(fechar).sort((a, b) => b.chamadas - a.chamadas || b.custoUsd - a.custoUsd),
         ultimosErros: erros.map((e) => ({
           id: e.id,
           empresa: e.assinanteId ? (assinantes.get(e.assinanteId)?.nome ?? 'Empresa removida') : null,

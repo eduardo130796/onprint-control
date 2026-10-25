@@ -52,6 +52,8 @@ export interface RegistroUso {
   situacao: 'ok' | 'erro' | 'limite'
   erro: string | null
   latenciaMs: number | null
+  /** Quanto a chamada produziu (itens de orçamento, produtos, descrições); 0 nas outras */
+  itens?: number
 }
 
 /** O que o núcleo precisa do banco (Prisma em produção; memória nos testes) */
@@ -166,7 +168,14 @@ export function criarAssistente(o: OpcoesAssistente) {
    * Uma chamada estruturada. `assinanteId` null = teste da central (sem limite). `configTeste`: usa esta configuração
    * em vez da salva (botão "Testar" antes de ligar).
    */
-  async function executar<T>(e: { assinanteId: string | null; recurso: RecursoIA; pedido: PedidoEstruturado<T>; configTeste?: ConfigAssistente }): Promise<ResultadoIA<T>> {
+  async function executar<T>(e: {
+    assinanteId: string | null
+    recurso: RecursoIA
+    pedido: PedidoEstruturado<T>
+    configTeste?: ConfigAssistente
+    /** Quanto a resposta produziu (vai para uso_ia.itens: "este mês o Assistente montou X itens") */
+    contar?: (dados: T) => number
+  }): Promise<ResultadoIA<T>> {
     const c = e.configTeste ?? (await config())
     if (!e.configTeste && !c.pronto) return { ok: false, motivo: 'desligado', erro: null }
     const base = { assinanteId: e.assinanteId, recurso: e.recurso, provedor: c.provedor, modelo: c.modelo }
@@ -187,7 +196,7 @@ export function criarAssistente(o: OpcoesAssistente) {
       const r = await provedor.estruturado(e.pedido)
       const latenciaMs = Date.now() - inicio
       const custoUsd = custoEstimadoUsd(c.precos, c.modelo, r.uso)
-      await registrar({ ...base, modelo: c.modelo, tokensEntrada: r.uso.entrada, tokensSaida: r.uso.saida, custoEstimadoUsd: custoUsd, situacao: 'ok', erro: null, latenciaMs })
+      await registrar({ ...base, modelo: c.modelo, tokensEntrada: r.uso.entrada, tokensSaida: r.uso.saida, custoEstimadoUsd: custoUsd, situacao: 'ok', erro: null, latenciaMs, itens: e.contar?.(r.dados) ?? 0 })
       o.log.info({ recurso: e.recurso, prompt: VERSOES_PROMPTS[e.pedido.tarefa], modelo: r.modelo, tokens: r.uso, latenciaMs }, 'Assistente GrafyGo respondeu')
       return { ok: true, dados: r.dados, uso: r.uso, modelo: r.modelo, custoUsd, latenciaMs }
     } catch (erro) {

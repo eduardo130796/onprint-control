@@ -1,5 +1,5 @@
 import type { UseFormReturn } from 'react-hook-form'
-import type { Produto, ProdutoInput, produtoSchema } from '@onprint/shared'
+import type { Produto, ProdutoInput, ProdutoSugerido, produtoSchema } from '@onprint/shared'
 import type { z } from 'zod'
 import { decimalParaInput } from '@/lib/mascaras'
 
@@ -63,4 +63,26 @@ export const ABA_DO_CAMPO: Record<string, string> = {
   alturaMaxima: 'geral',
   controlaEstoque: 'estoque',
   estoqueMinimo: 'estoque',
+}
+
+/**
+ * Campos da aba Geral que o Assistente preenche (só o que veio na sugestão). Preço e custo nunca: ficam com a
+ * pessoa (e com a aba "Custo e preço"). Devolve os nomes dos campos para o selo "sugerido".
+ */
+export function preencherFormulario(form: Pick<FormProduto, 'setValue'>, s: ProdutoSugerido): (keyof ProdutoInput)[] {
+  const valores: Partial<Record<keyof ProdutoInput, string | boolean>> = {
+    nome: s.nome,
+    tipo: s.tipo,
+    modoCalculo: s.modoCalculo,
+    precisaArte: s.precisaArte,
+    ...(s.categoria?.id ? { categoriaId: s.categoria.id } : {}),
+    ...(s.unidadeMedidaId ? { unidadeMedidaId: s.unidadeMedidaId } : {}),
+    ...(s.larguraPadrao ? { larguraPadrao: decimalParaInput(s.larguraPadrao, 3) } : {}),
+    ...(s.alturaPadrao ? { alturaPadrao: decimalParaInput(s.alturaPadrao, 3) } : {}),
+    ...(s.prazoProducaoDias !== null ? { prazoProducaoDias: String(s.prazoProducaoDias) } : {}),
+    ...(s.descricao ? { descricao: s.descricao } : {}),
+  }
+  const campos = Object.keys(valores) as (keyof ProdutoInput)[]
+  for (const campo of campos) form.setValue(campo, valores[campo] as never, { shouldDirty: true })
+  return campos
 }

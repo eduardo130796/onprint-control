@@ -48,6 +48,7 @@ import { swaggerPlugin } from './plugins/swagger'
 import { whatsappPlugin } from './plugins/whatsapp'
 import { assistentePlugin } from './plugins/assistente'
 import { assistenteCentralRoutes } from './modules/assistente/central.routes'
+import { assistenteEmpresaRoutes } from './modules/assistente/empresa.routes'
 import { definirUrlSistema } from './core/links'
 
 declare module 'fastify' {
@@ -120,6 +121,7 @@ export async function buildApp(config: Env) {
       await v1.register(relatoriosRoutes)
       await v1.register(vitrineRoutes)
       await v1.register(whatsappRoutes)
+      await v1.register(assistenteEmpresaRoutes, { prefix: '/assistente' })
       await v1.register(publicoRoutes, { prefix: '/publico/:empresa' })
       await v1.register(vitrinePublicaRoutes, { prefix: '/publico/:empresa/vitrine' })
       await v1.register(vitrinePermitidaRoutes, { prefix: '/publico' })

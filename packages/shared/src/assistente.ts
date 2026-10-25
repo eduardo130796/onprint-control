@@ -1,9 +1,12 @@
 import { z } from 'zod'
+import type { BaseInsumo, ModoCalculo } from './enums'
 
 /*
  * Assistente GrafyGo: a IA que fala e age como "Assistente GrafyGo da <gráfica>". O núcleo (API) não depende de um
  * provedor: a central (painel da plataforma) escolhe o provedor, o modelo e a chave; cada uso grava tokens e custo.
- * Primeiro uso: entender respostas do cliente ao orçamento no WhatsApp que as regras não entendem.
+ * Usos: entender respostas do cliente ao orçamento no WhatsApp que as regras não entendem e as ajudas internas da
+ * equipe (montar orçamento a partir do texto do cliente, preencher produto, escrever descrições). Cada empresa liga e
+ * desliga cada uso (Configurações → Assistente); a IA nunca decide preço nem inventa cadastro.
  */
 
 export const NOME_ASSISTENTE = 'Assistente GrafyGo'
@@ -41,10 +44,13 @@ export function custoEstimadoUsd(precos: PrecoModeloIA[], modelo: string, tokens
 }
 
 /** Onde a IA foi usada (uso_ia.recurso) */
-export const RECURSOS_IA = ['whatsapp_resposta', 'teste_central'] as const
+export const RECURSOS_IA = ['whatsapp_resposta', 'orcamento_texto', 'produto_texto', 'descricao', 'teste_central'] as const
 export type RecursoIA = (typeof RECURSOS_IA)[number]
 export const RECURSO_IA_ROTULOS: Record<RecursoIA, string> = {
   whatsapp_resposta: 'Respostas no WhatsApp',
+  orcamento_texto: 'Orçamento a partir de texto',
+  produto_texto: 'Ajuda para criar produto',
+  descricao: 'Descrições',
   teste_central: 'Teste da central',
 }
 
@@ -132,5 +138,199 @@ export interface UsoAssistenteMes {
   cotacaoDolar: number
   totais: Omit<UsoEmpresaIA, 'empresa'>
   empresas: UsoEmpresaIA[]
+  /** O mesmo mês por recurso (WhatsApp, orçamento a partir de texto…), todas as empresas juntas */
+  porRecurso: (Omit<UsoEmpresaIA, 'empresa'> & { recurso: string; itens: number })[]
   ultimosErros: { id: string; empresa: string | null; recurso: string; situacao: 'erro' | 'limite'; erro: string | null; modelo: string; em: string }[]
+}
+
+// ─── Controles da empresa (Configurações → Assistente) ───
+
+/** Cada uso que a empresa liga ou desliga */
+export const FUNCOES_ASSISTENTE = ['respostasWhatsapp', 'orcamentoTexto', 'produtos', 'descricoes'] as const
+export type FuncaoAssistente = (typeof FUNCOES_ASSISTENTE)[number]
+
+export interface InfoFuncaoAssistente {
+  recurso: RecursoIA
+  titulo: string
+  descricao: string
+  /**
+   * O resultado chega ao cliente da gráfica (mensagem, texto publicado sem revisão…). "Nunca falar com meus clientes"
+   * desliga estes. Hoje nenhum fala: a leitura do WhatsApp só entende a resposta e avisa a equipe.
+   */
+  falaComCliente: boolean
+}
+
+export const FUNCOES_ASSISTENTE_INFO: Record<FuncaoAssistente, InfoFuncaoAssistente> = {
+  respostasWhatsapp: {
+    recurso: 'whatsapp_resposta',
+    titulo: 'Respostas do WhatsApp',
+    descricao: 'Entende respostas do cliente ao orçamento que fogem do padrão (“tá ótimo, pode mandar ver”) e avisa o vendedor com um resumo.',
+    falaComCliente: false,
+  },
+  orcamentoTexto: {
+    recurso: 'orcamento_texto',
+    titulo: 'Orçamento a partir de texto',
+    descricao: 'Cole o pedido do cliente e o Assistente monta os itens com os seus produtos. Os preços são sempre os do sistema.',
+    falaComCliente: false,
+  },
+  produtos: {
+    recurso: 'produto_texto',
+    titulo: 'Ajuda para criar produtos',
+    descricao: 'Descreva o produto e o Assistente preenche o cadastro (categoria, cobrança, materiais e acabamentos) para você conferir.',
+    falaComCliente: false,
+  },
+  descricoes: {
+    recurso: 'descricao',
+    titulo: 'Descrições de produtos',
+    descricao: 'Escreve a descrição do produto e o texto da vitrine com os dados reais do cadastro, para você revisar antes de salvar.',
+    falaComCliente: false,
+  },
+}
+
+export const controlesAssistenteSchema = z.object({
+  /** "Usar o Assistente GrafyGo": desligado, nenhum uso funciona */
+  ativo: z.boolean(),
+  respostasWhatsapp: z.boolean(),
+  orcamentoTexto: z.boolean(),
+  produtos: z.boolean(),
+  descricoes: z.boolean(),
+  /** "Nunca falar com meus clientes": só as ajudas internas */
+  semClientes: z.boolean(),
+})
+export type ControlesAssistente = z.infer<typeof controlesAssistenteSchema>
+
+export const CONTROLES_ASSISTENTE_PADRAO: ControlesAssistente = { ativo: true, respostasWhatsapp: true, orcamentoTexto: true, produtos: true, descricoes: true, semClientes: false }
+
+/** A empresa deixa usar esta função (a central da GrafyGo ainda precisa estar ligada) */
+export function funcaoLiberada(c: ControlesAssistente, funcao: FuncaoAssistente): boolean {
+  return c.ativo && c[funcao] && !(c.semClientes && FUNCOES_ASSISTENTE_INFO[funcao].falaComCliente)
+}
+
+/** Uso do mês de uma função na empresa */
+export interface UsoRecursoEmpresa {
+  recurso: RecursoIA
+  chamadas: number
+  /** Itens de orçamento montados, produtos preenchidos ou descrições escritas */
+  itens: number
+}
+
+/** Configurações → Assistente (e o que cada tela precisa para mostrar os botões) */
+export interface AssistenteEmpresa {
+  controles: ControlesAssistente
+  /** A central da GrafyGo ligou o Assistente (sem isso nada funciona, mesmo ligado aqui) */
+  disponivel: boolean
+  /** Cada função funciona agora (central ligada + controles da empresa) */
+  liberado: Record<FuncaoAssistente, boolean>
+  uso: {
+    /** "2026-10" */
+    mes: string
+    chamadas: number
+    /** Limite de chamadas no mês (null = sem limite) */
+    limiteChamadas: number | null
+    /** Quanto do limite de custo do mês já foi usado, em % (null = sem limite de custo) */
+    percentualCusto: number | null
+    porRecurso: UsoRecursoEmpresa[]
+  }
+}
+
+/** Abaixo disto, o item sugerido aparece com "conferir" */
+export const CONFIANCA_CONFERIR = 0.8
+
+// ─── Orçamento a partir de texto ───
+
+export const orcamentoDeTextoSchema = z.object({
+  texto: z.string().trim().min(5, 'Escreva ou cole o pedido do cliente.').max(3000, 'Use até 3.000 caracteres.'),
+})
+
+export interface ItemOrcamentoSugerido {
+  /** Produto do catálogo (null = o Assistente não achou um produto que sirva) */
+  produto: { id: string; nome: string; codigo: string; modoCalculo: ModoCalculo; precisaArte: boolean } | null
+  /** O que o cliente pediu, com as palavras do pedido */
+  descricao: string
+  /** Decimal da API ("1000", "2.5") */
+  quantidade: string
+  /** Metros */
+  largura: string | null
+  altura: string | null
+  /** Só acabamentos que o produto aceita (os obrigatórios entram sempre) */
+  acabamentos: { id: string; nome: string }[]
+  observacao: string | null
+  /** 0 a 1 */
+  confianca: number
+  /** Por que o Assistente escolheu este produto (ou por que não achou) */
+  motivo: string
+  /** Precisa conferir: confiança baixa, sem produto, acabamento ou medida que não serviu, preço com erro */
+  conferir: boolean
+  /** Avisos do sistema sobre o item ("acabamento X não é deste produto"…) */
+  avisos: string[]
+  /** Preço calculado pelo sistema com o motor de preços (a IA nunca dá preço) */
+  preco: { ok: boolean; precoUnitario: string; total: string; erros: string[] } | null
+}
+
+export interface OrcamentoDeTexto {
+  itens: ItemOrcamentoSugerido[]
+  cliente: {
+    /** Nome citado no pedido */
+    mencionado: string | null
+    /** Cliente do cadastro com o mesmo nome ou telefone (procurado pelo sistema, nunca pela IA) */
+    encontrado: { id: string; rotulo: string } | null
+  }
+  /** Prazo como o cliente escreveu ("sexta", "dia 15") */
+  prazoDesejado: string | null
+  observacoes: string | null
+  /** Partes do pedido que não viraram item */
+  naoIdentificados: string[]
+}
+
+// ─── Ajuda para criar produto ───
+
+export const produtoDeTextoSchema = z.object({
+  texto: z.string().trim().min(5, 'Descreva o produto.').max(2000, 'Use até 2.000 caracteres.'),
+})
+
+export interface ProdutoSugerido {
+  nome: string
+  tipo: 'produto' | 'servico'
+  /** Categoria existente (id) ou nova (id null: a pessoa cria) */
+  categoria: { id: string | null; nome: string } | null
+  modoCalculo: ModoCalculo
+  unidadeMedidaId: string | null
+  /** Metros */
+  larguraPadrao: string | null
+  alturaPadrao: string | null
+  prazoProducaoDias: number | null
+  precisaArte: boolean
+  /** Insumos do cadastro (ids conferidos) com o consumo por unidade de cobrança */
+  insumos: { insumoId: string; nome: string; unidade: string; custoUnitario: string; quantidade: string; base: BaseInsumo }[]
+  /** Etapas de produção do cadastro (o tempo fica em branco: vale a velocidade da máquina ou o tempo padrão) */
+  processos: { processoId: string; nome: string; maquinaId: string | null }[]
+  acabamentos: { id: string; nome: string }[]
+  /** Lucro desejado (%), só quando a pessoa disse */
+  margem: string | null
+  /** Descrição curta (orçamento e vitrine) */
+  descricao: string
+  /** O que não deu para usar ("material X não está no cadastro") */
+  avisos: string[]
+}
+
+// ─── Descrições ───
+
+export const descricaoAssistenteSchema = z.object({
+  /** Produto salvo (os dados vêm do cadastro); sem ele, valem os campos do formulário */
+  produtoId: z.string().uuid().optional(),
+  /** produto = descrição do cadastro (aparece no orçamento); vitrine = texto de venda do site */
+  destino: z.enum(['produto', 'vitrine']),
+  /** Produto ainda não salvo: o que está no formulário */
+  rascunho: z
+    .object({
+      nome: z.string().trim().min(2, 'Preencha o nome do produto.').max(200),
+      categoria: z.string().trim().max(120).nullable().optional(),
+      modoCalculo: z.enum(['unidade', 'm2', 'metro_linear', 'milheiro', 'hora']).optional(),
+    })
+    .optional(),
+})
+export type DescricaoAssistenteInput = z.input<typeof descricaoAssistenteSchema>
+
+export interface DescricaoSugerida {
+  texto: string
 }

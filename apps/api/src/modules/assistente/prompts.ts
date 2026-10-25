@@ -1,18 +1,35 @@
 import { z } from 'zod'
 import { INTENCOES_RESPOSTA_IA, NOME_ASSISTENTE, type IntencaoRespostaIA } from '@onprint/shared'
-import type { PedidoEstruturado } from '../../integrations/ia'
+import type { EsforcoIA, PedidoEstruturado, TarefaIA } from '../../integrations/ia'
 
 /*
- * Prompts do Assistente GrafyGo, todos aqui e versionados (VERSOES_PROMPTS vai para o log de cada chamada; mudou o
- * texto, sobe a versão). O Assistente sempre fala como "Assistente GrafyGo da <gráfica>", com o contexto da gráfica
- * e do orçamento — nunca um robô genérico.
+ * Prompts do Assistente GrafyGo, versionados (VERSOES_PROMPTS vai para o log de cada chamada; mudou o texto, sobe a
+ * versão): aqui a leitura das respostas do WhatsApp; as ajudas internas da equipe (orçamento a partir de texto,
+ * produto, descrição) em prompts-equipe.ts. O Assistente sempre fala como "Assistente GrafyGo da <gráfica>", com o
+ * contexto da gráfica — nunca um robô genérico.
  *
  * Privacidade: só vai o necessário para entender a resposta — o texto do cliente (sem números longos e e-mails, que
  * podem ser telefone ou documento), o número e os itens do orçamento, o primeiro nome do cliente e o nome da
  * gráfica. Nunca telefone, CPF/CNPJ, endereço ou valores de custo.
  */
 
-export const VERSOES_PROMPTS = { classificar_resposta: 'resposta-orcamento@1' } as const
+export const VERSOES_PROMPTS: Record<TarefaIA, string> = {
+  classificar_resposta: 'resposta-orcamento@1',
+  orcamento_texto: 'orcamento-de-texto@1',
+  produto_texto: 'produto-de-texto@1',
+  descricao: 'descricao-produto@1',
+}
+
+/**
+ * Esforço e tamanho da resposta de cada tarefa (o raciocínio do modelo conta em max_tokens). Classificar e escrever
+ * texto curto: "low"; extrair itens e cadastros de um texto solto é mais difícil: "medium", com mais tokens.
+ */
+export const AJUSTES_TAREFAS: Record<TarefaIA, { esforco: EsforcoIA; maxTokens: number }> = {
+  classificar_resposta: { esforco: 'low', maxTokens: 1024 },
+  orcamento_texto: { esforco: 'medium', maxTokens: 4096 },
+  produto_texto: { esforco: 'medium', maxTokens: 3072 },
+  descricao: { esforco: 'low', maxTokens: 2048 },
+}
 
 /** Telefones, documentos (8+ dígitos, com ou sem separadores) e e-mails viram marcadores antes de sair do servidor */
 export function semDadosPessoais(texto: string): string {
@@ -115,7 +132,7 @@ export function pedidoClassificarResposta(c: ContextoRespostaOrcamento): PedidoE
     conteudo: conteudoRespostaOrcamento(c),
     esquema: ESQUEMA_CLASSIFICACAO as unknown as Record<string, unknown>,
     validar: validarClassificacao,
-    maxTokens: 1024,
+    ...AJUSTES_TAREFAS.classificar_resposta,
   }
 }
 

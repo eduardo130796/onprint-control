@@ -6,6 +6,7 @@ import { NumberInput } from '@/components/shared/inputs'
 import { SearchSelect } from '@/components/shared/SearchSelect'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/form-controls'
+import { SeloSugerido } from '@/features/assistente/SeloSugerido'
 import { criarBuscaInsumos, type InfoInsumo } from '../../buscaInsumos'
 import { formatarCusto, numero } from '../../custos'
 import { Secao } from './Secao'
@@ -46,7 +47,8 @@ export function BlocoMateriais({ linhas, custos, unidadeProduto, baseNova, produ
 
   const buscar = criarBuscaInsumos(cache.current, { revendaExceto: produtoId })
 
-  const alterar = (chave: number, dados: Partial<MaterialLinha>) => onChange(linhas.map((l) => (l.chave === chave ? { ...l, ...dados } : l)))
+  // Mexeu na linha: deixa de ser "sugerida pelo Assistente"
+  const alterar = (chave: number, dados: Partial<MaterialLinha>) => onChange(linhas.map((l) => (l.chave === chave ? { ...l, ...dados, sugerido: false } : l)))
   const adicionar = () => onChange([...linhas, novoMaterial(baseNova)])
 
   return (
@@ -77,7 +79,7 @@ export function BlocoMateriais({ linhas, custos, unidadeProduto, baseNova, produ
             <li key={l.chave} className="space-y-3 rounded-2xl bg-fundo p-3 sm:p-4">
               <div className="flex items-end gap-3">
                 <div className="min-w-0 flex-1">
-              <CampoFormulario id={`mt-${l.chave}`} rotulo="Material">
+              <CampoFormulario id={`mt-${l.chave}`} rotulo="Material" acao={l.sugerido ? <SeloSugerido curto /> : undefined}>
                 <SearchSelect
                   id={`mt-${l.chave}`}
                   chave="composicao-insumos"

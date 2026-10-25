@@ -13,6 +13,7 @@ import {
   type Maquina,
   type ModoCusto,
   type Processo,
+  type ProdutoSugerido,
 } from '@onprint/shared'
 import { decimalParaInput } from '@/lib/mascaras'
 import { paraApi, paraCampo, producaoParaMotor, type DadosProducao } from '../../custos'
@@ -35,6 +36,8 @@ export interface MaterialLinha {
   quantidade: string
   base: BaseInsumo
   perdaPercentual: string
+  /** Veio da sugestão do Assistente GrafyGo: selo até a pessoa mexer ou salvar */
+  sugerido?: boolean
 }
 
 export interface ProducaoLinha {
@@ -44,6 +47,8 @@ export interface ProducaoLinha {
   minutos: string
   base: BaseTempo
   setupMinutos: string
+  /** Veio da sugestão do Assistente GrafyGo */
+  sugerido?: boolean
 }
 
 export interface ExtraLinha {
@@ -101,6 +106,31 @@ export function estadoDoDetalhe(d: ComposicaoProdutoDetalhe): EstadoComposicao {
     lucroMinimo: paraCampo(d.lucroMinimo, 2),
     precoVenda: decimalParaInput(d.precoVenda),
     precoMinimo: d.precoMinimo ? decimalParaInput(d.precoMinimo) : '',
+  }
+}
+
+/** O que o Assistente sugeriu para o custo (materiais, etapas e o lucro dito pela pessoa) */
+export type SugestaoCusto = Pick<ProdutoSugerido, 'insumos' | 'processos' | 'margem'>
+
+export const temSugestaoCusto = (s: SugestaoCusto | null | undefined): boolean => Boolean(s && (s.insumos.length || s.processos.length || s.margem))
+
+/**
+ * Sugestão do Assistente na composição: materiais e etapas que ainda não estão nela (com o selo), lucro desejado só
+ * se a pessoa disse e o modo "composição". Nada é salvo: a pessoa confere e clica em Salvar.
+ */
+export function aplicarSugestao(e: EstadoComposicao, s: SugestaoCusto, baseProducao: BaseTempo): EstadoComposicao {
+  const materiais = s.insumos
+    .filter((i) => !e.materiais.some((m) => m.insumoId === i.insumoId))
+    .map((i): MaterialLinha => ({ chave: chave(), insumoId: i.insumoId, nome: i.nome, unidade: i.unidade, custoUnitario: i.custoUnitario, quantidade: paraCampo(i.quantidade), base: i.base, perdaPercentual: '', sugerido: true }))
+  const producao = s.processos
+    .filter((p) => !e.producao.some((x) => x.processoId === p.processoId))
+    .map((p): ProducaoLinha => ({ chave: chave(), processoId: p.processoId, maquinaId: p.maquinaId ?? '', minutos: '', base: baseProducao, setupMinutos: '', sugerido: true }))
+  return {
+    ...e,
+    modoCusto: materiais.length || producao.length || e.materiais.length ? 'composicao' : e.modoCusto,
+    materiais: [...e.materiais, ...materiais],
+    producao: [...e.producao, ...producao],
+    lucroDesejado: s.margem ? paraCampo(s.margem, 2) : e.lucroDesejado,
   }
 }
 

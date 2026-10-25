@@ -3,6 +3,7 @@ import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { MoneyInput, NumberInput } from '@/components/shared/inputs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select } from '@/components/ui/form-controls'
+import { SeloSugerido } from '@/features/assistente/SeloSugerido'
 import { formatarPrecoUnitario } from '@/lib/produtos'
 import type { FormProduto } from './formProduto'
 
@@ -15,8 +16,9 @@ const EXPLICACAO: Record<ModoCalculo, string> = {
 }
 
 /** Como o produto é vendido: forma de cobrança e medidas (o preço fica na aba "Custo e preço"). */
-export function ComoEVendido({ form, produto }: { form: FormProduto; produto?: Produto }) {
+export function ComoEVendido({ form, produto, sugeridos }: { form: FormProduto; produto?: Produto; sugeridos?: Set<string> }) {
   const { errors } = form.formState
+  const selo = (campo: string) => (sugeridos?.has(campo) ? <SeloSugerido curto /> : undefined)
   const r = form.register
   const modo = (form.watch('modoCalculo') ?? 'unidade') as ModoCalculo
   const sufixo = MODO_CALCULO_SUFIXO[modo]
@@ -28,7 +30,7 @@ export function ComoEVendido({ form, produto }: { form: FormProduto; produto?: P
       </CardHeader>
       <CardContent className="grid gap-4 md:grid-cols-4">
         <div className="md:col-span-2">
-          <CampoFormulario id="pd-modo" rotulo="Cobrar">
+          <CampoFormulario id="pd-modo" rotulo="Cobrar" acao={selo('modoCalculo')}>
             <Select id="pd-modo" {...r('modoCalculo')}>
               {MODOS_CALCULO.map((m) => (
                 <option key={m} value={m}>
@@ -53,10 +55,10 @@ export function ComoEVendido({ form, produto }: { form: FormProduto; produto?: P
             <p className="mt-1.5 text-xs text-texto-secundario">Depois de salvar, a aba “Custo e preço” calcula o preço sugerido pelo custo.</p>
           </div>
         )}
-        <CampoFormulario id="pd-lp" rotulo={modo === 'metro_linear' ? 'Comprimento padrão' : 'Largura padrão'} erro={errors.larguraPadrao?.message}>
+        <CampoFormulario id="pd-lp" rotulo={modo === 'metro_linear' ? 'Comprimento padrão' : 'Largura padrão'} erro={errors.larguraPadrao?.message} acao={selo('larguraPadrao')}>
           <NumberInput id="pd-lp" casas={3} sufixo="m" {...r('larguraPadrao')} />
         </CampoFormulario>
-        <CampoFormulario id="pd-ap" rotulo="Altura padrão" erro={errors.alturaPadrao?.message}>
+        <CampoFormulario id="pd-ap" rotulo="Altura padrão" erro={errors.alturaPadrao?.message} acao={selo('alturaPadrao')}>
           <NumberInput id="pd-ap" casas={3} sufixo="m" {...r('alturaPadrao')} />
         </CampoFormulario>
         <CampoFormulario id="pd-lm" rotulo="Largura máxima" erro={errors.larguraMaxima?.message}>

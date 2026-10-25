@@ -138,52 +138,60 @@ model PapelPermissao {
 
 /// Linha única com os dados da empresa e padrões comerciais.
 model EmpresaConfig {
-  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  razaoSocial           String      @map("razao_social")
-  nomeFantasia          String?     @map("nome_fantasia")
-  cnpj                  String?
-  ie                    String?
-  email                 String?
-  telefone              String?
-  whatsapp              String?
-  site                  String?
-  cep                   String?
-  logradouro            String?
-  numero                String?
-  complemento           String?
-  bairro                String?
-  cidade                String?
-  uf                    String?     @db.Char(2)
-  logoArquivoId         String?     @map("logo_arquivo_id") @db.Uuid
+  id                       String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  razaoSocial              String      @map("razao_social")
+  nomeFantasia             String?     @map("nome_fantasia")
+  cnpj                     String?
+  ie                       String?
+  email                    String?
+  telefone                 String?
+  whatsapp                 String?
+  site                     String?
+  cep                      String?
+  logradouro               String?
+  numero                   String?
+  complemento              String?
+  bairro                   String?
+  cidade                   String?
+  uf                       String?     @db.Char(2)
+  logoArquivoId            String?     @map("logo_arquivo_id") @db.Uuid
   /// Cor do tema do sistema (paleta TEMAS: verde, azul, roxo…); null = azul GrafyGo
-  corTema               String?     @map("cor_tema")
+  corTema                  String?     @map("cor_tema")
   /// Minutos sem uso até o sistema sair sozinho (15, 30, 60, 120 ou 240)
-  inatividadeMinutos    Int         @default(30) @map("inatividade_minutos")
-  validadeOrcamentoDias Int         @default(7) @map("validade_orcamento_dias")
-  condicoesPadrao       String?     @map("condicoes_padrao")
-  sinalPercentual       Decimal     @default(50) @map("sinal_percentual") @db.Decimal(5, 2)
-  chavePix              String?     @map("chave_pix")
-  areaMinimaM2          Decimal     @default(0) @map("area_minima_m2") @db.Decimal(10, 3)
+  inatividadeMinutos       Int         @default(30) @map("inatividade_minutos")
+  validadeOrcamentoDias    Int         @default(7) @map("validade_orcamento_dias")
+  condicoesPadrao          String?     @map("condicoes_padrao")
+  sinalPercentual          Decimal     @default(50) @map("sinal_percentual") @db.Decimal(5, 2)
+  chavePix                 String?     @map("chave_pix")
+  areaMinimaM2             Decimal     @default(0) @map("area_minima_m2") @db.Decimal(10, 3)
   /// Precificação: percentuais sobre o preço, rateio dos custos fixos e lucro padrão (docs/PRECIFICACAO.md)
-  impostosPercentual    Decimal     @default(0) @map("impostos_percentual") @db.Decimal(5, 2)
-  comissaoPercentual    Decimal     @default(0) @map("comissao_percentual") @db.Decimal(5, 2)
-  custoFixoPercentual   Decimal     @default(0) @map("custo_fixo_percentual") @db.Decimal(5, 2)
+  impostosPercentual       Decimal     @default(0) @map("impostos_percentual") @db.Decimal(5, 2)
+  comissaoPercentual       Decimal     @default(0) @map("comissao_percentual") @db.Decimal(5, 2)
+  custoFixoPercentual      Decimal     @default(0) @map("custo_fixo_percentual") @db.Decimal(5, 2)
   /// nenhum | percentual | por_hora
-  rateioModo            String      @default("nenhum") @map("rateio_modo")
-  custoFixoMensal       Decimal     @default(0) @map("custo_fixo_mensal") @db.Decimal(12, 2)
-  horasProdutivasMes    Int         @default(0) @map("horas_produtivas_mes")
-  lucroDesejadoPadrao   Decimal     @default(30) @map("lucro_desejado_padrao") @db.Decimal(5, 2)
-  lucroMinimoPadrao     Decimal     @default(15) @map("lucro_minimo_padrao") @db.Decimal(5, 2)
+  rateioModo               String      @default("nenhum") @map("rateio_modo")
+  custoFixoMensal          Decimal     @default(0) @map("custo_fixo_mensal") @db.Decimal(12, 2)
+  horasProdutivasMes       Int         @default(0) @map("horas_produtivas_mes")
+  lucroDesejadoPadrao      Decimal     @default(30) @map("lucro_desejado_padrao") @db.Decimal(5, 2)
+  lucroMinimoPadrao        Decimal     @default(15) @map("lucro_minimo_padrao") @db.Decimal(5, 2)
   /// Pedidos: orçamento aprovado (pelo link ou registrado pela equipe) vira pedido sozinho, com os padrões abaixo
-  converterAoAprovar    Boolean     @default(true) @map("converter_ao_aprovar")
+  converterAoAprovar       Boolean     @default(true) @map("converter_ao_aprovar")
   /// Parcelas do saldo depois do sinal e o intervalo entre elas
-  parcelasPadrao        Int         @default(1) @map("parcelas_padrao")
-  intervaloDiasPadrao   Int         @default(30) @map("intervalo_dias_padrao")
-  tipoEntregaPadrao     TipoEntrega @default(retirada) @map("tipo_entrega_padrao")
-  prioridadePadrao      Prioridade  @default(normal) @map("prioridade_padrao")
-  createdAt             DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
-  createdBy             String?     @map("created_by") @db.Uuid
+  parcelasPadrao           Int         @default(1) @map("parcelas_padrao")
+  intervaloDiasPadrao      Int         @default(30) @map("intervalo_dias_padrao")
+  tipoEntregaPadrao        TipoEntrega @default(retirada) @map("tipo_entrega_padrao")
+  prioridadePadrao         Prioridade  @default(normal) @map("prioridade_padrao")
+  /// Assistente GrafyGo (IA) nesta empresa: chave geral e cada ajuda (valem com a central ligada). A leitura das
+  /// respostas do WhatsApp continua em whatsapp_config.assistente_respostas.
+  assistenteAtivo          Boolean     @default(true) @map("assistente_ativo")
+  assistenteOrcamentoTexto Boolean     @default(true) @map("assistente_orcamento_texto")
+  assistenteProdutos       Boolean     @default(true) @map("assistente_produtos")
+  assistenteDescricoes     Boolean     @default(true) @map("assistente_descricoes")
+  /// "Nunca falar com meus clientes": só ajudas internas; nada do Assistente chega ao cliente
+  assistenteSemClientes    Boolean     @default(false) @map("assistente_sem_clientes")
+  createdAt                DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdBy                String?     @map("created_by") @db.Uuid
 
   logo Arquivo? @relation(fields: [logoArquivoId], references: [id], onDelete: SetNull)
 
@@ -2401,6 +2409,8 @@ model UsoIa {
   situacao         String   @default("ok")
   erro             String?
   latenciaMs       Int?     @map("latencia_ms")
+  /// Quanto a chamada produziu: itens de orçamento montados, produtos preenchidos, descrições escritas
+  itens            Int      @default(0)
   criadoEm         DateTime @default(now()) @map("criado_em") @db.Timestamptz(3)
 
   @@index([assinanteId, criadoEm])

@@ -335,6 +335,42 @@ function UsoDoMes() {
             </div>
           )}
 
+          {u!.porRecurso.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-sm font-semibold text-tinta">Por recurso</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[34rem] text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-texto-secundario">
+                      <th className="py-2 pr-3 font-medium">Recurso</th>
+                      <th className="py-2 pr-3 text-right font-medium">Chamadas</th>
+                      <th className="py-2 pr-3 text-right font-medium" title="Itens de orçamento montados, produtos preenchidos, descrições escritas">
+                        Produziu
+                      </th>
+                      <th className="py-2 pr-3 text-right font-medium">Tokens</th>
+                      <th className="py-2 text-right font-medium">R$</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {u!.porRecurso.map((r) => (
+                      <tr key={r.recurso}>
+                        <td className="py-2 pr-3 font-medium text-tinta">{RECURSO_IA_ROTULOS[r.recurso as RecursoIA] ?? r.recurso}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums">
+                          {inteiro(r.chamadas)}
+                          {r.erros > 0 && <span className="block text-xs text-coral-escuro">{r.erros} erro(s)</span>}
+                          {r.bloqueadas > 0 && <span className="block text-xs text-amber-800">{r.bloqueadas} no limite</span>}
+                        </td>
+                        <td className="py-2 pr-3 text-right tabular-nums">{r.itens ? inteiro(r.itens) : '—'}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums">{inteiro(r.tokensEntrada + r.tokensSaida)}</td>
+                        <td className="py-2 text-right tabular-nums">{reais(r.custoBrl)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {u!.ultimosErros.length > 0 && (
             <div>
               <h3 className="mb-2 text-sm font-semibold text-tinta">Últimos erros e limites</h3>

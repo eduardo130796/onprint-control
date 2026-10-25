@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { ImageIcon } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { EXTENSOES_IMAGEM, TIPOS_PRODUTO, TIPO_PRODUTO_ROTULOS, type Produto } from '@onprint/shared'
@@ -8,6 +9,8 @@ import { NumberInput } from '@/components/shared/inputs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox, Select, Textarea } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
+import { BotaoEscrever } from '@/features/assistente/BotaoEscrever'
+import { SeloSugerido } from '@/features/assistente/SeloSugerido'
 import { useUrlArquivo } from '@/features/configuracoes/hooks'
 import { useCategorias, useUnidades } from '../../hooks'
 import { ComoEVendido } from './ComoEVendido'
@@ -44,13 +47,17 @@ interface AbaGeralProps {
   form: FormProduto
   produto?: Produto
   podeEditar: boolean
+  /** Campos preenchidos pelo Assistente GrafyGo (selo até a pessoa mexer ou salvar) */
+  sugeridos?: Set<string>
 }
 
-export function AbaGeral({ form, produto, podeEditar }: AbaGeralProps) {
+export function AbaGeral({ form, produto, podeEditar, sugeridos }: AbaGeralProps) {
   const categorias = useCategorias('true')
   const unidades = useUnidades()
   const { errors } = form.formState
   const r = form.register
+  const selo = (campo: string) => (sugeridos?.has(campo) ? <SeloSugerido curto /> : undefined)
+  const [descricaoSugerida, setDescricaoSugerida] = useState(false)
 
   // Insumo tem tela própria (Produtos → Insumos)
   const tipos = TIPOS_PRODUTO.filter((t) => t !== 'insumo' || produto?.tipo === 'insumo')
@@ -61,7 +68,7 @@ export function AbaGeral({ form, produto, podeEditar }: AbaGeralProps) {
         <Card>
           <CardContent className="grid gap-4 pt-6 md:grid-cols-6">
             <div className="md:col-span-4">
-              <CampoFormulario id="pd-nome" rotulo="Nome *" erro={errors.nome?.message}>
+              <CampoFormulario id="pd-nome" rotulo="Nome *" erro={errors.nome?.message} acao={selo('nome')}>
                 <Input id="pd-nome" aria-invalid={Boolean(errors.nome)} {...r('nome')} />
               </CampoFormulario>
             </div>
@@ -71,7 +78,7 @@ export function AbaGeral({ form, produto, podeEditar }: AbaGeralProps) {
               </CampoFormulario>
             </div>
             <div className="md:col-span-2">
-              <CampoFormulario id="pd-tipo" rotulo="Tipo">
+              <CampoFormulario id="pd-tipo" rotulo="Tipo" acao={selo('tipo')}>
                 <Select id="pd-tipo" {...r('tipo')}>
                   {tipos.map((t) => (
                     <option key={t} value={t}>
@@ -82,7 +89,7 @@ export function AbaGeral({ form, produto, podeEditar }: AbaGeralProps) {
               </CampoFormulario>
             </div>
             <div className="md:col-span-4">
-              <CampoFormulario id="pd-categoria" rotulo="Categoria">
+              <CampoFormulario id="pd-categoria" rotulo="Categoria" acao={selo('categoriaId')}>
                 <Select id="pd-categoria" {...r('categoriaId')}>
                   <option value="">Sem categoria</option>
                   {categorias.data?.map((c) => (
@@ -94,7 +101,7 @@ export function AbaGeral({ form, produto, podeEditar }: AbaGeralProps) {
               </CampoFormulario>
             </div>
             <div className="md:col-span-3">
-              <CampoFormulario id="pd-unidade" rotulo="Unidade de medida">
+              <CampoFormulario id="pd-unidade" rotulo="Unidade de medida" acao={selo('unidadeMedidaId')}>
                 <Select id="pd-unidade" {...r('unidadeMedidaId')}>
                   <option value="">—</option>
                   {unidades.data?.map((u) => (
@@ -106,7 +113,7 @@ export function AbaGeral({ form, produto, podeEditar }: AbaGeralProps) {
               </CampoFormulario>
             </div>
             <div className="md:col-span-3">
-              <CampoFormulario id="pd-prazo" rotulo="Prazo de produção" erro={errors.prazoProducaoDias?.message}>
+              <CampoFormulario id="pd-prazo" rotulo="Prazo de produção" erro={errors.prazoProducaoDias?.message} acao={selo('prazoProducaoDias')}>
                 <NumberInput id="pd-prazo" casas={0} sufixo="dias úteis" className="pr-20" {...r('prazoProducaoDias')} />
               </CampoFormulario>
             </div>
@@ -114,7 +121,7 @@ export function AbaGeral({ form, produto, podeEditar }: AbaGeralProps) {
               <label className="flex items-start gap-2 text-sm">
                 <Checkbox className="mt-0.5" {...r('precisaArte')} />
                 <span>
-                  Costuma precisar de arte
+                  <span className="flex flex-wrap items-center gap-2">Costuma precisar de arte {selo('precisaArte')}</span>
                   <span className="block text-xs text-texto-secundario">
                     Vem marcado no item do orçamento (o vendedor decide em cada um). Item com arte: o pedido espera a arte antes de produzir; sem arte, vai direto
                     para a produção.
@@ -123,8 +130,31 @@ export function AbaGeral({ form, produto, podeEditar }: AbaGeralProps) {
               </label>
             </div>
             <div className="md:col-span-6">
-              <CampoFormulario id="pd-descricao" rotulo="Descrição (aparece no orçamento)">
-                <Textarea id="pd-descricao" rows={3} {...r('descricao')} />
+              <CampoFormulario
+                id="pd-descricao"
+                rotulo="Descrição (aparece no orçamento)"
+                acao={
+                  <span className="flex items-center gap-2">
+                    {(sugeridos?.has('descricao') || descricaoSugerida) && <SeloSugerido curto />}
+                    {podeEditar && (
+                      <BotaoEscrever
+                        pedido={() => {
+                          if (produto) return { produtoId: produto.id, destino: 'produto' }
+                          const v = form.getValues()
+                          if ((v.nome ?? '').trim().length < 2) return null
+                          const categoria = categorias.data?.find((c) => c.id === v.categoriaId)
+                          return { destino: 'produto', rascunho: { nome: v.nome!.trim(), categoria: categoria?.caminho ?? null, modoCalculo: v.modoCalculo } }
+                        }}
+                        onTexto={(texto) => {
+                          form.setValue('descricao', texto, { shouldDirty: true })
+                          setDescricaoSugerida(true)
+                        }}
+                      />
+                    )}
+                  </span>
+                }
+              >
+                <Textarea id="pd-descricao" rows={3} {...r('descricao', { onChange: () => setDescricaoSugerida(false) })} />
               </CampoFormulario>
             </div>
           </CardContent>
@@ -139,7 +169,7 @@ export function AbaGeral({ form, produto, podeEditar }: AbaGeralProps) {
           </CardContent>
         </Card>
       </div>
-      <ComoEVendido form={form} produto={produto} />
+      <ComoEVendido form={form} produto={produto} sugeridos={sugeridos} />
     </div>
   )
 }

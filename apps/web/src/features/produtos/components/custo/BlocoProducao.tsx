@@ -5,6 +5,7 @@ import { NumberInput } from '@/components/shared/inputs'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
+import { SeloSugerido } from '@/features/assistente/SeloSugerido'
 import { minutosAutomaticos, type DadosProducao } from '../../custos'
 import { Secao } from './Secao'
 import { novaProducao, novoExtra, type ExtraLinha, type ProducaoLinha } from './estadoComposicao'
@@ -68,7 +69,8 @@ interface ProducaoProps {
 
 /** Produção: tempo de máquina ou mão de obra (minutos × custo/hora) + preparo. */
 export function BlocoProducao({ linhas, dados, custos, processos, maquinas, unidadeProduto, baseNova, editavel, onChange }: ProducaoProps) {
-  const alterar = (chave: number, d: Partial<ProducaoLinha>) => onChange(linhas.map((l) => (l.chave === chave ? { ...l, ...d } : l)))
+  // Mexeu na linha: deixa de ser "sugerida pelo Assistente"
+  const alterar = (chave: number, d: Partial<ProducaoLinha>) => onChange(linhas.map((l) => (l.chave === chave ? { ...l, ...d, sugerido: false } : l)))
   const adicionar = () => onChange([...linhas, novaProducao(baseNova)])
 
   return (
@@ -94,7 +96,7 @@ export function BlocoProducao({ linhas, dados, custos, processos, maquinas, unid
             return (
               <li key={l.chave} className="space-y-3 rounded-2xl bg-fundo p-3 sm:p-4">
                 <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-                <CampoFormulario id={`pr-${l.chave}`} rotulo="Etapa (processo)">
+                <CampoFormulario id={`pr-${l.chave}`} rotulo="Etapa (processo)" acao={l.sugerido ? <SeloSugerido curto /> : undefined}>
                   <Select id={`pr-${l.chave}`} value={l.processoId} disabled={!editavel} aria-invalid={!l.processoId} onChange={(e) => alterar(l.chave, { processoId: e.target.value })}>
                     <option value="">Escolha…</option>
                     {processos.map((p) => (

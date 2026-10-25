@@ -1,10 +1,10 @@
-import { Suspense, lazy, useState } from 'react'
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Suspense, lazy, useEffect, useState } from 'react'
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeft, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
-import { TIPO_PRODUTO_ROTULOS, produtoSchema, type ProdutoDetalhe, type ProdutoInput } from '@onprint/shared'
+import { TIPO_PRODUTO_ROTULOS, produtoSchema, type ProdutoDetalhe, type ProdutoInput, type ProdutoSugerido } from '@onprint/shared'
 import { produtosApi } from '@/api/produtos'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { EstadoErro } from '@/components/shared/EstadoErro'
@@ -13,6 +13,7 @@ import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ResumoEstoqueProduto } from '@/features/estoque/components/KardexDialog'
+import { useAjudaLiberada } from '@/features/assistente/useAssistente'
 import { usePermission } from '@/hooks/usePermission'
 import { useCategorias, useMutacao, useProduto, useUnidades } from '../hooks'
 import { AbaEstoque } from '../components/produto/AbaEstoque'
@@ -20,12 +21,19 @@ import { AbaGeral } from '../components/produto/AbaGeral'
 import { AcabamentosEditor } from '../components/produto/AcabamentosEditor'
 import { SimuladorPreco } from '../components/produto/SimuladorPreco'
 import { AbaCustoPreco } from '../components/custo/AbaCustoPreco'
+import { temSugestaoCusto } from '../components/custo/estadoComposicao'
 import { ABA_DO_CAMPO, semPrecoECusto, valoresProduto, type ProdutoSaida } from '../components/produto/formProduto'
+import { PreencherComAssistente } from '../components/produto/PreencherComAssistente'
+
+/** Estado da navegação depois de cadastrar: o que o Assistente sugeriu e ainda falta conferir (custo, acabamentos) */
+interface EstadoNavegacao {
+  sugestaoAssistente?: ProdutoSugerido
+}
 
 // Aba "Vitrine" (módulo vitrine): carregada só quando aberta (traz o arrastar e soltar da galeria)
 const AbaVitrineProduto = lazy(() => import('@/features/vitrine/components/AbaVitrineProduto').then((m) => ({ default: m.AbaVitrineProduto })))
 
-function Formulario({ produto }: { produto?: ProdutoDetalhe }) {
+function Formulario({ produto, sugestaoInicial }: { produto?: ProdutoDetalhe; sugestaoInicial?: ProdutoSugerido | null }) {
   const navigate = useNavigate()
   const podeSalvar = usePermission('produtos', produto ? 'editar' : 'criar')
   const veCustos = usePermission('produtos', 'editar')
@@ -41,13 +49,35 @@ function Formulario({ produto }: { produto?: ProdutoDetalhe }) {
   const salvar = useMutacao(['produtos'], (d: ProdutoSaida) => (produto ? produtosApi.atualizar(produto.id, semPrecoECusto(d)) : produtosApi.criar(d)))
   const { isDirty } = form.formState
 
+  // Assistente GrafyGo: campos preenchidos por ele (selo até a pessoa mexer ou salvar) e o resto da sugestão
+  // (materiais, etapas, acabamentos), que as abas mostram para conferir
+  const assistenteLiberado = useAjudaLiberada('produtos')
+  const [sugestao, setSugestao] = useState<ProdutoSugerido | null>(sugestaoInicial ?? null)
+  const [sugeridos, setSugeridos] = useState<Set<string>>(() => new Set())
+  useEffect(() => {
+    // Só a digitação tira o selo (o preenchimento pelo Assistente chega sem "type")
+    const assinatura = form.watch((_valores, { name, type }) => {
+      if (type === 'change' && name) setSugeridos((s) => (s.has(name) ? new Set([...s].filter((c) => c !== name)) : s))
+    })
+    return () => assinatura.unsubscribe()
+  }, [form])
+  // A sugestão veio pela navegação (produto recém-cadastrado): fica no estado da tela; recarregar não a traz de volta
+  const location = useLocation()
+  useEffect(() => {
+    if (sugestaoInicial) navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+    // Só ao abrir
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const onSubmit = form.handleSubmit(
     async (dados) => {
       try {
         const salvo = await salvar.mutateAsync(dados)
         toast.success(produto ? 'Produto atualizado.' : `Produto ${salvo.codigo} cadastrado.`)
+        setSugeridos(new Set())
         if (produto) form.reset(valoresProduto(salvo))
-        else navigate(`/produtos/${salvo.id}`, { replace: true })
+        // O que o Assistente sugeriu para o custo e os acabamentos segue para as abas do produto cadastrado
+        else navigate(`/produtos/${salvo.id}`, { replace: true, state: sugestao ? ({ sugestaoAssistente: sugestao } satisfies EstadoNavegacao) : undefined })
       } catch (e) {
         toast.error((e as Error).message)
       }
@@ -92,7 +122,24 @@ function Formulario({ produto }: { produto?: ProdutoDetalhe }) {
       <form onSubmit={onSubmit} noValidate>
         <fieldset disabled={!podeSalvar || salvar.isPending}>
           <TabsContent value="geral" forceMount className={conteudo}>
-            <AbaGeral form={form} produto={produto} podeEditar={podeSalvar} />
+            {assistenteLiberado && podeSalvar && (
+              <div className="mb-6">
+                <PreencherComAssistente
+                  form={form}
+                  salvo={Boolean(produto)}
+                  onSugestao={(s, campos) => {
+                    setSugestao(s)
+                    setSugeridos(new Set(campos))
+                  }}
+                />
+              </div>
+            )}
+            {produto && sugestao && (temSugestaoCusto(sugestao) || sugestao.acabamentos.length > 0) && (
+              <p className="mb-4 rounded-xl bg-marca-suave p-3 text-sm text-marca-escuro">
+                O Assistente também sugeriu materiais, etapas ou acabamentos: confira nas abas “Custo e preço” e “Acabamentos”.
+              </p>
+            )}
+            <AbaGeral form={form} produto={produto} podeEditar={podeSalvar} sugeridos={sugeridos} />
           </TabsContent>
           <TabsContent value="estoque" forceMount className={conteudo}>
             <AbaEstoque form={form} siglaUnidade={produto?.unidadeMedida?.sigla} />
@@ -119,11 +166,23 @@ function Formulario({ produto }: { produto?: ProdutoDetalhe }) {
         <>
           {veCustos && custoVisitado && (
             <TabsContent value="custo" forceMount className="pt-6 data-[state=inactive]:hidden">
-              <AbaCustoPreco produtoId={produto.id} podeEditar={podeSalvar} geralPendente={isDirty} />
+              <AbaCustoPreco
+                produtoId={produto.id}
+                podeEditar={podeSalvar}
+                geralPendente={isDirty}
+                sugestao={sugestao}
+                onSugestaoAplicada={() => setSugestao((s) => (s ? { ...s, insumos: [], processos: [], margem: null } : s))}
+              />
             </TabsContent>
           )}
           <TabsContent value="acabamentos">
-            <AcabamentosEditor key={produto.updatedAt} produto={produto} podeEditar={podeSalvar} />
+            <AcabamentosEditor
+              key={`${produto.updatedAt}-${sugestao?.acabamentos.length ?? 0}`}
+              produto={produto}
+              podeEditar={podeSalvar}
+              sugeridos={sugestao?.acabamentos.map((a) => a.id)}
+              onSalvo={() => setSugestao((s) => (s ? { ...s, acabamentos: [] } : s))}
+            />
           </TabsContent>
           <TabsContent value="simulador">
             <SimuladorPreco produto={produto} alteracoesPendentes={isDirty} />
@@ -146,6 +205,7 @@ export function ProdutoPage() {
   const { id } = useParams()
   const novo = !id || id === 'novo'
   const consulta = useProduto(novo ? undefined : id)
+  const sugestaoAssistente = (useLocation().state as EstadoNavegacao | null)?.sugestaoAssistente ?? null
   // Os selects (categoria, unidade) precisam das opções antes de montar o formulário, senão perdem o valor salvo
   const unidades = useUnidades()
   const categorias = useCategorias('true')
@@ -185,7 +245,7 @@ export function ProdutoPage() {
         }
         acoes={voltar}
       />
-      <Formulario key={p.id} produto={p} />
+      <Formulario key={p.id} produto={p} sugestaoInicial={sugestaoAssistente} />
     </>
   )
 }

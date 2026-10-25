@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { orcamentoSchema, type OrcamentoDetalhe, type ProdutoCatalogo, type SolicitacaoItem } from '@onprint/shared'
-import { formDoOrcamento, itemComProduto, itemVazio, itensDaSolicitacao, payloadDoForm, resumoPagamentoDoForm } from './formOrcamento'
+import { orcamentoSchema, type ItemOrcamentoSugerido, type OrcamentoDetalhe, type ProdutoCatalogo, type SolicitacaoItem } from '@onprint/shared'
+import { formDoOrcamento, itemComProduto, itemDoAssistente, itemVazio, itensDaSolicitacao, juntarItens, notaDoAssistente, payloadDoForm, resumoPagamentoDoForm } from './formOrcamento'
 import { calcularItem } from './useCalculoOrcamento'
 
 const banner = {
@@ -154,5 +154,49 @@ describe('pagamento do orçamento no editor', () => {
   it('"Precisa de arte" do item vem do produto ao escolher (e pode ser trocado no orçamento)', () => {
     expect(itemComProduto(itemVazio(), banner, { id: banner.id, rotulo: banner.nome }).precisaArte).toBe(true)
     expect(itemComProduto(itemVazio(), { ...banner, precisaArte: false }, { id: banner.id, rotulo: banner.nome }).precisaArte).toBe(false)
+  })
+})
+
+describe('itens montados pelo Assistente', () => {
+  const sugerido = (o: Partial<ItemOrcamentoSugerido> = {}): ItemOrcamentoSugerido => ({
+    produto: { id: '3b0e1c52-7d4a-4f6e-9b21-5a8c0d7e6f13', nome: 'Cartão de visita', codigo: 'PRD-0009', modoCalculo: 'milheiro', precisaArte: true },
+    descricao: '1.000 cartões',
+    quantidade: '1000',
+    largura: null,
+    altura: null,
+    acabamentos: [{ id: '7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f', nome: 'Laminação' }],
+    observacao: 'Frente e verso',
+    confianca: 0.9,
+    motivo: 'x',
+    conferir: false,
+    avisos: [],
+    preco: { ok: true, precoUnitario: '120.00', total: '120.00', erros: [] },
+    ...o,
+  })
+
+  it('1000 unidades e medidas grandes continuam inteiras até a API (nada de "1.000" = 1)', () => {
+    const cartao = itemDoAssistente(sugerido())!
+    const lona = itemDoAssistente(sugerido({ quantidade: '12000', largura: '1000.5', altura: '2.5' }))!
+    expect([cartao.quantidade, lona.quantidade, lona.largura, lona.altura]).toEqual(['1000', '12000', '1000,5', '2,5'])
+    expect(cartao).toMatchObject({ sugerido: true, precoUnitario: '', acabamentoIds: ['7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f'], observacao: 'Frente e verso', precisaArte: true, descricao: '' })
+    const enviado = orcamentoSchema.parse({ ...payloadDoForm({ ...formDoOrcamento(), itens: [cartao, lona] }), clienteId: '0d9f8e7c-6b5a-4f3e-8d2c-1b0a9f8e7d6c' })
+    expect(enviado.itens.map((i) => [i.quantidade, i.largura, i.altura])).toEqual([
+      ['1000', null, null],
+      ['12000', '1000.5', '2.5'],
+    ])
+    // O selo não vai para a API
+    expect(JSON.stringify(payloadDoForm({ ...formDoOrcamento(), itens: [cartao] }))).not.toContain('sugerido')
+  })
+  it('item sem produto não entra; os itens do orçamento ficam (só a linha vazia sai)', () => {
+    expect(itemDoAssistente(sugerido({ produto: null }))).toBeNull()
+    const novo = itemDoAssistente(sugerido())!
+    expect(juntarItens([itemVazio()], [novo])).toEqual([novo])
+    const existente = { ...itemVazio(), produto: { id: 'p', rotulo: 'Banner' } }
+    expect(juntarItens([existente, itemVazio()], [novo])).toEqual([existente, novo])
+    expect(juntarItens([itemVazio()], [])).toHaveLength(1)
+  })
+  it('prazo, observações e o que não entendeu viram nota interna', () => {
+    expect(notaDoAssistente({ prazoDesejado: 'sexta', observacoes: null, naoIdentificados: ['um brinde'] })).toBe('Pedido lido pelo Assistente GrafyGo — prazo pedido pelo cliente: sexta · não entendido: um brinde')
+    expect(notaDoAssistente({ prazoDesejado: null, observacoes: null, naoIdentificados: [] })).toBeNull()
   })
 })

@@ -3,7 +3,10 @@ import type { ProvedorIA as NomeProvedorIA } from '@onprint/shared'
 /** Tipos do provedor de IA (ver index.ts) */
 
 /** Tarefas conhecidas (o simulado responde cada uma com regras simples) */
-export type TarefaIA = 'classificar_resposta'
+export type TarefaIA = 'classificar_resposta' | 'orcamento_texto' | 'produto_texto' | 'descricao'
+
+/** Quanto o modelo raciocina antes de responder (output_config.effort da Anthropic) */
+export type EsforcoIA = 'low' | 'medium' | 'high'
 
 export interface PedidoEstruturado<T> {
   tarefa: TarefaIA
@@ -15,7 +18,10 @@ export interface PedidoEstruturado<T> {
   esquema: Record<string, unknown>
   /** Confere e normaliza o objeto devolvido (lança se não servir) */
   validar: (bruto: unknown) => T
+  /** Tokens máximos da resposta (o raciocínio conta junto); padrão 1024 */
   maxTokens?: number
+  /** Padrão "low" (classificar); tarefas de extração mais difíceis pedem "medium" */
+  esforco?: EsforcoIA
 }
 
 export interface UsoTokens {

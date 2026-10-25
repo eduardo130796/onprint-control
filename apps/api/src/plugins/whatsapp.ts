@@ -3,6 +3,7 @@ import { contextoEmpresa } from '../core/contexto-empresa'
 import { criarProvedorWhatsapp, instanciaDaEmpresa, type ProvedorWhatsapp } from '../integrations/whatsapp'
 import { criarAvisosWhatsapp, obterConfigWhatsapp, type AvisosWhatsapp } from '../modules/whatsapp/avisos'
 import { CICLO_ENVIO_MS, criarEnvioWhatsapp } from '../modules/whatsapp/envio'
+import { recuperarLeiturasPresas } from '../modules/whatsapp/leituras-presas'
 import { segredoDaEmpresa, segredoDoServidor, urlDoWebhook } from '../modules/whatsapp/webhook'
 
 declare module 'fastify' {
@@ -43,7 +44,29 @@ export const whatsappPlugin = fp(async (app) => {
 
   if (app.config.NODE_ENV === 'test') return
   let timer: NodeJS.Timeout | undefined
+
+  // Respostas presas em "lendo" (a API reiniciou no meio da leitura do Assistente): avisa a equipe, empresa por empresa
+  async function recuperarLeituras() {
+    let empresas
+    try {
+      empresas = await app.empresas.listar()
+    } catch (erro) {
+      return app.log.warn({ err: erro }, 'Leituras presas do Assistente: não foi possível listar as empresas')
+    }
+    for (const empresa of empresas) {
+      try {
+        await contextoEmpresa.com(empresa, () => recuperarLeiturasPresas(app))
+      } catch (erro) {
+        app.log.warn({ err: erro, empresa: empresa.slug }, 'Leituras presas do Assistente: falhou nesta empresa')
+      }
+    }
+  }
+  let timerLeituras: NodeJS.Timeout | undefined
+
   app.addHook('onReady', async () => {
+    void recuperarLeituras()
+    timerLeituras = setInterval(() => void recuperarLeituras(), 60_000)
+    timerLeituras.unref()
     // Em segundo plano: com muitas empresas a leitura das filas passaria do tempo de subida
     void envio.recuperarFilas().then(() => {
       timer = setInterval(() => void envio.ciclo(), CICLO_ENVIO_MS)
@@ -63,5 +86,8 @@ export const whatsappPlugin = fp(async (app) => {
       })()
     }
   })
-  app.addHook('onClose', async () => clearInterval(timer))
+  app.addHook('onClose', async () => {
+    clearInterval(timer)
+    clearInterval(timerLeituras)
+  })
 })

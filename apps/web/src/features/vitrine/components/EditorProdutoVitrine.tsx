@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Controller, useWatch } from 'react-hook-form'
 import { Eye, Loader2, Save, Star } from 'lucide-react'
 import { MAX_IMAGENS_PRODUTO, MODOS_PRECO_VITRINE, MODO_PRECO_VITRINE_ROTULOS } from '@onprint/shared'
@@ -8,6 +8,8 @@ import { NumberInput } from '@/components/shared/inputs'
 import { Button } from '@/components/ui/button'
 import { Select, Textarea } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
+import { BotaoEscrever } from '@/features/assistente/BotaoEscrever'
+import { SeloSugerido } from '@/features/assistente/SeloSugerido'
 import { useAtualizarVitrine, useVitrineConfig } from '../hooks'
 import type { EditorVitrine } from '../useEditorVitrine'
 import { precoExibido, sugerirSlug } from '../utils'
@@ -42,6 +44,9 @@ export function EditorProdutoVitrine({ editor, podeEditar, podeEditarFotos }: Ed
   const [publicado, modoPreco, slug, nomePublico] = useWatch({ control: form.control, name: ['publicado', 'modoPreco', 'slug', 'nomePublico'] })
   const base = config.data?.urlPublica?.replace(/\/$/, '')
   const id = (campo: string) => `${idFormulario}-${campo}`
+  // Texto escrito pelo Assistente: selo até a pessoa mexer ou salvar
+  const [textoSugerido, setTextoSugerido] = useState(false)
+  const { isDirty } = form.formState
 
   return (
     <div className="space-y-6">
@@ -81,12 +86,30 @@ export function EditorProdutoVitrine({ editor, podeEditar, podeEditarFotos }: Ed
             <Input id={id('nome')} placeholder={produto.nome} {...r('nomePublico')} />
           </CampoFormulario>
 
-          <CampoFormulario id={id('texto')} rotulo="Texto de venda" erro={errors.descricaoPublica?.message}>
+          <CampoFormulario
+            id={id('texto')}
+            rotulo="Texto de venda"
+            erro={errors.descricaoPublica?.message}
+            acao={
+              <span className="flex items-center gap-2">
+                {textoSugerido && isDirty && <SeloSugerido curto />}
+                {podeEditar && (
+                  <BotaoEscrever
+                    pedido={() => ({ produtoId: produto.id, destino: 'vitrine' })}
+                    onTexto={(texto) => {
+                      form.setValue('descricaoPublica', texto, { shouldDirty: true })
+                      setTextoSugerido(true)
+                    }}
+                  />
+                )}
+              </span>
+            }
+          >
             <Textarea
               id={id('texto')}
               rows={6}
               placeholder="Conte o que o cliente recebe: material, acabamento, para que serve, prazos… Separe parágrafos com uma linha em branco."
-              {...r('descricaoPublica')}
+              {...r('descricaoPublica', { onChange: () => setTextoSugerido(false) })}
             />
           </CampoFormulario>
 

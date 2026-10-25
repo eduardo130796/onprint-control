@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { SeloSugerido } from '@/features/assistente/SeloSugerido'
 import { LucroDoItem } from '@/features/produtos/components/custo/LucroAnalise'
 import { decimalParaInput } from '@/lib/mascaras'
 import { cn } from '@/lib/utils'
@@ -55,6 +56,7 @@ export function ItemOrcamento({ indice, total, item, calculo, analise, analiseDe
     <Card className={cn('p-4', r && !r.ok && 'ring-1 ring-coral/60')}>
       <div className="mb-3 flex items-center gap-2">
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-grafite text-xs font-semibold text-white">{indice + 1}</span>
+        {item.sugerido && <SeloSugerido curto className="hidden sm:inline-flex" />}
         <div className="min-w-0 flex-1">
           <SearchSelect
             id={id('produto')}
@@ -76,6 +78,7 @@ export function ItemOrcamento({ indice, total, item, calculo, analise, analiseDe
         )}
       </div>
 
+      {item.sugerido && <SeloSugerido className="mb-3 sm:hidden" />}
       {produto && (
         <fieldset disabled={!editavel} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">

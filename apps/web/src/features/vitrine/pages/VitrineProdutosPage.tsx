@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
-import { ExternalLink, Eye, FileText, ImageOff, Package, Settings2, Share2, Star } from 'lucide-react'
+import { ExternalLink, Eye, FileText, ImageOff, Package, Settings2, Share2, Sparkles, Star } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Paginado, ProdutoVitrineInput, ProdutoVitrineResumo, ProdutosVitrineQuery } from '@onprint/shared'
 import { CHAVE_VITRINE_CONFIG, CHAVE_VITRINE_PRODUTOS, vitrineApi } from '@/api/vitrine'
@@ -15,12 +15,14 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/form-controls'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePermissoes } from '@/hooks/usePermission'
+import { useAjudaLiberada } from '@/features/assistente/useAssistente'
 import { useCategorias } from '@/features/produtos/hooks'
 import { CompartilharDialog, type AlvoCompartilhar } from '../components/CompartilharDialog'
 import { BotaoSalvarVitrine, EditorProdutoVitrine } from '../components/EditorProdutoVitrine'
 import { Interruptor } from '../components/Interruptor'
 import { useProdutosVitrine, useVitrineConfig } from '../hooks'
 import { CatalogoDialog } from '../components/CatalogoDialog'
+import { DescricoesEmLoteDialog } from '../components/DescricoesEmLoteDialog'
 import { useEditorVitrine } from '../useEditorVitrine'
 import { urlProduto } from '../divulgar'
 import { dadosVitrine, precoExibido } from '../utils'
@@ -69,6 +71,9 @@ export function VitrineProdutosPage() {
   const [pageSize, setPageSize] = useState(20)
   const [abertoId, setAbertoId] = useState<string | null>(null)
   const [compartilhando, setCompartilhando] = useState<AlvoCompartilhar | null>(null)
+  // Assistente GrafyGo: textos de venda para os produtos ativos que ainda não têm
+  const descricoesLiberadas = useAjudaLiberada('descricoes')
+  const [gerandoDescricoes, setGerandoDescricoes] = useState(false)
   const config = useVitrineConfig()
   const buscaAtrasada = useDebounce(busca.trim())
   const q: ProdutosVitrineQuery = { busca: buscaAtrasada || undefined, categoriaId: categoriaId || undefined, publicado: publicado || undefined }
@@ -102,6 +107,8 @@ export function VitrineProdutosPage() {
     if (!consulta.data) return undefined
     return { data: consulta.data.slice((page - 1) * pageSize, page * pageSize), meta: { page, pageSize, total: consulta.data.length } }
   }, [consulta.data, page, pageSize])
+
+  const semTexto = useMemo(() => (todos.data ?? []).filter((p) => p.ativo && !p.descricaoPublica?.trim()), [todos.data])
 
   const resumo = useMemo(() => {
     const lista = todos.data ?? []
@@ -218,6 +225,11 @@ export function VitrineProdutosPage() {
         subtitulo="Escolha o que aparece no seu site, o que fica em destaque, as fotos e como o preço é mostrado."
         acoes={
           <>
+            {podeEditar && descricoesLiberadas && semTexto.length > 0 && (
+              <Button type="button" variant="outline" onClick={() => setGerandoDescricoes(true)} title="O Assistente escreve o texto de venda dos produtos sem texto; você revisa antes de salvar">
+                <Sparkles /> Gerar descrições ({semTexto.length})
+              </Button>
+            )}
             <BotaoCatalogo publicados={resumo.publicados} />
             <Button asChild variant="outline">
               <Link to="/vitrine">
@@ -326,6 +338,7 @@ export function VitrineProdutosPage() {
         />
       )}
       <CompartilharDialog alvo={compartilhando} onFechar={() => setCompartilhando(null)} />
+      <DescricoesEmLoteDialog aberto={gerandoDescricoes} produtos={semTexto} onFechar={() => setGerandoDescricoes(false)} />
     </>
   )
 }

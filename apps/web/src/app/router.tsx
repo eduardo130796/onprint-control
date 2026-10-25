@@ -85,6 +85,7 @@ import {
   CuponsPlataformaPage,
   CupomPlataformaPage,
   AssistentePlataformaPage,
+  AssistentePage,
   AvisosGatewayPage,
   EsqueciSenhaPage,
   RedefinirSenhaPage,
@@ -165,6 +166,7 @@ const telas: Record<string, ReactElement> = {
   '/configuracoes/templates': <TemplatesPage />,
   '/configuracoes/templates/novo': <TemplatesPage />,
   '/configuracoes/whatsapp': <WhatsAppPage titulo="Configurações do WhatsApp" />,
+  '/configuracoes/assistente': <AssistentePage />,
 }
 
 /** Rotas de detalhe que não aparecem no menu. */

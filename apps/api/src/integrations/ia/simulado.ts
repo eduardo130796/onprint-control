@@ -1,3 +1,4 @@
+import { descricaoSimulada, orcamentoSimulado, produtoSimulado } from './simulado-equipe'
 import { ErroIA, type PedidoEstruturado, type ProvedorIA, type RespostaEstruturada, type TarefaIA } from './tipos'
 
 /*
@@ -12,8 +13,9 @@ export type SimulacaoIA = (conteudo: string) => unknown
 const sem = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 const tokens = (t: string) => Math.max(1, Math.ceil(t.length / 4))
 
-/** Só a mensagem do cliente (entre as marcas que o prompt usa) */
-export const mensagemDoConteudo = (conteudo: string) => /<mensagem_do_cliente>\n?([\s\S]*?)\n?<\/mensagem_do_cliente>/.exec(conteudo)?.[1]?.trim() ?? conteudo
+/** Só o texto livre (mensagem ou pedido do cliente, descrição da equipe), entre as marcas que o prompt usa */
+export const mensagemDoConteudo = (conteudo: string) =>
+  /<(mensagem_do_cliente|pedido_do_cliente|descricao_da_equipe)>\n?([\s\S]*?)\n?<\/\1>/.exec(conteudo)?.[2]?.trim() ?? conteudo
 
 /** Classificação por palavras-chave: imita o modelo nos casos comuns, com confiança alta só no óbvio */
 export function classificarSimulado(conteudo: string) {
@@ -31,7 +33,12 @@ export function classificarSimulado(conteudo: string) {
   return { intencao: 'outro', confianca: 0.5, resumo: 'Resposta sem relação clara com o orçamento.', tem_pergunta: false }
 }
 
-const SIMULACOES: Record<TarefaIA, SimulacaoIA> = { classificar_resposta: classificarSimulado }
+const SIMULACOES: Record<TarefaIA, SimulacaoIA> = {
+  classificar_resposta: classificarSimulado,
+  orcamento_texto: orcamentoSimulado,
+  produto_texto: produtoSimulado,
+  descricao: descricaoSimulada,
+}
 
 export class SimuladoProvider implements ProvedorIA {
   readonly nome = 'simulado' as const

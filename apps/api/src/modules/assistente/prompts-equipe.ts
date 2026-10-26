@@ -107,11 +107,11 @@ Agora você monta um orçamento a partir do pedido que o cliente mandou (WhatsAp
 Para cada coisa que o cliente pediu, crie um item:
 - produto: a referência do produto do catálogo (ex.: "P3") que atende o pedido. Use só referências do catálogo. Se nenhum produto servir, use null e explique em motivo.
 - descricao: o que o cliente pediu, curto, com as palavras dele (ex.: "Banner 3 × 1 m com ilhós").
-- quantidade: número de peças (no milheiro, o total de unidades; na hora, as horas). "500 cartões" = 500; "mil" = 1000; "1.000" = 1000. Sem quantidade dita, use 1 e baixe a confiança.
-- largura_m e altura_m: medidas de cada peça em metros, só em produtos cobrados por m² ou metro linear e só se o cliente disse (converta: "3x1" = 3 e 1; "90x120 cm" = 0,9 e 1,2). Se não disse, null. Nos outros produtos, null.
-- acabamentos: referências dos acabamentos que o cliente pediu e que aparecem na linha do produto escolhido (ex.: ["A2"]). Não repita os marcados como "sempre incluído".
+- quantidade: número de peças (no milheiro, o total de unidades; na hora, as horas). "500 cartões" = 500; "mil" = 1000; "1.000" = 1000. "Um banner", "uma fachada 4x1" ou o produto no singular = 1, com confiança normal. Só baixe a confiança quando a quantidade realmente pode ser outra (ex.: "cartões" sem número).
+- largura_m e altura_m: medidas de cada peça em metros, só em produtos cobrados por m² ou metro linear e só se o cliente disse (converta: "3x1" = 3 e 1; "90x120 cm" = 0,9 e 1,2). Número sem unidade: até 10 é metro, acima de 10 é centímetro ("1,5 por 80" = 1,5 e 0,8; "60x40" = 0,6 e 0,4). "Pequeno" ou "grande" não é medida: null. Se não disse, null. Nos outros produtos, null.
+- acabamentos: referências dos acabamentos que o cliente pediu e que aparecem na linha do produto escolhido (ex.: ["A2"]). Não repita os marcados como "sempre incluído". Os marcados "vem marcado" são o padrão da gráfica: se o cliente não falou de acabamento, deixe a lista vazia (o sistema coloca o padrão); se ele pediu algum, inclua também os "vem marcado" que não sejam alternativa ao pedido.
 - observacao: detalhe que não cabe nos campos (ex.: "frente e verso", "arte do cliente", cor), ou null.
-- confianca: de 0 a 1, o quanto você tem certeza do produto, da quantidade e das medidas. Na dúvida (produto parecido mas não igual, medida ou quantidade faltando), use menos de 0.8.
+- confianca: de 0 a 1, o quanto você tem certeza do produto, da quantidade e das medidas. Produto, quantidade e medidas claros (mesmo com apelido, como "furadinho" para adesivo perfurado, ou "5 mil" no milheiro): 0.9 ou mais. Falta de detalhe que não muda o preço (cor, tamanho de camiseta, número de folhas, arte) não baixa a confiança. Use menos de 0.8 só se o produto é duvidoso ou falta medida ou quantidade que muda o preço.
 - motivo: uma linha dizendo por que escolheu o produto (ou por que nenhum serviu).
 
 Preencha também:
@@ -184,7 +184,7 @@ function linhaDoCatalogo(ref: string, p: ProdutoParaIA, refAcabamento: (id: stri
   const partes = [ref, p.nome, p.categoria ?? 'sem categoria', `cobra ${COBRANCA[p.modoCalculo]}`]
   if (p.larguraPadrao && p.alturaPadrao) partes.push(`medida padrão ${num(p.larguraPadrao)} × ${num(p.alturaPadrao)} m`)
   if (p.larguraMaxima && p.alturaMaxima) partes.push(`máximo ${num(p.larguraMaxima)} × ${num(p.alturaMaxima)} m`)
-  const acabs = p.acabamentos.map((a) => `${refAcabamento(a.id)} ${a.nome}${a.obrigatorio ? ' (sempre incluído)' : ''}`)
+  const acabs = p.acabamentos.map((a) => `${refAcabamento(a.id)} ${a.nome}${a.obrigatorio ? ' (sempre incluído)' : a.padrao ? ' (vem marcado)' : ''}`)
   partes.push(`acabamentos: ${acabs.join(', ') || 'nenhum'}`)
   return partes.join(' | ')
 }

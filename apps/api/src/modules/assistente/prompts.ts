@@ -15,7 +15,7 @@ import type { EsforcoIA, PedidoEstruturado, TarefaIA } from '../../integrations/
 
 export const VERSOES_PROMPTS: Record<TarefaIA, string> = {
   classificar_resposta: 'resposta-orcamento@2',
-  orcamento_texto: 'orcamento-de-texto@3',
+  orcamento_texto: 'orcamento-de-texto@4',
   produto_texto: 'produto-de-texto@2',
   descricao: 'descricao-produto@1',
   regras_texto: 'regras-de-texto@1',

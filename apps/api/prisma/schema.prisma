@@ -554,6 +554,8 @@ model MensagemVoceWhatsapp {
   tipo        String?
   texto       String?
   orcamentoId String?   @map("orcamento_id") @db.Uuid
+  /// Aviso "novo produto" que o "ok" citando cria (leituras_produtos_whatsapp)
+  leituraProdutoId String? @map("leitura_produto_id") @db.Uuid
   /// Pergunta "Qual envio?": os orçamentos na ordem das opções
   opcoes      String[]  @default([])
   resolvidaEm DateTime? @map("resolvida_em") @db.Timestamptz(3)
@@ -590,6 +592,23 @@ model NotaWhatsapp {
 
   @@index([situacao, createdAt])
   @@map("notas_whatsapp")
+}
+
+/// Produtos lidos no "Você" (texto ou foto de uma tabela de preços): a leitura guardada para a revisão do "Cadastrar
+/// vários" abrir preenchida (nada é criado sem o "Criar" ou o "ok" citando o aviso)
+model LeituraProdutosWhatsapp {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  leitura     Json
+  /// texto | foto
+  origem      String    @default("texto")
+  /// pendente | criada (produtos_ids) | descartada
+  situacao    String    @default("pendente")
+  produtosIds String[]  @default([]) @map("produtos_ids") @db.Uuid
+  resolvidaEm DateTime? @map("resolvida_em") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([situacao, createdAt])
+  @@map("leituras_produtos_whatsapp")
 }
 
 // ─── 8.2 Pessoas ────────────────────────────────────────────────────────────

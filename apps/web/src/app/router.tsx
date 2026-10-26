@@ -57,6 +57,7 @@ import {
   PedidosPage,
   PermissoesPage,
   ProducaoKanbanPage,
+  CadastrarVariosPage,
   ProdutoPage,
   ProdutosPage,
   InsumosPage,
@@ -175,6 +176,7 @@ const telas: Record<string, ReactElement> = {
 const detalhes: { path: string; modulo: Modulo; elemento: ReactElement }[] = [
   { path: '/clientes/:id', modulo: 'clientes', elemento: <ClienteFichaPage /> },
   { path: '/fornecedores/:id', modulo: 'fornecedores', elemento: <FornecedorPage /> },
+  { path: '/produtos/cadastrar-varios', modulo: 'produtos', elemento: <CadastrarVariosPage /> },
   { path: '/produtos/:id', modulo: 'produtos', elemento: <ProdutoPage /> },
   { path: '/produtos/insumos/:id', modulo: 'produtos', elemento: <InsumoPage /> },
   { path: '/orcamentos/:id', modulo: 'orcamentos', elemento: <OrcamentoEditorPage /> },

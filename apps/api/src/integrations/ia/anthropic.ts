@@ -9,7 +9,7 @@ import { ErroIA, type PedidoEstruturado, type ProvedorIA, type RespostaEstrutura
  *   raciocínio longo (o padrão do Haiku 5.5 é "medium") —, "medium" onde extrair é mais difícil (montar orçamento,
  *   preencher produto). Modelos antigos sem esforço configurável não recebem o parâmetro. O raciocínio conta em
  *   max_tokens: tarefas de resposta maior pedem mais (pedido.maxTokens).
- * - Tempo limite por tentativa (15 s) e as tentativas automáticas do SDK (2) para 429/5xx/conexão.
+ * - Tempo limite por tentativa (15 s; a tarefa pode pedir mais) e as tentativas automáticas do SDK (2) para 429/5xx/conexão.
  */
 
 /** Modelos que não aceitam output_config.effort (a API responderia 400) */
@@ -37,7 +37,7 @@ export class AnthropicProvider implements ProvedorIA {
           format: { type: 'json_schema', schema: pedido.esquema },
           ...(SEM_ESFORCO.test(this.modelo) ? {} : { effort: pedido.esforco ?? 'low' }),
         },
-      })
+      }, pedido.tempoLimiteMs ? { timeout: pedido.tempoLimiteMs } : undefined)
     } catch (erro) {
       throw traduzirErro(erro)
     }

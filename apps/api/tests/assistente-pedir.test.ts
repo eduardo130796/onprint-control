@@ -227,7 +227,7 @@ describe('Peça ao Assistente: entender o pedido e fazer', () => {
 describe('Peça ao Assistente: prompts, validação e provedor', () => {
   it('intenção: pergunta sem tipo vira desconhecido; nome sem telefone; período só nas vendas', () => {
     expect(validarIntencao({ intencao: 'pergunta', pergunta: null, periodo: null, nome_cliente: null, confianca: 0.9 }).intencao).toBe('desconhecido')
-    expect(validarIntencao({ intencao: 'pergunta', pergunta: 'vendas', periodo: null, nome_cliente: 'x', confianca: 2 })).toEqual({ intencao: 'pergunta', pergunta: 'vendas', periodo: 'mes', nomeCliente: null, confianca: 1 })
+    expect(validarIntencao({ intencao: 'pergunta', pergunta: 'vendas', periodo: null, nome_cliente: 'x', confianca: 2 })).toEqual({ intencao: 'pergunta', pergunta: 'vendas', periodo: 'mes', nomeCliente: null, tema: null, confianca: 1 })
     expect(validarIntencao({ intencao: 'cliente', pergunta: 'vendas', periodo: 'hoje', nome_cliente: 'Ana 11 98888-7777', confianca: 0.8 })).toMatchObject({ pergunta: null, periodo: null, nomeCliente: 'Ana' })
     const p = pedidoIntencao({ grafica: 'Gráfica Aurora', texto: 'cliente CPF 123.456.789-09 ana@x.com' })
     expect(p.conteudo).not.toMatch(/123\.456|ana@/)

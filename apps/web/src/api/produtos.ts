@@ -1,5 +1,7 @@
 import type {
   Acabamento,
+  CadastroAtual,
+  CadastroLoteInput,
   CadastroQuery,
   Categoria,
   Maquina,
@@ -8,6 +10,7 @@ import type {
   Produto,
   ProdutoDetalhe,
   ProdutosQuery,
+  ResultadoCadastroLote,
   ResultadoPreco,
   UnidadeMedida,
 } from '@onprint/shared'
@@ -47,6 +50,10 @@ export const produtosApi = {
   listar: (q: ProdutosQuery) => http<Paginado<Produto>>(`/produtos${qs(q)}`),
   obter: (id: string) => http<ProdutoDetalhe>(`/produtos/${id}`),
   criar: (dados: unknown) => http<Produto>('/produtos', { method: 'POST', body: dados }),
+  /** "Cadastrar vários" (e o "Novo produto" com acabamentos e materiais): tudo numa transação */
+  criarLote: (dados: CadastroLoteInput) => http<ResultadoCadastroLote>('/produtos/lote', { method: 'POST', body: dados }),
+  /** Categorias, acabamentos e nomes dos produtos (modelos prontos e o aviso de duplicado) */
+  cadastroAtual: () => http<CadastroAtual>('/produtos/lote/cadastro'),
   atualizar: (id: string, dados: unknown) => http<Produto>(`/produtos/${id}`, { method: 'PUT', body: dados }),
   desativar: (id: string) => http<Produto>(`/produtos/${id}`, { method: 'DELETE' }),
   reativar: (id: string) => http<Produto>(`/produtos/${id}/reativar`, { method: 'POST' }),

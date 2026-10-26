@@ -11,7 +11,7 @@ import type { OrcamentoDeTexto } from './assistente'
  */
 
 /** O que a pessoa quer */
-export const INTENCOES_PEDIDO = ['orcamento', 'nota_compra', 'cliente', 'produto', 'pergunta', 'desconhecido'] as const
+export const INTENCOES_PEDIDO = ['orcamento', 'nota_compra', 'cliente', 'produto', 'pergunta', 'ajuda', 'desconhecido'] as const
 export type IntencaoPedido = (typeof INTENCOES_PEDIDO)[number]
 
 /** Perguntas que o sistema responde com os dados (sem abrir relatório) */
@@ -33,12 +33,36 @@ export const pedirAssistenteSchema = z.object({
   texto: z.string().trim().min(2, 'Escreva o que você precisa.').max(3000, 'Use até 3.000 caracteres.'),
 })
 
+/**
+ * Dúvidas de uso ("como cadastro um produto?"): o tutorial da central de ajuda que responde. A IA só escolhe o tema
+ * (lista curta); o texto e o link saem do tutorial (apps/web/src/features/ajuda/conteudo). Um teste do web confere que
+ * cada tema tem o tutorial com o mesmo slug.
+ */
+export const TEMAS_AJUDA = {
+  'configurar-empresa': 'logo, dados da empresa, CNPJ, endereço, cor do sistema',
+  'cadastrar-produto': 'cadastrar produto ou serviço, preço, custo, margem, como cobra (m², unidade, milheiro)',
+  'convidar-equipe': 'usuários, equipe, vendedor, acesso, papéis e permissões',
+  'assinar-plano': 'plano, assinatura, pagamento da GrafyGo, teste grátis',
+  'fazer-orcamento': 'fazer orçamento, itens, medidas, desconto',
+  'enviar-orcamento': 'enviar orçamento ao cliente, PDF, link, aprovação do cliente',
+  'orcamento-em-pedido': 'orçamento aprovado vira pedido, entrada, parcelas',
+  'aprovacao-arte': 'arte, aprovação da arte, arquivo do cliente',
+  'acompanhar-producao': 'produção, kanban, ordem de produção (OP), etiqueta, máquinas',
+  'receber-pagamento': 'receber pagamento, dar baixa, contas a receber, fluxo de caixa',
+  'venda-balcao': 'vender no balcão, PDV, caixa, troco',
+  'conectar-whatsapp': 'conectar o WhatsApp, QR code, avisos automáticos, Assistente no WhatsApp',
+  'ligar-vitrine': 'vitrine, site da gráfica, produtos no site, pedidos pelo site',
+  'divulgar-whatsapp': 'divulgar, status do WhatsApp, imagem do produto, catálogo em PDF',
+} as const
+export type TemaAjuda = keyof typeof TEMAS_AJUDA
+export const TEMAS_AJUDA_LISTA = Object.keys(TEMAS_AJUDA) as TemaAjuda[]
+
 /** Sugestões que aparecem na caixa vazia (um toque já pergunta) */
 export const EXEMPLOS_PEDIDO = ['Quem está devendo?', 'Quanto vendi este mês?', 'Pedidos para hoje', 'Orçamentos esperando resposta'] as const
 
 /** Frase quando o Assistente não sabe fazer o que foi pedido */
 export const NAO_SEI_FAZER =
-  'Ainda não sei fazer isso. Posso montar um orçamento, lançar uma nota de compra, cadastrar um cliente ou produto, ou responder sobre vendas, cobranças e pedidos.'
+  'Ainda não sei fazer isso. Posso montar um orçamento, lançar uma nota de compra, cadastrar clientes e produtos, responder sobre vendas, cobranças e pedidos, ou explicar como usar o sistema.'
 
 /** CPF ou CNPJ válido escrito no texto (só dígitos), ou null. O documento fica no servidor: nunca vai para a IA. */
 export function documentoDoTexto(texto: string): string | null {
@@ -156,8 +180,10 @@ export type RespostaPedir =
   | { tipo: 'orcamento'; texto: string; leitura: OrcamentoDeTexto }
   /** Cliente novo: o cadastro abre com o documento (e a busca da Receita) ou o nome; existente = já cadastrado */
   | { tipo: 'cliente'; documento: string | null; nome: string | null; existente: { id: string; rotulo: string } | null }
-  /** Produto novo: o cadastro abre e o Assistente preenche com o texto */
+  /** Produto novo: o cadastro abre e o Assistente preenche com o texto (vários produtos: a revisão em lote) */
   | { tipo: 'produto'; texto: string }
+  /** Dúvida de uso: o tutorial da central de ajuda (tema null = nenhum combina; a tela procura pelas palavras) */
+  | { tipo: 'ajuda'; tema: TemaAjuda | null; pergunta: string }
   /** Nota de compra: a entrada abre preenchida para conferir */
   | { tipo: 'nota_compra'; nota: NotaCompraLida }
   /** Pediu para lançar nota, mas sem o arquivo */
@@ -170,6 +196,8 @@ export interface EstadoDoAssistente {
   orcamentoAssistente?: { texto: string; leitura: OrcamentoDeTexto }
   notaAssistente?: NotaCompraLida
   produtoAssistente?: string
+  /** Texto com vários produtos: a revisão do "Cadastrar vários" abre lendo este texto */
+  loteAssistente?: string
 }
 
 // ─── Nota de compra lida pelo WhatsApp (conversa "Você"), esperando conferência em Entradas de estoque ───

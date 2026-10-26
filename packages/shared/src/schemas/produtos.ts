@@ -103,7 +103,8 @@ const margem = z
 /** Ausente = não muda; vazio/null = limpa (padrão da empresa). */
 const semPadrao = <T extends z.ZodTypeAny>(s: T) => z.preprocess((v) => (v === '' ? null : v), s.nullable().optional())
 
-const produtoBase = z.object({
+/** Campos do produto (sem as regras entre campos): base do cadastro, da edição e do cadastro em lote */
+export const produtoBase = z.object({
   codigo: z.preprocess((v) => (typeof v === 'string' && !v.trim() ? null : v), z.string().trim().toUpperCase().max(30).nullable().optional()),
   nome,
   descricao: textoOpcional,

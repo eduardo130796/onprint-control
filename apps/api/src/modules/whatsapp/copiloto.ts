@@ -1,4 +1,4 @@
-import { formatarMoeda, type ItemMensagem, type NotaCompraLida, type RespostaPergunta } from '@onprint/shared'
+import { MODO_CURTO, formatarMoeda, type ItemMensagem, type LeituraCadastroLote, type LinhaCadastro, type NotaCompraLida, type RespostaPergunta } from '@onprint/shared'
 import { jidNormalizado } from './enquete'
 import { normalizarResposta, variantesDoNumero } from './respostas'
 
@@ -607,3 +607,44 @@ export function rotaDoComando(comando: ComandoVoce, tipoCitado: string | null | 
   if (comando.tipo === 'reenviar') return 'reenviar_sem_citar'
   return 'rascunho'
 }
+
+// ─── Produtos pelo "Você" ("novo produto: …" ou a foto de uma tabela de preços) ───
+
+/** Produtos que aparecem no aviso; o resto vira "… e mais N" */
+export const MAX_PRODUTOS_NO_AVISO = 8
+
+/** "Chaveiro acrílico — R$ 4 / un" ou "Banner lona — falta preço" */
+export function linhaDoProdutoLido(l: Pick<LinhaCadastro, 'nome' | 'precoVenda' | 'modoCalculo'>): string {
+  return `${l.nome} — ${l.precoVenda ? `${moedaCurta(l.precoVenda)} / ${MODO_CURTO[l.modoCalculo]}` : 'falta preço'}`
+}
+
+/**
+ * O que o Assistente entendeu dos produtos mandados no "Você": um produto (com categoria, acabamentos e o que
+ * conferir) ou a lista; o link abre a revisão já preenchida. `porOk`: um produto só e claro, que o "ok" citando cria.
+ */
+export function textoProdutosLidos(l: LeituraCadastroLote, link: string, porOk: boolean): string {
+  const linhas: string[] = []
+  const faltaPreco = l.linhas.filter((x) => !x.precoVenda).length
+  const parecidos = l.linhas.filter((x) => x.duplicado).length
+  if (l.linhas.length === 1) {
+    const p = l.linhas[0]!
+    linhas.push(`🏷️ Novo produto: *${p.nome}*`, linhaDoProdutoLido(p).slice(p.nome.length + 3))
+    const extras = [p.categoriaNova ? `categoria nova “${p.categoriaNova}”` : null, p.acabamentos.length ? `acabamentos: ${p.acabamentos.map((a) => a.nome).join(', ')}` : null].filter(Boolean)
+    if (extras.length) linhas.push(extras.join(' · '))
+    const conferir = [...p.conferir, ...(p.duplicado ? [`parecido com “${p.duplicado.nome}”, que você já tem`] : [])]
+    if (conferir.length) linhas.push(`Confira: ${conferir.join('; ')}`)
+  } else {
+    linhas.push(`🏷️ Li ${l.linhas.length} produtos:`)
+    for (const p of l.linhas.slice(0, MAX_PRODUTOS_NO_AVISO)) linhas.push(`• ${linhaDoProdutoLido(p)}`)
+    if (l.linhas.length > MAX_PRODUTOS_NO_AVISO) linhas.push(`… e mais ${l.linhas.length - MAX_PRODUTOS_NO_AVISO}`)
+    const conferir = [faltaPreco ? `${faltaPreco} sem preço` : null, parecidos ? `${parecidos} parecido(s) com os que você já tem` : null].filter(Boolean)
+    if (conferir.length) linhas.push(`Confira: ${conferir.join('; ')}`)
+  }
+  linhas.push(porOk ? 'Responda *ok* a esta mensagem para criar, ou confira antes:' : `Confira e crie ${l.linhas.length === 1 ? 'o produto' : 'todos de uma vez'} (nada é criado sem você):`)
+  linhas.push(link)
+  return linhas.join('\n')
+}
+
+/** A legenda da foto fala de produtos ou preços (senão a foto é lida como nota de compra) */
+export const legendaDeProdutos = (legenda: string | null | undefined) =>
+  /\b(produto|produtos|tabela|preco|precos|catalogo|cardapio|servicos|cadastra|cadastrar)\b/.test(normalizarResposta(legenda ?? ''))

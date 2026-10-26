@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowUp, ChevronRight, FileUp, Loader2, Paperclip, Sparkles } from 'lucide-react'
+import { ArrowUp, BookOpen, ChevronRight, FileUp, Loader2, Paperclip, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { EXEMPLOS_PEDIDO, NOME_ASSISTENTE, formatarMoeda, type EstadoDoAssistente, type RespostaPedir, type RespostaPergunta } from '@onprint/shared'
 import { assistenteApi } from '@/api/assistente'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import type { Tutorial } from '@/features/ajuda/tipos'
 import { EVENTO_ABRIR_ASSISTENTE, type PedidoAbrirAssistente } from './abrirAssistente'
+import { pareceTabela, passosCurtos, tutorialDaDuvida } from './ajuda'
 import { useAssistente, useAtualizarUsoAssistente } from './useAssistente'
 
 /** A resposta que fica na caixa (o resto abre a tela certa) */
-type NaCaixa = { tipo: 'pergunta'; resposta: RespostaPergunta } | { tipo: 'mensagem'; texto: string; anexar?: boolean }
+type NaCaixa = { tipo: 'pergunta'; resposta: RespostaPergunta } | { tipo: 'mensagem'; texto: string; anexar?: boolean } | { tipo: 'ajuda'; tutorial: Tutorial | null }
 
 const ACEITOS = '.xml,text/xml,application/xml,image/jpeg,image/png,image/webp,application/pdf'
 
@@ -65,6 +67,13 @@ export function PecaAoAssistente() {
   const [lendo, setLendo] = useState(false)
   const [resposta, setResposta] = useState<NaCaixa | null>(null)
   const arquivo = useRef<HTMLInputElement>(null)
+  // Passou de alguns segundos: diz que está montando (o orçamento e a nota pela foto levam mais que uma pergunta)
+  const [demorando, setDemorando] = useState(false)
+  useEffect(() => {
+    if (!lendo) return setDemorando(false)
+    const t = setTimeout(() => setDemorando(true), 5000)
+    return () => clearTimeout(t)
+  }, [lendo])
   const ligado = Boolean(assistente.data?.disponivel && assistente.data.controles.ativo)
   const simulado = Boolean(assistente.data?.simulado)
 
@@ -81,7 +90,10 @@ export function PecaAoAssistente() {
       case 'orcamento':
         return abrirTela('/orcamentos/novo', { orcamentoAssistente: { texto: r.texto, leitura: r.leitura } })
       case 'produto':
-        return abrirTela('/produtos/novo', { produtoAssistente: r.texto })
+        // Tabela colada (vários preços): direto para a revisão em lote; um produto, o cadastro preenchido
+        return pareceTabela(r.texto) ? abrirTela('/produtos/cadastrar-varios', { loteAssistente: r.texto }) : abrirTela('/produtos/novo', { produtoAssistente: r.texto })
+      case 'ajuda':
+        return setResposta({ tipo: 'ajuda', tutorial: tutorialDaDuvida(r.tema, r.pergunta) })
       case 'nota_compra':
         return abrirTela('/estoque/entradas/novo', { notaAssistente: r.nota })
       case 'cliente':
@@ -179,7 +191,7 @@ export function PecaAoAssistente() {
             </span>
             <div className="min-w-0">
               <DialogTitle className="text-base">Peça ao Assistente</DialogTitle>
-              <DialogDescription className="text-xs">Orçamento, nota de compra, cliente, produto ou uma pergunta. Nada é salvo sem você conferir.</DialogDescription>
+              <DialogDescription className="text-xs">Orçamento, nota de compra, cliente, produtos, uma pergunta ou como usar o sistema. Nada é salvo sem você conferir.</DialogDescription>
             </div>
           </div>
           {simulado && (
@@ -204,7 +216,7 @@ export function PecaAoAssistente() {
               maxLength={3000}
               value={texto}
               aria-label="O que você precisa"
-              placeholder="Ex.: 2 banners 3x1 e mil cartões para a Padaria Pão Quente · quem está devendo? · cadastrar cliente 11.222.333/0001-81"
+              placeholder="Ex.: 2 banners 3x1 e mil cartões para a Padaria · quem está devendo? · como conecto o WhatsApp?"
               onChange={(e) => setTexto(e.target.value)}
               onKeyDown={(e) => {
                 // Enter envia; Shift+Enter quebra a linha (colar o pedido do cliente continua igual)
@@ -223,7 +235,7 @@ export function PecaAoAssistente() {
 
           {lendo && (
             <p className="flex items-center gap-2 text-sm text-texto-secundario" role="status">
-              <Loader2 className="h-4 w-4 animate-spin" /> Entendendo o pedido…
+              <Loader2 className="h-4 w-4 animate-spin" /> {demorando ? 'Montando… um orçamento ou uma nota levam até uns 20 segundos.' : 'Entendendo o pedido…'}
             </p>
           )}
 
@@ -253,6 +265,28 @@ export function PecaAoAssistente() {
           )}
 
           {resposta?.tipo === 'pergunta' && <RespostaDaPergunta r={resposta.resposta} onAbrir={(p) => abrirTela(p)} />}
+          {resposta?.tipo === 'ajuda' &&
+            (resposta.tutorial ? (
+              <div className="space-y-2 rounded-xl bg-fundo p-3 text-sm text-tinta" aria-live="polite">
+                <p className="font-semibold">{resposta.tutorial.titulo}</p>
+                <p className="text-texto-secundario">{resposta.tutorial.resumo}</p>
+                <ol className="list-decimal space-y-0.5 pl-5 text-texto-secundario">
+                  {passosCurtos(resposta.tutorial).map((p) => (
+                    <li key={p}>{p}</li>
+                  ))}
+                </ol>
+                <Button type="button" size="sm" variant="outline" onClick={() => abrirTela(`/ajuda/${resposta.tutorial!.slug}`)}>
+                  <BookOpen /> Ver o passo a passo{resposta.tutorial.video ? ' (com vídeo)' : ''}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2 rounded-xl bg-fundo p-3 text-sm text-tinta" role="status">
+                <p>Não achei um tutorial sobre isso. Veja os assuntos da central de ajuda.</p>
+                <Button type="button" size="sm" variant="outline" onClick={() => abrirTela('/ajuda')}>
+                  <BookOpen /> Abrir a central de ajuda
+                </Button>
+              </div>
+            ))}
           {resposta?.tipo === 'mensagem' && (
             <div className={cn('space-y-2 rounded-xl bg-fundo p-3 text-sm text-tinta')} role="status">
               <p>{resposta.texto}</p>

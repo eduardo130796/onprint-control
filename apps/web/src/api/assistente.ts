@@ -1,4 +1,4 @@
-import type { AssistenteEmpresa, ControlesAssistente, DescricaoAssistenteInput, DescricaoSugerida, NotaCompraLida, NotaWhatsappPendente, OrcamentoDeTexto, ProdutoSugerido, RegrasDeTexto, RespostaPedir } from '@onprint/shared'
+import type { AssistenteEmpresa, ControlesAssistente, DescricaoAssistenteInput, DescricaoSugerida, LeituraCadastroLote, NotaCompraLida, NotaWhatsappPendente, OrcamentoDeTexto, ProdutoSugerido, RegrasDeTexto, RespostaPedir } from '@onprint/shared'
 import { http, upload } from './http'
 
 /** Assistente GrafyGo na empresa: controles (Configurações → Assistente) e as ajudas internas (nada é salvo por elas). */
@@ -18,6 +18,13 @@ export const assistenteApi = {
   /** Notas lidas pelo WhatsApp esperando conferência (faixa da tela de Entradas) */
   notasWhatsapp: () => http<NotaWhatsappPendente[]>('/assistente/notas-whatsapp'),
   descartarNotaWhatsapp: (id: string) => http<{ descartada: boolean }>(`/assistente/notas-whatsapp/${id}/descartar`, { method: 'POST' }),
+  /** "Cadastrar vários": a tabela de preços colada (ou a planilha como texto) vira linhas para revisar */
+  tabelaProdutos: (texto: string, origem: 'texto' | 'planilha' = 'texto') => http<LeituraCadastroLote>('/assistente/tabela-produtos', { method: 'POST', body: { texto, origem } }),
+  /** Foto, PDF ou CSV da tabela de preços */
+  tabelaProdutosArquivo: (arquivo: File) => upload<LeituraCadastroLote>('/assistente/tabela-produtos/arquivo', arquivo),
+  /** Produtos lidos na conversa "Você" do WhatsApp: a revisão abre preenchida */
+  produtosWhatsapp: (id: string) => http<LeituraCadastroLote>(`/assistente/produtos-whatsapp/${id}`),
+  descartarProdutosWhatsapp: (id: string) => http<{ descartada: boolean }>(`/assistente/produtos-whatsapp/${id}/descartar`, { method: 'POST' }),
 }
 
 /** Chave do React Query (o uso do mês muda a cada ajuda: invalide depois de usar) */

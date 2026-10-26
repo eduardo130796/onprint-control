@@ -236,7 +236,8 @@ describe('Assistente: orçamento a partir de texto', () => {
     expect(esperado.total).toBe('422.00')
     // Nem o schema pede preço, nem o catálogo enviado mostra preço ou custo
     expect(JSON.stringify(ESQUEMA_ORCAMENTO_TEXTO)).not.toMatch(/preco|preço|valor|price|total/i)
-    expect(JSON.stringify(ESQUEMA_PRODUTO_TEXTO)).not.toMatch(/preco|preço|price/i)
+    // No produto, só o preço que a pessoa escreveu (transcrito e conferido no texto: cadastro-lote.test.ts)
+    expect(JSON.stringify(ESQUEMA_PRODUTO_TEXTO).replace(/"preco_venda"|Preço escrito pela pessoa/g, '')).not.toMatch(/preco|preço|price/i)
     const pedido = pedidoOrcamentoDeTexto({ grafica: 'Gráfica Aurora', pedido: 'banner', catalogo: [{ ...paraIA(BANNER) }] })
     expect(pedido.conteudo).not.toMatch(/65|R\$/)
   })
@@ -398,7 +399,8 @@ describe('Assistente: produto a partir de texto', () => {
     // Sem unidade válida: a que combina com a cobrança
     expect(r.unidadeMedidaId).toBe(id(402))
     expect(r.insumos.map((i) => i.insumoId)).toEqual([id(203)])
-    expect(r.avisos.join(' ')).toMatch(/papel transfer/)
+    // O material que falta vira "Cadastrar agora" (nunca criado sozinho)
+    expect(r.insumosFaltando.map((i) => i.nome).join(' ')).toMatch(/papel transfer/i)
     expect(r.descricao).not.toMatch(/98888/)
     expect(disseMargem('margem 60%')).toBe(true)
     expect(disseMargem('lucro de 40')).toBe(true)

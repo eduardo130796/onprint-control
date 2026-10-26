@@ -4,10 +4,12 @@ import type { FastifyInstance, FastifyRequest } from 'fastify'
 import {
   Decimal,
   NAO_SEI_FAZER,
+  cadastroLoteSchema,
   clienteSchema,
   formatarMoeda,
   formatarTelefone,
   hojeISO,
+  itemDaLinha,
   linhaItemMensagem,
   nomeCliente,
   normalizarNumeroWhatsapp,
@@ -26,6 +28,8 @@ import { clienteNovo, criarAjudasAssistente, dadosDoTexto } from '../assistente/
 import { controlesDaEmpresa, criarAssistenteEmpresa, mensagemSemResultado, nomeDaGrafica } from '../assistente/empresa.service'
 import { criarNotasWhatsapp, linkDaNota } from '../assistente/notas-whatsapp'
 import { criarPedirService, tipoDoArquivo } from '../assistente/pedir.service'
+import { criarProdutosWhatsapp, linkDaLeituraProdutos, marcarLeituraCriada, prontoParaOk } from '../assistente/produtos-whatsapp'
+import { criarCadastroLote } from '../produtos/cadastro-lote.service'
 import { pedidoAjusteOrcamento } from '../assistente/prompts-ajuste'
 import { criarPerguntasService } from '../assistente/perguntas.service'
 import { criarClientesService } from '../clientes/service'
@@ -39,6 +43,7 @@ import { avisarOrcamento } from '../orcamentos/tempo-real'
 import { obterConfigWhatsapp, whatsappNoPlano } from './avisos'
 import { numeroParaCadastro, numerosParaBusca } from './conversas'
 import {
+  AVISO_VALE_MS,
   JANELA_ACRESCENTAR_MS,
   PERGUNTA_VALE_MS,
   RASCUNHO_NO_CANAL_MS,
@@ -51,6 +56,7 @@ import {
   escolherParaCancelar,
   escolherParaEnviar,
   interpretarVoce,
+  legendaDeProdutos,
   linhaDoAnterior,
   linhaDoRascunho,
   nomeDoPedido,
@@ -63,6 +69,7 @@ import {
   textoEstado,
   textoNota,
   textoPergunta,
+  textoProdutosLidos,
   type AvisoCitado,
   type ConfirmacaoDoDono,
   type DecisaoEnvio,
@@ -140,6 +147,8 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
   const assistenteEmpresa = criarAssistenteEmpresa(app)
   const automatica = criarConversaoAutomatica(app, criarConversaoService(app, orcamentos))
   const pedidosSvc = criarPedidosService(app, estornoAoCancelarPedido)
+  const lote = criarCadastroLote(app)
+  const produtosWhatsapp = criarProdutosWhatsapp(app)
 
   /** Textos mandados ao "Você" há pouco, por empresa (anti-laço antes de o id voltar do envio) */
   const textosEnviados = new Map<string, { texto: string; em: number }[]>()
@@ -179,7 +188,11 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
    * Manda no "Você" (o número conectado para ele mesmo) e registra: o eco é ignorado e o "ok" citando esta mensagem
    * acha o orçamento. Sem número conhecido ou desconectado, fica no log.
    */
-  async function avisar(empresa: EmpresaAtual, texto: string, extra: { tipo?: 'aviso' | 'confirmar' | 'pergunta' | 'resposta' | 'confirmar_aprovacao' | 'aprovado_auto'; orcamentoId?: string | null; opcoes?: string[] } = {}) {
+  async function avisar(
+    empresa: EmpresaAtual,
+    texto: string,
+    extra: { tipo?: 'aviso' | 'confirmar' | 'pergunta' | 'resposta' | 'confirmar_aprovacao' | 'aprovado_auto' | 'produto' | 'produto_criar'; orcamentoId?: string | null; opcoes?: string[]; leituraProdutoId?: string } = {},
+  ) {
     const config = await obterConfigWhatsapp(prisma)
     const provedor = app.whatsapp.provedor
     if (!config.numero || (!provedor.simulado && !config.conectado)) {
@@ -195,7 +208,15 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
       return null
     }
     return prisma.mensagemVoceWhatsapp.create({
-      data: { idExterno: id ?? `local-${randomUUID()}`, direcao: 'enviada', tipo: extra.tipo ?? 'resposta', texto: texto.slice(0, 4000), orcamentoId: extra.orcamentoId ?? null, opcoes: extra.opcoes ?? [] },
+      data: {
+        idExterno: id ?? `local-${randomUUID()}`,
+        direcao: 'enviada',
+        tipo: extra.tipo ?? 'resposta',
+        texto: texto.slice(0, 4000),
+        orcamentoId: extra.orcamentoId ?? null,
+        opcoes: extra.opcoes ?? [],
+        leituraProdutoId: extra.leituraProdutoId ?? null,
+      },
     })
   }
 
@@ -754,7 +775,12 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
       case 'cliente':
         return void (await avisar(empresa, `Abra para cadastrar o cliente: ${linkSistema(`/clientes/novo${l.nomeCliente ? `?${new URLSearchParams({ nome: l.nomeCliente })}` : ''}`)}`))
       case 'produto':
-        return void (await avisar(empresa, `Cadastre o produto pelo sistema (no "Peça ao Assistente" eu preencho com a sua descrição): ${linkSistema('/produtos/novo')}`))
+        return produtosPeloVoce(empresa, d, { texto })
+      case 'ajuda':
+        return void (await avisar(
+          empresa,
+          l.tema ? `Tem o passo a passo na central de ajuda: ${linkSistema(`/ajuda/${l.tema}`)}` : `Veja os passo a passo na central de ajuda: ${linkSistema('/ajuda')}`,
+        ))
       case 'nota_compra':
         return void (await avisar(empresa, 'Mande aqui a foto, o PDF ou o XML da nota que eu preencho a entrada para você conferir.'))
       default:
@@ -764,8 +790,20 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
 
   // ─── Canal "Você": a nota de compra (foto, PDF ou XML) ───
 
+  async function baixarArquivo(empresa: EmpresaAtual, e: EventoProprio) {
+    try {
+      const m = await app.whatsapp.provedor.baixarMidia(instanciaDaEmpresa(empresa.id), e.bruto)
+      if (m) return { conteudo: m.conteudo, nome: e.arquivo?.nome ?? m.nomeArquivo ?? 'arquivo' }
+    } catch (erro) {
+      app.log.warn({ err: erro, empresa: empresa.slug }, 'Copiloto do WhatsApp: arquivo não baixado')
+    }
+    return null
+  }
+
   async function nota(empresa: EmpresaAtual, d: Dono, e: EventoProprio) {
     const sistema = linkSistema('/estoque/entradas/novo')
+    // Foto com a legenda "tabela de preços", "produtos"…: cadastro de produtos, não nota
+    if (legendaDeProdutos(e.texto)) return produtosPeloVoce(empresa, d, { arquivo: await baixarArquivo(empresa, e) })
     if (!(await app.temPermissao(d.req, 'estoque', 'criar'))) return void (await avisar(empresa, 'Sem permissão para lançar notas de compra.'))
     let arquivo: { conteudo: Buffer; nome: string } | null = null
     try {
@@ -782,9 +820,75 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
       const salva = await notas.guardar(lida, arquivo.nome)
       await avisar(empresa, textoNota(lida, linkSistema(linkDaNota(salva.id))))
     } catch (erro) {
+      // Não é nota (uma tabela de preços, um cardápio de serviços?): tenta ler os produtos
+      if (erro instanceof AppError && (erro.details as { motivo?: string } | undefined)?.motivo === 'nao_e_nota' && mediaType !== 'text/xml') {
+        return produtosPeloVoce(empresa, d, { arquivo: arquivo!, semTabela: `Não li uma nota nem uma tabela de preços nessa imagem. Para nota, mande a foto mais nítida ou o XML; para produtos, escreva "tabela" na legenda. Ou lance pelo sistema: ${sistema}` })
+      }
       const msg = mensagemDeErro(erro)
       if (!msg) throw erro
       await avisar(empresa, `${msg} Lance pelo sistema: ${sistema}`)
+    }
+  }
+
+  // ─── Canal "Você": produtos ("novo produto: …" ou a foto de uma tabela de preços) ───
+
+  /**
+   * Lê os produtos (texto ou arquivo), guarda a leitura (sino + revisão preenchida) e responde com o resumo e o link.
+   * Um produto só e claro: o aviso aceita o "ok" citando para criar. Nada é criado aqui.
+   */
+  async function produtosPeloVoce(empresa: EmpresaAtual, d: Dono, entrada: { texto?: string; arquivo?: { conteudo: Buffer; nome: string } | null; semTabela?: string }) {
+    const sistema = linkSistema('/produtos/cadastrar-varios')
+    if (!(await app.temPermissao(d.req, 'produtos', 'criar'))) return void (await avisar(empresa, 'Sem permissão para cadastrar produtos.'))
+    if (!entrada.texto && !entrada.arquivo) return void (await avisar(empresa, `Não consegui baixar o arquivo. Cadastre pelo sistema: ${sistema}`))
+    try {
+      const l = entrada.texto
+        ? await lote.lerTexto(entrada.texto, 'whatsapp')
+        : await lote.lerArquivo({ nome: entrada.arquivo!.nome, mediaType: tipoDoArquivo(entrada.arquivo!.conteudo), conteudo: entrada.arquivo!.conteudo }, 'whatsapp')
+      const salva = await produtosWhatsapp.guardar(l, entrada.texto ? 'texto' : 'foto')
+      const porOk = prontoParaOk(l)
+      await avisar(empresa, textoProdutosLidos(l, linkSistema(linkDaLeituraProdutos(salva.id)), porOk), { tipo: porOk ? 'produto_criar' : 'produto', leituraProdutoId: salva.id })
+    } catch (erro) {
+      const msg = mensagemDeErro(erro)
+      if (!msg) throw erro
+      const naoETabela = erro instanceof AppError && (erro.details as { motivo?: string } | undefined)?.motivo === 'nao_e_tabela'
+      await avisar(empresa, naoETabela && entrada.semTabela ? entrada.semTabela : `${msg} Cadastre pelo sistema: ${sistema}`)
+    }
+  }
+
+  /**
+   * Resposta em cima do aviso de produtos: "ok" cria (só no aviso de um produto claro, de até 2 horas, ainda pendente e
+   * sem nome parecido no cadastro: a leitura vira "criada" na mesma transação, então o segundo "ok" não duplica);
+   * "cancela" descarta; o resto, o link da revisão.
+   */
+  async function respostaAoAvisoDeProduto(empresa: EmpresaAtual, d: Dono, aviso: { tipo: string | null; leituraProdutoId: string; createdAt: Date }, texto: string) {
+    const comando = interpretarVoce(texto)
+    const link = linkSistema(linkDaLeituraProdutos(aviso.leituraProdutoId))
+    if (comando.tipo === 'cancelar') {
+      try {
+        await produtosWhatsapp.descartar(aviso.leituraProdutoId)
+        return void (await avisar(empresa, 'Certo, não criei. A leitura saiu da lista.'))
+      } catch (erro) {
+        return void (await avisar(empresa, mensagemDeErro(erro) ?? 'Não consegui descartar agora.'))
+      }
+    }
+    if (comando.tipo !== 'enviar') return void (await avisar(empresa, `Para mudar o produto, abra a revisão (nada é criado sem você): ${link}`))
+    if (aviso.tipo !== 'produto_criar') return void (await avisar(empresa, `Esse precisa da sua conferência antes. Abra para conferir e criar: ${link}`))
+    if (Date.now() - aviso.createdAt.getTime() > AVISO_VALE_MS) return void (await avisar(empresa, `Esse aviso é antigo. Abra para conferir e criar: ${link}`))
+    if (!(await app.temPermissao(d.req, 'produtos', 'criar'))) return void (await avisar(empresa, 'Sem permissão para cadastrar produtos.'))
+    try {
+      const l = await produtosWhatsapp.paraRevisao(aviso.leituraProdutoId, lote)
+      // O cadastro pode ter mudado depois do aviso (outro produto com o mesmo nome): aí só pela revisão
+      if (!prontoParaOk(l)) return void (await avisar(empresa, `Já existe produto parecido no cadastro. Abra para conferir: ${link}`))
+      const dados = cadastroLoteSchema.parse({ itens: [itemDaLinha(l.linhas[0]!)], leituraId: aviso.leituraProdutoId })
+      const r = await lote.criar(dados, d.id, (tx, ids) => marcarLeituraCriada(tx, aviso.leituraProdutoId, ids))
+      const p = r.criados[0]!
+      await avisar(empresa, `✅ ${p.nome} criado (${p.codigo}), pronto para orçamento: ${linkSistema(`/produtos/${p.id}`)}`)
+    } catch (erro) {
+      const det = erro instanceof AppError ? (erro.details as { motivo?: string; produtosIds?: string[] } | undefined) : undefined
+      if (det?.motivo === 'criada') return void (await avisar(empresa, `Esse produto já foi criado${det.produtosIds?.[0] ? `: ${linkSistema(`/produtos/${det.produtosIds[0]}`)}` : '.'}`))
+      const msg = mensagemDeErro(erro)
+      if (!msg) throw erro
+      await avisar(empresa, `Não criei: ${msg} Abra para conferir: ${link}`)
     }
   }
 
@@ -794,6 +898,13 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     if (e.midia === 'foto' || e.midia === 'documento') return nota(empresa, d, e)
     const texto = e.texto?.trim()
     if (!texto) return void (await avisar(empresa, 'Por aqui eu leio texto e a foto, o PDF ou o XML da nota. Áudio ainda não.'))
+    // Em cima do aviso de produtos lidos ("ok" cria, "cancela" descarta): não é assunto de orçamento
+    const avisoProduto = e.citadoId
+      ? await prisma.mensagemVoceWhatsapp.findUnique({ where: { idExterno: e.citadoId }, select: { direcao: true, tipo: true, leituraProdutoId: true, createdAt: true } })
+      : null
+    if (avisoProduto?.direcao === 'enviada' && avisoProduto.leituraProdutoId) {
+      return respostaAoAvisoDeProduto(empresa, d, { tipo: avisoProduto.tipo, leituraProdutoId: avisoProduto.leituraProdutoId, createdAt: avisoProduto.createdAt }, texto)
+    }
     const comando = interpretarVoce(texto)
     const agora = new Date()
     // A mensagem do dono: as confirmações viram reação nela (✅, 👍, ↩️), sem mensagem nova

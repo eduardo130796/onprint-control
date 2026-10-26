@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeft, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
-import { TIPO_PRODUTO_ROTULOS, produtoSchema, type EstadoDoAssistente, type ProdutoDetalhe, type ProdutoInput, type ProdutoSugerido } from '@onprint/shared'
+import { TIPO_PRODUTO_ROTULOS, produtoSchema, type EstadoDoAssistente, type Produto, type ProdutoDetalhe, type ProdutoInput, type ProdutoSugerido } from '@onprint/shared'
 import { produtosApi } from '@/api/produtos'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { EstadoErro } from '@/components/shared/EstadoErro'
@@ -24,6 +24,14 @@ import { AbaCustoPreco } from '../components/custo/AbaCustoPreco'
 import { temSugestaoCusto } from '../components/custo/estadoComposicao'
 import { ABA_DO_CAMPO, semPrecoECusto, valoresProduto, type ProdutoSaida } from '../components/produto/formProduto'
 import { PreencherComAssistente } from '../components/produto/PreencherComAssistente'
+
+/** O que o salvar devolve: o produto editado (para o formulário) ou o criado (e se materiais e acabamentos foram junto) */
+interface Salvo {
+  id: string
+  codigo: string
+  junto: boolean
+  produto?: Produto
+}
 
 /** Estado da navegação depois de cadastrar: o que o Assistente sugeriu e ainda falta conferir (custo, acabamentos) */
 interface EstadoNavegacao {
@@ -45,8 +53,13 @@ function Formulario({ produto, sugestaoInicial }: { produto?: ProdutoDetalhe; su
   // A aba "Custo e preço" fica montada depois da primeira visita (não perde o que foi digitado ao trocar de aba)
   const [custoVisitado, setCustoVisitado] = useState(aba === 'custo')
   const form = useForm<ProdutoInput, unknown, ProdutoSaida>({ resolver: zodResolver(produtoSchema), defaultValues: valoresProduto(produto) })
-  // Na edição, preço e custo não vão: quem cuida deles é a aba "Custo e preço"
-  const salvar = useMutacao(['produtos'], (d: ProdutoSaida) => (produto ? produtosApi.atualizar(produto.id, semPrecoECusto(d)) : produtosApi.criar(d)))
+  // Na edição, preço e custo não vão: quem cuida deles é a aba "Custo e preço". No novo com materiais ou acabamentos
+  // (o que o Assistente sugeriu e a pessoa deixou), tudo vai junto numa transação
+  const salvar = useMutacao(['produtos'], async (d: ProdutoSaida): Promise<Salvo> => {
+    if (!produto) return criarNovo(d)
+    const p = await produtosApi.atualizar(produto.id, semPrecoECusto(d))
+    return { id: p.id, codigo: p.codigo, junto: false, produto: p }
+  })
   const { isDirty } = form.formState
 
   // Assistente GrafyGo: campos preenchidos por ele (selo até a pessoa mexer ou salvar) e o resto da sugestão
@@ -71,15 +84,43 @@ function Formulario({ produto, sugestaoInicial }: { produto?: ProdutoDetalhe; su
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /** O que vai junto do produto novo (sugerido pelo Assistente e mantido pela pessoa) */
+  async function criarNovo(d: ProdutoSaida): Promise<Salvo> {
+    const acabamentos = sugestao?.acabamentos ?? []
+    const materiais = sugestao?.insumos ?? []
+    if (!acabamentos.length && !materiais.length) return { ...(await produtosApi.criar(d)), junto: false }
+    // Sem preço o cadastro em lote recusa: cria como sempre e liga os acabamentos (os materiais ficam na aba "Custo e preço")
+    if (!(Number(d.precoVenda) > 0)) {
+      const p = await produtosApi.criar(d)
+      if (acabamentos.length) await produtosApi.salvarAcabamentos(p.id, acabamentos.map((a) => ({ acabamentoId: a.id })))
+      return { ...p, junto: false }
+    }
+    const r = await produtosApi.criarLote({
+      itens: [
+        {
+          ...d,
+          acabamentos: acabamentos.map((a) => ({ id: a.id, nome: a.nome, tipoCobranca: 'fixo' as const })),
+          materiais: materiais.map((m) => ({ insumoId: m.insumoId, quantidade: m.quantidade, base: m.base })),
+          // O cadastro de um produto não barra nome parecido (como sempre foi)
+          permitirDuplicado: true,
+        },
+      ],
+    })
+    return { ...r.criados[0]!, junto: true }
+  }
+
   const onSubmit = form.handleSubmit(
     async (dados) => {
       try {
         const salvo = await salvar.mutateAsync(dados)
         toast.success(produto ? 'Produto atualizado.' : `Produto ${salvo.codigo} cadastrado.`)
         setSugeridos(new Set())
-        if (produto) form.reset(valoresProduto(salvo))
-        // O que o Assistente sugeriu para o custo e os acabamentos segue para as abas do produto cadastrado
-        else navigate(`/produtos/${salvo.id}`, { replace: true, state: sugestao ? ({ sugestaoAssistente: sugestao } satisfies EstadoNavegacao) : undefined })
+        if (salvo.produto) form.reset(valoresProduto(salvo.produto))
+        // O que o Assistente sugeriu e ainda não foi salvo (etapas; materiais, se o produto foi sem preço) segue para as abas
+        else {
+          const resto = sugestao && { ...sugestao, acabamentos: [], insumos: salvo.junto ? [] : sugestao.insumos }
+          navigate(`/produtos/${salvo.id}`, { replace: true, state: resto ? ({ sugestaoAssistente: resto } satisfies EstadoNavegacao) : undefined })
+        }
       } catch (e) {
         toast.error((e as Error).message)
       }
@@ -132,14 +173,18 @@ function Formulario({ produto, sugestaoInicial }: { produto?: ProdutoDetalhe; su
                   textoInicial={textoAssistente}
                   onSugestao={(s, campos) => {
                     setSugestao(s)
-                    setSugeridos(new Set(campos))
+                    if (campos) setSugeridos(new Set(campos))
                   }}
                 />
               </div>
             )}
             {produto && sugestao && (temSugestaoCusto(sugestao) || sugestao.acabamentos.length > 0) && (
               <p className="mb-4 rounded-xl bg-marca-suave p-3 text-sm text-marca-escuro">
-                O Assistente também sugeriu materiais, etapas ou acabamentos: confira nas abas “Custo e preço” e “Acabamentos”.
+                O Assistente também sugeriu{' '}
+                {[sugestao.insumos.length ? 'materiais' : null, sugestao.processos.length ? 'etapas de produção' : null, sugestao.margem ? 'o lucro desejado' : null, sugestao.acabamentos.length ? 'acabamentos' : null]
+                  .filter(Boolean)
+                  .join(', ')}
+                : confira e salve {sugestao.acabamentos.length && temSugestaoCusto(sugestao) ? 'nas abas “Custo e preço” e “Acabamentos”' : sugestao.acabamentos.length ? 'na aba “Acabamentos”' : 'na aba “Custo e preço”'}.
               </p>
             )}
             <AbaGeral form={form} produto={produto} podeEditar={podeSalvar} sugeridos={sugeridos} />
@@ -213,6 +258,7 @@ export function ProdutoPage() {
   const unidades = useUnidades()
   const categorias = useCategorias('true')
   const listasProntas = !unidades.isPending && !categorias.isPending
+  const comAssistente = useAjudaLiberada('produtos')
   const voltar = (
     <Button asChild variant="outline">
       <Link to="/produtos">
@@ -224,7 +270,19 @@ export function ProdutoPage() {
   if (novo) {
     return (
       <>
-        <PageHeader titulo="Novo produto ou serviço" subtitulo="Custo e preço, acabamentos e simulador ficam disponíveis após salvar." acoes={voltar} />
+        <PageHeader
+          titulo="Novo produto ou serviço"
+          subtitulo={
+            <>
+              {comAssistente ? 'Descreva o produto e o Assistente preenche, ou use os campos. ' : 'Custo e preço, acabamentos e simulador ficam disponíveis após salvar. '}
+              Vários de uma vez?{' '}
+              <Link to="/produtos/cadastrar-varios" className="font-semibold text-marca-escuro hover:underline">
+                Cadastrar vários
+              </Link>
+            </>
+          }
+          acoes={voltar}
+        />
         {listasProntas ? <Formulario /> : <Skeleton className="h-96 w-full" />}
       </>
     )

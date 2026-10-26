@@ -1,11 +1,13 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import type { FastifyRequest } from 'fastify'
 import type { Acao, Modulo } from '@onprint/shared'
-import { controlesAssistenteSchema, descricaoAssistenteSchema, idParamSchema, orcamentoDeTextoSchema, pedirAssistenteSchema, produtoDeTextoSchema, regrasDeTextoSchema } from '@onprint/shared'
+import { controlesAssistenteSchema, descricaoAssistenteSchema, idParamSchema, lerTabelaSchema, orcamentoDeTextoSchema, pedirAssistenteSchema, produtoDeTextoSchema, regrasDeTextoSchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { criarAjudasAssistente } from './ajudas.service'
 import { criarAssistenteEmpresa } from './empresa.service'
+import { criarCadastroLote } from '../produtos/cadastro-lote.service'
 import { criarNotasWhatsapp } from './notas-whatsapp'
+import { criarProdutosWhatsapp } from './produtos-whatsapp'
 import { criarPedirService, tipoDoArquivo } from './pedir.service'
 
 const tags = ['assistente']
@@ -19,6 +21,8 @@ export const assistenteEmpresaRoutes: FastifyPluginAsyncZod = async (app) => {
   const ajudas = criarAjudasAssistente(app)
   const pedir = criarPedirService(app)
   const notas = criarNotasWhatsapp(app)
+  const lote = criarCadastroLote(app)
+  const produtosWhatsapp = criarProdutosWhatsapp(app)
   // Uma IA por clique: limite generoso por pessoa (as descrições em lote vão uma a uma)
   const limite = (max: number) => ({ rateLimit: { max, timeWindow: '1 minute' } })
 
@@ -93,6 +97,36 @@ export const assistenteEmpresaRoutes: FastifyPluginAsyncZod = async (app) => {
     '/notas-whatsapp/:id/descartar',
     { onRequest: [app.exigirPermissao('estoque', 'criar')], schema: { tags, summary: 'Tira a nota lida pelo WhatsApp da faixa de conferência', params: idParamSchema } },
     (request) => notas.descartar(request.params.id),
+  )
+  // "Cadastrar vários de uma vez": a tabela de preços (texto, planilha, foto ou PDF) vira linhas para revisar (não salva)
+  app.post(
+    '/tabela-produtos',
+    { onRequest: [app.exigirPermissao('produtos', 'criar')], config: limite(10), schema: { tags, summary: 'Lê a tabela de preços colada (ou a planilha como texto) para o cadastro em lote (não salva)', body: lerTabelaSchema } },
+    (request) => lote.lerTexto(request.body.texto, request.body.origem),
+  )
+  app.post(
+    '/tabela-produtos/arquivo',
+    {
+      onRequest: [app.exigirPermissao('produtos', 'criar')],
+      config: limite(10),
+      schema: { tags, summary: 'Lê a foto, o PDF ou a planilha CSV da tabela de preços (multipart, campo "arquivo"; não salva)', consumes: ['multipart/form-data'] },
+    },
+    async (request) => {
+      const parte = await request.file()
+      if (!parte) throw AppError.regraNegocio('Anexe a foto, o PDF ou a planilha da tabela.')
+      const conteudo = await parte.toBuffer()
+      const tipo = tipoDoArquivo(conteudo)
+      return lote.lerArquivo({ nome: parte.filename, mediaType: tipo === 'text/xml' ? null : tipo, conteudo })
+    },
+  )
+  // Produtos mandados no "Você" do WhatsApp: a leitura guardada abre a revisão preenchida
+  app.get('/produtos-whatsapp/:id', { onRequest: [app.exigirPermissao('produtos', 'criar')], schema: { tags, summary: 'Produtos lidos no WhatsApp (canal "Você") para a revisão', params: idParamSchema } }, (request) =>
+    produtosWhatsapp.paraRevisao(request.params.id, lote),
+  )
+  app.post(
+    '/produtos-whatsapp/:id/descartar',
+    { onRequest: [app.exigirPermissao('produtos', 'criar')], schema: { tags, summary: 'Descarta a leitura de produtos do WhatsApp', params: idParamSchema } },
+    (request) => produtosWhatsapp.descartar(request.params.id),
   )
   app.post(
     '/descricao',

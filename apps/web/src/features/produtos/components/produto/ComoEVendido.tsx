@@ -49,7 +49,7 @@ export function ComoEVendido({ form, produto, sugeridos }: { form: FormProduto; 
           </div>
         ) : (
           <div className="md:col-span-2">
-            <CampoFormulario id="pd-preco" rotulo={`Preço de venda / ${sufixo}`} erro={errors.precoVenda?.message}>
+            <CampoFormulario id="pd-preco" rotulo={`Preço de venda / ${sufixo}`} erro={errors.precoVenda?.message} acao={selo('precoVenda')}>
               <MoneyInput id="pd-preco" {...r('precoVenda')} />
             </CampoFormulario>
             <p className="mt-1.5 text-xs text-texto-secundario">Depois de salvar, a aba “Custo e preço” calcula o preço sugerido pelo custo.</p>
@@ -61,10 +61,10 @@ export function ComoEVendido({ form, produto, sugeridos }: { form: FormProduto; 
         <CampoFormulario id="pd-ap" rotulo="Altura padrão" erro={errors.alturaPadrao?.message} acao={selo('alturaPadrao')}>
           <NumberInput id="pd-ap" casas={3} sufixo="m" {...r('alturaPadrao')} />
         </CampoFormulario>
-        <CampoFormulario id="pd-lm" rotulo="Largura máxima" erro={errors.larguraMaxima?.message}>
+        <CampoFormulario id="pd-lm" rotulo="Largura máxima" erro={errors.larguraMaxima?.message} acao={selo('larguraMaxima')}>
           <NumberInput id="pd-lm" casas={3} sufixo="m" {...r('larguraMaxima')} />
         </CampoFormulario>
-        <CampoFormulario id="pd-am" rotulo="Altura máxima" erro={errors.alturaMaxima?.message}>
+        <CampoFormulario id="pd-am" rotulo="Altura máxima" erro={errors.alturaMaxima?.message} acao={selo('alturaMaxima')}>
           <NumberInput id="pd-am" casas={3} sufixo="m" {...r('alturaMaxima')} />
         </CampoFormulario>
         <p className="text-xs text-texto-secundario md:col-span-4">

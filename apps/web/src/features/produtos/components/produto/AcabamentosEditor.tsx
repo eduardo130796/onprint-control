@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Loader2, Save, Sparkles } from 'lucide-react'
+import { Loader2, Plus, Save, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { TIPO_COBRANCA_ROTULOS, formatarMoeda, type ProdutoDetalhe } from '@onprint/shared'
 import { produtosApi } from '@/api/produtos'
@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/form-controls'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SeloSugerido } from '@/features/assistente/SeloSugerido'
 import { useAcabamentosOpcoes, useMutacao } from '../../hooks'
+import { NovoAcabamentoRapido } from '../CadastroRapido'
 
 interface Marcacao {
   permitido: boolean
@@ -33,6 +34,8 @@ export function AcabamentosEditor({ produto, podeEditar, sugeridos = [], onSalvo
     ...Object.fromEntries(produto.acabamentos.map((a) => [a.acabamentoId, { permitido: true, padrao: a.padrao, obrigatorio: a.obrigatorio }])),
   }))
   // Selo só nos que o Assistente acrescentou (os que já eram do produto não mudam)
+  // Acabamento que falta: cadastrado aqui mesmo e já marcado como permitido (salva com "Salvar acabamentos")
+  const [cadastrando, setCadastrando] = useState(false)
   const [comSelo, setComSelo] = useState(() => new Set(sugeridos.filter((id) => !produto.acabamentos.some((a) => a.acabamentoId === id))))
   const salvar = useMutacao(['produtos'], () =>
     produtosApi.salvarAcabamentos(
@@ -103,6 +106,24 @@ export function AcabamentosEditor({ produto, podeEditar, sugeridos = [], onSalvo
           })}
         </tbody>
       </table>
+      {podeEditar && (
+        <div className="border-t border-border p-4">
+          {cadastrando ? (
+            <NovoAcabamentoRapido
+              nome=""
+              onCancelar={() => setCadastrando(false)}
+              onCriado={(a) => {
+                setCadastrando(false)
+                alterar(a.id, 'permitido', true)
+              }}
+            />
+          ) : (
+            <Button type="button" variant="outline" size="sm" onClick={() => setCadastrando(true)}>
+              <Plus /> Novo acabamento
+            </Button>
+          )}
+        </div>
+      )}
       {podeEditar && (
         <div className="flex justify-end border-t border-border p-4">
           <Button

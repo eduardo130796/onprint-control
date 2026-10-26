@@ -16,12 +16,13 @@ import type { EsforcoIA, PedidoEstruturado, TarefaIA } from '../../integrations/
 export const VERSOES_PROMPTS: Record<TarefaIA, string> = {
   classificar_resposta: 'resposta-orcamento@3',
   orcamento_texto: 'orcamento-de-texto@4',
-  produto_texto: 'produto-de-texto@2',
-  descricao: 'descricao-produto@1',
+  produto_texto: 'produto-de-texto@3',
+  descricao: 'descricao-produto@2',
   regras_texto: 'regras-de-texto@1',
-  intencao: 'intencao-do-pedido@1',
+  intencao: 'intencao-do-pedido@2',
   nota_compra: 'nota-de-compra@1',
   ajuste_orcamento: 'ajuste-do-orcamento@1',
+  tabela_produtos: 'tabela-de-produtos@2',
 }
 
 /**
@@ -40,6 +41,8 @@ export const AJUSTES_TAREFAS: Record<TarefaIA, { esforco: EsforcoIA; maxTokens: 
   nota_compra: { esforco: 'medium', maxTokens: 4096 },
   // Ajuste do orçamento no "Você": só transformar o pedido em operações (barato)
   ajuste_orcamento: { esforco: 'low', maxTokens: 1024 },
+  // Tabela de preços inteira (até ~100 linhas): transcrever, sem raciocinar muito, com resposta longa
+  tabela_produtos: { esforco: 'low', maxTokens: 12_000 },
 }
 
 /** Telefones, documentos (8+ dígitos, com ou sem separadores) e e-mails viram marcadores antes de sair do servidor */

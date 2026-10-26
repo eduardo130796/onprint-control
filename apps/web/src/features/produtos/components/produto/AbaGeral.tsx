@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ImageIcon } from 'lucide-react'
+import { ImageIcon, Plus } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { EXTENSOES_IMAGEM, TIPOS_PRODUTO, TIPO_PRODUTO_ROTULOS, type Produto } from '@onprint/shared'
 import { produtosApi } from '@/api/produtos'
@@ -13,6 +13,7 @@ import { BotaoEscrever } from '@/features/assistente/BotaoEscrever'
 import { SeloSugerido } from '@/features/assistente/SeloSugerido'
 import { useUrlArquivo } from '@/features/configuracoes/hooks'
 import { useCategorias, useUnidades } from '../../hooks'
+import { NovaCategoriaRapida } from '../CadastroRapido'
 import { ComoEVendido } from './ComoEVendido'
 import type { FormProduto } from './formProduto'
 
@@ -58,6 +59,8 @@ export function AbaGeral({ form, produto, podeEditar, sugeridos }: AbaGeralProps
   const r = form.register
   const selo = (campo: string) => (sugeridos?.has(campo) ? <SeloSugerido curto /> : undefined)
   const [descricaoSugerida, setDescricaoSugerida] = useState(false)
+  // Categoria que falta: criada aqui mesmo (sem sair do cadastro)
+  const [novaCategoria, setNovaCategoria] = useState(false)
 
   // Insumo tem tela própria (Produtos → Insumos)
   const tipos = TIPOS_PRODUTO.filter((t) => t !== 'insumo' || produto?.tipo === 'insumo')
@@ -89,15 +92,39 @@ export function AbaGeral({ form, produto, podeEditar, sugeridos }: AbaGeralProps
               </CampoFormulario>
             </div>
             <div className="md:col-span-4">
-              <CampoFormulario id="pd-categoria" rotulo="Categoria" acao={selo('categoriaId')}>
-                <Select id="pd-categoria" {...r('categoriaId')}>
-                  <option value="">Sem categoria</option>
-                  {categorias.data?.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.caminho}
-                    </option>
-                  ))}
-                </Select>
+              <CampoFormulario
+                id="pd-categoria"
+                rotulo="Categoria"
+                acao={
+                  <span className="flex items-center gap-2">
+                    {selo('categoriaId')}
+                    {podeEditar && !novaCategoria && (
+                      <button type="button" className="inline-flex items-center gap-1 text-xs font-semibold text-marca-escuro hover:underline" onClick={() => setNovaCategoria(true)}>
+                        <Plus className="h-3.5 w-3.5" /> Nova
+                      </button>
+                    )}
+                  </span>
+                }
+              >
+                {novaCategoria ? (
+                  <NovaCategoriaRapida
+                    onCancelar={() => setNovaCategoria(false)}
+                    onCriada={(c) => {
+                      setNovaCategoria(false)
+                      // Espera a lista recarregar com a nova opção antes de marcar
+                      void categorias.refetch().then(() => form.setValue('categoriaId', c.id, { shouldDirty: true }))
+                    }}
+                  />
+                ) : (
+                  <Select id="pd-categoria" {...r('categoriaId')}>
+                    <option value="">Sem categoria</option>
+                    {categorias.data?.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.caminho}
+                      </option>
+                    ))}
+                  </Select>
+                )}
               </CampoFormulario>
             </div>
             <div className="md:col-span-3">

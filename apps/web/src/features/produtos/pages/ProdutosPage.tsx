@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { LayoutGrid, ListPlus, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   MODOS_CALCULO,
@@ -117,6 +117,9 @@ export function ProdutosPage() {
         subtitulo="O que você vende: forma de cobrança, custo e preço, acabamentos. Os materiais ficam em Insumos e materiais."
         acoes={
           <Can modulo="produtos" acao="criar">
+            <Button variant="outline" onClick={() => navigate('/produtos/cadastrar-varios')}>
+              <ListPlus /> Cadastrar vários
+            </Button>
             <Button onClick={() => navigate('/produtos/novo')}>
               <Plus /> Novo produto
             </Button>
@@ -158,7 +161,25 @@ export function ProdutosPage() {
             { titulo: 'Preço de venda', valor: (p) => p.precoVenda.replace('.', ',') },
           ],
         }}
-        vazio={{ titulo: 'Nenhum produto encontrado' }}
+        vazio={
+          // Catálogo vazio de verdade (sem busca nem filtro): o caminho curto é a tabela que a gráfica já tem ou os modelos
+          !lista.busca && !Object.values(lista.filtros).some(Boolean) && pode('produtos', 'criar')
+            ? {
+                titulo: 'Nenhum produto ainda',
+                descricao: 'Cole a tabela de preços que você já manda no WhatsApp, ou marque os produtos que você vende nos modelos prontos e digite só os preços.',
+                acao: (
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button onClick={() => navigate('/produtos/cadastrar-varios?modelos=1')}>
+                      <LayoutGrid /> Começar com modelos prontos
+                    </Button>
+                    <Button variant="outline" onClick={() => navigate('/produtos/cadastrar-varios')}>
+                      <ListPlus /> Colar minha tabela de preços
+                    </Button>
+                  </div>
+                ),
+              }
+            : { titulo: 'Nenhum produto encontrado' }
+        }
       />
       <ConfirmDialog
         aberto={Boolean(confirmar)}

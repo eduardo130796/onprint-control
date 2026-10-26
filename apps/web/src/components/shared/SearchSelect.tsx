@@ -20,8 +20,8 @@ interface SearchSelectProps {
   desabilitado?: boolean
   invalido?: boolean
   id?: string
-  /** Ação extra no fim da lista (ex.: "Cadastrar novo cliente") */
-  rodape?: React.ReactNode
+  /** Ação extra no fim da lista (ex.: "Cadastrar novo cliente"); como função, recebe o que foi digitado e fecha a lista */
+  rodape?: React.ReactNode | ((termo: string, fechar: () => void) => React.ReactNode)
 }
 
 /** Campo de seleção com busca assíncrona no servidor (debounce, teclado e estado de carregamento). */
@@ -140,7 +140,7 @@ export function SearchSelect({ chave, buscar, valor, onChange, placeholder = 'Bu
               </li>
             ))}
           </ul>
-          {rodape && <div className="border-t border-border p-1">{rodape}</div>}
+          {rodape && <div className="border-t border-border p-1">{typeof rodape === 'function' ? rodape(termo.trim(), () => setAberto(false)) : rodape}</div>}
         </div>
       )}
     </div>

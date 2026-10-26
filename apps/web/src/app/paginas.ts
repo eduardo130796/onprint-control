@@ -46,6 +46,7 @@ export const CategoriasPage = carregar(() => import('@/features/produtos/pages/C
 export const MaquinasProcessosPage = carregar(() => import('@/features/produtos/pages/MaquinasProcessosPage'), 'MaquinasProcessosPage')
 export const ProdutoPage = carregar(() => import('@/features/produtos/pages/ProdutoPage'), 'ProdutoPage')
 export const ProdutosPage = carregar(() => import('@/features/produtos/pages/ProdutosPage'), 'ProdutosPage')
+export const CadastrarVariosPage = carregar(() => import('@/features/produtos/pages/CadastrarVariosPage'), 'CadastrarVariosPage')
 export const InsumosPage = carregar(() => import('@/features/produtos/pages/InsumosPage'), 'InsumosPage')
 export const InsumoPage = carregar(() => import('@/features/produtos/pages/InsumoPage'), 'InsumoPage')
 export const ReajustePage = carregar(() => import('@/features/produtos/pages/ReajustePage'), 'ReajustePage')

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { BaseInsumo, ModoCalculo } from './enums'
+import type { BaseInsumo, ModoCalculo, TipoCobranca } from './enums'
 
 /*
  * Assistente GrafyGo: a IA que fala e age como "Assistente GrafyGo da <gráfica>". O núcleo (API) não depende de um
@@ -352,6 +352,11 @@ export interface ProdutoSugerido {
   /** Metros */
   larguraPadrao: string | null
   alturaPadrao: string | null
+  /** Medida máxima que a gráfica faz (metros), só quando a pessoa disse */
+  larguraMaxima: string | null
+  alturaMaxima: string | null
+  /** Preço de venda só quando a pessoa escreveu (a IA nunca decide preço); null = a pessoa digita */
+  precoVenda: string | null
   prazoProducaoDias: number | null
   precisaArte: boolean
   /** Insumos do cadastro (ids conferidos) com o consumo por unidade de cobrança */
@@ -359,6 +364,12 @@ export interface ProdutoSugerido {
   /** Etapas de produção do cadastro (o tempo fica em branco: vale a velocidade da máquina ou o tempo padrão) */
   processos: { processoId: string; nome: string; maquinaId: string | null }[]
   acabamentos: { id: string; nome: string }[]
+  /** Acabamentos citados que não estão no cadastro: a pessoa cria com um toque (valor só se escrito) */
+  acabamentosNovos: { nome: string; tipoCobranca: TipoCobranca; valor: string | null }[]
+  /** Materiais citados que não estão nos insumos: "Cadastrar agora" já preenchido (nunca criados sem o toque) */
+  insumosFaltando: { nome: string; unidadeSigla: string | null; custo: string | null; quantidade: string; base: BaseInsumo }[]
+  /** O texto fala de mais de um produto (ex.: uma tabela colada): a tela oferece a revisão em lote */
+  variosProdutos: number
   /** Lucro desejado (%), só quando a pessoa disse */
   margem: string | null
   /** Descrição curta (orçamento e vitrine) */

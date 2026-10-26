@@ -23,7 +23,20 @@ function periodo(t: string): string | null {
 export function intencaoSimulada(conteudo: string) {
   const original = pedidoDaPessoa(conteudo)
   const t = semAcentos(original)
-  const r = (intencao: string, extra: Record<string, unknown> = {}) => ({ intencao, pergunta: null, periodo: null, nome_cliente: null, confianca: 0.9, ...extra })
+  const r = (intencao: string, extra: Record<string, unknown> = {}) => ({ intencao, pergunta: null, periodo: null, nome_cliente: null, tema: null, confianca: 0.9, ...extra })
+  // Dúvida de uso ("como cadastro um produto?"): o tema pelas palavras
+  if (/^(como|onde|o que|da pra|da para|tem como)\b/.test(t) && /\?|\b(faco|faz|cadastro|conecto|ligo|coloco|uso|mudo|configuro)\b/.test(t)) {
+    const temas: [RegExp, string][] = [
+      [/whats|zap/, 'conectar-whatsapp'],
+      [/produto|servico|preco/, 'cadastrar-produto'],
+      [/orcamento/, 'fazer-orcamento'],
+      [/vitrine|site/, 'ligar-vitrine'],
+      [/pagamento|baixa|receber/, 'receber-pagamento'],
+      [/equipe|usuario|vendedor/, 'convidar-equipe'],
+      [/logo|empresa/, 'configurar-empresa'],
+    ]
+    return r('ajuda', { tema: temas.find(([re]) => re.test(t))?.[1] ?? null })
+  }
   if (/devendo|\bdevem\b|\bdeve\b|inadimpl|em aberto|a receber|me deve/.test(t)) return r('pergunta', { pergunta: 'quem_deve' })
   if (/vendi|vendemos|vendas|faturei|faturamos|faturamento/.test(t)) return r('pergunta', { pergunta: 'vendas', periodo: periodo(t) ?? 'mes' })
   if (/atrasad/.test(t) && /pedido|entrega/.test(t)) return r('pergunta', { pergunta: 'pedidos_atrasados' })

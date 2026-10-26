@@ -1,5 +1,5 @@
-import { useRef } from 'react'
-import { ExternalLink, Layers, Plus, Trash2 } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Layers, Plus, Trash2 } from 'lucide-react'
 import { BASES_INSUMO, formatarMoeda, type BaseInsumo } from '@onprint/shared'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { NumberInput } from '@/components/shared/inputs'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/form-controls'
 import { SeloSugerido } from '@/features/assistente/SeloSugerido'
 import { criarBuscaInsumos, type InfoInsumo } from '../../buscaInsumos'
+import { NovoInsumoRapido } from '../CadastroRapido'
 import { formatarCusto, numero } from '../../custos'
 import { Secao } from './Secao'
 import { novoMaterial, type MaterialLinha } from './estadoComposicao'
@@ -44,6 +45,8 @@ interface Props {
 export function BlocoMateriais({ linhas, custos, unidadeProduto, baseNova, produtoId, editavel, onChange }: Props) {
   // Dados do insumo escolhido na busca (nome, unidade e custo) — a busca só devolve id/rótulo
   const cache = useRef(new Map<string, InfoInsumo>())
+  // "+ Cadastrar “…” como insumo": o mini cadastro abre na própria linha (sem sair da tela)
+  const [cadastrando, setCadastrando] = useState<{ chave: number; nome: string } | null>(null)
 
   const buscar = criarBuscaInsumos(cache.current, { revendaExceto: produtoId })
 
@@ -92,11 +95,18 @@ export function BlocoMateriais({ linhas, custos, unidadeProduto, baseNova, produ
                     alterar(l.chave, o ? { insumoId: o.id, nome: info?.nome ?? o.rotulo, unidade: info?.unidade ?? 'un', custoUnitario: info?.custo ?? '0' } : { insumoId: '', nome: '', unidade: '', custoUnitario: '0' })
                   }}
                   placeholder="Buscar insumo…"
-                  rodape={
-                    <a href="/produtos/insumos/novo" target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-marca-escuro hover:bg-accent">
-                      <ExternalLink className="h-4 w-4" /> Cadastrar insumo (abre em outra aba)
-                    </a>
-                  }
+                  rodape={(termo, fechar) => (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        fechar()
+                        setCadastrando({ chave: l.chave, nome: termo })
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-marca-escuro hover:bg-accent"
+                    >
+                      <Plus className="h-4 w-4 shrink-0" /> <span className="truncate">{termo ? `Cadastrar “${termo}” como insumo` : 'Cadastrar insumo novo'}</span>
+                    </button>
+                  )}
                 />
               </CampoFormulario>
                 </div>
@@ -112,6 +122,16 @@ export function BlocoMateriais({ linhas, custos, unidadeProduto, baseNova, produ
                   </Button>
                 )}
               </div>
+              {cadastrando?.chave === l.chave && (
+                <NovoInsumoRapido
+                  nome={cadastrando.nome}
+                  onCancelar={() => setCadastrando(null)}
+                  onCriado={(i) => {
+                    setCadastrando(null)
+                    alterar(l.chave, { insumoId: i.id, nome: i.nome, unidade: i.unidade, custoUnitario: i.custo })
+                  }}
+                />
+              )}
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,0.8fr)]">
                 <CampoFormulario id={`mt-${l.chave}-qtd`} rotulo="Quanto vai">
                   <NumberInput id={`mt-${l.chave}-qtd`} casas={4} sufixo={l.unidade || undefined} className="pr-12" value={l.quantidade} disabled={!editavel} onChange={(e) => alterar(l.chave, { quantidade: e.target.value })} />

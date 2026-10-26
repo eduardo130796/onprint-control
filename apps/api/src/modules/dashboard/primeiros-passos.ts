@@ -13,7 +13,7 @@ export function criarPrimeirosPassos(app: FastifyInstance) {
     async calcular(): Promise<PrimeirosPassos> {
       const empresa = contextoEmpresa.exigir()
       const temVitrine = !empresa.assinatura || empresa.assinatura.modulos.includes('vitrine')
-      const [config, produtosDaGrafica, produtosEditados, orcamentos, enviados, pedidos, usuarios, vitrine] = await Promise.all([
+      const [config, produtosDaGrafica, produtosEditados, orcamentos, enviados, pedidos, usuarios, vitrine, totalProdutos] = await Promise.all([
         prisma.empresaConfig.findFirst({ orderBy: { createdAt: 'asc' }, select: { logoArquivoId: true, telefone: true, whatsapp: true } }),
         // Produto cadastrado por alguém da equipe (os de exemplo vêm sem autor)…
         prisma.produto.count({ where: { createdBy: { not: null } } }),
@@ -24,6 +24,7 @@ export function criarPrimeirosPassos(app: FastifyInstance) {
         prisma.pedido.count(),
         prisma.usuario.count({ where: { ativo: true } }),
         temVitrine ? prisma.vitrineConfig.findFirst({ select: { ativa: true } }) : Promise.resolve(null),
+        prisma.produto.count({ where: { tipo: { not: 'insumo' } } }),
       ])
 
       const passos: PassoInicial[] = [
@@ -37,9 +38,10 @@ export function criarPrimeirosPassos(app: FastifyInstance) {
         },
         {
           id: 'produtos',
-          titulo: 'Confira os preços dos seus produtos',
-          descricao: 'Ajuste um produto de exemplo ou cadastre o seu, com o custo e a margem que você usa.',
-          link: '/produtos',
+          titulo: 'Cadastre os seus produtos',
+          descricao: 'Cole a tabela de preços que você já tem ou marque o que vende nos modelos prontos: você só digita os preços.',
+          // Catálogo vazio: direto para os modelos prontos; com produtos (de exemplo ou não), a lista
+          link: totalProdutos ? '/produtos' : '/produtos/cadastrar-varios?modelos=1',
           ajuda: 'cadastrar-produto',
           feito: produtosDaGrafica > 0 || Number(produtosEditados[0]?.n ?? 0) > 0,
         },

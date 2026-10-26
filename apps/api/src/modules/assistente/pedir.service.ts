@@ -102,6 +102,9 @@ export function criarPedirService(app: FastifyInstance) {
           return cliente(req, texto, l.nomeCliente)
         case 'produto':
           return (await pode(req, 'produtos', 'criar')) ? { tipo: 'produto', texto } : semPermissao('cadastrar produtos')
+        case 'ajuda':
+          // A resposta sai do tutorial (a tela mostra o resumo e o link): sem outra chamada à IA
+          return { tipo: 'ajuda', tema: l.tema, pergunta: texto }
         case 'nota_compra':
           return (await pode(req, 'estoque', 'criar'))
             ? { tipo: 'anexar_nota', mensagem: 'Anexe o XML da nota (o mais exato), a foto ou o PDF do DANFE: eu preencho a entrada para você conferir.' }
@@ -144,6 +147,7 @@ export function criarPedirService(app: FastifyInstance) {
           config.provedor === 'simulado'
             ? 'Modo de demonstração do Assistente: o simulador só lê os arquivos de exemplo. Use o XML da nota ou ligue o Assistente de verdade.'
             : 'Não consegui ler uma nota fiscal neste arquivo. Tente uma foto mais nítida, o PDF do DANFE ou, melhor, o XML da nota.',
+          { motivo: 'nao_e_nota' },
         )
       }
       return conciliarNota(prisma, notaDaLeitura(r.dados), arquivo.mediaType === 'application/pdf' ? 'pdf' : 'foto', [

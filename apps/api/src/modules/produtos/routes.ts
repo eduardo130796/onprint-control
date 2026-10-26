@@ -10,6 +10,7 @@ import {
   maquinasQuerySchema,
   processoSchema,
   aplicarReajusteSchema,
+  cadastroLoteSchema,
   composicaoProdutoSchema,
   produtoAcabamentosSchema,
   produtoAtualizacaoSchema,
@@ -22,7 +23,9 @@ import {
 } from '@onprint/shared'
 import { registrarRotasCrud } from '../../core/crud-rotas'
 import { criarArquivosService } from '../arquivos/service'
+import { marcarLeituraCriada } from '../assistente/produtos-whatsapp'
 import { criarAcabamentosService } from './acabamentos.service'
+import { criarCadastroLote } from './cadastro-lote.service'
 import { criarCadastrosProdutos } from './cadastros'
 import { criarCategoriasService } from './categorias.service'
 import { criarComposicaoService } from './composicao.service'
@@ -106,6 +109,20 @@ export const produtosRoutes: FastifyPluginAsyncZod = async (app) => {
   )
   app.post('/produtos', { ...pode('criar'), schema: { tags, summary: 'Cria produto (código automático se vazio)', body: produtoSchema } }, async (req, reply) =>
     reply.status(201).send(await c.criar(req, req.body)),
+  )
+  // "Cadastrar vários de uma vez" (tabela de preços, modelos prontos, WhatsApp) e o "Novo produto" descrito em texto
+  const lote = criarCadastroLote(app)
+  app.get('/produtos/lote/cadastro', { ...pode('criar'), schema: { tags, summary: 'Categorias, acabamentos e nomes dos produtos (revisão do cadastro em lote)' } }, () =>
+    lote.cadastroAtual(),
+  )
+  app.post(
+    '/produtos/lote',
+    { ...pode('criar'), schema: { tags, summary: 'Cria vários produtos numa transação (categorias e acabamentos novos, materiais), com auditoria', body: cadastroLoteSchema } },
+    async (req, reply) => {
+      const { leituraId } = req.body
+      reply.status(201)
+      return lote.criar(req.body, req.user.sub, leituraId ? (tx, ids) => marcarLeituraCriada(tx, leituraId, ids) : undefined)
+    },
   )
   app.put('/produtos/:id', { ...pode('editar'), schema: { tags, summary: 'Atualiza produto', params: idParamSchema, body: produtoAtualizacaoSchema } }, (req) =>
     c.atualizar(req, req.params.id, req.body),

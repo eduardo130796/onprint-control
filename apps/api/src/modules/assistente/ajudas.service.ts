@@ -328,6 +328,10 @@ export function criarAjudasAssistente(app: FastifyInstance) {
         unidadeMedidaId,
         larguraPadrao: l.larguraPadrao === null ? null : paraDecimal(l.larguraPadrao),
         alturaPadrao: l.alturaPadrao === null ? null : paraDecimal(l.alturaPadrao),
+        larguraMaxima: l.larguraMaxima === null ? null : paraDecimal(l.larguraMaxima),
+        alturaMaxima: l.alturaMaxima === null ? null : paraDecimal(l.alturaMaxima),
+        // Só o preço que a pessoa escreveu (conferido no texto); a IA nunca decide preço
+        precoVenda: l.precoVenda === null ? null : new Decimal(l.precoVenda).toFixed(2),
         prazoProducaoDias: l.prazoDias,
         precisaArte: l.precisaArte,
         insumos: l.insumos.map((i) => {
@@ -336,6 +340,16 @@ export function criarAjudasAssistente(app: FastifyInstance) {
         }),
         processos: l.processos.map((p) => ({ ...p, nome: processos.find((x) => x.id === p.processoId)!.nome })),
         acabamentos: l.acabamentoIds.map((id) => ({ id, nome: acabamentos.find((a) => a.id === id)!.nome })),
+        acabamentosNovos: l.acabamentosNovos.map((a) => ({ ...a, valor: a.valor === null ? null : new Decimal(a.valor).toFixed(2) })),
+        insumosFaltando: l.insumosFaltando.map((i) => ({
+          nome: i.nome,
+          // A unidade escrita, se for uma do cadastro (m², m, un…); senão a pessoa escolhe
+          unidadeSigla: unidades.find((u) => u.sigla.toLowerCase() === (i.unidadeSigla ?? '').toLowerCase().replace('m2', 'm²'))?.sigla ?? null,
+          custo: i.custo === null ? null : new Decimal(i.custo).toDecimalPlaces(4).toString(),
+          quantidade: String(i.quantidade),
+          base: i.base,
+        })),
+        variosProdutos: l.variosProdutos,
         margem: l.margem === null ? null : String(l.margem),
         descricao: l.descricao,
         avisos: l.avisos,

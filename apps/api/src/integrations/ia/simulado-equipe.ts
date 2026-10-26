@@ -245,3 +245,54 @@ export function regrasSimuladas(conteudo: string) {
   r.nao_entendido = naoEntendido
   return r
 }
+
+/**
+ * Tabela de preços (tarefa tabela_produtos): cada linha (ou trecho separado por "/" ou ";") com nome e preço vira um
+ * produto; a cobrança sai da unidade escrita ("m²", "milheiro", "hora"); sem preço, null. Foto/PDF: o simulador não lê
+ * imagens (devolve "não é tabela").
+ */
+export function tabelaSimulada(conteudo: string) {
+  const tabela = entre(conteudo, 'tabela_de_precos')
+  const categorias = linhas(conteudo, 'C')
+  const acabamentos = linhas(conteudo, 'A')
+  const trechos = tabela.split(/\n|\s\/\s|;/).map((t) => t.trim()).filter((t) => t.length >= 3)
+  const produtos = trechos.flatMap((trecho) => {
+    const t = semAcentos(trecho)
+    const preco = /r\$\s*(\d[\d.]*(?:,\d{1,2})?)/i.exec(trecho)?.[1] ?? /(\d+,\d{2})\b/.exec(trecho)?.[1] ?? null
+    const nome = trecho
+      .replace(/r\$\s*[\d.,]+/gi, '')
+      .replace(/(^|\s)(o |a |por |cada )?(m²|m2|milheiro|unidade|un|hora|metro linear)(?=\s|$|[|;,])/gi, ' ')
+      .replace(/\|/g, ' ')
+      .replace(/[-–:|]+\s*$/, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+    // Cabeçalho da planilha ("Produto | Preço") não é produto
+    if (nome.length < 3 || !/[a-z]/i.test(nome) || /^(produto|nome|item|servico|descricao)\b/.test(t)) return []
+    const modo = /m²|m2/.test(t) ? 'm2' : /milheiro|\bmil\b/.test(t) ? 'milheiro' : /metro linear/.test(t) ? 'metro_linear' : /hora/.test(t) ? 'hora' : 'unidade'
+    const categoria = melhor(palavras(nome), categorias, (l) => l[1]!)
+    const acabs = acabamentos.filter((l) => pontuar(palavras(trecho), palavras(l[1]!)) > 0)
+    return [
+      {
+        nome: nome.charAt(0).toUpperCase() + nome.slice(1),
+        tipo: /instala|copia|encaderna|plastifica|criacao/.test(t) ? 'servico' : 'produto',
+        categoria: categoria ? categoria.item[0]! : null,
+        categoria_nova: categoria ? null : 'Produtos',
+        modo_cobranca: modo,
+        preco: preco ? numero(preco) : null,
+        preco_original: null,
+        largura_padrao_m: null,
+        altura_padrao_m: null,
+        largura_maxima_m: null,
+        altura_maxima_m: null,
+        prazo_dias: null,
+        precisa_arte: !/copia|encaderna|plastifica|instala/.test(t),
+        acabamentos: acabs.map((l) => ({ ref: l[0]!, nome: l[1]!, tipo_cobranca: l[2] ?? 'fixo', preco: null })),
+        confianca: preco ? 0.9 : 0.6,
+        duvida: null,
+      },
+    ]
+  })
+  // Sem nenhum preço no texto, não é tabela ("bom dia, tudo bem?")
+  const ehTabela = produtos.some((p) => p.preco !== null)
+  return { eh_tabela: ehTabela, produtos: ehTabela ? produtos : [], ignorados: [] }
+}

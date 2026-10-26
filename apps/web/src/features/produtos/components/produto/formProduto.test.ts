@@ -10,11 +10,17 @@ const sugestao: ProdutoSugerido = {
   unidadeMedidaId: 'u-m2',
   larguraPadrao: null,
   alturaPadrao: null,
+  larguraMaxima: null,
+  alturaMaxima: null,
+  precoVenda: '90.00',
   prazoProducaoDias: null,
   precisaArte: true,
   insumos: [],
   processos: [],
   acabamentos: [],
+  acabamentosNovos: [],
+  insumosFaltando: [],
+  variosProdutos: 1,
   margem: '60',
   descricao: 'Adesivo em vinil branco brilho, recortado no formato da sua arte.',
   avisos: [],
@@ -42,5 +48,14 @@ describe('"Preencher com o Assistente" no cadastro do produto', () => {
     const campos = preencherFormulario({ setValue } as never, { ...sugestao, categoria: { id: null, nome: 'Brindes' }, larguraPadrao: '1.5', alturaPadrao: '1', prazoProducaoDias: 3 })
     expect(campos).not.toContain('categoriaId')
     expect(Object.fromEntries(setValue.mock.calls.map(([c, v]) => [c, v]))).toMatchObject({ larguraPadrao: '1,500', alturaPadrao: '1,000', prazoProducaoDias: '3' })
+  })
+  it('preço: só no produto novo e só o que a pessoa escreveu; medidas máximas quando vieram', () => {
+    const setValue = vi.fn()
+    const campos = preencherFormulario({ setValue } as never, { ...sugestao, larguraMaxima: '1.2' }, { comPreco: true })
+    expect(Object.fromEntries(setValue.mock.calls.map(([c, v]) => [c, v]))).toMatchObject({ precoVenda: '90,00', larguraMaxima: '1,200' })
+    expect(campos).toContain('precoVenda')
+    const semPreco = vi.fn()
+    preencherFormulario({ setValue: semPreco } as never, { ...sugestao, precoVenda: null }, { comPreco: true })
+    expect(semPreco.mock.calls.some(([c]) => c === 'precoVenda')).toBe(false)
   })
 })

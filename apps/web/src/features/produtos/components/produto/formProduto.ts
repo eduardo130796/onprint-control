@@ -66,10 +66,11 @@ export const ABA_DO_CAMPO: Record<string, string> = {
 }
 
 /**
- * Campos da aba Geral que o Assistente preenche (só o que veio na sugestão). Preço e custo nunca: ficam com a
- * pessoa (e com a aba "Custo e preço"). Devolve os nomes dos campos para o selo "sugerido".
+ * Campos da aba Geral que o Assistente preenche (só o que veio na sugestão). Custo nunca; preço só o que a pessoa
+ * escreveu no texto e só no produto novo (`comPreco`: no salvo, o preço é da aba "Custo e preço"). Devolve os nomes
+ * dos campos para o selo "sugerido".
  */
-export function preencherFormulario(form: Pick<FormProduto, 'setValue'>, s: ProdutoSugerido): (keyof ProdutoInput)[] {
+export function preencherFormulario(form: Pick<FormProduto, 'setValue'>, s: ProdutoSugerido, opcoes: { comPreco?: boolean } = {}): (keyof ProdutoInput)[] {
   const valores: Partial<Record<keyof ProdutoInput, string | boolean>> = {
     nome: s.nome,
     tipo: s.tipo,
@@ -79,6 +80,9 @@ export function preencherFormulario(form: Pick<FormProduto, 'setValue'>, s: Prod
     ...(s.unidadeMedidaId ? { unidadeMedidaId: s.unidadeMedidaId } : {}),
     ...(s.larguraPadrao ? { larguraPadrao: decimalParaInput(s.larguraPadrao, 3) } : {}),
     ...(s.alturaPadrao ? { alturaPadrao: decimalParaInput(s.alturaPadrao, 3) } : {}),
+    ...(s.larguraMaxima ? { larguraMaxima: decimalParaInput(s.larguraMaxima, 3) } : {}),
+    ...(s.alturaMaxima ? { alturaMaxima: decimalParaInput(s.alturaMaxima, 3) } : {}),
+    ...(opcoes.comPreco && s.precoVenda ? { precoVenda: decimalParaInput(s.precoVenda) } : {}),
     ...(s.prazoProducaoDias !== null ? { prazoProducaoDias: String(s.prazoProducaoDias) } : {}),
     ...(s.descricao ? { descricao: s.descricao } : {}),
   }

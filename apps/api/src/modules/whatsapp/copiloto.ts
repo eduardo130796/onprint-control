@@ -356,6 +356,8 @@ export interface AvisoOrcamento {
   acaoFinal?: string
   /** Linha antes do título ("O ORC-0112 já foi enviado; montei um novo:") */
   antes?: string
+  /** "⚠️ Ficou de fora: …" (itens pedidos que não estão no catálogo): sempre a primeira linha do aviso */
+  foraNoTopo?: string | null
   /** Esperando a liberação de um gerente (não sai pelo "ok") */
   liberacaoPendente?: boolean
 }
@@ -400,6 +402,9 @@ export function listaNumerada(itens: ItemMensagem[]): string {
 /** Rodapé dos avisos de rascunho */
 export const RODAPE_AVISO = 'Responda *ok* para enviar · ou ajuste (ex.: "10% de desconto")'
 
+/** O que vem antes de tudo no aviso: o que ficou fora do catálogo */
+const topo = (a: AvisoOrcamento) => (a.foraNoTopo ? [a.foraNoTopo] : [])
+
 /** O fim de todo aviso: itens numerados, desconto, total, o que conferir, como enviar (ou liberar) e o link sozinho */
 function corpoDoAviso(a: AvisoOrcamento): string[] {
   const linhas = [listaNumerada(a.itens)]
@@ -421,13 +426,14 @@ export function textoAvisoOrcamento(a: AvisoOrcamento, origem: 'reacao' | 'voce'
         : origem === 'pela_referencia'
           ? `É este? ${a.numero} para ${a.cliente}:`
           : `📝 Orçamento ${a.numero} para ${a.cliente}${a.clienteNovo ? ' (novo cliente)' : ''}:`
-  return [...(a.antes ? [a.antes] : []), titulo, ...corpoDoAviso(a)].join('\n')
+  return [...topo(a), ...(a.antes ? [a.antes] : []), titulo, ...corpoDoAviso(a)].join('\n')
 }
 
 /** 📝 de novo do mesmo cliente: o que entrou e o orçamento inteiro como ficou */
 export function textoAcrescimo(a: AvisoOrcamento & { novos: ItemMensagem[] }): string {
   const novos = a.novos.map(linhaCurtaItem).join(' · ')
-  return [`➕ Acrescentei ao ${a.numero} (${a.cliente}): ${novos}`, ...corpoDoAviso(a)].join('\n')
+  // Só item de fora do catálogo na 📝 nova: nada entrou, o aviso mostra o orçamento como está
+  return [...topo(a), novos ? `➕ Acrescentei ao ${a.numero} (${a.cliente}): ${novos}` : `${a.numero} (${a.cliente}):`, ...corpoDoAviso(a)].join('\n')
 }
 
 // ─── Confirmações: reação na mensagem do dono, não mensagem nova ───
@@ -449,9 +455,125 @@ export function formaDaConfirmacao(acao: ConfirmacaoDoDono, alertas: (string | n
 
 /** Ajuste pedido no "Você" ("10% de desconto", "tira o 2"): o que foi feito e o orçamento inteiro */
 export function textoAjuste(a: AvisoOrcamento & { feito: string }): string {
-  return [`✏️ ${a.numero} atualizado (${a.feito}):`, ...corpoDoAviso(a)].join('\n')
+  return [...topo(a), `✏️ ${a.numero} atualizado (${a.feito}):`, ...corpoDoAviso(a)].join('\n')
 }
 
+// ─── Item que o cliente pediu e não está no catálogo: nunca some calado ───
+
+export type SituacaoFora = 'pendente' | 'incluido' | 'recusado'
+
+/** Um item de fora do catálogo guardado no rascunho (orcamentos_whatsapp.fora_do_catalogo) */
+export interface ItemFora {
+  chave: string
+  /** Como o cliente pediu ("chaveiro personalizado") */
+  descricao: string
+  /** Decimal da API; null = o pedido não disse */
+  quantidade: string | null
+  situacao: SituacaoFora
+  /** Incluído: o produto cadastrado (ou o parecido que já existia) */
+  produtoId?: string | null
+}
+
+/** O começo da frase que não é o item ("quanto fica", "faz", "preciso de") */
+const INICIO_DO_PEDIDO = /^(e|quanto (fica|custa|sai|e|é)|qual (o )?(valor|preço|preco) (de|do|da|dos|das)|voc[eê]s fazem|vcs fazem|faz|fazem|tem|quero|queria|preciso de|precisava de|mais|o|a|os|as)\s+/i
+
+/** "quanto fica 50 chaveiros personalizados?" → "chaveiros personalizados" (a quantidade vai à parte) */
+export function nomeDoFora(descricao: string): string {
+  let t = descricao.replace(/[?!.]+\s*$/, '').replace(/\s+/g, ' ').trim()
+  for (let i = 0; i < 4 && INICIO_DO_PEDIDO.test(t); i++) t = t.replace(INICIO_DO_PEDIDO, '')
+  t = t.replace(/^(\d[\d.,]*\s*(mil|k)?|mil|um|uma|dois|duas|tres|três)\s+(x\s+|×\s*)?/i, '').trim()
+  return t.slice(0, 80) || descricao.trim()
+}
+
+/** Os itens sem produto da leitura do orçamento por texto */
+export function foraDaLeitura(l: { itens: { produto: unknown; descricao: string; quantidade: string }[] }): ItemFora[] {
+  return l.itens
+    .filter((i) => !i.produto)
+    .map((i, k) => ({ chave: `f${k + 1}-${normalizarResposta(nomeDoFora(i.descricao)).slice(0, 30).replace(/ /g, '-')}`, descricao: nomeDoFora(i.descricao), quantidade: i.quantidade || null, situacao: 'pendente' as const }))
+}
+
+/** O que está guardado (JSON do banco), só o que tem formato de item */
+export function lerForaDoCatalogo(json: unknown): ItemFora[] {
+  if (!Array.isArray(json)) return []
+  return json.filter((i): i is ItemFora => Boolean(i) && typeof i === 'object' && typeof (i as ItemFora).descricao === 'string' && typeof (i as ItemFora).chave === 'string')
+}
+
+/** Junta os novos (📝 de novo) sem repetir o mesmo item */
+export function juntarFora(atuais: ItemFora[], novos: ItemFora[]): ItemFora[] {
+  const ja = new Set(atuais.map((i) => normalizarResposta(i.descricao)))
+  return [...atuais, ...novos.filter((i) => !ja.has(normalizarResposta(i.descricao))).map((i, k) => ({ ...i, chave: `${i.chave}-${atuais.length + k + 1}` }))]
+}
+
+export const pendentesFora = (l: ItemFora[]) => l.filter((i) => i.situacao === 'pendente')
+export const recusadosFora = (l: ItemFora[]) => l.filter((i) => i.situacao === 'recusado')
+
+/** "50× chaveiro personalizado" */
+export const rotuloFora = (i: Pick<ItemFora, 'descricao' | 'quantidade'>) =>
+  i.quantidade && Number(i.quantidade) > 0 ? `${Number(i.quantidade).toLocaleString('pt-BR', { maximumFractionDigits: 3 })}× ${i.descricao}` : i.descricao
+
+/** O exemplo de resposta com preço, com o nome do item ("chaveiro R$ 4 a unidade") */
+export const exemploDePreco = (pendentes: ItemFora[]) => `${(pendentes[0]?.descricao.split(' ')[0] ?? 'item').toLowerCase()} R$ 4 a unidade`
+
+/** A primeira linha do aviso: "⚠️ Ficou de fora: 50× chaveiro personalizado (não está no catálogo)" */
+export function linhaForaNoTopo(l: ItemFora[]): string | null {
+  const p = pendentesFora(l)
+  return p.length ? `⚠️ Ficou de fora: ${p.map(rotuloFora).join(' · ')} (não está no catálogo)` : null
+}
+
+/** O primeiro "ok" com item de fora: pede outro "ok" (citando), o preço ou o "não tem" */
+export function textoConfirmarFora(numero: string, pendentes: ItemFora[]): string {
+  return `O ${numero} vai sem ${pendentes.map(rotuloFora).join(' e ')}. Responda *ok* de novo a esta mensagem para enviar assim, diga o preço para eu incluir (ex.: "${exemploDePreco(pendentes)}") ou *não tem*.`
+}
+
+/** 📝 em que nada estava no catálogo: nada é criado até o dono dizer o preço (ou "não tem") */
+export function textoNadaNoCatalogo(itens: ItemFora[]): string {
+  return `Não tenho no catálogo: ${itens.map(rotuloFora).join(' e ')}. Me diga o preço (ex.: "${exemploDePreco(itens)}") que eu cadastro e monto o orçamento, ou *não tem*.`
+}
+
+export type RespostaFora =
+  /** Preço de um item ("chaveiro R$ 4 a unidade"): `item` = índice em `pendentes` (null = não deu para saber qual) */
+  | { tipo: 'preco'; item: number | null }
+  /** "não tem", "não faço", "manda sem", "tira o chaveiro": os índices recusados */
+  | { tipo: 'recusar'; itens: number[] }
+
+const PALAVRA_RECUSA = /^(nao tem|nao temos|nao tenho|nao faco|nao fazemos|nao trabalho|nao trabalhamos|manda sem|envia sem|vai sem|pode ir sem|pode mandar sem|pode enviar sem|sem ele|sem eles)\b/
+const TEM_PRECO = /r\$\s*\d|\d+(?:[.,]\d+)?\s*(?:reais|real|conto|a unidade|cada|un\b|unidade|o m2|o m²|o metro|o milheiro|o mil)/
+
+/** Palavras do nome (sem as curtas e sem o plural), para achar de qual item de fora a resposta fala */
+const raizes = (t: string) =>
+  normalizarResposta(t)
+    .split(' ')
+    .filter((p) => p.length >= 4 && !/^\d/.test(p))
+    .map((p) => p.replace(/(oes|aes|es|s)$/, '').slice(0, 6))
+
+function qualItem(texto: string, pendentes: ItemFora[]): number[] {
+  const doTexto = raizes(texto)
+  // "boné" × "bonés" (bone × bon): uma raiz começa com a outra
+  const casa = (a: string, b: string) => a.length >= 3 && b.length >= 3 && (a.startsWith(b) || b.startsWith(a))
+  return pendentes.map((p, k) => (raizes(p.descricao).some((r) => doTexto.some((d) => casa(r, d))) ? k : -1)).filter((k) => k >= 0)
+}
+
+/**
+ * A resposta do dono sobre o que ficou de fora (sem IA): preço ("chaveiro acrílico R$ 4 a unidade") ou recusa ("não
+ * tem", "não faço", "manda sem", "tira o chaveiro"). Com mais de um item de fora, a resposta diz qual pelo nome; sem
+ * dizer, o preço fica ambíguo (pergunta) e a recusa vale para todos. null = não é sobre os itens de fora.
+ */
+export function interpretarRespostaFora(texto: string, pendentes: ItemFora[]): RespostaFora | null {
+  if (!pendentes.length) return null
+  const t = normalizarResposta(texto)
+  const original = texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  const citados = qualItem(texto, pendentes)
+  if (PALAVRA_RECUSA.test(t)) return { tipo: 'recusar', itens: citados.length ? citados : pendentes.map((_, k) => k) }
+  // "tira o chaveiro", "sem o chaveiro": só quando fala de um item de fora (o "tira o 2" é ajuste do orçamento)
+  if (/^(tira|tirar|remove|retira|sem)\b/.test(t) && citados.length) return { tipo: 'recusar', itens: citados }
+  // "desconto de 50 reais", "faz por 500": ajuste do orçamento, não preço de item
+  if (/\b(desconto|faz por|fecha por|fecha em|deixa por|total)\b/.test(t)) return null
+  if (TEM_PRECO.test(original)) {
+    if (pendentes.length === 1) return { tipo: 'preco', item: 0 }
+    return { tipo: 'preco', item: citados.length === 1 ? citados[0]! : null }
+  }
+  return null
+}
 // ─── 📝 de novo do mesmo cliente: acrescentar ou criar outro ───
 
 /** Rascunho do mesmo cliente criado há menos que isto recebe os itens da 📝 nova (um orçamento só) */

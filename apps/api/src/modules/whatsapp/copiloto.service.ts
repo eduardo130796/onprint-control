@@ -9,6 +9,8 @@ import {
   formatarMoeda,
   formatarTelefone,
   hojeISO,
+  impedimentoDaLinha,
+  linhaObsRecusados,
   itemDaLinha,
   linhaItemMensagem,
   nomeCliente,
@@ -44,6 +46,23 @@ import { obterConfigWhatsapp, whatsappNoPlano } from './avisos'
 import { numeroParaCadastro, numerosParaBusca } from './conversas'
 import {
   AVISO_VALE_MS,
+  OK_SOLTO_MS,
+  estaPendente,
+  exemploDePreco,
+  foraDaLeitura,
+  interpretarRespostaFora,
+  juntarFora,
+  lerForaDoCatalogo,
+  linhaCurtaItem,
+  linhaForaNoTopo,
+  moedaCurta,
+  pendentesFora,
+  recusadosFora,
+  rotuloFora,
+  textoConfirmarFora,
+  textoNadaNoCatalogo,
+  type ComandoVoce,
+  type ItemFora,
   JANELA_ACRESCENTAR_MS,
   PERGUNTA_VALE_MS,
   RASCUNHO_NO_CANAL_MS,
@@ -191,7 +210,14 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
   async function avisar(
     empresa: EmpresaAtual,
     texto: string,
-    extra: { tipo?: 'aviso' | 'confirmar' | 'pergunta' | 'resposta' | 'confirmar_aprovacao' | 'aprovado_auto' | 'produto' | 'produto_criar'; orcamentoId?: string | null; opcoes?: string[]; leituraProdutoId?: string } = {},
+    extra: {
+      tipo?: 'aviso' | 'confirmar' | 'pergunta' | 'resposta' | 'confirmar_aprovacao' | 'aprovado_auto' | 'produto' | 'produto_criar' | 'confirmar_fora' | 'fora_pendencia'
+      orcamentoId?: string | null
+      opcoes?: string[]
+      leituraProdutoId?: string
+      /** Aviso "não tenho no catálogo" (a resposta com o preço cria produto e rascunho) */
+      pendenciaId?: string
+    } = {},
   ) {
     const config = await obterConfigWhatsapp(prisma)
     const provedor = app.whatsapp.provedor
@@ -216,6 +242,7 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
         orcamentoId: extra.orcamentoId ?? null,
         opcoes: extra.opcoes ?? [],
         leituraProdutoId: extra.leituraProdutoId ?? null,
+        pendenciaId: extra.pendenciaId ?? null,
       },
     })
   }
@@ -272,9 +299,9 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
   /** O que o Assistente marcou para conferir, em frases curtas */
   function paraConferir(l: OrcamentoDeTexto): string[] {
     const lista: string[] = []
+    // O que ficou fora do catálogo não entra aqui: vai no topo do aviso ("⚠️ Ficou de fora…")
     for (const i of l.itens) {
-      if (!i.produto) lista.push(`“${i.descricao}” não está no catálogo`)
-      else if (i.conferir) lista.push(`${i.descricao}: ${(i.avisos[0] ?? (i.preco && !i.preco.ok ? i.preco.erros[0] : null) ?? 'produto ou quantidade').replace(/\.$/, '').toLowerCase()}`)
+      if (i.produto && i.conferir) lista.push(`${i.descricao}: ${(i.avisos[0] ?? (i.preco && !i.preco.ok ? i.preco.erros[0] : null) ?? 'produto ou quantidade').replace(/\.$/, '').toLowerCase()}`)
     }
     for (const n of l.naoIdentificados) lista.push(`não entendi “${n}”`)
     if (l.prazoDesejado && !l.dataDesejada) lista.push(`prazo “${l.prazoDesejado}”`)
@@ -309,6 +336,8 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
       leitura: OrcamentoDeTexto
       /** O último do mesmo cliente já não estava pendente (enviado, aprovado…): o aviso diz */
       anterior?: RascunhoCanal | null
+      /** Linha antes do título (ex.: "Cadastrei Chaveiro acrílico (R$ 4/un) e montei:") */
+      antes?: string
     },
   ) {
     const dados = orcamentoSchema.parse({
@@ -321,8 +350,19 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     const ctx = await contextoUsuario(app, d.req, 'orcamentos')
     const o = await orcamentos.criar(dados, ctx)
     const conferir = paraConferir(p.leitura)
+    // O que o cliente pediu e não está no catálogo fica guardado: o aviso mostra no topo e o "ok" pergunta antes
+    const fora = foraDaLeitura(p.leitura)
     await prisma.orcamentoWhatsapp.create({
-      data: { orcamentoId: o.id, origem: p.origem, gatilhoId: p.gatilhoId, mensagemId: p.mensagemId, numero: p.numero, contato: p.cliente.rotulo, conferir },
+      data: {
+        orcamentoId: o.id,
+        origem: p.origem,
+        gatilhoId: p.gatilhoId,
+        mensagemId: p.mensagemId,
+        numero: p.numero,
+        contato: p.cliente.rotulo,
+        conferir,
+        ...(fora.length ? { foraDoCatalogo: fora as unknown as Prisma.InputJsonValue } : {}),
+      },
     })
     avisarOrcamento(app, o, 'criado', { origem: 'sistema', atorId: null })
     const aviso = textoAvisoOrcamento(
@@ -336,7 +376,8 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
         link: linkSistema(`/orcamentos/${o.id}`),
         liberacaoPendente: o.liberacaoPendente,
         desconto: o.desconto.toString(),
-        antes: p.anterior ? linhaDoAnterior(p.anterior) : undefined,
+        antes: p.antes ?? (p.anterior ? linhaDoAnterior(p.anterior) : undefined),
+        foraNoTopo: linhaForaNoTopo(fora),
       },
       p.origem,
     )
@@ -378,24 +419,34 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
    * aviso antigo cai em "mudou desde o aviso".
    */
   async function acrescentarAoRascunho(empresa: EmpresaAtual, d: Dono, r: RascunhoCanal, leitura: OrcamentoDeTexto, texto: string) {
-    const novos = itensDaLeitura(leitura)
+    // Só o que está no catálogo entra; o que não está vai para a lista de fora (o aviso mostra no topo)
+    const novos = leitura.itens.some((i) => i.produto) ? itensDaLeitura(leitura) : []
     const ctx = { ...(await contextoUsuario(app, d.req, 'orcamentos')), veTodos: true }
     const atual = await orcamentos.obter(r.orcamentoId, ctx)
     const base = editavelDoOrcamento(atual)
     const nota = notaInterna(leitura, '📝 na conversa do WhatsApp, acréscimo', texto)
-    const dados = orcamentoSchema.parse(
-      payloadDoEditavel({
-        ...base,
-        // O prazo que o dono já pôs vale mais que o do pedido novo
-        dataDesejada: base.dataDesejada ?? leitura.dataDesejada ?? null,
-        observacoesInternas: [base.observacoesInternas.trim(), nota].filter(Boolean).join('\n').slice(0, 2000),
-        itens: [...base.itens, ...novos.map((n) => n.item)],
-      }),
-    )
-    const o = await orcamentos.atualizar(r.orcamentoId, dados, ctx)
+    const o = novos.length
+      ? await orcamentos.atualizar(
+          r.orcamentoId,
+          orcamentoSchema.parse(
+            payloadDoEditavel({
+              ...base,
+              // O prazo que o dono já pôs vale mais que o do pedido novo
+              dataDesejada: base.dataDesejada ?? leitura.dataDesejada ?? null,
+              observacoesInternas: [base.observacoesInternas.trim(), nota].filter(Boolean).join('\n').slice(0, 2000),
+              itens: [...base.itens, ...novos.map((n) => n.item)],
+            }),
+          ),
+          ctx,
+        )
+      : atual
     const conferir = paraConferir(leitura)
-    const ow = await prisma.orcamentoWhatsapp.findUnique({ where: { orcamentoId: o.id }, select: { conferir: true } })
-    await prisma.orcamentoWhatsapp.update({ where: { orcamentoId: o.id }, data: { conferir: [...new Set([...(ow?.conferir ?? []), ...conferir])].slice(0, 10) } })
+    const ow = await prisma.orcamentoWhatsapp.findUnique({ where: { orcamentoId: o.id }, select: { conferir: true, foraDoCatalogo: true } })
+    const fora = juntarFora(lerForaDoCatalogo(ow?.foraDoCatalogo), foraDaLeitura(leitura))
+    await prisma.orcamentoWhatsapp.update({
+      where: { orcamentoId: o.id },
+      data: { conferir: [...new Set([...(ow?.conferir ?? []), ...conferir])].slice(0, 10), foraDoCatalogo: fora as unknown as Prisma.InputJsonValue },
+    })
     avisarOrcamento(app, o, 'alterado', { origem: 'sistema', atorId: null })
     const todos = itensDaMensagem(o)
     const aviso = textoAcrescimo({
@@ -409,6 +460,7 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
       conferir,
       link: linkSistema(`/orcamentos/${o.id}`),
       liberacaoPendente: o.liberacaoPendente,
+      foraNoTopo: linhaForaNoTopo(fora),
     })
     if (await avisar(empresa, aviso, { tipo: 'aviso', orcamentoId: o.id })) await prisma.orcamentoWhatsapp.update({ where: { orcamentoId: o.id }, data: { avisadoEm: new Date() } })
     return o
@@ -423,6 +475,11 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     // 📝 de novo na mesma mensagem: o orçamento que já existe
     const ja = await prisma.orcamentoWhatsapp.findFirst({ where: { mensagemId: e.idReagida }, select: { orcamentoId: true, orcamento: { select: { numero: true } } } })
     if (ja) return void (await avisar(empresa, `Essa mensagem já virou o ${ja.orcamento.numero}: ${linkSistema(`/orcamentos/${ja.orcamentoId}`)}`, { orcamentoId: ja.orcamentoId }))
+    // 📝 de novo numa mensagem que esperava o preço (nada no catálogo): a mesma pergunta, sem ler de novo
+    const esperando = await prisma.pendenciaCatalogoWhatsapp.findFirst({ where: { mensagemId: e.idReagida, situacao: 'pendente' }, orderBy: { createdAt: 'desc' } })
+    if (esperando) {
+      return void (await avisar(empresa, textoNadaNoCatalogo(foraDaLeitura(esperando.leitura as unknown as OrcamentoDeTexto)), { tipo: 'fora_pendencia', pendenciaId: esperando.id }))
+    }
     const buscarAncora = () =>
       prisma.conversaMensagemWhatsapp.findUnique({
         where: { idExterno: e.idReagida },
@@ -489,6 +546,25 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
         include: incluirRascunho,
       })
       const destino = destinoDaReacao(doCliente.map(paraRascunho), new Date())
+      const fora = foraDaLeitura(leitura)
+      if (destino.acao === 'criar' && !leitura.itens.some((i) => i.produto) && fora.length) {
+        // Nada no catálogo: nenhum rascunho vazio. Guarda a pendência e pergunta o preço (ou "não tem")
+        const p = await prisma.pendenciaCatalogoWhatsapp.create({
+          data: {
+            gatilhoId: e.idMensagem,
+            mensagemId: e.idReagida,
+            conversaId: conversa.id,
+            clienteId: cliente.id,
+            clienteNovo: cliente.novo,
+            contato: cliente.rotulo,
+            numero: numeroConversa,
+            texto: sel.texto,
+            leitura: leitura as unknown as Prisma.InputJsonValue,
+            mensagens: sel.mensagens.map((m) => m.idExterno),
+          },
+        })
+        return void (await avisar(empresa, textoNadaNoCatalogo(fora), { tipo: 'fora_pendencia', pendenciaId: p.id }))
+      }
       const o =
         destino.acao === 'acrescentar'
           ? await acrescentarAoRascunho(empresa, d, destino.rascunho, leitura, sel.texto)
@@ -547,6 +623,7 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
         link: linkSistema(`/orcamentos/${o.id}`),
         liberacaoPendente: o.liberacaoPendente,
         desconto: o.desconto.toString(),
+        foraNoTopo: linhaForaNoTopo(await foraDoRascunho(o.id)),
       },
       motivo,
     )
@@ -590,7 +667,7 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
    * O orçamento ao cliente pelo mesmo caminho do "Enviar orçamento" (texto do template no formato configurado e o PDF;
    * a linha registra a versão que o cliente viu). Devolve o que avisar ao dono (PDF que não foi…) ou "". Lança no erro.
    */
-  async function enviarAoCliente(empresa: EmpresaAtual, d: Dono, o: Awaited<ReturnType<typeof orcamentos.obter>>, numero: string) {
+  async function enviarAoCliente(empresa: EmpresaAtual, d: Dono, o: Awaited<ReturnType<typeof orcamentos.obter>>, numero: string, recusados: string[] = []) {
     const config = await prisma.empresaConfig.findFirst({
       orderBy: { createdAt: 'asc' },
       select: { nomeFantasia: true, razaoSocial: true, cnpj: true, whatsapp: true, telefone: true, email: true, site: true, logradouro: true, numero: true, bairro: true, cidade: true, uf: true, chavePix: true, corTema: true, logoArquivoId: true },
@@ -606,7 +683,7 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     const texto = textoMensagemOrcamento(
       { ...o, total: o.total.toString(), sinalPercentual: o.sinalPercentual.toString(), validade: o.validade.toISOString(), itens: itensDaMensagem(o) },
       await templateDaCategoria(prisma, 'orcamento_enviado'),
-      { empresa: (await nomeDaGrafica(prisma)) || empresa.nome, linkAprovacao: link, comPdf: Boolean(pdf) },
+      { empresa: (await nomeDaGrafica(prisma)) || empresa.nome, linkAprovacao: link, comPdf: Boolean(pdf), recusados },
     )
     const resultado = await enviarManual(
       { tipo: 'orcamento_enviado', telefone: numero, texto, clienteId: o.clienteId, orcamentoId: o.id },
@@ -620,7 +697,12 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
    * Envia um rascunho ao cliente pelo mesmo caminho do "Enviar orçamento" (texto do template no formato configurado e
    * o PDF), marca como enviado e confirma com ✅ na mensagem "ok" do dono. Só um envio por orçamento (marca antes).
    */
-  async function enviarRascunho(empresa: EmpresaAtual, d: Dono, r: RascunhoCanal, gatilho: Gatilho | null) {
+  async function enviarRascunho(empresa: EmpresaAtual, d: Dono, r: RascunhoCanal, gatilho: Gatilho | null, opcoes: { foraConfirmado?: boolean } = {}) {
+    // Item pedido que ficou fora do catálogo: o "ok" apressado não manda sem ele (pede outro "ok", o preço ou "não tem")
+    if (!opcoes.foraConfirmado && estaPendente(r)) {
+      const pendentes = pendentesFora(await foraDoRascunho(r.orcamentoId))
+      if (pendentes.length) return avisar(empresa, textoConfirmarFora(r.numero, pendentes), { tipo: 'confirmar_fora', orcamentoId: r.orcamentoId })
+    }
     const livre: Prisma.OrcamentoWhatsappWhereInput = { OR: [{ enviadoEm: null }, { enviadoEm: { lt: new Date(Date.now() - TRAVA_ENVIO_MS) }, orcamento: { status: 'rascunho' } }] }
     const marcado = await prisma.orcamentoWhatsapp.updateMany({ where: { orcamentoId: r.orcamentoId, descartadoEm: null, ...livre }, data: { enviadoEm: new Date() } })
     if (marcado.count !== 1) return avisar(empresa, textoEstado({ ...r, enviadoEm: r.enviadoEm ?? new Date() }, new Date()))
@@ -636,13 +718,15 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
         await desfazer()
         return avisar(empresa, `O ${o.numero} precisa da liberação de um gerente antes de sair. Abra para liberar: ${linkSistema(`/orcamentos/${o.id}`)}`)
       }
-      const ow = await prisma.orcamentoWhatsapp.findUnique({ where: { orcamentoId: o.id }, select: { numero: true } })
+      const ow = await prisma.orcamentoWhatsapp.findUnique({ where: { orcamentoId: o.id }, select: { numero: true, foraDoCatalogo: true } })
       const numero = normalizarNumeroWhatsapp(ow?.numero ?? '') ?? normalizarNumeroWhatsapp(o.cliente.whatsapp ?? o.cliente.telefone ?? '')
       if (!numero) {
         await desfazer()
         return avisar(empresa, `O cliente do ${o.numero} não tem WhatsApp no cadastro. Abra para enviar: ${linkSistema(`/orcamentos/${o.id}`)}`)
       }
-      const avisos = await enviarAoCliente(empresa, d, o, numero)
+      // O que a gráfica não faz (o dono disse "não tem") vai numa linha "Obs." antes da assinatura
+      const recusados = recusadosFora(lerForaDoCatalogo(ow?.foraDoCatalogo)).map((i) => i.descricao)
+      const avisos = await enviarAoCliente(empresa, d, o, numero, recusados)
       const enviado = await orcamentos.marcarEnviado(o.id, { ...ctx, veTodos: true })
       avisarOrcamento(app, enviado, 'enviado', { origem: 'sistema', atorId: null })
       // Deu certo: ✅ na própria mensagem "ok" (texto só com alerta, como o PDF que não foi)
@@ -892,6 +976,245 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     }
   }
 
+  // ─── Item que o cliente pediu e não está no catálogo ───
+
+  /** Os itens de fora do catálogo guardados no rascunho */
+  async function foraDoRascunho(orcamentoId: string): Promise<ItemFora[]> {
+    const ow = await prisma.orcamentoWhatsapp.findUnique({ where: { orcamentoId }, select: { foraDoCatalogo: true } })
+    return lerForaDoCatalogo(ow?.foraDoCatalogo)
+  }
+  const gravarFora = (orcamentoId: string, l: ItemFora[]) => prisma.orcamentoWhatsapp.update({ where: { orcamentoId }, data: { foraDoCatalogo: l as unknown as Prisma.InputJsonValue } })
+
+  const selecionarProdutoCurto = { id: true, nome: true, codigo: true, modoCalculo: true, precisaArte: true, precoVenda: true, larguraPadrao: true, alturaPadrao: true, ativo: true } as const
+  type ProdutoCurto = Prisma.ProdutoGetPayload<{ select: typeof selecionarProdutoCurto }>
+
+  /**
+   * O produto pelo preço que o dono disse ("chaveiro acrílico R$ 4 a unidade"): a mesma leitura e o mesmo cadastro do
+   * "Cadastrar vários" (auditoria, checagem de duplicado). Já existe um parecido: usa o do catálogo. Faltou o preço ou
+   * como é cobrado: devolve a pergunta (nunca inventa preço).
+   */
+  async function produtoPeloPreco(d: Dono, texto: string, item: ItemFora): Promise<{ ok: true; produto: ProdutoCurto; criado: boolean } | { ok: false; pergunta: string }> {
+    const exemplo = exemploDePreco([item])
+    const cadastrar = linkSistema('/produtos/novo')
+    if (!(await app.temPermissao(d.req, 'produtos', 'criar'))) return { ok: false, pergunta: 'Sem permissão para cadastrar produtos.' }
+    let l: Awaited<ReturnType<typeof lote.lerTexto>>
+    try {
+      l = await lote.lerTexto(texto, 'whatsapp')
+    } catch (erro) {
+      if (!mensagemDeErro(erro)) throw erro
+      return { ok: false, pergunta: `Não entendi o preço. Responda como no exemplo: "${exemplo}", ou cadastre pelo sistema: ${cadastrar}` }
+    }
+    if (l.linhas.length !== 1) return { ok: false, pergunta: `Me diga um produto por vez, ex.: "${exemplo}".` }
+    const linha = l.linhas[0]!
+    if (linha.duplicado) {
+      const existente = await prisma.produto.findUnique({ where: { id: linha.duplicado.id }, select: selecionarProdutoCurto })
+      if (existente?.ativo) return { ok: true, produto: existente, criado: false }
+    }
+    if (!prontoParaOk(l)) {
+      const falta = impedimentoDaLinha(linha) ? 'o preço' : 'como é cobrado (por unidade, m², milheiro…)'
+      return { ok: false, pergunta: `Para cadastrar “${linha.nome}” com segurança preciso saber ${falta}. Responda, por exemplo, "${exemplo}", ou cadastre pelo sistema: ${cadastrar}` }
+    }
+    const r = await lote.criar(cadastroLoteSchema.parse({ itens: [itemDaLinha(linha)] }), d.id)
+    return { ok: true, produto: await prisma.produto.findUniqueOrThrow({ where: { id: r.criados[0]!.id }, select: selecionarProdutoCurto }), criado: true }
+  }
+
+  /** O item do produto (no fim do orçamento) com a quantidade que o cliente pediu e as medidas padrão do produto */
+  const itemDoProduto = (p: ProdutoCurto, quantidade: string | null): ItemEditavel => ({
+    produtoId: p.id,
+    descricao: '',
+    quantidade: quantidade ?? '1',
+    largura: p.larguraPadrao?.toString() ?? null,
+    altura: p.alturaPadrao?.toString() ?? null,
+    precoUnitario: null,
+    acabamentoIds: [],
+    desconto: '0',
+    observacao: '',
+    precisaArte: p.precisaArte,
+  })
+
+  /**
+   * A resposta do dono sobre o que ficou de fora, num rascunho pendente: citando o aviso dele (📝, ➕, ✏️ ou o do "ok"
+   * com item de fora) ou, sem citar, com um só rascunho recente com item de fora. Devolve true se tratou.
+   */
+  async function respostaSobreFora(empresa: EmpresaAtual, d: Dono, citado: AvisoCitado | null, comando: ComandoVoce, texto: string, gatilho: Gatilho, agora: Date): Promise<boolean> {
+    if (citado && !['aviso', 'confirmar', 'confirmar_fora', 'resposta'].includes(citado.tipo ?? '')) return false
+    let r: RascunhoCanal | undefined
+    if (citado) r = (await rascunhos([citado.orcamentoId])).find((x) => x.orcamentoId === citado.orcamentoId)
+    else {
+      const recentes = (await rascunhos()).filter((x) => estaPendente(x) && agora.getTime() - (x.avisadoEm ?? x.criadoEm).getTime() <= OK_SOLTO_MS)
+      const comFora: RascunhoCanal[] = []
+      for (const x of recentes) if (pendentesFora(await foraDoRascunho(x.orcamentoId)).length) comFora.push(x)
+      if (comFora.length === 1) r = comFora[0]
+    }
+    if (!r || !estaPendente(r)) return false
+    const fora = await foraDoRascunho(r.orcamentoId)
+    const pendentes = pendentesFora(fora)
+    if (!pendentes.length) return false
+    const resposta = interpretarRespostaFora(texto, pendentes)
+    if (resposta?.tipo === 'recusar') {
+      await recusarFora(empresa, d, r, fora, resposta.itens.map((k) => pendentes[k]!))
+      return true
+    }
+    if (resposta?.tipo === 'preco') {
+      if (resposta.item === null) {
+        await avisar(empresa, `De qual item é esse preço? ${pendentes.map((p, k) => `${k + 1}) ${rotuloFora(p)}`).join(' · ')}. Responda com o nome, ex.: "${exemploDePreco([pendentes[0]!])}".`, { tipo: 'confirmar_fora', orcamentoId: r.orcamentoId })
+        return true
+      }
+      await incluirFora(empresa, d, r, fora, pendentes[resposta.item]!, texto)
+      return true
+    }
+    // O segundo "ok", citando o aviso do "ok" com item de fora: envia assim (aviso de até 2 horas, sem mudança depois dele)
+    if (citado?.tipo === 'confirmar_fora' && comando.tipo === 'enviar') {
+      if (r.atualizadoEm.getTime() > citado.em.getTime() || agora.getTime() - citado.em.getTime() > AVISO_VALE_MS) {
+        const antes = r.atualizadoEm.getTime() > citado.em.getTime() ? `O ${r.numero} mudou desde este aviso. ` : 'Esse aviso é antigo. '
+        await avisar(empresa, `${antes}${textoConfirmarFora(r.numero, pendentes)}`, { tipo: 'confirmar_fora', orcamentoId: r.orcamentoId })
+        return true
+      }
+      await enviarRascunho(empresa, d, r, gatilho, { foraConfirmado: true })
+      return true
+    }
+    return false
+  }
+
+  /** "chaveiro R$ 4 a unidade": cadastra (ou usa o parecido), põe no fim do rascunho e devolve o ✏️ */
+  async function incluirFora(empresa: EmpresaAtual, d: Dono, r: RascunhoCanal, fora: ItemFora[], item: ItemFora, texto: string) {
+    const link = linkSistema(`/orcamentos/${r.orcamentoId}`)
+    try {
+      const res = await produtoPeloPreco(d, texto, item)
+      if (!res.ok) return void (await avisar(empresa, res.pergunta, { tipo: 'confirmar_fora', orcamentoId: r.orcamentoId }))
+      const ctx = { ...(await contextoUsuario(app, d.req, 'orcamentos')), veTodos: true }
+      const atual = await orcamentos.obter(r.orcamentoId, ctx)
+      const base = editavelDoOrcamento(atual)
+      const o = await orcamentos.atualizar(r.orcamentoId, orcamentoSchema.parse(payloadDoEditavel({ ...base, itens: [...base.itens, itemDoProduto(res.produto, item.quantidade)] })), ctx)
+      const novaLista = fora.map((f) => (f.chave === item.chave ? { ...f, situacao: 'incluido' as const, produtoId: res.produto.id } : f))
+      await gravarFora(r.orcamentoId, novaLista)
+      avisarOrcamento(app, o, 'alterado', { origem: 'sistema', atorId: null })
+      const todos = itensDaMensagem(o)
+      const aviso = textoAjuste({
+        numero: o.numero,
+        cliente: r.cliente,
+        clienteNovo: false,
+        itens: todos,
+        total: o.total.toString(),
+        desconto: o.desconto.toString(),
+        conferir: item.quantidade ? [] : ['a quantidade do item novo (o pedido não disse)'],
+        link,
+        liberacaoPendente: o.liberacaoPendente,
+        foraNoTopo: linhaForaNoTopo(novaLista),
+        feito: `incluí ${linhaCurtaItem(todos.at(-1)!)}, ${res.criado ? 'cadastrei no catálogo' : `usei o ${res.produto.nome} que já estava no catálogo`}`,
+      })
+      if (await avisar(empresa, aviso, { tipo: 'aviso', orcamentoId: o.id })) await prisma.orcamentoWhatsapp.update({ where: { orcamentoId: o.id }, data: { avisadoEm: new Date() } })
+    } catch (erro) {
+      const msg = mensagemDeErro(erro)
+      if (!msg) throw erro
+      await avisar(empresa, `Não incluí: ${msg} Abra para ajustar: ${link}`, { tipo: 'confirmar_fora', orcamentoId: r.orcamentoId })
+    }
+  }
+
+  /**
+   * "não tem", "não faço", "manda sem", "tira o chaveiro": o item fica recusado (sai do "⚠️"), o cliente vê a linha
+   * "Obs.: … não fazemos no momento." na mensagem e nas observações do orçamento (PDF e tela), e o aviso pede o "ok"
+   */
+  async function recusarFora(empresa: EmpresaAtual, d: Dono, r: RascunhoCanal, fora: ItemFora[], recusados: ItemFora[]) {
+    const chaves = new Set(recusados.map((i) => i.chave))
+    const novaLista = fora.map((f) => (chaves.has(f.chave) ? { ...f, situacao: 'recusado' as const } : f))
+    await gravarFora(r.orcamentoId, novaLista)
+    const obs = linhaObsRecusados(recusadosFora(novaLista).map((i) => i.descricao))
+    const ctx = { ...(await contextoUsuario(app, d.req, 'orcamentos')), veTodos: true }
+    let o = await orcamentos.obter(r.orcamentoId, ctx)
+    const base = editavelDoOrcamento(o)
+    // A linha "Obs." anterior (de outra recusa) dá lugar à nova, com todos os recusados
+    const observacoes = [...base.observacoes.split('\n').filter((l) => l.trim() && !/^Obs\.: .* não fazemos no momento\.$/.test(l.trim())), ...(obs ? [obs] : [])].join('\n').slice(0, 2000)
+    if (observacoes !== base.observacoes) o = await orcamentos.atualizar(r.orcamentoId, orcamentoSchema.parse(payloadDoEditavel({ ...base, observacoes })), ctx)
+    const aviso = textoAjuste({
+      numero: o.numero,
+      cliente: r.cliente,
+      clienteNovo: false,
+      itens: itensDaMensagem(o),
+      total: o.total.toString(),
+      desconto: o.desconto.toString(),
+      conferir: [],
+      link: linkSistema(`/orcamentos/${o.id}`),
+      liberacaoPendente: o.liberacaoPendente,
+      foraNoTopo: linhaForaNoTopo(novaLista),
+      feito: `vai sem ${recusados.map(rotuloFora).join(' e ')}; o cliente lê “${obs}”`,
+    })
+    if (await avisar(empresa, aviso, { tipo: 'aviso', orcamentoId: o.id })) await prisma.orcamentoWhatsapp.update({ where: { orcamentoId: o.id }, data: { avisadoEm: new Date() } })
+  }
+
+  /**
+   * Resposta em cima do "Não tenho no catálogo" (📝 sem nenhum item do catálogo): o preço cadastra o produto e monta
+   * o rascunho de uma vez (com a quantidade do pedido); "não tem" encerra sem criar nada.
+   */
+  async function respostaAPendencia(empresa: EmpresaAtual, d: Dono, pendenciaId: string, texto: string) {
+    const p = await prisma.pendenciaCatalogoWhatsapp.findUnique({ where: { id: pendenciaId } })
+    if (!p) return void (await avisar(empresa, 'Esse pedido não está mais esperando.'))
+    if (p.situacao === 'criada' && p.orcamentoId) return void (await avisar(empresa, `Esse pedido já virou orçamento: ${linkSistema(`/orcamentos/${p.orcamentoId}`)}`))
+    if (p.situacao !== 'pendente') return void (await avisar(empresa, 'Esse pedido já foi encerrado. Nada foi criado.'))
+    const leitura = p.leitura as unknown as OrcamentoDeTexto
+    const fora = foraDaLeitura(leitura)
+    const resposta = interpretarRespostaFora(texto, fora)
+    const pedirDeNovo = (prefixo: string, itens = fora) => avisar(empresa, `${prefixo}${textoNadaNoCatalogo(itens)}`, { tipo: 'fora_pendencia', pendenciaId: p.id })
+    if (!resposta) return void (await pedirDeNovo('Não entendi. '))
+    // Índice do item de fora → o item da leitura (os sem produto, na ordem)
+    const semProduto = leitura.itens.map((i, k) => (i.produto ? -1 : k)).filter((k) => k >= 0)
+    if (resposta.tipo === 'recusar') {
+      const tirar = new Set(resposta.itens.map((k) => semProduto[k]!))
+      const restam = leitura.itens.filter((_, k) => !tirar.has(k))
+      if (!restam.length) {
+        await prisma.pendenciaCatalogoWhatsapp.update({ where: { id: p.id }, data: { situacao: 'descartada', resolvidaEm: new Date() } })
+        return void (await avisar(empresa, 'Certo, nada foi criado.'))
+      }
+      const nova = { ...leitura, itens: restam }
+      await prisma.pendenciaCatalogoWhatsapp.update({ where: { id: p.id }, data: { leitura: nova as unknown as Prisma.InputJsonValue } })
+      return void (await pedirDeNovo('Certo. ', foraDaLeitura(nova)))
+    }
+    if (resposta.item === null) {
+      return void (await avisar(empresa, `De qual item é esse preço? ${fora.map((f, k) => `${k + 1}) ${rotuloFora(f)}`).join(' · ')}. Responda com o nome, ex.: "${exemploDePreco([fora[0]!])}".`, { tipo: 'fora_pendencia', pendenciaId: p.id }))
+    }
+    const item = fora[resposta.item]!
+    try {
+      const res = await produtoPeloPreco(d, texto, item)
+      if (!res.ok) return void (await avisar(empresa, res.pergunta, { tipo: 'fora_pendencia', pendenciaId: p.id }))
+      const k = semProduto[resposta.item]!
+      const pr = res.produto
+      const sugerido = {
+        ...leitura.itens[k]!,
+        produto: { id: pr.id, nome: pr.nome, codigo: pr.codigo, modoCalculo: pr.modoCalculo, precisaArte: pr.precisaArte },
+        quantidade: item.quantidade ?? '1',
+        largura: pr.larguraPadrao?.toString() ?? null,
+        altura: pr.alturaPadrao?.toString() ?? null,
+        acabamentos: [],
+        conferir: false,
+        avisos: [],
+      }
+      const leitura2: OrcamentoDeTexto = { ...leitura, itens: leitura.itens.map((i, j) => (j === k ? sugerido : i)) }
+      const cliente = await prisma.cliente.findUnique({ where: { id: p.clienteId }, select: { id: true, nome: true, fantasia: true } })
+      if (!cliente) return void (await avisar(empresa, 'O cliente desse pedido não existe mais no cadastro. Nada foi criado.'))
+      const preco = `${moedaCurta(pr.precoVenda.toString())} ${pr.modoCalculo === 'unidade' ? 'a unidade' : pr.modoCalculo === 'm2' ? 'o m²' : pr.modoCalculo === 'milheiro' ? 'o milheiro' : pr.modoCalculo === 'metro_linear' ? 'o metro' : 'a hora'}`
+      const o = await salvarRascunho(empresa, d, {
+        origem: 'reacao',
+        gatilhoId: p.gatilhoId,
+        mensagemId: p.mensagemId,
+        texto: p.texto,
+        cliente: { id: cliente.id, rotulo: p.contato ?? nomeCliente(cliente), novo: p.clienteNovo },
+        numero: p.numero,
+        leitura: leitura2,
+        antes: res.criado ? `Cadastrei ${pr.nome} (${preco}) no catálogo e montei:` : `Usei o ${pr.nome} (${preco}) que já estava no catálogo e montei:`,
+      })
+      const agora = new Date()
+      await prisma.pendenciaCatalogoWhatsapp.update({ where: { id: p.id }, data: { situacao: 'criada', orcamentoId: o.id, resolvidaEm: agora } })
+      if (p.mensagens.length) await prisma.conversaMensagemWhatsapp.updateMany({ where: { idExterno: { in: p.mensagens } }, data: { usadaEm: agora } })
+      if (p.conversaId) {
+        await prisma.conversaWhatsapp.updateMany({ where: { id: p.conversaId }, data: { orcamentoId: o.id, situacao: 'resolvida', resolvidaEm: agora, resolvidaPor: d.id, classificar: false } })
+      }
+    } catch (erro) {
+      const msg = mensagemDeErro(erro)
+      if (!msg) throw erro
+      await avisar(empresa, `Não montei: ${msg}`, { tipo: 'fora_pendencia', pendenciaId: p.id })
+    }
+  }
+
   async function processarVoce(empresa: EmpresaAtual, e: EventoProprio) {
     const d = await dono()
     if (!d) return void app.log.warn({ empresa: empresa.slug }, 'Copiloto do WhatsApp: sem administrador ativo para o canal "Você"')
@@ -900,11 +1223,13 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     if (!texto) return void (await avisar(empresa, 'Por aqui eu leio texto e a foto, o PDF ou o XML da nota. Áudio ainda não.'))
     // Em cima do aviso de produtos lidos ("ok" cria, "cancela" descarta): não é assunto de orçamento
     const avisoProduto = e.citadoId
-      ? await prisma.mensagemVoceWhatsapp.findUnique({ where: { idExterno: e.citadoId }, select: { direcao: true, tipo: true, leituraProdutoId: true, createdAt: true } })
+      ? await prisma.mensagemVoceWhatsapp.findUnique({ where: { idExterno: e.citadoId }, select: { direcao: true, tipo: true, leituraProdutoId: true, pendenciaId: true, createdAt: true } })
       : null
     if (avisoProduto?.direcao === 'enviada' && avisoProduto.leituraProdutoId) {
       return respostaAoAvisoDeProduto(empresa, d, { tipo: avisoProduto.tipo, leituraProdutoId: avisoProduto.leituraProdutoId, createdAt: avisoProduto.createdAt }, texto)
     }
+    // Em cima do "não tenho no catálogo" (nada no catálogo): o preço cria o produto e o rascunho; "não tem" encerra
+    if (avisoProduto?.direcao === 'enviada' && avisoProduto.pendenciaId) return respostaAPendencia(empresa, d, avisoProduto.pendenciaId, texto)
     const comando = interpretarVoce(texto)
     const agora = new Date()
     // A mensagem do dono: as confirmações viram reação nela (✅, 👍, ↩️), sem mensagem nova
@@ -912,6 +1237,9 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     // Aprovação pela resposta do cliente: o aviso de "confirmar aprovação" (o "ok" APROVA; nunca reenvia sem pedir) e o
     // da aprovação automática ("desfazer"). São avisos de outro tipo que os de rascunho: cada um com o seu "ok".
     const citadoAprovacao = await avisoCitado(e.citadoId)
+    // Item que ficou fora do catálogo: o preço inclui, "não tem" recusa, o segundo "ok" (citando) envia sem ele
+    const fora = await respostaSobreFora(empresa, d, citadoAprovacao, comando, texto, gatilho, agora)
+    if (fora) return
     switch (rotaDoComando(comando, citadoAprovacao?.tipo)) {
       case 'desfazer':
         return desfazerAprovacao(empresa, d, citadoAprovacao?.tipo === 'aprovado_auto' ? citadoAprovacao : null, Boolean(citadoAprovacao), gatilho)
@@ -1300,6 +1628,7 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
       conferir: faltou ? [`não apliquei ${faltou}`] : [],
       link,
       liberacaoPendente: salvo.liberacaoPendente,
+      foraNoTopo: linhaForaNoTopo(await foraDoRascunho(salvo.id)),
       feito: feito.join('; '),
       // Aprovação a confirmar: o "ok" no aviso novo aprova (o cliente viu a versão de antes: "reenvia" manda a nova)
       acaoFinal: modo === 'aprovacao' ? await linhaDeConfirmacao(true) : undefined,

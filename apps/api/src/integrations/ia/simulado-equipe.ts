@@ -100,8 +100,23 @@ export function orcamentoSimulado(conteudo: string) {
     const dataPedida = dataDe(parte)
     const p = melhor(palavras(parte), catalogo, (x) => x.nome)
     if (!p) {
+      const qtd = quantidadeDoTexto(parte)
       if (dataPedida) prazo ??= dataPedida[1]!
-      else if (/\d/.test(parte) || palavras(parte).length) naoIdentificados.push(parte)
+      // Pedido com quantidade de algo que não está no catálogo ("50 chaveiros personalizados"): o item vem sem produto
+      // (como o modelo é instruído), para o sistema mostrar "ficou de fora" e perguntar o preço
+      else if (qtd !== null && palavras(parte).length) {
+        itens.push({
+          produto: null,
+          descricao: parte.replace(/\s+/g, ' ').slice(0, 120),
+          quantidade: qtd,
+          largura_m: null,
+          altura_m: null,
+          acabamentos: [],
+          observacao: null,
+          confianca: 0.4,
+          motivo: `Nenhum produto do catálogo serve para “${parte.slice(0, 40)}”.`,
+        })
+      } else if (/\d/.test(parte) || palavras(parte).length) naoIdentificados.push(parte)
       continue
     }
     const medida = /(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(cm|mm|m)?\b/i.exec(parte)

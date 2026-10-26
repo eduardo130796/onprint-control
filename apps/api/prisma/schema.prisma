@@ -534,6 +534,8 @@ model OrcamentoWhatsapp {
   descartadoEm DateTime? @map("descartado_em") @db.Timestamptz(3)
   /// Enviado ao cliente pelo "ok" do canal
   enviadoEm    DateTime? @map("enviado_em") @db.Timestamptz(3)
+  /// Itens pedidos que não estão no catálogo: [{ chave, descricao, quantidade, situacao, produtoId }] (copiloto.ts)
+  foraDoCatalogo Json?   @map("fora_do_catalogo")
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
   orcamento Orcamento @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
@@ -541,6 +543,34 @@ model OrcamentoWhatsapp {
   @@index([mensagemId])
   @@index([createdAt])
   @@map("orcamentos_whatsapp")
+}
+
+/// 📝 em que nada estava no catálogo: espera o preço (cadastra o produto e monta o rascunho de uma vez) ou "não tem"
+model PendenciaCatalogoWhatsapp {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// key.id da reação (o mesmo aviso do webhook não cria outra)
+  gatilhoId   String    @unique @map("gatilho_id")
+  /// Mensagem do cliente que recebeu o 📝
+  mensagemId  String?   @map("mensagem_id")
+  conversaId  String?   @map("conversa_id") @db.Uuid
+  clienteId   String    @map("cliente_id") @db.Uuid
+  clienteNovo Boolean   @default(false) @map("cliente_novo")
+  contato     String?
+  numero      String?
+  /// As mensagens do cliente (o texto do pedido)
+  texto       String
+  /// A leitura do orçamento por texto (OrcamentoDeTexto): monta o rascunho sem ler de novo
+  leitura     Json
+  /// key.id das mensagens do cliente usadas (marcadas quando o rascunho nasce)
+  mensagens   String[]  @default([])
+  /// pendente | criada (orcamento_id) | descartada
+  situacao    String    @default("pendente")
+  orcamentoId String?   @map("orcamento_id") @db.Uuid
+  resolvidaEm DateTime? @map("resolvida_em") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([mensagemId])
+  @@map("pendencias_catalogo_whatsapp")
 }
 
 /// Mensagens da conversa "Você" (o canal do Assistente): as enviadas (eco ignorado; o "ok" citando acha o orçamento)
@@ -556,6 +586,8 @@ model MensagemVoceWhatsapp {
   orcamentoId String?   @map("orcamento_id") @db.Uuid
   /// Aviso "novo produto" que o "ok" citando cria (leituras_produtos_whatsapp)
   leituraProdutoId String? @map("leitura_produto_id") @db.Uuid
+  /// Aviso "não tenho no catálogo" (pendencias_catalogo_whatsapp): a resposta com o preço cria produto e rascunho
+  pendenciaId String?   @map("pendencia_id") @db.Uuid
   /// Pergunta "Qual envio?": os orçamentos na ordem das opções
   opcoes      String[]  @default([])
   resolvidaEm DateTime? @map("resolvida_em") @db.Timestamptz(3)

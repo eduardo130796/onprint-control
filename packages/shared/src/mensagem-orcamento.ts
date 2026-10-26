@@ -28,9 +28,14 @@ export interface OrcamentoParaMensagem {
 /**
  * Itens em lista, total, pagamento combinado, prazo, validade e o link de aprovação sozinho no fim. As frases das
  * regras comerciais para o cliente vão na linha {{descontos}} (template antigo, sem a variável: no fim da lista de
- * itens). Com o PDF anexado, avisa (antes da assinatura) que ele vai logo abaixo.
+ * itens). Com o PDF anexado, avisa (antes da assinatura) que ele vai logo abaixo. `recusados`: o que o cliente pediu e
+ * a gráfica não faz (o nome como ele pediu): a linha "Obs.: … não fazemos no momento." antes da assinatura.
  */
-export function textoMensagemOrcamento(o: OrcamentoParaMensagem, conteudo: string, opcoes: { empresa: string; linkAprovacao: string; comPdf?: boolean }): string {
+export function textoMensagemOrcamento(
+  o: OrcamentoParaMensagem,
+  conteudo: string,
+  opcoes: { empresa: string; linkAprovacao: string; comPdf?: boolean; recusados?: string[] },
+): string {
   const descontos = descontosMensagem(textosParaCliente(lerRegrasDoOrcamento(o.regras)))
   const semVariavel = Boolean(descontos) && !/\{\{\s*descontos\s*\}\}/.test(conteudo)
   const texto = preencherMensagem(conteudo, {
@@ -46,5 +51,18 @@ export function textoMensagemOrcamento(o: OrcamentoParaMensagem, conteudo: strin
     link_aprovacao: opcoes.linkAprovacao,
     empresa_nome: opcoes.empresa,
   })
-  return opcoes.comPdf ? inserirAntesDoFim(texto, 'O orçamento em PDF vai logo abaixo.') : texto
+  const obs = linhaObsRecusados(opcoes.recusados ?? [])
+  const comObs = obs ? inserirAntesDoFim(texto, obs) : texto
+  return opcoes.comPdf ? inserirAntesDoFim(comObs, 'O orçamento em PDF vai logo abaixo.') : comObs
+}
+
+/**
+ * "Obs.: chaveiro personalizado não fazemos no momento." (um ou mais itens: "chaveiro e caneca"); null sem itens.
+ * Vai na mensagem do orçamento e nas observações (o PDF e a tela mostram o mesmo).
+ */
+export function linhaObsRecusados(nomes: string[]): string | null {
+  const lista = [...new Set(nomes.map((n) => n.replace(/\s+/g, ' ').trim()).filter(Boolean))]
+  if (!lista.length) return null
+  const juntos = lista.length === 1 ? lista[0]! : `${lista.slice(0, -1).join(', ')} e ${lista.at(-1)}`
+  return `Obs.: ${juntos} não fazemos no momento.`
 }

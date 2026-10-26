@@ -317,10 +317,11 @@ describe('Simulador: pedidos com vários itens não perdem nenhum', () => {
     expect(linhas.itens[2]!.largura_m).toBe(2.5)
   })
 
-  it('trecho com quantidade e sem produto não some: vai para "não entendi"', () => {
+  it('trecho com quantidade e sem produto não some: vira item sem produto ("ficou de fora")', () => {
     const r = ler('500 cartões e 3 canecas personalizadas')
-    expect(r.itens).toHaveLength(1)
-    expect(r.nao_identificados).toEqual(['3 canecas personalizadas'])
+    expect(r.itens).toHaveLength(2)
+    expect(r.itens[1]).toMatchObject({ produto: null, descricao: '3 canecas personalizadas', quantidade: 3 })
+    expect(r.nao_identificados).toEqual([])
     expect(quantidadeDoTexto('quinhentos panfletos')).toBe(500)
     expect(quantidadeDoTexto('dois mil')).toBe(2000)
     expect(quantidadeDoTexto('banner')).toBeNull()

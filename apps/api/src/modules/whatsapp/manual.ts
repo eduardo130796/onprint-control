@@ -22,6 +22,19 @@ import { ErroWhatsapp, instanciaDaEmpresa, type DocumentoWhatsapp, type EnqueteE
 import { anexosEscolhidos, anexosJson, enviarAnexos, nomesDosAnexos } from './anexos-arte'
 import { formatoAprovacao, obterConfigWhatsapp, whatsappNoPlano } from './avisos'
 import { formatarMensagem, incluirMensagem } from './service'
+import { versaoDoOrcamento } from './aprovacao'
+
+/** O que entra na versão do orçamento (aprovacao.ts) */
+export const camposDaVersao = {
+  total: true,
+  desconto: true,
+  acrescimo: true,
+  frete: true,
+  sinalPercentual: true,
+  parcelas: true,
+  intervaloDias: true,
+  itens: { orderBy: { ordem: 'asc' }, select: { produtoId: true, descricao: true, quantidade: true, largura: true, altura: true, total: true, acabamentos: { select: { acabamentoId: true } } } },
+} as const
 
 export type DadosEnvio = z.output<typeof envioWhatsappSchema>
 
@@ -74,7 +87,7 @@ export function criarEnvioManual(app: FastifyInstance) {
   const { prisma } = app
 
   async function vinculos(d: DadosEnvio) {
-    const orcamento = d.orcamentoId ? await prisma.orcamento.findUnique({ where: { id: d.orcamentoId }, select: { id: true, clienteId: true, numero: true, liberacaoPendente: true } }) : null
+    const orcamento = d.orcamentoId ? await prisma.orcamento.findUnique({ where: { id: d.orcamentoId }, select: { id: true, clienteId: true, numero: true, liberacaoPendente: true, ...camposDaVersao } }) : null
     if (d.orcamentoId && !orcamento) throw AppError.naoEncontrado('Orçamento não encontrado.')
     // Regras comerciais: orçamento esperando um gerente não sai para o cliente
     if (d.tipo === 'orcamento_enviado' && orcamento?.liberacaoPendente) throw AppError.regraNegocio('Este orçamento precisa da liberação de um gerente antes de ser enviado.')
@@ -117,6 +130,8 @@ export function criarEnvioManual(app: FastifyInstance) {
       texto,
       anexoNome: anexo?.nomeArquivo ?? nomesDosAnexos(anexosArte),
       anexos: anexosJson(anexosArte),
+      // A versão do orçamento que o cliente vai ver: a aprovação pela resposta só sai sozinha se nada mudou depois
+      ...(ehOrcamento && orcamento ? { versaoEnviada: versaoDoOrcamento(orcamento), totalEnviado: orcamento.total } : {}),
     }
 
     let idExterno: string | null

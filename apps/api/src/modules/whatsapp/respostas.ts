@@ -119,6 +119,8 @@ export type MotivoNotificacao =
   | 'voto_ilegivel'
   /** Aprovação, com "aprovar sozinho" desligado */
   | 'aprovacao_manual'
+  /** Aprovação clara, mas o orçamento mudou depois do envio ou o dono conversou depois dele: a equipe confirma */
+  | 'aprovacao_a_confirmar'
   /** Pediu mudança (ou mudou o voto) num orçamento já aprovado/convertido */
   | 'depois_de_aprovado'
   /** Respondeu um orçamento recusado ou expirado */

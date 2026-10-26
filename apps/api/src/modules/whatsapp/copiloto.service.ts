@@ -29,7 +29,11 @@ import { criarPedirService, tipoDoArquivo } from '../assistente/pedir.service'
 import { pedidoAjusteOrcamento } from '../assistente/prompts-ajuste'
 import { criarPerguntasService } from '../assistente/perguntas.service'
 import { criarClientesService } from '../clientes/service'
+import { criarConversaoAutomatica } from '../orcamentos/conversao-automatica'
+import { criarConversaoService } from '../orcamentos/conversao.service'
 import { criarOrcamentosService } from '../orcamentos/orcamentos.service'
+import { estornoAoCancelarPedido } from '../estoque/ganchos'
+import { criarPedidosService } from '../pedidos/pedidos.service'
 import { pdfDoOrcamento } from '../orcamentos/pdf'
 import { avisarOrcamento } from '../orcamentos/tempo-real'
 import { obterConfigWhatsapp, whatsappNoPlano } from './avisos'
@@ -49,6 +53,7 @@ import {
   linhaDoAnterior,
   linhaDoRascunho,
   nomeDoPedido,
+  rotaDoComando,
   selecionarMensagens,
   textoAcrescimo,
   textoAjuste,
@@ -57,9 +62,11 @@ import {
   textoEstado,
   textoNota,
   textoPergunta,
+  type AvisoCitado,
   type DecisaoEnvio,
   type RascunhoCanal,
 } from './copiloto'
+import { DESFAZER_MS, impedimentoParaDesfazer, textoAprovadoAuto } from './aprovacao'
 import { CONFIANCA_AJUSTE, aplicarItens, descontoDaOperacao, editavelDoOrcamento, payloadDoEditavel, validarAjuste, type ItemEditavel } from './ajustes'
 import { criarEnvioManual, validarPdf } from './manual'
 import { templateDaCategoria } from './mensagem-pedido'
@@ -120,6 +127,8 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
   const enviarManual = criarEnvioManual(app)
   const notas = criarNotasWhatsapp(app)
   const assistenteEmpresa = criarAssistenteEmpresa(app)
+  const automatica = criarConversaoAutomatica(app, criarConversaoService(app, orcamentos))
+  const pedidosSvc = criarPedidosService(app, estornoAoCancelarPedido)
 
   /** Textos mandados ao "Você" há pouco, por empresa (anti-laço antes de o id voltar do envio) */
   const textosEnviados = new Map<string, { texto: string; em: number }[]>()
@@ -159,7 +168,7 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
    * Manda no "Você" (o número conectado para ele mesmo) e registra: o eco é ignorado e o "ok" citando esta mensagem
    * acha o orçamento. Sem número conhecido ou desconectado, fica no log.
    */
-  async function avisar(empresa: EmpresaAtual, texto: string, extra: { tipo?: 'aviso' | 'confirmar' | 'pergunta' | 'resposta'; orcamentoId?: string | null; opcoes?: string[] } = {}) {
+  async function avisar(empresa: EmpresaAtual, texto: string, extra: { tipo?: 'aviso' | 'confirmar' | 'pergunta' | 'resposta' | 'confirmar_aprovacao' | 'aprovado_auto'; orcamentoId?: string | null; opcoes?: string[] } = {}) {
     const config = await obterConfigWhatsapp(prisma)
     const provedor = app.whatsapp.provedor
     if (!config.numero || (!provedor.simulado && !config.conectado)) {
@@ -478,8 +487,8 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
   /** O aviso que o dono citou (stanzaId): o orçamento dele e quando saiu */
   async function avisoCitado(citadoId: string | null) {
     if (!citadoId) return null
-    const m = await prisma.mensagemVoceWhatsapp.findUnique({ where: { idExterno: citadoId }, select: { direcao: true, orcamentoId: true, createdAt: true } })
-    return m?.direcao === 'enviada' && m.orcamentoId ? { orcamentoId: m.orcamentoId, em: m.createdAt } : null
+    const m = await prisma.mensagemVoceWhatsapp.findUnique({ where: { idExterno: citadoId }, select: { direcao: true, tipo: true, orcamentoId: true, createdAt: true } })
+    return m?.direcao === 'enviada' && m.orcamentoId ? { orcamentoId: m.orcamentoId, em: m.createdAt, tipo: m.tipo } : null
   }
 
   async function perguntaAberta() {
@@ -532,6 +541,36 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
    * Envia um rascunho ao cliente pelo mesmo caminho do "Enviar orçamento" (texto do template no formato configurado e
    * o PDF), marca como enviado e confirma no "Você" dizendo qual. Só um envio por orçamento (marca antes de mandar).
    */
+  /**
+   * O orçamento ao cliente pelo mesmo caminho do "Enviar orçamento" (texto do template no formato configurado e o PDF;
+   * a linha registra a versão que o cliente viu). Devolve o que avisar ao dono (PDF que não foi…) ou "". Lança no erro.
+   */
+  async function enviarAoCliente(empresa: EmpresaAtual, d: Dono, o: Awaited<ReturnType<typeof orcamentos.obter>>, numero: string) {
+    const config = await prisma.empresaConfig.findFirst({
+      orderBy: { createdAt: 'asc' },
+      select: { nomeFantasia: true, razaoSocial: true, cnpj: true, whatsapp: true, telefone: true, email: true, site: true, logradouro: true, numero: true, bairro: true, cidade: true, uf: true, chavePix: true, corTema: true, logoArquivoId: true },
+    })
+    const link = linkAprovacaoOrcamento(o.tokenPublico)
+    // O PDF do mesmo desenho da tela; se não sair, a mensagem vai sem ele (e o dono fica sabendo)
+    let pdf: Buffer | null = null
+    try {
+      if (config) pdf = await pdfDoOrcamento(o, config, { logo: await logo(config.logoArquivoId), linkAprovacao: link })
+    } catch (erro) {
+      app.log.warn({ err: erro, empresa: empresa.slug, orcamento: o.numero }, 'Copiloto do WhatsApp: PDF do orçamento não gerado; envio só com o texto')
+    }
+    const texto = textoMensagemOrcamento(
+      { ...o, total: o.total.toString(), sinalPercentual: o.sinalPercentual.toString(), validade: o.validade.toISOString(), itens: itensDaMensagem(o) },
+      await templateDaCategoria(prisma, 'orcamento_enviado'),
+      { empresa: (await nomeDaGrafica(prisma)) || empresa.nome, linkAprovacao: link, comPdf: Boolean(pdf) },
+    )
+    const resultado = await enviarManual(
+      { tipo: 'orcamento_enviado', telefone: numero, texto, clienteId: o.clienteId, orcamentoId: o.id },
+      pdf ? validarPdf(pdf, `${o.numero} - ${nomeCliente(o.cliente)}.pdf`) : null,
+      d.id,
+    )
+    return [resultado.aviso, pdf ? null : 'O PDF não foi junto: mande pelo sistema se precisar.'].filter(Boolean).join(' ')
+  }
+
   async function enviarRascunho(empresa: EmpresaAtual, d: Dono, r: RascunhoCanal) {
     const marcado = await prisma.orcamentoWhatsapp.updateMany({ where: { orcamentoId: r.orcamentoId, enviadoEm: null, descartadoEm: null }, data: { enviadoEm: new Date() } })
     if (marcado.count !== 1) return avisar(empresa, textoEstado({ ...r, enviadoEm: r.enviadoEm ?? new Date() }, new Date()))
@@ -553,31 +592,9 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
         await desfazer()
         return avisar(empresa, `O cliente do ${o.numero} não tem WhatsApp no cadastro. Abra para enviar: ${linkSistema(`/orcamentos/${o.id}`)}`)
       }
-      const config = await prisma.empresaConfig.findFirst({
-        orderBy: { createdAt: 'asc' },
-        select: { nomeFantasia: true, razaoSocial: true, cnpj: true, whatsapp: true, telefone: true, email: true, site: true, logradouro: true, numero: true, bairro: true, cidade: true, uf: true, chavePix: true, corTema: true, logoArquivoId: true },
-      })
-      const link = linkAprovacaoOrcamento(o.tokenPublico)
-      // O PDF do mesmo desenho da tela; se não sair, a mensagem vai sem ele (e o dono fica sabendo)
-      let pdf: Buffer | null = null
-      try {
-        if (config) pdf = await pdfDoOrcamento(o, config, { logo: await logo(config.logoArquivoId), linkAprovacao: link })
-      } catch (erro) {
-        app.log.warn({ err: erro, empresa: empresa.slug, orcamento: o.numero }, 'Copiloto do WhatsApp: PDF do orçamento não gerado; envio só com o texto')
-      }
-      const texto = textoMensagemOrcamento(
-        { ...o, total: o.total.toString(), sinalPercentual: o.sinalPercentual.toString(), validade: o.validade.toISOString(), itens: o.itens.map((i) => ({ descricao: i.descricao, quantidade: i.quantidade.toString(), largura: i.largura?.toString(), altura: i.altura?.toString(), total: i.total.toString() })) },
-        await templateDaCategoria(prisma, 'orcamento_enviado'),
-        { empresa: (await nomeDaGrafica(prisma)) || empresa.nome, linkAprovacao: link, comPdf: Boolean(pdf) },
-      )
-      const resultado = await enviarManual(
-        { tipo: 'orcamento_enviado', telefone: numero, texto, clienteId: o.clienteId, orcamentoId: o.id },
-        pdf ? validarPdf(pdf, `${o.numero} - ${nomeCliente(o.cliente)}.pdf`) : null,
-        d.id,
-      )
+      const avisos = await enviarAoCliente(empresa, d, o, numero)
       const enviado = await orcamentos.marcarEnviado(o.id, { ...ctx, veTodos: true })
       avisarOrcamento(app, enviado, 'enviado', { origem: 'sistema', atorId: null })
-      const avisos = [resultado.aviso, pdf ? null : 'O PDF não foi junto: mande pelo sistema se precisar.'].filter(Boolean).join(' ')
       return avisar(empresa, `✅ ${o.numero} enviado para ${r.cliente} (${formatarMoeda(o.total.toString())}).${avisos ? `\n${avisos}` : ''}`, { orcamentoId: o.id })
     } catch (erro) {
       await desfazer()
@@ -749,6 +766,31 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     if (!texto) return void (await avisar(empresa, 'Por aqui eu leio texto e a foto, o PDF ou o XML da nota. Áudio ainda não.'))
     const comando = interpretarVoce(texto)
     const agora = new Date()
+    // Aprovação pela resposta do cliente: o aviso de "confirmar aprovação" (o "ok" APROVA; nunca reenvia sem pedir) e o
+    // da aprovação automática ("desfazer"). São avisos de outro tipo que os de rascunho: cada um com o seu "ok".
+    const citadoAprovacao = await avisoCitado(e.citadoId)
+    switch (rotaDoComando(comando, citadoAprovacao?.tipo)) {
+      case 'desfazer':
+        return desfazerAprovacao(empresa, d, citadoAprovacao?.tipo === 'aprovado_auto' ? citadoAprovacao : null, Boolean(citadoAprovacao))
+      case 'aprovar':
+        return aprovarPeloDono(empresa, d, citadoAprovacao!)
+      case 'reenviar':
+        return reenviarVersao(empresa, d, citadoAprovacao!.orcamentoId)
+      case 'nao_aprovar':
+        return void (await avisar(empresa, `Certo, não aprovei. O orçamento continua esperando a sua confirmação ("Cliente aprovou pelo WhatsApp"): ${linkSistema(`/orcamentos/${citadoAprovacao!.orcamentoId}`)}`))
+      case 'ajustar_aprovacao': {
+        // Ajuste em cima do aviso ("faz por 500"): o ajuste de sempre; o aviso novo pede o "ok" para aprovar
+        const r = await comoRascunho(citadoAprovacao!.orcamentoId)
+        if (!r) return void (await avisar(empresa, 'Esse orçamento não existe mais no sistema. Nada foi feito.'))
+        return ajustar(empresa, d, r, texto, 'aprovacao')
+      }
+      case 'ja_aprovado':
+        return void (await avisar(empresa, 'Esse orçamento já foi aprovado. Se não era isso, responda *desfazer* em cima do aviso da aprovação (até 10 minutos).'))
+      case 'reenviar_sem_citar':
+        return void (await avisar(empresa, 'Responda *reenvia* em cima do aviso do orçamento que o cliente respondeu.'))
+      case 'rascunho':
+        break
+    }
     if (comando.tipo === 'enviar' || comando.tipo === 'escolha') {
       const citado = await avisoCitado(e.citadoId)
       const pergunta = comando.tipo === 'escolha' ? await perguntaAberta() : null
@@ -792,6 +834,206 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     return roteador(empresa, d, e, texto)
   }
 
+  // ─── Aprovação pela resposta do cliente: confirmar, reenviar e desfazer ───
+
+  /** "Responda ok a esta mensagem para virar pedido assim…" (conforme a empresa converte ao aprovar) */
+  async function linhaDeConfirmacao(comReenvio: boolean) {
+    const e = await prisma.empresaConfig.findFirst({ orderBy: { createdAt: 'asc' }, select: { converterAoAprovar: true } })
+    const ok = `Responda *ok* a esta mensagem para ${(e?.converterAoAprovar ?? true) ? 'virar pedido' : 'aprovar'} assim`
+    return comReenvio ? `${ok}, ou *reenvia* para mandar a versão nova ao cliente antes.` : `${ok}, ou ajuste antes ("faz por 500").`
+  }
+
+  /** O orçamento no formato dos textos do canal, mesmo sem ter nascido no WhatsApp */
+  async function comoRascunho(orcamentoId: string): Promise<RascunhoCanal | null> {
+    const o = await prisma.orcamento.findUnique({
+      where: { id: orcamentoId },
+      select: { id: true, numero: true, status: true, total: true, updatedAt: true, createdAt: true, enviadoEm: true, liberacaoPendente: true, cliente: { select: { nome: true, fantasia: true } } },
+    })
+    if (!o) return null
+    return {
+      orcamentoId: o.id,
+      numero: o.numero,
+      cliente: nomeCliente(o.cliente),
+      total: o.total.toString(),
+      status: o.status,
+      criadoEm: o.createdAt,
+      avisadoEm: null,
+      atualizadoEm: o.updatedAt,
+      enviadoEm: null,
+      enviadoNoSistemaEm: o.enviadoEm,
+      descartadoEm: null,
+      liberacaoPendente: o.liberacaoPendente,
+    }
+  }
+
+  /** Estado de um orçamento que não está mais esperando a aprovação */
+  const estadoDaAprovacao = (numero: string, status: string) =>
+    status === 'aprovado'
+      ? `O ${numero} já foi aprovado. Nada foi feito.`
+      : status === 'convertido'
+        ? `O ${numero} já virou pedido. Nada foi feito.`
+        : status === 'rascunho'
+          ? `O ${numero} ainda não foi enviado ao cliente. Nada foi feito.`
+          : `O ${numero} está ${status.replace(/_/g, ' ')}. Nada foi feito.`
+
+  /**
+   * O "ok" no aviso de aprovação a confirmar: aprova pelo mesmo caminho do botão "Cliente aprovou pelo WhatsApp" (e
+   * converte, se a empresa deixou). Não reenvia nada ao cliente. Mudou de novo depois deste aviso: pergunta outra vez.
+   */
+  async function aprovarPeloDono(empresa: EmpresaAtual, d: Dono, citado: AvisoCitado) {
+    const ctx = { ...(await contextoUsuario(app, d.req, 'orcamentos')), veTodos: true }
+    const o = await prisma.orcamento.findUnique({
+      where: { id: citado.orcamentoId },
+      select: { id: true, numero: true, status: true, total: true, updatedAt: true, vendedorId: true, createdBy: true, liberacaoPendente: true, cliente: { select: { nome: true, fantasia: true } } },
+    })
+    if (!o) return void (await avisar(empresa, 'Esse orçamento não existe mais no sistema. Nada foi aprovado.'))
+    const link = linkSistema(`/orcamentos/${o.id}`)
+    if (!['enviado', 'em_negociacao'].includes(o.status)) return void (await avisar(empresa, estadoDaAprovacao(o.numero, o.status)))
+    if (o.liberacaoPendente) return void (await avisar(empresa, `O ${o.numero} precisa da liberação de um gerente antes de aprovar. Abra para liberar: ${link}`))
+    if (o.updatedAt.getTime() > citado.em.getTime()) {
+      return void (await avisar(empresa, `O ${o.numero} mudou desde este aviso (total agora ${formatarMoeda(o.total.toString())}). ${await linhaDeConfirmacao(true)}`, { tipo: 'confirmar_aprovacao', orcamentoId: o.id }))
+    }
+    const nome = nomeCliente(o.cliente)
+    try {
+      await orcamentos.aprovarInterno(o.id, nome, ctx, 'whatsapp')
+    } catch (erro) {
+      const msg = mensagemDeErro(erro)
+      if (!msg) throw erro
+      return void (await avisar(empresa, `Não aprovei o ${o.numero}: ${msg}`))
+    }
+    const r = await automatica.aposAprovacao({ id: o.id, numero: o.numero, vendedorId: o.vendedorId, createdBy: o.createdBy, cliente: o.cliente }, { origem: 'equipe', atorId: d.id, nome, canal: 'whatsapp' })
+    await prisma.mensagemWhatsapp.updateMany({ where: { orcamentoId: o.id, aprovacaoPendente: { not: null } }, data: { aprovacaoPendente: null, aprovacaoPendenteEm: null } })
+    const pedido = r.situacao === 'convertido' ? ` e virou o ${r.pedido.numero}` : ''
+    const falhou = r.situacao === 'falhou' ? `\nO pedido não foi criado sozinho (${r.motivo.replace(/\.$/, '')}): converta pelo sistema: ${link}` : ''
+    await avisar(empresa, `✅ ${o.numero} aprovado${pedido} (${formatarMoeda(o.total.toString())}).${falhou}`)
+  }
+
+  /** "reenvia" no aviso de aprovação a confirmar: a versão nova vai ao cliente (para ele responder sobre ela) */
+  async function reenviarVersao(empresa: EmpresaAtual, d: Dono, orcamentoId: string) {
+    const ctx = { ...(await contextoUsuario(app, d.req, 'orcamentos')), veTodos: true }
+    const link = linkSistema(`/orcamentos/${orcamentoId}`)
+    try {
+      const o = await orcamentos.obter(orcamentoId, ctx)
+      if (!['enviado', 'em_negociacao'].includes(o.status)) return void (await avisar(empresa, estadoDaAprovacao(o.numero, o.status)))
+      if (o.liberacaoPendente) return void (await avisar(empresa, `O ${o.numero} precisa da liberação de um gerente antes de sair. Abra para liberar: ${link}`))
+      const ultima = await prisma.mensagemWhatsapp.findFirst({ where: { orcamentoId: o.id, evento: 'orcamento_enviado', status: 'enviada' }, orderBy: { enviadaEm: 'desc' }, select: { telefone: true } })
+      const numero = ultima?.telefone ?? normalizarNumeroWhatsapp(o.cliente.whatsapp ?? o.cliente.telefone ?? '')
+      if (!numero) return void (await avisar(empresa, `O cliente do ${o.numero} não tem WhatsApp no cadastro. Abra para enviar: ${link}`))
+      // A resposta "a confirmar" era sobre a versão antiga: sai da faixa (a nova resposta decide de novo)
+      await prisma.mensagemWhatsapp.updateMany({ where: { orcamentoId: o.id, aprovacaoPendente: { not: null } }, data: { aprovacaoPendente: null, aprovacaoPendenteEm: null } })
+      const avisos = await enviarAoCliente(empresa, d, o, numero)
+      avisarOrcamento(app, o, 'alterado', { origem: 'sistema', atorId: null })
+      await avisar(empresa, `✅ Versão nova do ${o.numero} enviada para ${nomeCliente(o.cliente)} (${formatarMoeda(o.total.toString())}). Agora é esperar a resposta.${avisos ? `\n${avisos}` : ''}`)
+    } catch (erro) {
+      const msg = mensagemDeErro(erro) ?? (erro instanceof ErroWhatsapp ? erro.message : null)
+      if (!msg) app.log.error({ err: erro, empresa: empresa.slug }, 'Copiloto do WhatsApp: reenvio do orçamento falhou')
+      await avisar(empresa, `Não reenviei: ${msg ?? 'falha ao enviar agora.'} Envie pelo sistema: ${link}`)
+    }
+  }
+
+  /**
+   * "desfazer" (até 10 minutos depois do aviso da aprovação automática): cancela o pedido criado — só se nada aconteceu
+   * nele (sem pagamento, sem produção, sem arte) — e o orçamento volta para "em negociação", sem o vínculo com o pedido
+   * cancelado (pode ser aprovado de novo). A confirmação que ainda esperava na fila não sai; se já saiu, o dono fica
+   * sabendo. Tudo na auditoria.
+   */
+  async function desfazerAprovacao(empresa: EmpresaAtual, d: Dono, citado: AvisoCitado | null, citouOutra: boolean) {
+    const agora = new Date()
+    let aviso = citado
+    if (!aviso && !citouOutra) {
+      const recentes = await prisma.mensagemVoceWhatsapp.findMany({
+        where: { direcao: 'enviada', tipo: 'aprovado_auto', createdAt: { gte: new Date(agora.getTime() - DESFAZER_MS) }, orcamentoId: { not: null } },
+        select: { orcamentoId: true, createdAt: true },
+      })
+      if (recentes.length === 1) aviso = { orcamentoId: recentes[0]!.orcamentoId!, em: recentes[0]!.createdAt, tipo: 'aprovado_auto' }
+    }
+    if (!aviso) return void (await avisar(empresa, 'Responda *desfazer* em cima do aviso da aprovação (vale por 10 minutos).'))
+    const o = await prisma.orcamento.findUnique({
+      where: { id: aviso.orcamentoId },
+      select: {
+        id: true,
+        numero: true,
+        status: true,
+        vendedorId: true,
+        pedidoId: true,
+        observacoesInternas: true,
+        cliente: { select: { nome: true, fantasia: true } },
+        pedido: {
+          select: {
+            id: true,
+            numero: true,
+            status: true,
+            valorPago: true,
+            contasReceber: { select: { status: true, valorPago: true } },
+            ordensProducao: { select: { etapaAtual: true, cancelada: true } },
+            itens: { select: { artes: { select: { status: true } } } },
+          },
+        },
+      },
+    })
+    if (!o) return void (await avisar(empresa, 'Esse orçamento não existe mais no sistema.'))
+    const link = linkSistema(o.pedido ? `/pedidos/${o.pedido.id}` : `/orcamentos/${o.id}`)
+    const p = o.pedido
+    const impedimento = impedimentoParaDesfazer({
+      avisoEm: aviso.em,
+      agora,
+      orcamentoStatus: o.status,
+      pedido: p
+        ? {
+            numero: p.numero,
+            status: p.status,
+            valorPago: p.valorPago.toString(),
+            contasPagas: p.contasReceber.filter((c) => c.status === 'pago' || c.status === 'parcial' || Number(c.valorPago) > 0).length,
+            opsIniciadas: p.ordensProducao.filter((op) => !op.cancelada && op.etapaAtual !== 'fila').length,
+            artesMexidas: p.itens.flatMap((i) => i.artes).filter((a) => a.status !== 'aguardando_arquivo').length,
+          }
+        : null,
+    })
+    if (impedimento) return void (await avisar(empresa, `Não desfiz: ${impedimento}. Abra para ver: ${link}`))
+    const motivo = `Aprovação automática do ${o.numero} desfeita pelo dono no WhatsApp.`
+    if (p) {
+      const ctxPedidos = { ...(await contextoUsuario(app, d.req, 'pedidos')), veTodos: true }
+      await pedidosSvc.cancelar(p.id, motivo, false, ctxPedidos)
+    }
+    // A confirmação ao cliente que ainda esperava o respiro na fila não sai; a que já saiu, o dono fica sabendo
+    if (p) await prisma.mensagemWhatsapp.updateMany({ where: { pedidoId: p.id, status: 'pendente' }, data: { status: 'ignorada', erro: 'Aprovação desfeita pelo dono no WhatsApp.' } })
+    const saiu = await prisma.mensagemWhatsapp.count({
+      where: {
+        status: 'enviada',
+        OR: [...(p ? [{ pedidoId: p.id }] : []), { orcamentoId: o.id, evento: 'resposta_orcamento', enviadaEm: { gte: new Date(aviso.em.getTime() - 15 * 60_000) } }],
+      },
+    })
+    const quando = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(agora).replace(',', '')
+    await prisma.$transaction(async (tx) => {
+      await tx.orcamento.update({
+        where: { id: o.id },
+        data: {
+          status: 'em_negociacao',
+          aprovadoEm: null,
+          aprovadoPorNome: null,
+          aprovadoIp: null,
+          pedidoId: null,
+          observacoesInternas: [o.observacoesInternas?.trim(), `[${quando} · WhatsApp] ${motivo}${p ? ` Pedido ${p.numero} cancelado.` : ''}`].filter(Boolean).join('\n').slice(0, 2000),
+        },
+      })
+      await registrarAuditoria(tx, {
+        tabela: 'orcamentos',
+        registroId: o.id,
+        acao: 'editar',
+        antes: { status: o.status, pedido: p?.numero ?? null },
+        depois: { status: 'em_negociacao', via: 'desfazer no WhatsApp (conversa "Você")', pedidoCancelado: p?.numero ?? null, confirmacaoJaSaiu: saiu > 0 },
+        usuarioId: d.id,
+      })
+    })
+    avisarOrcamento(app, { id: o.id, numero: o.numero, status: 'em_negociacao', vendedorId: o.vendedorId, pedidoId: null, cliente: o.cliente }, 'negociacao', { origem: 'equipe', atorId: d.id })
+    await avisar(
+      empresa,
+      `↩️ Desfeito: o ${o.numero} voltou para "em negociação"${p ? ` e o ${p.numero} foi cancelado` : ''}. ${
+        saiu ? 'Atenção: o cliente já recebeu a confirmação pelo WhatsApp; fale com ele.' : 'Nenhuma confirmação saiu para o cliente.'
+      }`,
+    )
+  }
+
   // ─── Canal "Você": ajuste do orçamento em linguagem natural ───
 
   /**
@@ -800,14 +1042,14 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
    * do editor, com as regras comerciais). O Assistente nunca libera o que as regras pedem a um gerente: fica pendente.
    * Leitura incerta ou operação sem sentido: nada é aplicado. A resposta vira o aviso válido para o "ok".
    */
-  async function ajustar(empresa: EmpresaAtual, d: Dono, r: RascunhoCanal, texto: string) {
+  async function ajustar(empresa: EmpresaAtual, d: Dono, r: RascunhoCanal, texto: string, modo: 'rascunho' | 'aprovacao' = 'rascunho') {
     const link = linkSistema(`/orcamentos/${r.orcamentoId}`)
     if (!(await assistenteLigado())) return void (await avisar(empresa, `O Assistente GrafyGo está desligado (Configurações → Assistente). Abra para ajustar: ${link}`))
     const ctxDono = { ...(await contextoUsuario(app, d.req, 'orcamentos')), veTodos: true }
     // Feito pelo Assistente: o que as regras pedem a um gerente fica pendente (nunca liberado sozinho)
     const ctx = { ...ctxDono, podeAprovar: false }
     const o = await orcamentos.obter(r.orcamentoId, ctxDono)
-    if (o.status !== 'rascunho') return void (await avisar(empresa, `${textoEstado({ ...r, status: o.status, enviadoNoSistemaEm: o.enviadoEm }, new Date())} Não alterei nada.`))
+    if (modo === 'rascunho' ? o.status !== 'rascunho' : !['enviado', 'em_negociacao'].includes(o.status)) return void (await avisar(empresa, `${textoEstado({ ...r, status: o.status, enviadoNoSistemaEm: o.enviadoEm }, new Date())} Não alterei nada.`))
     const [produtos, formas] = await Promise.all([
       prisma.produto.findMany({
         where: { id: { in: o.itens.map((i) => i.produtoId) } },
@@ -913,8 +1155,11 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
       link,
       liberacaoPendente: salvo.liberacaoPendente,
       feito: feito.join('; '),
+      // Aprovação a confirmar: o "ok" no aviso novo aprova (o cliente viu a versão de antes: "reenvia" manda a nova)
+      acaoFinal: modo === 'aprovacao' ? await linhaDeConfirmacao(true) : undefined,
     })
-    if (await avisar(empresa, aviso, { tipo: 'aviso', orcamentoId: salvo.id })) await prisma.orcamentoWhatsapp.update({ where: { orcamentoId: salvo.id }, data: { avisadoEm: new Date() } })
+    const tipo = modo === 'aprovacao' ? 'confirmar_aprovacao' : 'aviso'
+    if (await avisar(empresa, aviso, { tipo, orcamentoId: salvo.id })) await prisma.orcamentoWhatsapp.updateMany({ where: { orcamentoId: salvo.id }, data: { avisadoEm: new Date() } })
   }
 
   return {
@@ -947,6 +1192,21 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
       if (!(await registrarRecebida(e.idMensagem, e.midia ?? 'texto', e.texto))) return { acao: 'ignorar', motivo: 'repetida' }
       acompanhar(empresa, () => processarVoce(empresa, e))
       return { acao: 'copiloto', motivo: 'canal Você' }
+    },
+
+    /**
+     * Aprovação do cliente que não saiu sozinha (conversa depois do envio, orçamento mudou): pergunta no "Você", com
+     * o Assistente no WhatsApp ligado. Devolve se perguntou (desligado: fica o sino e a faixa no orçamento).
+     */
+    async pedirConfirmacaoAprovacao(empresa: EmpresaAtual, p: { orcamentoId: string; texto: string }): Promise<boolean> {
+      if (!(await configLigada(empresa))) return false
+      return Boolean(await avisar(empresa, p.texto, { tipo: 'confirmar_aprovacao', orcamentoId: p.orcamentoId }))
+    },
+
+    /** Aprovou sozinho (caso limpo): avisa no "Você", com o "desfazer" por 10 minutos */
+    async avisarAprovadoAuto(empresa: EmpresaAtual, p: { orcamentoId: string; numero: string; cliente: string; total: string; pedido: string | null }) {
+      if (!(await configLigada(empresa))) return
+      await avisar(empresa, textoAprovadoAuto(p), { tipo: 'aprovado_auto', orcamentoId: p.orcamentoId })
     },
 
     /** Espera as tarefas em andamento (testes e desligamento da API) */

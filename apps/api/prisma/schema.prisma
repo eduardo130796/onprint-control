@@ -422,6 +422,12 @@ model MensagemWhatsapp {
   /// Respostas anteriores do cliente a este orçamento (a mais recente fica nos campos acima): [{ resposta, via, texto,
   /// em, idExterno, intencao, confianca, resumo }], da mais antiga para a mais nova — uma resposta nova nunca apaga a outra
   respostasAnteriores Json?                  @map("respostas_anteriores")
+  /// Orçamento enviado: a versão que o cliente viu (resumo de itens, valores e pagamento) e o total
+  versaoEnviada       String?                @map("versao_enviada")
+  totalEnviado        Decimal?               @map("total_enviado") @db.Decimal(12, 2)
+  /// Aprovação que não saiu sozinha (conversa depois do envio, orçamento mudou): o motivo, até a equipe confirmar
+  aprovacaoPendente   String?                @map("aprovacao_pendente")
+  aprovacaoPendenteEm DateTime?              @map("aprovacao_pendente_em") @db.Timestamptz(3)
   createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -555,6 +561,20 @@ model MensagemVoceWhatsapp {
 
   @@index([direcao, createdAt])
   @@map("mensagens_voce_whatsapp")
+}
+
+/// Mensagem que o dono digitou à mão na conversa com o cliente (não as do sistema): só para saber se conversaram depois
+/// do envio do orçamento. Texto curto; apagada depois de 30 dias.
+model MensagemDonoWhatsapp {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  idExterno String   @unique @map("id_externo")
+  /// Número do cliente (55DDD…)
+  numero    String
+  texto     String
+  enviadaEm DateTime @default(now()) @map("enviada_em") @db.Timestamptz(3)
+
+  @@index([numero, enviadaEm])
+  @@map("mensagens_dono_whatsapp")
 }
 
 /// Nota de compra mandada no "Você": a leitura guardada para a "Nova entrada" abrir preenchida (nada é registrado)

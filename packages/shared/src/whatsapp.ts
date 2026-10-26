@@ -298,6 +298,8 @@ export interface RespostaWhatsapp {
   em: string
   /** O que o Assistente entendeu (via "assistente"); pendente = ainda lendo a resposta */
   assistente?: { intencao: IntencaoRespostaIA; confianca: number; resumo: string } | { pendente: true } | null
+  /** Aprovou, mas não virou aprovação sozinha (conversa depois do envio, orçamento mudou): o motivo, até a equipe confirmar */
+  aprovacaoPendente?: string | null
 }
 
 /** "Resposta: ✅ Aprovado (enquete)" / "Resposta: ✏️ Quero modificações — “mudar a cor”" / "Resposta: “bom dia”" */

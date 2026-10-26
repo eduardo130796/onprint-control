@@ -84,6 +84,10 @@ export type ComandoVoce =
   | { tipo: 'ajuste' }
   /** O resto vai para o roteador do Peça ao Assistente */
   | { tipo: 'outro' }
+  /** "desfazer" em cima do aviso da aprovação automática (até 10 minutos) */
+  | { tipo: 'desfazer' }
+  /** "reenvia" em cima do aviso de aprovação a confirmar: manda a versão nova do orçamento ao cliente */
+  | { tipo: 'reenviar' }
 
 const ENVIAR = /^(ok|okay|okk+|ok ok|blz ok|pode (mandar|enviar|ir)|manda|mande|envia|envie|enviar|manda ai|pode mandar ai|sim|isso|confirmo|confirma|confirmado)\b/
 const CANCELAR = /^(cancela|cancelar|cancelado|nao envia|nao envie|nao manda|nao mande|nao enviar|descarta|descartar|deixa (pra|para) la|deixa quieto|esquece)\b/
@@ -111,6 +115,8 @@ export function interpretarVoce(texto: string): ComandoVoce {
     if (opcoes.every((n) => n >= 1 && n <= 20)) return { tipo: 'escolha', opcoes }
   }
   const palavras = t.split(' ')
+  if (/^(desfazer|desfaz|desfaca|desfazer isso|desfaz isso|desfaca isso)$/.test(t)) return { tipo: 'desfazer' }
+  if (/^(reenvia|reenviar|reenvie|manda de novo|envia de novo|manda a versao nova|envia a versao nova)\b/.test(t) && palavras.length <= 6) return { tipo: 'reenviar' }
   // "ok", "ok 0105", "ok Eduardo": curto (o pedido novo "ok, faz um orçamento pra Ana…" vai para o roteador)
   const envio = ENVIAR.exec(t)
   if (envio && palavras.length <= 5 && !AJUSTE.test(t)) {
@@ -154,10 +160,12 @@ export interface RascunhoCanal {
 export const estaPendente = (r: RascunhoCanal) => r.status === 'rascunho' && !r.enviadoEm && !r.descartadoEm
 
 /** Mudou no sistema depois do aviso (a pessoa ajustou no editor): o "ok" mostra o resumo novo antes */
-export const mudouDepoisDoAviso = (r: RascunhoCanal, avisoEm: Date) => r.atualizadoEm.getTime() > avisoEm.getTime() + 1000
+export const mudouDepoisDoAviso = (r: RascunhoCanal, avisoEm: Date) => r.atualizadoEm.getTime() > avisoEm.getTime()
 
 /** Aviso que o dono citou: o orçamento dele e quando saiu */
 export interface AvisoCitado {
+  /** aviso (rascunho a enviar) | confirmar (resumo novo do rascunho) | confirmar_aprovacao (o "ok" APROVA) | aprovado_auto ("desfazer") */
+  tipo?: string | null
   orcamentoId: string
   em: Date
 }
@@ -344,6 +352,8 @@ export interface AvisoOrcamento {
   link: string
   /** Desconto do orçamento (Decimal da API): a linha "Desconto: −R$ …" quando houver */
   desconto?: string
+  /** Última linha no lugar do "Responda ok para enviar" (aprovação a confirmar: o "ok" aprova) */
+  acaoFinal?: string
   /** Linha antes do título ("O ORC-0112 já foi enviado; montei um novo:") */
   antes?: string
   /** Esperando a liberação de um gerente (não sai pelo "ok") */
@@ -363,6 +373,8 @@ function corpoDoAviso(a: AvisoOrcamento): string[] {
   linhas.push(
     a.liberacaoPendente
       ? `Ele precisa da liberação de um gerente antes de sair. Abra para liberar: ${a.link}`
+      : a.acaoFinal
+        ? a.acaoFinal
       : `Responda *ok* a esta mensagem para enviar ao cliente, ou abra para ajustar: ${a.link}`,
   )
   return linhas
@@ -524,4 +536,26 @@ export function escolherParaAjustar(ctx: { citado: AvisoCitado | null; rascunhos
   const lista = recentes(ctx.rascunhos, ctx.agora)
   if (lista.length === 1) return { acao: 'ajustar', rascunho: lista[0]! }
   return lista.length > 1 ? { acao: 'perguntar', rascunhos: lista } : { acao: 'nenhum' }
+}
+
+// ─── Qual "ok": enviar o rascunho × confirmar a aprovação ───
+
+export type RotaDoComando = 'aprovar' | 'reenviar' | 'nao_aprovar' | 'ajustar_aprovacao' | 'ja_aprovado' | 'desfazer' | 'reenviar_sem_citar' | 'rascunho'
+
+/**
+ * O que o comando faz conforme o aviso citado: no aviso "confirmar aprovação" o "ok" APROVA (nunca envia), "reenvia"
+ * manda a versão nova e qualquer outro texto é ajuste; no aviso da aprovação automática só vale o "desfazer". Nos
+ * avisos de rascunho (ou sem citar) segue o fluxo dos rascunhos ("ok" envia).
+ */
+export function rotaDoComando(comando: ComandoVoce, tipoCitado: string | null | undefined): RotaDoComando {
+  if (comando.tipo === 'desfazer') return 'desfazer'
+  if (tipoCitado === 'confirmar_aprovacao') {
+    if (comando.tipo === 'enviar') return 'aprovar'
+    if (comando.tipo === 'reenviar') return 'reenviar'
+    if (comando.tipo === 'cancelar') return 'nao_aprovar'
+    return 'ajustar_aprovacao'
+  }
+  if (tipoCitado === 'aprovado_auto') return 'ja_aprovado'
+  if (comando.tipo === 'reenviar') return 'reenviar_sem_citar'
+  return 'rascunho'
 }

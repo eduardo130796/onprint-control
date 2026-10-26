@@ -49,9 +49,10 @@ export function respostaDaMensagem(m: {
   respostaIntencao?: string | null
   respostaConfianca?: number | null
   respostaResumo?: string | null
+  aprovacaoPendente?: string | null
 }): RespostaWhatsapp | null {
   if (!m.resposta || !m.respostaEm) return null
-  const base = { tipo: m.resposta as TipoRespostaWhatsapp, texto: m.respostaTexto, em: m.respostaEm.toISOString() }
+  const base = { tipo: m.resposta as TipoRespostaWhatsapp, texto: m.respostaTexto, em: m.respostaEm.toISOString(), ...(m.aprovacaoPendente ? { aprovacaoPendente: m.aprovacaoPendente } : {}) }
   // Lida pelo Assistente GrafyGo (ou ainda lendo)
   if (m.respostaVia === 'assistente_pendente') return { ...base, via: 'texto', assistente: { pendente: true } }
   if (m.respostaVia === 'assistente' && m.respostaIntencao && m.respostaResumo) {
@@ -69,6 +70,7 @@ export const camposResposta = {
   respostaIntencao: true,
   respostaConfianca: true,
   respostaResumo: true,
+  aprovacaoPendente: true,
 } satisfies Prisma.MensagemWhatsappSelect
 
 /** Tela WhatsApp: conexão pelo QR code, eventos ligados, horário, pausa e a fila/histórico dos avisos. */

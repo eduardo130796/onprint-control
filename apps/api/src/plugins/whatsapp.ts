@@ -1,6 +1,7 @@
 import fp from 'fastify-plugin'
 import { contextoEmpresa } from '../core/contexto-empresa'
 import { criarProvedorWhatsapp, instanciaDaEmpresa, type ProvedorWhatsapp } from '../integrations/whatsapp'
+import { RegistroEnviosWhatsapp, comRegistro } from '../integrations/whatsapp/registro-envios'
 import { criarAvisosWhatsapp, obterConfigWhatsapp, type AvisosWhatsapp } from '../modules/whatsapp/avisos'
 import { CICLO_ENVIO_MS, criarEnvioWhatsapp } from '../modules/whatsapp/envio'
 import { criarConversasWhatsapp } from '../modules/whatsapp/conversas.service'
@@ -11,6 +12,8 @@ declare module 'fastify' {
   interface FastifyInstance {
     whatsapp: AvisosWhatsapp & {
       provedor: ProvedorWhatsapp
+      /** O que o sistema mandou há pouco (o eco no webhook não é mensagem do dono) */
+      registroEnvios: RegistroEnviosWhatsapp
       /** Empresa com aviso na fila (reenviar) */
       marcarFila: (empresaId: string) => void
       /** Liga o webhook da instância da empresa (respostas do cliente e conexão). Nunca lança. */
@@ -25,7 +28,9 @@ declare module 'fastify' {
  * (modules/whatsapp/webhook.routes.ts), ligado ao conectar e, ao subir a API, nas empresas já conectadas.
  */
 export const whatsappPlugin = fp(async (app) => {
-  const provedor = criarProvedorWhatsapp(app.config, app.log)
+  // Cada envio fica anotado: o eco "fromMe" do que o sistema mandou não conta como mensagem do dono
+  const registroEnvios = new RegistroEnviosWhatsapp()
+  const provedor = comRegistro(criarProvedorWhatsapp(app.config, app.log), registroEnvios)
   if (provedor.simulado) app.log.info('WhatsApp em modo de teste (WHATSAPP_PROVEDOR=log): os avisos vão só para o log.')
   const envio = criarEnvioWhatsapp(app, provedor)
   const segredoServidor = segredoDoServidor(app.config)
@@ -40,7 +45,7 @@ export const whatsappPlugin = fp(async (app) => {
     }
   }
 
-  app.decorate('whatsapp', { ...criarAvisosWhatsapp(app, envio.marcarFila), provedor, marcarFila: envio.marcarFila, ligarWebhook })
+  app.decorate('whatsapp', { ...criarAvisosWhatsapp(app, envio.marcarFila), provedor, registroEnvios, marcarFila: envio.marcarFila, ligarWebhook })
   app.addHook('onClose', async () => provedor.fechar?.())
 
   if (app.config.NODE_ENV === 'test') return

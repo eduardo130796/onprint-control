@@ -59,7 +59,7 @@ export function CopilotoCard({ config, podeEditar }: { config: WhatsappConfig; p
         </ol>
         <p className="text-xs text-texto-secundario">
           Na conversa "Você" também dá para perguntar ("quem está devendo?", "quanto vendi hoje?"), pedir um orçamento ("orçamento pra Ana: 2 banners 2x1") ou mandar a
-          foto da nota de compra. Nada sai para o cliente sem o seu ok.
+          foto da nota de compra. Nada sai para o cliente sem o seu ok. Quando o cliente aprova, o Assistente aprova sozinho só se nada mudou depois do envio; se vocês conversaram ou o orçamento mudou, ele te pergunta no “Você”.
         </p>
         <div className="flex items-start gap-3 rounded-xl border border-tinta/10 p-3">
           <Interruptor

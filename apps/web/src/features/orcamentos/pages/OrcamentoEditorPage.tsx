@@ -221,6 +221,15 @@ function Editor({
           {orcamento.aprovadoIp && ` (link público, IP ${orcamento.aprovadoIp})`}.
         </p>
       )}
+      {/* O cliente aprovou na conversa, mas não saiu sozinho (conversaram depois do envio ou o orçamento mudou) */}
+      {orcamento?.respostaWhatsapp?.aprovacaoPendente && ['enviado', 'em_negociacao'].includes(orcamento.status) && (
+        <p className="mb-4 flex items-start gap-2 rounded-xl bg-ambar/10 p-3 text-sm text-amber-800">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span className="[overflow-wrap:anywhere]">
+            Aprovação a confirmar: {orcamento.respostaWhatsapp.aprovacaoPendente}. Confira e use “Cliente aprovou pelo WhatsApp” (ou responda *ok* no aviso da conversa “Você”).
+          </span>
+        </p>
+      )}
       {orcamento?.respostaWhatsapp && (
         <p
           className={

@@ -17,6 +17,9 @@ import { contextoDoCerebro, montarCerebro } from '../assistente/cerebro'
 import { pedidoClassificarResposta, primeiroNome } from '../assistente/prompts'
 import { criarConversasWhatsapp, type EventoConversa } from './conversas.service'
 import { criarCopilotoWhatsapp } from './copiloto.service'
+import { decidirAprovacaoAutomatica, motivoDaConfirmacao, textoConfirmarAprovacao, versaoDoOrcamento, type DecisaoAprovacao } from './aprovacao'
+import { camposDaVersao } from './manual'
+import { criarMensagensDono } from './mensagens-dono'
 import { VIA_LENDO, notificarEquipe, quemAvisar as quemAvisarNaEmpresa } from './leituras-presas'
 import {
   JANELA_RESPOSTA_MS,
@@ -99,6 +102,8 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
   const conversas = criarConversasWhatsapp(app)
   // Copiloto: 📝 na conversa do cliente e a conversa "Você" (o canal do Assistente)
   const copiloto = criarCopilotoWhatsapp(app)
+  // O que o dono digitou nas conversas com clientes (a aprovação sozinha só sai se ninguém conversou depois do envio)
+  const mensagensDono = criarMensagensDono(app)
 
   type Linha = Awaited<ReturnType<typeof buscarLinhas>>[number]
 
@@ -150,6 +155,9 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
         respostaIntencao: leitura?.intencao ?? null,
         respostaConfianca: leitura?.confianca ?? null,
         respostaResumo: leitura?.resumo.slice(0, 300) ?? null,
+        // Resposta nova: a "aprovação a confirmar" anterior deixa de valer (a nova decide de novo)
+        aprovacaoPendente: null,
+        aprovacaoPendenteEm: null,
       },
     })
   }
@@ -200,7 +208,7 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
         await conversas.registrar(empresa, e, {
           orcamentoId: d.alvos.length === 1 ? d.alvos[0]!.orcamentoId : null,
           // Aprovação esperando a confirmação da equipe: o aviso já foi, a ação é no orçamento
-          tratada: d.motivo === 'aprovacao_manual',
+          tratada: d.motivo === 'aprovacao_manual' || d.motivo === 'aprovacao_a_confirmar',
           leitura: d.assistente ?? null,
           jaAvisada: d.avisarEquipe,
         })
@@ -268,8 +276,65 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
     }
   }
 
+  /**
+   * A aprovação clara pode sair sozinha? Só se o orçamento que o cliente viu (a versão gravada no envio) é o que está
+   * no sistema e o dono não escreveu nada na conversa depois do envio (aprovacao.ts)
+   */
+  async function conferirAprovacao(l: Linha) {
+    const o = await prisma.orcamento.findUniqueOrThrow({ where: { id: l.orcamento!.id }, select: { updatedAt: true, ...camposDaVersao } })
+    const config = await obterConfigWhatsapp(prisma)
+    const enviadaEm = l.enviadaEm ?? l.createdAt
+    const doDono = await mensagensDono.depois(l.telefone, enviadaEm)
+    const decisao = decidirAprovacaoAutomatica({
+      aprovarSozinho: config.aprovarPelaResposta,
+      enviadaEm,
+      versaoEnviada: l.versaoEnviada,
+      versaoAtual: versaoDoOrcamento(o),
+      orcamentoAtualizadoEm: o.updatedAt,
+      totalEnviado: l.totalEnviado?.toString() ?? null,
+      totalAtual: o.total.toString(),
+      mensagensDoDono: doDono.map((m) => ({ texto: m.texto, em: m.enviadaEm })),
+    })
+    return { decisao, totalAtual: o.total.toString() }
+  }
+
+  /**
+   * Caso não limpo: não aprova. Grava a resposta com o motivo (faixa no orçamento), avisa no sino ("confirme a
+   * aprovação") e, com o Assistente no WhatsApp ligado, pergunta no "Você" (o "ok" lá aprova pelo mesmo caminho do
+   * botão "Cliente aprovou pelo WhatsApp")
+   */
+  async function aprovacaoAConfirmar(
+    empresa: EmpresaAtual,
+    l: Linha,
+    decisao: Extract<DecisaoAprovacao, { acao: 'confirmar' }>,
+    totalAtual: string,
+    resposta: string,
+    gravarResposta: (mensagemId: string, resposta: TipoRespostaWhatsapp) => Promise<void>,
+  ) {
+    const o = l.orcamento!
+    const cliente = nomeCliente(o.cliente)
+    const motivo = motivoDaConfirmacao(decisao)
+    await gravarResposta(l.id, 'aprovado')
+    await prisma.mensagemWhatsapp.update({ where: { id: l.id }, data: { aprovacaoPendente: motivo.slice(0, 500), aprovacaoPendenteEm: new Date() } })
+    await notificar(
+      await quemAvisar(o.vendedorId),
+      {
+        titulo: `${cliente} aprovou o orçamento ${o.numero} no WhatsApp — confirme a aprovação`,
+        mensagem: `Não aprovei sozinho: ${motivo}. Confira e use "Cliente aprovou pelo WhatsApp".`,
+        link: `/orcamentos/${o.id}`,
+      },
+      true,
+    )
+    const empresaConfig = await prisma.empresaConfig.findFirst({ orderBy: { createdAt: 'asc' }, select: { converterAoAprovar: true } })
+    await copiloto.pedirConfirmacaoAprovacao(empresa, {
+      orcamentoId: o.id,
+      texto: textoConfirmarAprovacao({ cliente, resposta, numero: o.numero, total: totalAtual, decisao, converteAoAprovar: empresaConfig?.converterAoAprovar ?? true }),
+    })
+    avisarOrcamento(app, { ...o, pedidoId: null }, 'alterado', { origem: 'cliente', atorId: null, canal: 'whatsapp' })
+  }
+
   /** `gravar` false: outra resposta do cliente já foi registrada depois desta (a leitura do Assistente demorou) */
-  async function aplicar(empresa: EmpresaAtual, d: Decisao, r: Recebida, linhas: Linha[], escrito: string | null, gravar = true) {
+  async function aplicar(empresa: EmpresaAtual, d: Decisao, r: Recebida, linhas: Linha[], escrito: string | null, gravar = true): Promise<Decisao> {
     if (d.acao === 'ignorar') return d
     const gravarResposta = (mensagemId: string, resposta: TipoRespostaWhatsapp) => (gravar ? registrar(mensagemId, resposta, r, escrito, d.assistente) : Promise.resolve())
     const linhaDe = (c: OrcamentoEnviado) => linhas.find((l) => l.id === c.mensagemId)!
@@ -287,6 +352,12 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
       const nome = nomeCliente(o.cliente)
       const ator = o.vendedorId ?? o.createdBy ?? (await quemAvisar(null))[0] ?? ''
       const ctx: ContextoUsuario = { usuarioId: ator, veTodos: true, podeAprovar: true, veCustos: true }
+      // Aprovar sozinho só no caso limpo: o orçamento não mudou desde o envio e o dono não conversou depois dele
+      const seguranca = await conferirAprovacao(l)
+      if (seguranca.decisao.acao === 'confirmar') {
+        await aprovacaoAConfirmar(empresa, l, seguranca.decisao, seguranca.totalAtual, escrito ?? TIPO_RESPOSTA_WHATSAPP_ROTULOS[d.resposta], gravarResposta)
+        return { acao: 'notificar', motivo: 'aprovacao_a_confirmar', alvos: [d.alvo], resposta: d.resposta, avisarEquipe: false, assistente: d.assistente }
+      }
       try {
         await orcamentos.aprovarInterno(o.id, nome, ctx, 'whatsapp', { via: r.tipo === 'voto' ? 'enquete' : d.assistente ? 'assistente' : 'texto', texto: escrito })
       } catch (erro) {
@@ -304,6 +375,8 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
         const pedido = resultado.situacao === 'convertido' ? ` Seu pedido *${resultado.pedido.numero}* já está confirmado.` : ' Em instantes confirmamos o seu pedido por aqui.'
         await responderCliente(empresa, l, `Perfeito, recebemos sua aprovação do orçamento *${o.numero}* ✅${pedido}${await assinatura()}`, Boolean(d.assistente))
       }
+      // Assistente no WhatsApp ligado: o dono fica sabendo no "Você" e pode desfazer por 10 minutos
+      await copiloto.avisarAprovadoAuto(empresa, { orcamentoId: o.id, numero: o.numero, cliente: nome, total: seguranca.totalAtual, pedido: resultado.situacao === 'convertido' ? resultado.pedido.numero : null })
       return d
     }
 
@@ -673,8 +746,11 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
               // 📝 do dono numa mensagem do cliente: o orçamento rascunho (copiloto)
               resultados.push({ tipo: e.tipo, ...(await copiloto.reacao(empresa, e, aviso.sender ?? null)) })
             } else if (e.tipo === 'proprio') {
-              // Mensagem do próprio número: só a conversa "Você" (o canal do Assistente) interessa
-              resultados.push({ tipo: e.tipo, ...(await copiloto.proprio(empresa, e, aviso.sender ?? null)) })
+              // Mensagem do próprio número: a conversa "Você" é o canal do Assistente; na conversa com o cliente, o que o
+              // dono digitou fica guardado (a aprovação sozinha olha se conversaram depois do envio)
+              const r = await copiloto.proprio(empresa, e, aviso.sender ?? null)
+              const doDono = r.motivo === 'conversa com cliente' || r.motivo === 'assistente no WhatsApp desligado' ? await mensagensDono.registrar(e, aviso.sender ?? null) : false
+              resultados.push({ tipo: e.tipo, ...r, ...(doDono ? { acao: 'dono', motivo: 'mensagem do dono na conversa' } : {}) })
             } else {
               const d = await responder(empresa, e)
               resultados.push({ tipo: e.tipo, acao: d.acao, ...('motivo' in d ? { motivo: d.motivo } : {}) })

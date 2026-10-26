@@ -299,6 +299,19 @@ Para uma VPS que já estava no ar antes desta versão:
 
 Nada a acrescentar no `.env.prod` (as variáveis `WHATSAPP_WEBHOOK_*` são opcionais). Ao subir, a API liga o webhook da Evolution nas gráficas já conectadas (e em toda conexão nova). O orçamento enviado pela conexão da gráfica sai com uma enquete "✅ Aprovado / ✏️ Quero modificações"; o voto (ou um "aprovado" escrito) aprova o orçamento sozinho (e vira pedido conforme Configurações → Empresa → Pedidos), ou volta para negociação avisando o vendedor. Cada gráfica liga/desliga em **WhatsApp → Aprovar sozinho quando o cliente responder Aprovado**. Para conferir: `onprint logs api | grep -i webhook` não deve mostrar "Webhook do WhatsApp não configurado".
 
+### Atualização de novembro de 2026 (Assistente GrafyGo, copiloto do WhatsApp, catálogo rápido)
+
+Nada obrigatório a acrescentar no `.env.prod` (`ANTHROPIC_API_KEY` e `IA_SEGREDO` são opcionais). Rode `scripts/vps/atualizar.sh`: as migrations desta versão (Assistente, regras comerciais, conversas e copiloto do WhatsApp, aprovação segura, notas e produtos lidos pelo WhatsApp) entram sozinhas em todas as gráficas. A imagem da API fica um pouco maior: o PDF do orçamento enviado pelo "ok" no WhatsApp agora é gerado no servidor.
+
+Depois de atualizar:
+
+1. **Chave da IA**: entre no painel da plataforma (`/plataforma/assistente`), escolha Anthropic, cole a chave e use **Testar**. A chave do computador de desenvolvimento não vai junto: cadastre a de produção aqui (ela fica cifrada no banco). Sem chave, as funções do Assistente ficam desligadas e o resto do sistema funciona normal.
+2. **Endereço do site**: confira que o `APP_URL` do `.env.prod` é o domínio público (ex.: `https://erp.suaempresa.com.br`) (os links que o Assistente manda no WhatsApp usam esse endereço; com `localhost` eles não abrem no celular).
+3. **Em cada gráfica** (ou avise para fazerem), na página **WhatsApp**:
+   - **Aprovação do orçamento**: gráficas novas já começam em "Conversa natural" (sem enquete); as que já existiam continuam no formato que tinham: troque para **Conversa natural** se quiser o padrão novo.
+   - **Assistente no WhatsApp (📝 e conversa "Você")** vem **desligado**: ligue para usar o copiloto (reagir com 📝 numa mensagem do cliente monta o orçamento; "ok" na conversa "Você" envia).
+4. **Conferir**: `onprint logs api | grep -i "migra"` sem erro; no sistema, **Produtos → Cadastrar vários** abre, e **Peça ao Assistente** (ao lado da busca) responde "quem está devendo?".
+
 ## 11. Restaurar um backup
 
 > **Atenção:** substitui os dados atuais pelos do backup.

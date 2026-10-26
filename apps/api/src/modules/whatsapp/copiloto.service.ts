@@ -95,6 +95,13 @@ const incluirRascunho = {
 
 type LinhaRascunho = Prisma.OrcamentoWhatsappGetPayload<{ include: typeof incluirRascunho }>
 
+/**
+ * O "ok" marca o rascunho como enviado antes de mandar (trava contra dois "ok" seguidos) e desmarca se o envio falha.
+ * Se a API cair no meio, a marca fica: passado este tempo com o orçamento ainda em rascunho, a trava é abandonada.
+ */
+const TRAVA_ENVIO_MS = 2 * 60_000
+const travaAbandonada = (enviadoEm: Date | null, status: string) => Boolean(enviadoEm) && status === 'rascunho' && Date.now() - enviadoEm!.getTime() > TRAVA_ENVIO_MS
+
 const paraRascunho = (l: LinhaRascunho): RascunhoCanal => ({
   orcamentoId: l.orcamentoId,
   numero: l.orcamento.numero,
@@ -104,7 +111,7 @@ const paraRascunho = (l: LinhaRascunho): RascunhoCanal => ({
   criadoEm: l.createdAt,
   avisadoEm: l.avisadoEm,
   atualizadoEm: l.orcamento.updatedAt,
-  enviadoEm: l.enviadoEm,
+  enviadoEm: travaAbandonada(l.enviadoEm, l.orcamento.status) ? null : l.enviadoEm,
   enviadoNoSistemaEm: l.orcamento.enviadoEm,
   descartadoEm: l.descartadoEm,
   liberacaoPendente: l.orcamento.liberacaoPendente,
@@ -572,7 +579,8 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
   }
 
   async function enviarRascunho(empresa: EmpresaAtual, d: Dono, r: RascunhoCanal) {
-    const marcado = await prisma.orcamentoWhatsapp.updateMany({ where: { orcamentoId: r.orcamentoId, enviadoEm: null, descartadoEm: null }, data: { enviadoEm: new Date() } })
+    const livre: Prisma.OrcamentoWhatsappWhereInput = { OR: [{ enviadoEm: null }, { enviadoEm: { lt: new Date(Date.now() - TRAVA_ENVIO_MS) }, orcamento: { status: 'rascunho' } }] }
+    const marcado = await prisma.orcamentoWhatsapp.updateMany({ where: { orcamentoId: r.orcamentoId, descartadoEm: null, ...livre }, data: { enviadoEm: new Date() } })
     if (marcado.count !== 1) return avisar(empresa, textoEstado({ ...r, enviadoEm: r.enviadoEm ?? new Date() }, new Date()))
     const desfazer = () => prisma.orcamentoWhatsapp.update({ where: { orcamentoId: r.orcamentoId }, data: { enviadoEm: null } })
     try {

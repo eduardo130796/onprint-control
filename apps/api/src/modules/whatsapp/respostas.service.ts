@@ -783,17 +783,21 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
             app.log.warn({ err: erro, empresa: empresa.slug }, 'Votos da enquete guardados: nova tentativa falhou')
           }
         }
+        // O que o copiloto fez com cada evento do dono (sem o texto, endereços mascarados): diagnóstico de "não
+        // respondeu nada" pelos logs. Dentro do contexto da empresa (consulta o banco) e sem nunca derrubar o webhook.
+        const doCopiloto = resultados.filter((r) => r.tipo === 'reacao' || r.tipo === 'proprio')
+        if (doCopiloto.length) {
+          try {
+            const conta = await prisma.whatsappConfig.findFirst({ select: { numero: true, lid: true } })
+            app.log.info(
+              { empresa: empresa.slug, eventos: doCopiloto, conta: { numero: mascararJid(conta?.numero), lid: mascararJid(conta?.lid), sender: mascararJid(aviso.sender) } },
+              'Copiloto do WhatsApp',
+            )
+          } catch (erro) {
+            app.log.warn({ err: erro, empresa: empresa.slug }, 'Copiloto do WhatsApp: diagnóstico não registrado')
+          }
+        }
       })
-      // O que o copiloto fez com cada evento do dono (sem o texto, endereços mascarados): diagnóstico de "não respondeu
-      // nada" pelos logs (ex.: a conversa "Você" chegando por um endereço que a conta não reconhece como dela)
-      const doCopiloto = resultados.filter((r) => r.tipo === 'reacao' || r.tipo === 'proprio')
-      if (doCopiloto.length) {
-        const conta = await prisma.whatsappConfig.findFirst({ select: { numero: true, lid: true } })
-        app.log.info(
-          { empresa: empresa.slug, eventos: doCopiloto, conta: { numero: mascararJid(conta?.numero), lid: mascararJid(conta?.lid), sender: mascararJid(aviso.sender) } },
-          'Copiloto do WhatsApp',
-        )
-      }
       return resultados
     },
 

@@ -321,6 +321,11 @@ export interface OrcamentoDeTexto {
   }
   /** Prazo como o cliente escreveu ("sexta", "dia 15") */
   prazoDesejado: string | null
+  /**
+   * O prazo como data (AAAA-MM-DD, fuso de São Paulo), quando dá para calcular com segurança ("pra sexta", "dia 15",
+   * "15/11"): vai para "Cliente precisa até". null se for ambíguo (o texto fica nas observações internas).
+   */
+  dataDesejada?: string | null
   observacoes: string | null
   /** Partes do pedido que não viraram item */
   naoIdentificados: string[]

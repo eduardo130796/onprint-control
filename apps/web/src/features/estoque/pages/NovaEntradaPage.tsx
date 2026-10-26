@@ -200,6 +200,25 @@ export function NovaEntradaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Nota mandada na conversa "Você" do WhatsApp (?notaWhatsapp=<id>): a leitura guardada preenche a tela; nada é
+  // registrado sem "Registrar entrada"
+  const [buscaNota] = useSearchParams()
+  const [notaWhatsapp] = useState(() => buscaNota.get('notaWhatsapp'))
+  useEffect(() => {
+    if (!notaWhatsapp) return
+    setLendoNota(true)
+    assistenteApi
+      .notaWhatsapp(notaWhatsapp)
+      .then(async (n) => {
+        await carregarNota(n)
+        toast.success('Nota do WhatsApp carregada. Confira e registre a entrada.')
+      })
+      .catch((e: Error) => toast.error(e.message))
+      .finally(() => setLendoNota(false))
+    // Só ao abrir
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Parcelas das duplicatas: os centavos do arredondamento (custo em 4 casas, embalagens) vão na última
   useEffect(() => {
     if (!parcelasAutomaticas.current || !pagamento.editadas) return

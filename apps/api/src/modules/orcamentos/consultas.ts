@@ -6,6 +6,8 @@ export const incluirResumo = {
   solicitacao: { select: { id: true, numero: true } },
   // Lista/kanban: "Convertido → PED-…"
   pedido: { select: { id: true, numero: true } },
+  // Criado pelo Assistente no WhatsApp: selo na lista, faixa no editor e o número da conversa no envio
+  whatsapp: { select: { origem: true, contato: true, numero: true, conferir: true } },
 } satisfies Prisma.OrcamentoInclude
 
 export const incluirDetalhe = {

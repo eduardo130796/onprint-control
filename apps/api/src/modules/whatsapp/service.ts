@@ -93,6 +93,7 @@ export function criarWhatsappService(app: FastifyInstance) {
       aprovarPelaResposta: config.aprovarPelaResposta,
       formatoAprovacao: formatoAprovacao(config),
       assistenteRespostas: config.assistenteRespostas,
+      assistenteWhatsapp: config.assistenteWhatsapp,
       assistenteDisponivel: await app.assistente.disponivel(),
       pendentes: await prisma.mensagemWhatsapp.count({ where: { status: 'pendente' } }),
     }
@@ -161,13 +162,14 @@ export function criarWhatsappService(app: FastifyInstance) {
             ...(dados.aprovarPelaResposta === undefined ? {} : { aprovarPelaResposta: dados.aprovarPelaResposta }),
             ...(dados.formatoAprovacao === undefined ? {} : { formatoAprovacao: dados.formatoAprovacao }),
             ...(dados.assistenteRespostas === undefined ? {} : { assistenteRespostas: dados.assistenteRespostas }),
+            ...(dados.assistenteWhatsapp === undefined ? {} : { assistenteWhatsapp: dados.assistenteWhatsapp }),
           },
         })
         await registrarAuditoria(tx, {
           tabela: 'whatsapp_config',
           registroId: c.id,
           acao: 'editar',
-          antes: { eventos: antes.eventos, horarioInicio: antes.horarioInicio, horarioFim: antes.horarioFim, pausado: antes.pausado, aprovarPelaResposta: antes.aprovarPelaResposta, formatoAprovacao: antes.formatoAprovacao, assistenteRespostas: antes.assistenteRespostas },
+          antes: { eventos: antes.eventos, horarioInicio: antes.horarioInicio, horarioFim: antes.horarioFim, pausado: antes.pausado, aprovarPelaResposta: antes.aprovarPelaResposta, formatoAprovacao: antes.formatoAprovacao, assistenteRespostas: antes.assistenteRespostas, assistenteWhatsapp: antes.assistenteWhatsapp },
           depois: dados,
           usuarioId,
         })

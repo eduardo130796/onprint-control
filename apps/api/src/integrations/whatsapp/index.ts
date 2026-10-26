@@ -66,8 +66,19 @@ export interface ProvedorWhatsapp {
    * credenciais-evolution.ts). null se não houver; lança se o banco da Evolution não responder.
    */
   identidade(instancia: string): Promise<IdentidadeWhatsapp | null>
+  /**
+   * Arquivo de uma mensagem recebida (foto, PDF ou XML da nota no canal "Você"), pela mensagem como veio no webhook.
+   * null se não houver arquivo; lança ErroWhatsapp se a Evolution não conseguir baixar.
+   */
+  baixarMidia(instancia: string, mensagem: { key: Record<string, unknown>; message: Record<string, unknown> }): Promise<MidiaBaixada | null>
   /** Fecha conexões próprias (banco da Evolution) ao desligar a API */
   fechar?(): Promise<void>
+}
+
+export interface MidiaBaixada {
+  conteudo: Buffer
+  mime: string | null
+  nomeArquivo: string | null
 }
 
 export interface EnqueteEnviada {
@@ -143,6 +154,15 @@ export class LogWhatsappProvider implements ProvedorWhatsapp {
 
   async identidade(): Promise<IdentidadeWhatsapp | null> {
     return this.identidadeTeste
+  }
+
+  /** Testes: o arquivo que o modo de teste "baixa" (sem ele, a mídia vem só se a mensagem trouxer o base64) */
+  midiaTeste: MidiaBaixada | null = null
+
+  async baixarMidia(_instancia: string, mensagem: { key: Record<string, unknown>; message: Record<string, unknown> }): Promise<MidiaBaixada | null> {
+    if (this.midiaTeste) return this.midiaTeste
+    const base64 = mensagem.message.base64
+    return typeof base64 === 'string' && base64 ? { conteudo: Buffer.from(base64, 'base64'), mime: null, nomeArquivo: null } : null
   }
 }
 
@@ -303,6 +323,18 @@ export class EvolutionWhatsappProvider implements ProvedorWhatsapp {
     const dados = r.dados as { key?: { remoteJid?: string }; message?: { messageContextInfo?: { messageSecret?: unknown } } } | null
     const segredo = bytesDoWhatsapp(dados?.message?.messageContextInfo?.messageSecret)
     return { id, segredo: segredo?.length ? segredo.toString('base64') : null, jid: dados?.key?.remoteJid ?? null }
+  }
+
+  async baixarMidia(instancia: string, mensagem: { key: Record<string, unknown>; message: Record<string, unknown> }): Promise<MidiaBaixada | null> {
+    // Com o webhook em base64 a mídia já vem na mensagem
+    if (typeof mensagem.message.base64 === 'string' && mensagem.message.base64) return { conteudo: Buffer.from(mensagem.message.base64, 'base64'), mime: null, nomeArquivo: null }
+    // POST /chat/getBase64FromMediaMessage/{i} { message: { key, message }, convertToMp4 } → { base64, mimetype, fileName }
+    // A mensagem inteira vai junto (a Evolution não guarda as mensagens: DATABASE_SAVE_DATA_NEW_MESSAGE=false)
+    const r = await this.chamar('POST', `/chat/getBase64FromMediaMessage/${encodeURIComponent(instancia)}`, { message: { key: mensagem.key, message: mensagem.message }, convertToMp4: false }, 60_000)
+    if (r.status >= 400) throw new ErroWhatsapp('temporario', `Não foi possível baixar o arquivo: ${EvolutionWhatsappProvider.mensagemDeErro(r.dados)}`)
+    const d = r.dados as { base64?: string; mimetype?: string; fileName?: string } | null
+    if (!d?.base64) return null
+    return { conteudo: Buffer.from(d.base64.replace(/^data:[^,]*,/, ''), 'base64'), mime: d.mimetype ?? null, nomeArquivo: d.fileName ?? null }
   }
 
   async configurarWebhook(instancia: string, url: string): Promise<void> {

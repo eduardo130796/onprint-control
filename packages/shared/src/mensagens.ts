@@ -99,11 +99,16 @@ export interface ParcelaMensagem {
   vencimento: string
   /** StatusConta: aberto, parcial, pago, vencido, cancelado */
   status: string
+  /** A entrada da aprovação (conta "· Sinal" da conversão): a mensagem diz "Entrada", não "Próxima parcela" */
+  entrada?: boolean
 }
+
+/** A conta é a entrada da aprovação? (a conversão grava a descrição "ORC-… · Sinal") */
+export const contaDeEntrada = (descricao: string | null | undefined) => /·\s*Sinal$/i.test(descricao?.trim() ?? '')
 
 /**
  * Próxima parcela em aberto que vence hoje ou depois (a que falta dela); "" com o pedido quitado ou sem parcela
- * por vencer (vencida não entra: a gráfica cobra pelo caminho dela).
+ * por vencer (vencida não entra: a gráfica cobra pelo caminho dela). A entrada da aprovação sai como "Entrada".
  */
 export function proximoVencimento(parcelas: ParcelaMensagem[], total: string | number, pago: string | number, hoje: string): string {
   if (centavos(pago) >= centavos(total)) return ''
@@ -111,7 +116,7 @@ export function proximoVencimento(parcelas: ParcelaMensagem[], total: string | n
     .filter((c) => c.status !== 'cancelado' && c.status !== 'pago' && c.vencimento.slice(0, 10) >= hoje && centavos(c.valor) > centavos(c.valorPago))
     .sort((a, b) => a.vencimento.localeCompare(b.vencimento))[0]
   if (!proxima) return ''
-  return `Próxima parcela: *${formatarMoeda((centavos(proxima.valor) - centavos(proxima.valorPago)) / 100)}* em *${formatarDataSimples(proxima.vencimento).slice(0, 5)}*`
+  return `${proxima.entrada ? 'Entrada' : 'Próxima parcela'}: *${formatarMoeda((centavos(proxima.valor) - centavos(proxima.valorPago)) / 100)}* em *${formatarDataSimples(proxima.vencimento).slice(0, 5)}*`
 }
 
 /** Endereço e horário da gráfica (retirada) */

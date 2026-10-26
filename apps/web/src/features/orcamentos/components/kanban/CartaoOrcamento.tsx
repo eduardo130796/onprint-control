@@ -4,6 +4,7 @@ import { formatarDataSimples, formatarMoeda, formatarTelefone, hojeISO, nomeClie
 import { BotaoCartao } from '@/components/shared/kanban/BotaoCartao'
 import { cn } from '@/lib/utils'
 import { podeAprovarPeloWhatsapp } from '../../aprovacao'
+import { SeloWhatsapp } from '../SeloWhatsapp'
 
 export interface AcoesCartaoOrcamento {
   onAbrir: (o: Orcamento) => void
@@ -36,6 +37,7 @@ export function CartaoOrcamento({ o, acoes }: { o: Orcamento; acoes: AcoesCartao
       <p className="mt-0.5 truncate text-[0.9375rem] font-semibold" title={nomeCliente(o.cliente)}>
         {nomeCliente(o.cliente)}
       </p>
+      <SeloWhatsapp orcamento={o} />
       {telefone && (
         <p className="inline-flex items-center gap-1 text-xs text-texto-secundario">
           <Phone className="h-3 w-3" /> {telefone}

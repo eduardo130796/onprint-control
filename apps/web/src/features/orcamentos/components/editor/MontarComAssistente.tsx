@@ -23,7 +23,9 @@ export interface MontadoPeloAssistente {
   itens: ItemForm[]
   /** Cliente do cadastro achado pelo telefone ou nome do pedido */
   cliente: OpcaoBusca | null
-  /** Prazo, observações e o que não virou item (vai para as observações internas) */
+  /** "pra sexta", "dia 15" já como data (Cliente precisa até); null se ambíguo */
+  dataDesejada: string | null
+  /** Prazo ambíguo, observações e o que não virou item (vai para as observações internas) */
   nota: string | null
   /** Cliente que não está no cadastro (novo, cadastrado ao salvar) ou com parecidos para escolher */
   pendente: ClientePendente | null
@@ -117,7 +119,7 @@ export function MontarComAssistente({ onAdicionar, indisponivel }: { onAdicionar
       const c = resultado.cliente.encontrado
       const r = resultado.cliente
       const pendente = !c && (r.novo || r.candidatos?.length) ? { novo: r.novo ?? null, candidatos: r.candidatos ?? [] } : null
-      onAdicionar({ itens, cliente: c ? { id: c.id, rotulo: c.rotulo } : null, nota: notaDoAssistente(resultado), pendente, memoria: c ? (r.memoria ?? []) : [] })
+      onAdicionar({ itens, cliente: c ? { id: c.id, rotulo: c.rotulo } : null, dataDesejada: resultado.dataDesejada ?? null, nota: notaDoAssistente(resultado), pendente, memoria: c ? (r.memoria ?? []) : [] })
       toast.success(`${itens.length} item(ns) no orçamento. Confira e salve.`)
       fechar()
     } catch (e) {

@@ -8,7 +8,7 @@ import { criarAssistenteEmpresa, mensagemSemResultado } from './empresa.service'
 import { ErroNfe, lerNfe, type NotaBruta } from './nfe'
 import { conciliarNota } from './nota-compra'
 import { criarPerguntasService } from './perguntas.service'
-import { pedidoIntencao, pedidoNotaCompra, type LeituraNotaIA } from './prompts-pedir'
+import { pedidoIntencao, pedidoNotaCompra, type LeituraIntencao, type LeituraNotaIA } from './prompts-pedir'
 
 /*
  * "Peça ao Assistente": uma caixa só para o dia a dia. O Assistente entende o pedido (tarefa "intencao") e o sistema
@@ -80,14 +80,21 @@ export function criarPedirService(app: FastifyInstance) {
     return { tipo: 'cliente', documento, nome, existente: existente ? { id: existente.id, rotulo: nomeCliente(existente) } : null }
   }
 
+  /** O que a pessoa quer (tarefa "intencao", barata): a caixa do sistema e a conversa "Você" do WhatsApp. Lança 422. */
+  async function entender(texto: string): Promise<LeituraIntencao> {
+    const { assinanteId, recurso } = await empresa.exigirLigado('intencao')
+    const { grafica } = await montarCerebro(prisma)
+    const r = await app.assistente.executar({ assinanteId, recurso, pedido: pedidoIntencao({ grafica, texto }) })
+    if (!r.ok) throw AppError.regraNegocio(mensagemSemResultado(r), { motivo: r.motivo })
+    return r.dados
+  }
+
   return {
+    entender,
+
     async pedir(req: FastifyRequest, texto: string): Promise<RespostaPedir> {
       if (soDocumento(texto)) return cliente(req, texto, null)
-      const { assinanteId, recurso } = await empresa.exigirLigado('intencao')
-      const { grafica } = await montarCerebro(prisma)
-      const r = await app.assistente.executar({ assinanteId, recurso, pedido: pedidoIntencao({ grafica, texto }) })
-      if (!r.ok) throw AppError.regraNegocio(mensagemSemResultado(r), { motivo: r.motivo })
-      const l = r.dados
+      const l = await entender(texto)
       switch (l.intencao) {
         case 'pergunta':
           return { tipo: 'pergunta', resposta: await perguntas.responder(req, l.pergunta!, l.periodo) }

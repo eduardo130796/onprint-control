@@ -346,6 +346,9 @@ model WhatsappConfig {
   lid                 String?
   /// Usar o Assistente GrafyGo (IA) para entender respostas fora do padrão (vale com a central ligada)
   assistenteRespostas Boolean   @default(true) @map("assistente_respostas")
+  /// Assistente no WhatsApp: 📝 numa mensagem do cliente salva o orçamento rascunho e a conversa "Você" vira o canal
+  /// do Assistente (desligado até a gráfica ligar)
+  assistenteWhatsapp  Boolean   @default(false) @map("assistente_whatsapp")
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -494,11 +497,74 @@ model ConversaMensagemWhatsapp {
   /// Virou resposta tratada do orçamento (aprovou, pediu modificação): não pede ação na lista
   tratada     Boolean  @default(false)
   recebidaEm  DateTime @default(now()) @map("recebida_em") @db.Timestamptz(3)
+  /// Já virou orçamento pelo 📝: nunca entra de novo em outro
+  usadaEm     DateTime? @map("usada_em") @db.Timestamptz(3)
 
   conversa ConversaWhatsapp @relation(fields: [conversaId], references: [id], onDelete: Cascade)
 
   @@index([conversaId])
   @@map("conversa_mensagens_whatsapp")
+}
+
+/// Orçamento criado pelo Assistente no WhatsApp (selo "do WhatsApp", faixa no editor e o "ok" do canal "Você")
+model OrcamentoWhatsapp {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orcamentoId  String    @unique @map("orcamento_id") @db.Uuid
+  /// reacao (📝 numa mensagem do cliente) | voce (pedido do dono na conversa "Você")
+  origem       String
+  /// key.id da reação ou da mensagem do dono (o mesmo aviso do webhook duas vezes não cria outro orçamento)
+  gatilhoId    String    @unique @map("gatilho_id")
+  /// Mensagem do cliente que recebeu o 📝 (📝 de novo nela não cria outro)
+  mensagemId   String?   @map("mensagem_id")
+  /// Número da conversa com o cliente (o envio vai para ele sem perguntar)
+  numero       String?
+  /// Nome do contato (perfil do WhatsApp ou o cliente citado)
+  contato      String?
+  /// O que o Assistente marcou para conferir
+  conferir     String[]  @default([])
+  /// Último aviso no "Você" (o "ok" solto só vale logo depois)
+  avisadoEm    DateTime? @map("avisado_em") @db.Timestamptz(3)
+  /// "cancela" no "Você": sai da lista do canal (o orçamento continua no sistema)
+  descartadoEm DateTime? @map("descartado_em") @db.Timestamptz(3)
+  /// Enviado ao cliente pelo "ok" do canal
+  enviadoEm    DateTime? @map("enviado_em") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  orcamento Orcamento @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
+
+  @@index([mensagemId])
+  @@index([createdAt])
+  @@map("orcamentos_whatsapp")
+}
+
+/// Mensagens da conversa "Você" (o canal do Assistente): as enviadas (eco ignorado; o "ok" citando acha o orçamento)
+/// e as recebidas do dono (não tratadas duas vezes)
+model MensagemVoceWhatsapp {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  idExterno   String    @unique @map("id_externo")
+  /// enviada | recebida
+  direcao     String
+  /// aviso | confirmar | pergunta | resposta (enviadas)
+  tipo        String?
+  texto       String?
+  orcamentoId String?   @map("orcamento_id") @db.Uuid
+  /// Pergunta "Qual envio?": os orçamentos na ordem das opções
+  opcoes      String[]  @default([])
+  resolvidaEm DateTime? @map("resolvida_em") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([direcao, createdAt])
+  @@map("mensagens_voce_whatsapp")
+}
+
+/// Nota de compra mandada no "Você": a leitura guardada para a "Nova entrada" abrir preenchida (nada é registrado)
+model NotaWhatsapp {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  leitura   Json
+  arquivo   String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@map("notas_whatsapp")
 }
 
 // ─── 8.2 Pessoas ────────────────────────────────────────────────────────────
@@ -1226,6 +1292,8 @@ model Orcamento {
   itens               OrcamentoItem[]
   mensagensWhatsapp   MensagemWhatsapp[]
   conversasWhatsapp   ConversaWhatsapp[]
+  /// Criado pelo Assistente no WhatsApp (📝 na conversa ou pedido na conversa "Você")
+  whatsapp            OrcamentoWhatsapp?
 
   @@index([status])
   @@index([clienteId])

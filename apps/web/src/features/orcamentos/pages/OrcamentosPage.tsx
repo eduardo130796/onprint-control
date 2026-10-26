@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils'
 import { AbasComercial } from '../components/AbasComercial'
 import { abrirLinha } from '@/lib/abrirLinha'
 import { PainelOrcamento } from '../components/kanban/PainelOrcamento'
+import { SeloWhatsapp } from '../components/SeloWhatsapp'
 
 const ABERTOS = ['rascunho', 'enviado', 'em_negociacao']
 
@@ -40,7 +41,12 @@ export function OrcamentosPage() {
         cell: ({ row: { original: o } }) => (
           <div className="min-w-0">
             <p className="truncate font-medium">{nomeCliente(o.cliente)}</p>
-            {o.cliente.situacao === 'pre_cadastro' && <p className="text-xs text-amber-800">pré-cadastro</p>}
+            {(o.cliente.situacao === 'pre_cadastro' || o.whatsapp) && (
+              <p className="flex flex-wrap items-center gap-1.5 text-xs">
+                {o.cliente.situacao === 'pre_cadastro' && <span className="text-amber-800">pré-cadastro</span>}
+                <SeloWhatsapp orcamento={o} />
+              </p>
+            )}
           </div>
         ),
       },

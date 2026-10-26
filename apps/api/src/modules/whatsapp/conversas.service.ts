@@ -138,7 +138,7 @@ export function criarConversasWhatsapp(app: FastifyInstance, opcoes: { esperaMs?
       c.assunto === 'orcamento' ? `${quem} pediu um orçamento no WhatsApp` : c.assunto === 'pedido' ? `${quem} perguntou do pedido no WhatsApp` : `${quem} mandou uma dúvida no WhatsApp`
     const primeiro = c.mensagens.at(-1)
     const mensagem = c.resumo ?? (primeiro ? `“${textoDaMensagem(primeiro).slice(0, 160)}”` : ASSUNTO_CONVERSA_ROTULOS[c.assunto as AssuntoConversa])
-    await notificarEquipe(app, await quemAvisar(prisma, c.cliente?.vendedorId ?? null), { titulo, mensagem, link: `/whatsapp?conversa=${c.id}` }, true)
+    await notificarEquipe(app, await quemAvisar(prisma, c.cliente?.vendedorId ?? null), { titulo, mensagem, link: '/whatsapp' }, true)
   }
 
   /** Lê a conversa com o Assistente (mensagens ainda não tratadas, as mais recentes) e grava o assunto e o resumo */

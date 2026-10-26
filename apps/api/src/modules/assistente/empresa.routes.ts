@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import type { FastifyRequest } from 'fastify'
-import type { Acao, Modulo } from '@onprint/shared'
-import { controlesAssistenteSchema, descricaoAssistenteSchema, orcamentoDeTextoSchema, pedirAssistenteSchema, produtoDeTextoSchema, regrasDeTextoSchema } from '@onprint/shared'
+import type { Acao, Modulo, NotaCompraLida } from '@onprint/shared'
+import { controlesAssistenteSchema, descricaoAssistenteSchema, idParamSchema, orcamentoDeTextoSchema, pedirAssistenteSchema, produtoDeTextoSchema, regrasDeTextoSchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { criarAjudasAssistente } from './ajudas.service'
 import { criarAssistenteEmpresa } from './empresa.service'
@@ -75,6 +75,16 @@ export const assistenteEmpresaRoutes: FastifyPluginAsyncZod = async (app) => {
       const mediaType = tipoDoArquivo(conteudo)
       if (!mediaType) throw AppError.regraNegocio('Envie o XML da nota, uma foto (JPG, PNG) ou o PDF do DANFE.')
       return pedir.nota(request, { nome: parte.filename, mediaType, conteudo })
+    },
+  )
+  // Nota mandada na conversa "Você" do WhatsApp: a leitura guardada abre a "Nova entrada" preenchida (nada é registrado)
+  app.get(
+    '/notas-whatsapp/:id',
+    { onRequest: [app.exigirPermissao('estoque', 'criar')], schema: { tags, summary: 'Nota de compra lida no WhatsApp (canal "Você") para a Nova entrada', params: idParamSchema } },
+    async (request) => {
+      const n = await app.prisma.notaWhatsapp.findUnique({ where: { id: request.params.id }, select: { leitura: true } })
+      if (!n) throw AppError.naoEncontrado('Nota não encontrada.')
+      return n.leitura as unknown as NotaCompraLida
     },
   )
   app.post(

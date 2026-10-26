@@ -152,6 +152,20 @@ export interface Orcamento extends Auditavel {
   pedido?: { id: string; numero: string } | null
   /** Lista/kanban: quantidade de itens e os 3 primeiros ("10 × Caneca") */
   resumo?: { itens: number; principais: string[] }
+  /** Criado pelo Assistente no WhatsApp (📝 na conversa com o cliente ou pedido na conversa "Você") */
+  whatsapp?: OrcamentoDoWhatsapp | null
+}
+
+/** Origem do orçamento criado pelo WhatsApp (selo na lista e faixa no editor) */
+export interface OrcamentoDoWhatsapp {
+  /** reacao: 📝 numa mensagem do cliente; voce: pedido do dono na conversa "Você" */
+  origem: 'reacao' | 'voce'
+  /** Nome do contato na conversa (perfil do WhatsApp ou cliente citado) */
+  contato: string | null
+  /** Número da conversa com o cliente (o "Enviar orçamento" vai para ele sem perguntar) */
+  numero: string | null
+  /** O que o Assistente marcou para conferir */
+  conferir: string[]
 }
 
 export interface OrcamentoDetalhe extends Orcamento {

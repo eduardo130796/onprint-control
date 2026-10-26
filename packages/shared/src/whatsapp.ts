@@ -365,6 +365,8 @@ export const whatsappConfigSchema = z
     formatoAprovacao: z.enum(FORMATOS_APROVACAO).optional(),
     /** Usar o Assistente GrafyGo para entender respostas fora do padrão */
     assistenteRespostas: z.boolean().optional(),
+    /** Assistente no WhatsApp: 📝 na conversa vira orçamento rascunho e a conversa "Você" vira o canal do Assistente */
+    assistenteWhatsapp: z.boolean().optional(),
   })
   .refine((v) => v.horarioInicio < v.horarioFim, { message: 'O fim precisa ser depois do início.', path: ['horarioFim'] })
 export type WhatsappConfigInput = z.input<typeof whatsappConfigSchema>
@@ -470,6 +472,8 @@ export interface WhatsappConfig {
   formatoAprovacao: FormatoAprovacao
   /** Usar o Assistente GrafyGo para entender respostas fora do padrão (escolha da empresa) */
   assistenteRespostas: boolean
+  /** Assistente no WhatsApp (📝 na conversa e a conversa "Você"): desligado até a gráfica ligar */
+  assistenteWhatsapp: boolean
   /** A GrafyGo ligou o Assistente na central (sem isso a escolha acima não tem efeito) */
   assistenteDisponivel: boolean
   /** Mensagens na fila agora */

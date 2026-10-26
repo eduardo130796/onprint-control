@@ -58,10 +58,44 @@ export type EventoWebhook =
     }
   /** Mídia sem texto (foto, áudio...): só entra nas Conversas do WhatsApp, com o tipo */
   | { tipo: 'midia'; idMensagem: string; midia: MidiaConversa; numero: string | null; nome: string | null; jid: string }
+  /**
+   * Reação feita pelo dono (fromMe) numa conversa: o copiloto olha só a 📝 (copiloto.ts). A do cliente não chega aqui;
+   * a reação removida (texto vazio) também não.
+   */
+  | {
+      tipo: 'reacao'
+      idMensagem: string
+      emoji: string
+      /** A mensagem reagida (key.id) e se ela era nossa */
+      idReagida: string
+      reagidaMinha: boolean
+      /** Conversa (o cliente) */
+      jid: string
+      jids: string[]
+      numero: string | null
+    }
+  /**
+   * Mensagem do próprio número da gráfica (fromMe, fora de grupo): o copiloto só age na conversa "Você" (a do número
+   * com ele mesmo); o dono conversando com o cliente não dispara nada. `bruto`: a mensagem como veio (baixar a mídia).
+   */
+  | {
+      tipo: 'proprio'
+      idMensagem: string
+      texto: string | null
+      citadoId: string | null
+      midia: MidiaConversa | null
+      /** Documento: o tipo e o nome do arquivo (nota em PDF ou XML) */
+      arquivo: { mime: string | null; nome: string | null } | null
+      jid: string
+      jids: string[]
+      bruto: { key: Record<string, unknown>; message: Record<string, unknown> }
+    }
 
 export interface AvisoWebhook {
   instancia: string | null
   eventos: EventoWebhook[]
+  /** Número conectado (o "sender" do corpo): reconhece a conversa "Você" */
+  sender?: string | null
 }
 
 type Obj = Record<string, unknown>
@@ -112,8 +146,39 @@ function citadoDe(dados: Obj, m: Obj): string | null {
 }
 
 /**
- * Uma mensagem recebida (messages.upsert): texto do cliente, voto na enquete ou mídia (só o tipo); as nossas, de grupo,
- * status e lista de transmissão ficam de fora
+ * Mensagem do número da gráfica (fromMe): reação (só a com emoji: a removida chega vazia) ou mensagem própria (texto
+ * ou mídia, para a conversa "Você"). Enquete e voto nossos ficam de fora.
+ */
+function lerMensagemPropria(d: Obj, key: Obj, m: Obj, id: string, remoteJid: string, jids: string[]): EventoWebhook | null {
+  const reacao = obj(m.reactionMessage)
+  if (reacao) {
+    const emoji = texto(reacao.text)
+    const reagida = obj(reacao.key)
+    const idReagida = texto(reagida?.id)
+    if (!emoji || !idReagida) return null
+    return { tipo: 'reacao', idMensagem: id, emoji, idReagida, reagidaMinha: reagida?.fromMe === true, jid: remoteJid, jids, numero: jids.map(numeroDoJid).find(Boolean) ?? null }
+  }
+  if (m.pollUpdateMessage || m.pollCreationMessage || m.pollCreationMessageV3 || m.protocolMessage || m.editedMessage) return null
+  const corpo = textoDaMensagem(m) ?? texto(obj(obj(obj(m.documentWithCaptionMessage)?.message)?.documentMessage)?.caption)
+  const midia = midiaDaMensagem(m)
+  if (!corpo && !midia) return null
+  const doc = obj(m.documentMessage) ?? obj(obj(obj(m.documentWithCaptionMessage)?.message)?.documentMessage)
+  return {
+    tipo: 'proprio',
+    idMensagem: id,
+    texto: corpo?.trim().slice(0, 3000) ?? null,
+    citadoId: citadoDe(d, m),
+    midia,
+    arquivo: doc ? { mime: texto(doc.mimetype), nome: texto(doc.fileName) } : null,
+    jid: remoteJid,
+    jids,
+    bruto: { key, message: m },
+  }
+}
+
+/**
+ * Uma mensagem recebida (messages.upsert): texto do cliente, voto na enquete ou mídia (só o tipo); as nossas viram
+ * reação ou mensagem própria (copiloto); de grupo, status e lista de transmissão ficam de fora
  */
 export function lerMensagem(dados: unknown, sender: string | null): EventoWebhook | null {
   const d = obj(dados)
@@ -121,8 +186,9 @@ export function lerMensagem(dados: unknown, sender: string | null): EventoWebhoo
   const m = obj(d?.message)
   const remoteJid = texto(key?.remoteJid)
   const id = texto(key?.id)
-  if (!d || !key || !m || !remoteJid || !id || key.fromMe === true || !jidDeConversa(remoteJid)) return null
+  if (!d || !key || !m || !remoteJid || !id || !jidDeConversa(remoteJid)) return null
   const jids = [key.remoteJid, key.remoteJidAlt, key.senderPn, key.participant, key.participantAlt].map(texto).filter((j): j is string => Boolean(j))
+  if (key.fromMe === true) return lerMensagemPropria(d, key, m, id, remoteJid, jids)
   const numero = jids.map(numeroDoJid).find(Boolean) ?? null
   const nome = texto(d.pushName)
 
@@ -209,7 +275,7 @@ export function lerAvisoWebhook(corpo: unknown): AvisoWebhook {
       })
     }
   }
-  return { instancia, eventos }
+  return { instancia, eventos, ...(sender ? { sender } : {}) }
 }
 
 // ─── Endereço e segredo ───

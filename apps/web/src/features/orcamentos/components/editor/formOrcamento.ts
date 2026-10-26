@@ -177,12 +177,15 @@ export function juntarItens(atuais: ItemForm[], novos: ItemForm[]): ItemForm[] {
   return [...mantidos, ...novos].length ? [...mantidos, ...novos] : [itemVazio()]
 }
 
-/** Prazo, observações e o que não virou item vão para as observações internas (a equipe confere com o cliente) */
-export function notaDoAssistente(r: { prazoDesejado: string | null; observacoes: string | null; naoIdentificados: string[]; sugestoes?: string[] }): string | null {
+/**
+ * Prazo, observações e o que não virou item vão para as observações internas (a equipe confere com o cliente). O
+ * prazo que virou data ("Cliente precisa até") não se repete aqui; o ambíguo ("sexta que vem") fica no texto.
+ */
+export function notaDoAssistente(r: { prazoDesejado: string | null; dataDesejada?: string | null; observacoes: string | null; naoIdentificados: string[]; sugestoes?: string[] }): string | null {
   const partes = [
     // Manual do atendente: o que oferecer ao cliente (só lembrete; nada entra sozinho no orçamento)
     r.sugestoes?.length ? `oferecer ao cliente: ${r.sugestoes.join('; ')}` : null,
-    r.prazoDesejado ? `prazo pedido pelo cliente: ${r.prazoDesejado}` : null,
+    r.prazoDesejado && !r.dataDesejada ? `prazo pedido pelo cliente: ${r.prazoDesejado}` : null,
     r.observacoes,
     r.naoIdentificados.length ? `não entendido: ${r.naoIdentificados.join('; ')}` : null,
   ].filter(Boolean)

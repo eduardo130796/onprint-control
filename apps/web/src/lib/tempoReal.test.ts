@@ -91,7 +91,7 @@ describe('Tempo real: listas atualizadas', () => {
   })
   it('pagamento/caixa (pedido:atualizado) atualiza financeiro e caixa', () => {
     expect(chavesDoEvento('pedido:atualizado')).toEqual(expect.arrayContaining(['pedidos', 'financeiro', 'caixa']))
-    // Conversas do WhatsApp: a lista e o contador do menu
+    // Mensagens recebidas no WhatsApp: a tela WhatsApp
     expect(chavesDoEvento('conversa:atualizada')).toEqual(['whatsapp'])
   })
   it('pedido pelo site atualiza solicitações e clientes (pré-cadastro)', () => {

@@ -16,6 +16,7 @@ import { controlesDaEmpresa } from '../assistente/empresa.service'
 import { contextoDoCerebro, montarCerebro } from '../assistente/cerebro'
 import { pedidoClassificarResposta, primeiroNome } from '../assistente/prompts'
 import { criarConversasWhatsapp, type EventoConversa } from './conversas.service'
+import { criarCopilotoWhatsapp } from './copiloto.service'
 import { VIA_LENDO, notificarEquipe, quemAvisar as quemAvisarNaEmpresa } from './leituras-presas'
 import {
   JANELA_RESPOSTA_MS,
@@ -96,6 +97,8 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
   const automatica = criarConversaoAutomatica(app, criarConversaoService(app, orcamentos))
   // Mensagens que não viram resposta tratada de orçamento vão para as Conversas do WhatsApp
   const conversas = criarConversasWhatsapp(app)
+  // Copiloto: 📝 na conversa do cliente e a conversa "Você" (o canal do Assistente)
+  const copiloto = criarCopilotoWhatsapp(app)
 
   type Linha = Awaited<ReturnType<typeof buscarLinhas>>[number]
 
@@ -666,6 +669,12 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
               // Foto, áudio... sem texto: só para as Conversas (o tipo, sem o arquivo)
               const id = await conversas.registrar(empresa, e)
               resultados.push({ tipo: e.tipo, acao: id ? 'conversa' : 'ignorar' })
+            } else if (e.tipo === 'reacao') {
+              // 📝 do dono numa mensagem do cliente: o orçamento rascunho (copiloto)
+              resultados.push({ tipo: e.tipo, ...(await copiloto.reacao(empresa, e, aviso.sender ?? null)) })
+            } else if (e.tipo === 'proprio') {
+              // Mensagem do próprio número: só a conversa "Você" (o canal do Assistente) interessa
+              resultados.push({ tipo: e.tipo, ...(await copiloto.proprio(empresa, e, aviso.sender ?? null)) })
             } else {
               const d = await responder(empresa, e)
               resultados.push({ tipo: e.tipo, acao: d.acao, ...('motivo' in d ? { motivo: d.motivo } : {}) })
@@ -697,6 +706,7 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
     async aguardarAssistente() {
       while (emAndamento.size) await Promise.all([...emAndamento])
       await conversas.encerrar()
+      await copiloto.aguardar()
     },
   }
 }

@@ -1,6 +1,7 @@
 import type { PrismaClient } from '@prisma/client'
 import {
   TEXTOS_PADRAO_MENSAGEM,
+  contaDeEntrada,
   formaEntregaPronto,
   formatarDataSimples,
   formatarMoeda,
@@ -68,7 +69,7 @@ export async function valoresMensagemPedido(prisma: PrismaClient, empresa: Empre
         orcamento: { select: { numero: true } },
         cliente: { select: { nome: true, fantasia: true, cpfCnpj: true } },
         itens: { select: { descricao: true, quantidade: true, largura: true, altura: true, total: true }, orderBy: { ordem: 'asc' } },
-        contasReceber: { select: { valor: true, valorPago: true, vencimento: true, status: true } },
+        contasReceber: { select: { descricao: true, valor: true, valorPago: true, vencimento: true, status: true } },
         // A entrega registrada (a mais recente não cancelada) vale mais que o tipo e o endereço do pedido
         entregas: { where: { status: { not: 'cancelada' } }, orderBy: { createdAt: 'desc' }, take: 1, select: { tipo: true, endereco: true } },
       },
@@ -97,7 +98,7 @@ export async function valoresMensagemPedido(prisma: PrismaClient, empresa: Empre
         tipoEntrega: entrega?.tipo ?? pedido.tipoEntrega,
         enderecoEntrega: entrega?.endereco?.trim() || pedido.enderecoEntrega,
         itens: pedido.itens.map((i) => ({ descricao: i.descricao, quantidade: i.quantidade.toString(), largura: i.largura?.toString(), altura: i.altura?.toString(), total: i.total.toString() })),
-        parcelas: pedido.contasReceber.map((c) => ({ valor: c.valor.toString(), valorPago: c.valorPago.toString(), vencimento: c.vencimento.toISOString().slice(0, 10), status: c.status })),
+        parcelas: pedido.contasReceber.map((c) => ({ valor: c.valor.toString(), valorPago: c.valorPago.toString(), vencimento: c.vencimento.toISOString().slice(0, 10), status: c.status, entrada: contaDeEntrada(c.descricao) })),
       },
       grafica,
       hojeISO(),

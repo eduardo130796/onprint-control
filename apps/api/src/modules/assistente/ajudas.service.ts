@@ -6,6 +6,7 @@ import {
   MODO_CALCULO_SUFIXO,
   TIPO_COBRANCA_ROTULOS,
   calcularPreco,
+  dataDoPrazo,
   documentoDoTexto,
   nomeCliente,
   normalizarEtiqueta,
@@ -267,6 +268,8 @@ export function criarAjudasAssistente(app: FastifyInstance) {
           novo: achado || candidatos.length ? null : clienteNovo(dados, leitura.clienteNome ?? remetente?.nome ?? null),
         },
         prazoDesejado: leitura.prazoDesejado,
+        // "pra sexta", "dia 15": a data de "Cliente precisa até" (ambíguo fica vazio; o texto vai para as observações)
+        dataDesejada: dataDoPrazo(leitura.prazoDesejado),
         observacoes: leitura.observacoes,
         naoIdentificados: leitura.naoIdentificados,
         sugestoes: leitura.sugestoes,

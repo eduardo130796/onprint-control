@@ -505,9 +505,8 @@ describe('WhatsApp respostas: leitura do webhook', () => {
     const a = lerAvisoWebhook(envelope('messages.upsert', { key: { remoteJid: '987654321098765@lid', remoteJidAlt: '5511988887777@s.whatsapp.net', fromMe: false, id: 'X1' }, message: { conversation: 'ok aprovado' } }))
     expect(a.eventos[0]).toMatchObject({ tipo: 'texto', numero: '5511988887777' })
   })
-  it('nossas mensagens, grupos, status, listas, canais e reações ficam de fora', () => {
+  it('grupos, status, listas, canais e reações do cliente ficam de fora (as nossas viram mensagem própria: copiloto)', () => {
     const fora = [
-      { key: { remoteJid: '5511988887777@s.whatsapp.net', fromMe: true, id: 'A' }, message: { conversation: 'oi' } },
       { key: { remoteJid: '120363@g.us', fromMe: false, id: 'B' }, message: { conversation: 'aprovado' } },
       { key: { remoteJid: 'status@broadcast', fromMe: false, id: 'C' }, message: { conversation: 'x' } },
       { key: { remoteJid: '5511988887777@broadcast', fromMe: false, id: 'E' }, message: { audioMessage: { seconds: 3 } } },

@@ -13,6 +13,8 @@ export const assistenteApi = {
   pedir: (texto: string) => http<RespostaPedir>('/assistente/pedir', { method: 'POST', body: { texto } }),
   /** Nota de compra anexada (XML, foto ou PDF) → entrada preenchida para conferir */
   nota: (arquivo: File) => upload<NotaCompraLida>('/assistente/pedir/nota', arquivo),
+  /** Nota mandada na conversa "Você" do WhatsApp (já lida e guardada): abre a Nova entrada preenchida */
+  notaWhatsapp: (id: string) => http<NotaCompraLida>(`/assistente/notas-whatsapp/${id}`),
 }
 
 /** Chave do React Query (o uso do mês muda a cada ajuda: invalide depois de usar) */

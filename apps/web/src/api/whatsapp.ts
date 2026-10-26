@@ -2,15 +2,11 @@ import type {
   CategoriaMensagemPedido,
   ConexaoWhatsapp,
   ContatoWhatsapp,
-  ConversaWhatsapp,
   DisponibilidadeWhatsapp,
   EnvioWhatsappInput,
   MensagemWhatsapp,
-  OrcamentoDaConversa,
   Paginado,
-  PedidosDaConversa,
   ResultadoEnvioWhatsapp,
-  SituacaoConversa,
   StatusMensagemWhatsapp,
   WhatsappConfig,
   WhatsappConfigInput,
@@ -39,18 +35,6 @@ export const whatsappApi = {
   /** Com o PDF junto (o texto sai primeiro, com o link no fim; depois o arquivo) */
   enviarComPdf: (dados: EnvioWhatsappInput, pdf: File) => upload<ResultadoEnvioWhatsapp>('/whatsapp/enviar-com-pdf', pdf, undefined, false, { dados: JSON.stringify(dados) }),
 
-  // ─── Conversas do WhatsApp (mensagens dos clientes com as ações de um toque) ───
-  conversas: (q: { situacao?: SituacaoConversa; page?: number; pageSize?: number }) => http<Paginado<ConversaWhatsapp>>(`/whatsapp/conversas${qs(q)}`),
-  contagemConversas: () => http<{ abertas: number }>('/whatsapp/conversas/contagem'),
-  /** O texto da conversa vira o orçamento (itens pelo Assistente; cliente achado ou pré-cadastro do remetente) */
-  montarOrcamento: (id: string) => http<OrcamentoDaConversa>(`/whatsapp/conversas/${id}/orcamento`, { method: 'POST' }),
-  pedidosDaConversa: (id: string) => http<PedidosDaConversa>(`/whatsapp/conversas/${id}/pedidos`),
-  resolverConversa: (id: string) => http<ConversaWhatsapp>(`/whatsapp/conversas/${id}/resolver`, { method: 'POST' }),
-  reabrirConversa: (id: string) => http<ConversaWhatsapp>(`/whatsapp/conversas/${id}/reabrir`, { method: 'POST' }),
-  /** O orçamento montado a partir da conversa foi salvo: liga os dois (e resolve a conversa) */
-  vincularConversa: (id: string, orcamentoId: string) => http<ConversaWhatsapp>(`/whatsapp/conversas/${id}/vincular`, { method: 'POST', body: { orcamentoId } }),
-  /** Contatos pelo nome ou número (quem já escreveu e os clientes com WhatsApp): sem copiar número */
+  /** Contatos pelo nome ou número (quem já escreveu e os clientes com WhatsApp): sem copiar número ("Outro número") */
   contatos: (busca: string) => http<ContatoWhatsapp[]>(`/whatsapp/contatos${qs({ busca: busca || undefined })}`),
 }
-
-export const CHAVE_CONVERSAS = [...CHAVE_WHATSAPP, 'conversas'] as const

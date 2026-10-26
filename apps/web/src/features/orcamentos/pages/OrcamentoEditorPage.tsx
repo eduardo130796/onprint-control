@@ -6,7 +6,6 @@ import { toast } from 'sonner'
 import { descreverRespostaWhatsapp, formatarDataHora, formatarDataSimples, orcamentoSchema, type EstadoDoAssistente, type OrcamentoDeTexto } from '@onprint/shared'
 import { clientesApi } from '@/api/cadastros'
 import { orcamentosApi, solicitacoesApi, type OrcamentoComAnalise } from '@/api/comercial'
-import { whatsappApi } from '@/api/whatsapp'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { EstadoErro } from '@/components/shared/EstadoErro'
@@ -49,7 +48,6 @@ function Editor({
   clienteInicial,
   doSite,
   doAssistente,
-  daConversa,
   onAlterado,
 }: {
   orcamento?: OrcamentoComAnalise
@@ -61,8 +59,6 @@ function Editor({
   doSite?: DoSite | null
   /** "Peça ao Assistente": o pedido já lido (itens, cliente achado ou novo, prazo e observações) */
   doAssistente?: { texto: string; leitura: OrcamentoDeTexto } | null
-  /** Montado a partir de uma conversa do WhatsApp: ao salvar, a conversa fica ligada ao orçamento (e resolvida) */
-  daConversa?: { id: string } | null
 }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -79,6 +75,8 @@ function Editor({
           doAssistente: true,
           cliente: inicial.cliente ?? lido.cliente.encontrado,
           itens: lido.itens.length ? itensDoAssistente(lido.itens) : inicial.itens,
+          // "pra sexta", "dia 15": a data, quando dá para calcular com segurança (senão o texto fica na nota abaixo)
+          dataDesejada: lido.dataDesejada ?? inicial.dataDesejada,
           observacoesInternas: [inicial.observacoesInternas.trim(), notaDoAssistente(lido)].filter(Boolean).join('\n'),
         }
       : inicial,
@@ -171,11 +169,6 @@ function Editor({
       const payload = payloadDoForm(dados, orcamento ? undefined : solicitacaoId)
       const salvo = await salvar.mutateAsync(payload)
       queryClient.setQueryData(['orcamentos', 'detalhe', salvo.id], salvo)
-      // Da conversa do WhatsApp: liga os dois (a conversa sai da lista e o cliente fica com o número de quem escreveu)
-      if (daConversa && !orcamento) {
-        await whatsappApi.vincularConversa(daConversa.id, salvo.id).catch(() => toast.warning('O orçamento foi salvo, mas a conversa do WhatsApp não foi marcada como resolvida.'))
-        void queryClient.invalidateQueries({ queryKey: ['whatsapp'] })
-      }
       toast.success(orcamento ? 'Orçamento salvo.' : `Orçamento ${salvo.numero} criado.`)
       navigate(`/orcamentos/${salvo.id}`, { replace: true, state: { recarregar: Date.now() } })
     } catch (e) {
@@ -202,10 +195,14 @@ function Editor({
         <AcoesOrcamento orcamento={orcamento} editavel={editavel} alterado={alterado} salvando={salvar.isPending} onSalvar={() => void onSalvar()} />
       </div>
 
-      {daConversa && !orcamento && (
+      {orcamento?.whatsapp && (
         <p className="mb-4 flex items-start gap-2 rounded-xl bg-marca-suave p-3 text-sm text-marca-escuro">
           <MessagesSquare className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>Montado a partir da conversa do WhatsApp. Confira os itens e salve: o “Enviar orçamento” vai para o número de quem escreveu, sem digitar nada.</span>
+          <span className="[overflow-wrap:anywhere]">
+            {orcamento.whatsapp.origem === 'reacao' ? `Criado pelo WhatsApp (📝 na conversa com ${orcamento.whatsapp.contato ?? 'o cliente'}).` : 'Criado pelo WhatsApp (pedido na sua conversa “Você”).'}
+            {orcamento.status === 'rascunho' && ' Ajuste e envie; ou responda *ok* no WhatsApp.'}
+            {orcamento.status === 'rascunho' && orcamento.whatsapp.conferir.length > 0 && ` Confira: ${orcamento.whatsapp.conferir.join('; ')}.`}
+          </span>
         </p>
       )}
       {doSite && doSite.itens.length > 0 && (
@@ -308,6 +305,8 @@ function Editor({
                   // Orçamento novo montado pelo Assistente: a origem vira "assistente" (regras por origem)
                   doAssistente: orcamento ? f.doAssistente : true,
                   itens: juntarItens(f.itens, r.itens),
+                  // O prazo do pedido como data, se a pessoa ainda não escolheu outra
+                  dataDesejada: f.dataDesejada || r.dataDesejada || '',
                   cliente: f.cliente ?? r.cliente,
                   observacoesInternas: r.nota ? [f.observacoesInternas.trim(), r.nota].filter(Boolean).join('\n') : f.observacoesInternas,
                 }))
@@ -437,7 +436,6 @@ export function OrcamentoEditorPage() {
   const local = useLocation()
   const estadoNavegacao = local.state as EstadoDoAssistente | null
   const doAssistente = estadoNavegacao?.orcamentoAssistente ?? null
-  const daConversa = estadoNavegacao?.conversaWhatsapp ?? null
   const consulta = useQuery({ queryKey: ['orcamentos', 'detalhe', id], queryFn: () => orcamentosApi.obter(id!), enabled: !novo })
   // Versão no formulário: com alterações não salvas, uma mudança de fora (cliente aprovou, colega editou)
   // não reseta o formulário — fica a faixa avisando, e "Recarregar" troca para a versão nova
@@ -478,7 +476,7 @@ export function OrcamentoEditorPage() {
     return (
       <>
         {voltar}
-        <Editor key={doAssistente ? local.key : 'novo'} solicitacaoId={solicitacaoId} clienteInicial={cliente.data ? { id: cliente.data.id, rotulo: cliente.data.nome } : null} doSite={doSite} doAssistente={doAssistente} daConversa={daConversa} />
+        <Editor key={doAssistente ? local.key : 'novo'} solicitacaoId={solicitacaoId} clienteInicial={cliente.data ? { id: cliente.data.id, rotulo: cliente.data.nome } : null} doSite={doSite} doAssistente={doAssistente} />
       </>
     )
   }

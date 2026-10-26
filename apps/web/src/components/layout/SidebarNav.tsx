@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useContagemAlertas } from '@/features/estoque/hooks'
 import { useContagemReajuste } from '@/features/produtos/hooks'
-import { useContagemConversas } from '@/features/whatsapp/hooks'
 import { usePermissoes } from '@/hooks/usePermission'
 import { cn } from '@/lib/utils'
 
@@ -42,8 +41,7 @@ export function SidebarNav({ recolhida = false, onAlternar, onNavegar, rodape }:
   const areas = useMemo(() => montarAreas((m, a) => pode(m, a)), [pode])
   const alertasEstoque = useContagemAlertas()
   const reajuste = useContagemReajuste()
-  const conversas = useContagemConversas()
-  const badges: Badges = { '/estoque/alertas': alertasEstoque.data, '/produtos/reajuste': reajuste.data, '/whatsapp': conversas.data }
+  const badges: Badges = { '/estoque/alertas': alertasEstoque.data, '/produtos/reajuste': reajuste.data }
 
   const daRota = areaDaRota(pathname)
   const [escolhida, setEscolhida] = useState<AreaMenu | null>(null)

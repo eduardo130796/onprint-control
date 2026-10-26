@@ -2,24 +2,31 @@ import { randomUUID } from 'node:crypto'
 import { Prisma } from '@prisma/client'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import {
+  Decimal,
   NAO_SEI_FAZER,
   clienteSchema,
   formatarMoeda,
   formatarTelefone,
+  hojeISO,
+  linhaItemMensagem,
   nomeCliente,
   normalizarNumeroWhatsapp,
   orcamentoSchema,
+  resumoCondicoesPagamento,
   textoMensagemOrcamento,
   type OrcamentoDeTexto,
 } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
+import { registrarAuditoria } from '../../core/auditoria'
 import { contextoEmpresa, type EmpresaAtual } from '../../core/contexto-empresa'
 import { contextoUsuario } from '../../core/escopo'
 import { linkAprovacaoOrcamento, linkSistema } from '../../core/links'
 import { ErroWhatsapp, instanciaDaEmpresa } from '../../integrations/whatsapp'
 import { clienteNovo, criarAjudasAssistente, dadosDoTexto } from '../assistente/ajudas.service'
-import { controlesDaEmpresa, nomeDaGrafica } from '../assistente/empresa.service'
+import { controlesDaEmpresa, criarAssistenteEmpresa, mensagemSemResultado, nomeDaGrafica } from '../assistente/empresa.service'
+import { criarNotasWhatsapp, linkDaNota } from '../assistente/notas-whatsapp'
 import { criarPedirService, tipoDoArquivo } from '../assistente/pedir.service'
+import { pedidoAjusteOrcamento } from '../assistente/prompts-ajuste'
 import { criarPerguntasService } from '../assistente/perguntas.service'
 import { criarClientesService } from '../clientes/service'
 import { criarOrcamentosService } from '../orcamentos/orcamentos.service'
@@ -28,19 +35,23 @@ import { avisarOrcamento } from '../orcamentos/tempo-real'
 import { obterConfigWhatsapp, whatsappNoPlano } from './avisos'
 import { numeroParaCadastro, numerosParaBusca } from './conversas'
 import {
-  AVISO_VALE_MS,
+  JANELA_ACRESCENTAR_MS,
   PERGUNTA_VALE_MS,
   RASCUNHO_NO_CANAL_MS,
   ehCanalVoce,
   ehEcoDoAssistente,
+  destinoDaReacao,
   ehReacaoDeOrcamento,
+  escolherParaAjustar,
   escolherParaCancelar,
   escolherParaEnviar,
-  estaPendente,
   interpretarVoce,
+  linhaDoAnterior,
   linhaDoRascunho,
   nomeDoPedido,
   selecionarMensagens,
+  textoAcrescimo,
+  textoAjuste,
   textoAvisoOrcamento,
   textoDaPergunta,
   textoEstado,
@@ -49,6 +60,7 @@ import {
   type DecisaoEnvio,
   type RascunhoCanal,
 } from './copiloto'
+import { CONFIANCA_AJUSTE, aplicarItens, descontoDaOperacao, editavelDoOrcamento, payloadDoEditavel, validarAjuste, type ItemEditavel } from './ajustes'
 import { criarEnvioManual, validarPdf } from './manual'
 import { templateDaCategoria } from './mensagem-pedido'
 import { variantesDoNumero } from './respostas'
@@ -57,6 +69,7 @@ import type { EventoWebhook } from './webhook'
 type EventoReacao = Extract<EventoWebhook, { tipo: 'reacao' }>
 type EventoProprio = Extract<EventoWebhook, { tipo: 'proprio' }>
 type Config = Awaited<ReturnType<typeof obterConfigWhatsapp>>
+type Dec = { toString(): string }
 
 /** Quem age pelo canal "Você": o dono (o administrador mais antigo e ativo), com as permissões dele */
 interface Dono {
@@ -66,6 +79,8 @@ interface Dono {
 
 /** Um texto que acabamos de mandar ao "Você" (o eco que volta pelo webhook é ignorado) */
 const ECO_MS = 3 * 60_000
+/** A 📝 chegou antes da mensagem reagida ser gravada (leitura do Assistente em andamento): tenta de novo nestes intervalos */
+const ESPERA_ANCORA = [1500, 3000, 6000, 10_000]
 
 const incluirRascunho = {
   orcamento: { select: { id: true, numero: true, status: true, total: true, updatedAt: true, enviadoEm: true, liberacaoPendente: true, cliente: { select: { nome: true, fantasia: true } } } },
@@ -103,6 +118,8 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
   const perguntas = criarPerguntasService(app)
   const clientes = criarClientesService(app)
   const enviarManual = criarEnvioManual(app)
+  const notas = criarNotasWhatsapp(app)
+  const assistenteEmpresa = criarAssistenteEmpresa(app)
 
   /** Textos mandados ao "Você" há pouco, por empresa (anti-laço antes de o id voltar do envio) */
   const textosEnviados = new Map<string, { texto: string; em: number }[]>()
@@ -241,26 +258,24 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
   async function salvarRascunho(
     empresa: EmpresaAtual,
     d: Dono,
-    p: { origem: 'reacao' | 'voce'; gatilhoId: string; mensagemId: string | null; texto: string; cliente: { id: string; rotulo: string; novo: boolean }; numero: string | null; leitura: OrcamentoDeTexto },
+    p: {
+      origem: 'reacao' | 'voce'
+      gatilhoId: string
+      mensagemId: string | null
+      texto: string
+      cliente: { id: string; rotulo: string; novo: boolean }
+      numero: string | null
+      leitura: OrcamentoDeTexto
+      /** O último do mesmo cliente já não estava pendente (enviado, aprovado…): o aviso diz */
+      anterior?: RascunhoCanal | null
+    },
   ) {
-    const itens = p.leitura.itens.filter((i) => i.produto)
-    if (!itens.length) {
-      const nao = [...p.leitura.itens.map((i) => i.descricao), ...p.leitura.naoIdentificados]
-      throw AppError.regraNegocio(`Não achei os produtos no catálogo${nao.length ? ` (${nao.slice(0, 3).join('; ')})` : ''}. Monte pelo sistema: ${linkSistema('/orcamentos/novo')}`)
-    }
     const dados = orcamentoSchema.parse({
       clienteId: p.cliente.id,
       origem: 'assistente',
       dataDesejada: p.leitura.dataDesejada ?? null,
       observacoesInternas: notaInterna(p.leitura, p.origem === 'reacao' ? '📝 na conversa do WhatsApp' : 'pedido no WhatsApp', p.texto),
-      itens: itens.map((i) => ({
-        produtoId: i.produto!.id,
-        quantidade: i.quantidade,
-        largura: i.largura ?? '',
-        altura: i.altura ?? '',
-        acabamentoIds: i.acabamentos.map((a) => a.id),
-        observacao: i.observacao ?? '',
-      })),
+      itens: itensDaLeitura(p.leitura).map((n) => n.item),
     })
     const ctx = await contextoUsuario(app, d.req, 'orcamentos')
     const o = await orcamentos.criar(dados, ctx)
@@ -279,9 +294,81 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
         conferir,
         link: linkSistema(`/orcamentos/${o.id}`),
         liberacaoPendente: o.liberacaoPendente,
+        desconto: o.desconto.toString(),
+        antes: p.anterior ? linhaDoAnterior(p.anterior) : undefined,
       },
       p.origem,
     )
+    if (await avisar(empresa, aviso, { tipo: 'aviso', orcamentoId: o.id })) await prisma.orcamentoWhatsapp.update({ where: { orcamentoId: o.id }, data: { avisadoEm: new Date() } })
+    return o
+  }
+
+  /** Os itens que a leitura achou no catálogo, no formato do editor (fora do catálogo: 422 com o que não achou) */
+  function itensDaLeitura(l: OrcamentoDeTexto): { item: ItemEditavel; rotulo: string }[] {
+    const itens = l.itens.filter((i) => i.produto)
+    if (!itens.length) {
+      const nao = [...l.itens.map((i) => i.descricao), ...l.naoIdentificados]
+      throw AppError.regraNegocio(`Não achei os produtos no catálogo${nao.length ? ` (${nao.slice(0, 3).join('; ')})` : ''}. Monte pelo sistema: ${linkSistema('/orcamentos/novo')}`)
+    }
+    return itens.map((i) => ({
+      item: {
+        produtoId: i.produto!.id,
+        descricao: '',
+        quantidade: i.quantidade,
+        largura: i.largura,
+        altura: i.altura,
+        precoUnitario: null,
+        acabamentoIds: i.acabamentos.map((a) => a.id),
+        desconto: '0',
+        observacao: i.observacao ?? '',
+        precisaArte: i.produto!.precisaArte,
+      },
+      rotulo: `${Number(i.quantidade).toLocaleString('pt-BR')}× ${i.produto!.nome}`,
+    }))
+  }
+
+  /** Itens do orçamento para as mensagens ("2× Banner 2,0 × 1,0 m — R$ 320,00") */
+  const itensDaMensagem = (o: { itens: { descricao: string; quantidade: Dec; largura: Dec | null; altura: Dec | null; total: Dec }[] }) =>
+    o.itens.map((i) => ({ descricao: i.descricao, quantidade: i.quantidade.toString(), largura: i.largura?.toString(), altura: i.altura?.toString(), total: i.total.toString() }))
+
+  /**
+   * 📝 de novo do mesmo cliente: os itens novos entram no fim do rascunho pendente dele, pelo serviço de orçamentos (o
+   * mesmo cálculo do editor; as edições do dono continuam). O aviso novo diz o que entrou e vira o válido: o "ok" no
+   * aviso antigo cai em "mudou desde o aviso".
+   */
+  async function acrescentarAoRascunho(empresa: EmpresaAtual, d: Dono, r: RascunhoCanal, leitura: OrcamentoDeTexto, texto: string) {
+    const novos = itensDaLeitura(leitura)
+    const ctx = { ...(await contextoUsuario(app, d.req, 'orcamentos')), veTodos: true }
+    const atual = await orcamentos.obter(r.orcamentoId, ctx)
+    const base = editavelDoOrcamento(atual)
+    const nota = notaInterna(leitura, '📝 na conversa do WhatsApp, acréscimo', texto)
+    const dados = orcamentoSchema.parse(
+      payloadDoEditavel({
+        ...base,
+        // O prazo que o dono já pôs vale mais que o do pedido novo
+        dataDesejada: base.dataDesejada ?? leitura.dataDesejada ?? null,
+        observacoesInternas: [base.observacoesInternas.trim(), nota].filter(Boolean).join('\n').slice(0, 2000),
+        itens: [...base.itens, ...novos.map((n) => n.item)],
+      }),
+    )
+    const o = await orcamentos.atualizar(r.orcamentoId, dados, ctx)
+    const conferir = paraConferir(leitura)
+    const ow = await prisma.orcamentoWhatsapp.findUnique({ where: { orcamentoId: o.id }, select: { conferir: true } })
+    await prisma.orcamentoWhatsapp.update({ where: { orcamentoId: o.id }, data: { conferir: [...new Set([...(ow?.conferir ?? []), ...conferir])].slice(0, 10) } })
+    avisarOrcamento(app, o, 'alterado', { origem: 'sistema', atorId: null })
+    const todos = itensDaMensagem(o)
+    const aviso = textoAcrescimo({
+      numero: o.numero,
+      cliente: r.cliente,
+      clienteNovo: false,
+      novos: todos.slice(base.itens.length),
+      itens: todos,
+      total: o.total.toString(),
+      desconto: o.desconto.toString(),
+      conferir,
+      link: linkSistema(`/orcamentos/${o.id}`),
+      liberacaoPendente: o.liberacaoPendente,
+    })
     if (await avisar(empresa, aviso, { tipo: 'aviso', orcamentoId: o.id })) await prisma.orcamentoWhatsapp.update({ where: { orcamentoId: o.id }, data: { avisadoEm: new Date() } })
     return o
   }
@@ -295,10 +382,17 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     // 📝 de novo na mesma mensagem: o orçamento que já existe
     const ja = await prisma.orcamentoWhatsapp.findFirst({ where: { mensagemId: e.idReagida }, select: { orcamentoId: true, orcamento: { select: { numero: true } } } })
     if (ja) return void (await avisar(empresa, `Essa mensagem já virou o ${ja.orcamento.numero}: ${linkSistema(`/orcamentos/${ja.orcamentoId}`)}`, { orcamentoId: ja.orcamentoId }))
-    const ancora = await prisma.conversaMensagemWhatsapp.findUnique({
-      where: { idExterno: e.idReagida },
-      select: { conversa: { include: { mensagens: { orderBy: { recebidaEm: 'asc' }, take: 200 }, cliente: { select: { id: true, nome: true, fantasia: true, whatsapp: true, ativo: true } } } } },
-    })
+    const buscarAncora = () =>
+      prisma.conversaMensagemWhatsapp.findUnique({
+        where: { idExterno: e.idReagida },
+        select: { conversa: { include: { mensagens: { orderBy: { recebidaEm: 'asc' }, take: 200 }, cliente: { select: { id: true, nome: true, fantasia: true, whatsapp: true, ativo: true } } } } },
+      })
+    // A mensagem do cliente pode ainda estar na leitura do Assistente (resposta a um orçamento enviado): espera um pouco
+    let ancora = await buscarAncora()
+    for (let tentativa = 0; !ancora && tentativa < ESPERA_ANCORA.length; tentativa++) {
+      await new Promise((r) => setTimeout(r, ESPERA_ANCORA[tentativa]))
+      ancora = await buscarAncora()
+    }
     if (!ancora) {
       return void (await avisar(
         empresa,
@@ -319,7 +413,7 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     if (!sel.ok) {
       const motivo = {
         nao_encontrada: `Não achei essa mensagem no sistema. Monte pelo sistema: ${linkSistema('/orcamentos/novo')}`,
-        usada: `Essa mensagem já entrou num orçamento. Veja os orçamentos: ${linkSistema('/orcamentos')}`,
+        usada: conversa.orcamentoId ? `Essa mensagem já entrou num orçamento: ${linkSistema(`/orcamentos/${conversa.orcamentoId}`)}` : `Essa mensagem já entrou num orçamento. Veja os orçamentos: ${linkSistema('/orcamentos')}`,
         antiga: `Essa mensagem é de antes do último orçamento enviado para esse cliente${ultimoEnvio?.orcamento ? ` (${ultimoEnvio.orcamento.numero})` : ''}. Reaja com 📝 numa mensagem mais recente.`,
         sem_texto: `Essa conversa só tem foto ou áudio: não consigo ler os itens. Monte pelo sistema: ${linkSistema('/orcamentos/novo')}`,
       }[sel.motivo]
@@ -344,7 +438,20 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     }
     try {
       const leitura = await ajudas.orcamentoDeTexto(sel.texto, { clienteId: cliente.id, nome: conversa.nomeWhatsapp, whatsapp })
-      const o = await salvarRascunho(empresa, d, { origem: 'reacao', gatilhoId: e.idMensagem, mensagemId: e.idReagida, texto: sel.texto, cliente, numero: numero ? normalizarNumeroWhatsapp(numero) : null, leitura })
+      // O mesmo cliente com um rascunho do WhatsApp pendente das últimas 12 horas: os itens novos entram nele (um só)
+      const numeroConversa = numero ? normalizarNumeroWhatsapp(numero) : null
+      const doCliente = await prisma.orcamentoWhatsapp.findMany({
+        where: {
+          createdAt: { gte: new Date(Date.now() - JANELA_ACRESCENTAR_MS) },
+          OR: [{ orcamento: { clienteId: cliente.id } }, ...(numeroConversa ? [{ numero: { in: variantesDoNumero(numeroConversa) } }] : [])],
+        },
+        include: incluirRascunho,
+      })
+      const destino = destinoDaReacao(doCliente.map(paraRascunho), new Date())
+      const o =
+        destino.acao === 'acrescentar'
+          ? await acrescentarAoRascunho(empresa, d, destino.rascunho, leitura, sel.texto)
+          : await salvarRascunho(empresa, d, { origem: 'reacao', gatilhoId: e.idMensagem, mensagemId: e.idReagida, texto: sel.texto, cliente, numero: numeroConversa, leitura, anterior: destino.anterior })
       const agora = new Date()
       await prisma.conversaMensagemWhatsapp.updateMany({ where: { idExterno: { in: sel.mensagens.map((m) => m.idExterno) } }, data: { usadaEm: agora } })
       await prisma.conversaWhatsapp.update({ where: { id: conversa.id }, data: { orcamentoId: o.id, clienteId: conversa.clienteId ?? cliente.id, situacao: 'resolvida', resolvidaEm: agora, resolvidaPor: d.id, classificar: false } })
@@ -398,6 +505,7 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
         conferir: [],
         link: linkSistema(`/orcamentos/${o.id}`),
         liberacaoPendente: o.liberacaoPendente,
+        desconto: o.desconto.toString(),
       },
       motivo,
     )
@@ -624,8 +732,8 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     if (!mediaType) return void (await avisar(empresa, 'Esse arquivo não parece uma nota. Mande a foto, o PDF do DANFE ou o XML.'))
     try {
       const lida = await pedir.nota(d.req, { nome: arquivo.nome, mediaType, conteudo: arquivo.conteudo })
-      const salva = await prisma.notaWhatsapp.create({ data: { leitura: lida as unknown as Prisma.InputJsonValue, arquivo: arquivo.nome.slice(0, 200) } })
-      await avisar(empresa, textoNota(lida, linkSistema(`/estoque/entradas/novo?notaWhatsapp=${salva.id}`)))
+      const salva = await notas.guardar(lida, arquivo.nome)
+      await avisar(empresa, textoNota(lida, linkSistema(linkDaNota(salva.id))))
     } catch (erro) {
       const msg = mensagemDeErro(erro)
       if (!msg) throw erro
@@ -663,13 +771,150 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
           : 'Não há orçamento esperando envio por aqui.',
       ))
     }
-    if (comando.tipo === 'ajuste') {
-      // Edição automática ainda não: o link do editor do orçamento citado ou do último avisado
-      const citado = await avisoCitado(e.citadoId)
-      const alvo = citado ?? (await rascunhos()).filter((r) => estaPendente(r) && agora.getTime() - (r.avisadoEm ?? r.criadoEm).getTime() <= AVISO_VALE_MS).at(-1)
-      if (alvo) return void (await avisar(empresa, `Abra para ajustar: ${linkSistema(`/orcamentos/${alvo.orcamentoId}`)}`, { orcamentoId: alvo.orcamentoId }))
+    // Ajuste ("10% de desconto", "tira o 2") ou qualquer texto em cima do aviso de um orçamento
+    const citado = await avisoCitado(e.citadoId)
+    if (comando.tipo === 'ajuste' || citado) {
+      const decisao = escolherParaAjustar({ citado, rascunhos: await rascunhos(citado ? [citado.orcamentoId] : []), agora })
+      switch (decisao.acao) {
+        case 'ajustar':
+          return ajustar(empresa, d, decisao.rascunho, texto)
+        case 'estado':
+          return void (await avisar(empresa, `${textoEstado(decisao.rascunho, agora)} Não alterei nada.`, { orcamentoId: decisao.rascunho.orcamentoId }))
+        case 'apagado':
+          return void (await avisar(empresa, 'Esse orçamento não existe mais no sistema. Não alterei nada.'))
+        case 'perguntar':
+          return void (await avisar(empresa, `Qual orçamento? Responda o ajuste em cima do aviso dele.\n${decisao.rascunhos.map((r) => `• ${linhaDoRascunho(r)}`).join('\n')}`))
+        case 'nenhum':
+          // Sem orçamento para ajustar: o pedido segue para o roteador (pode ser pergunta ou orçamento novo)
+          break
+      }
     }
     return roteador(empresa, d, e, texto)
+  }
+
+  // ─── Canal "Você": ajuste do orçamento em linguagem natural ───
+
+  /**
+   * "10% de desconto", "tira o 2", "muda os banners para 3", "à vista no Pix", "entrega pra sexta": uma leitura barata
+   * vira operações; o sistema confere todas (ajustes.ts) e só então aplica pelo serviço de orçamentos (o mesmo cálculo
+   * do editor, com as regras comerciais). O Assistente nunca libera o que as regras pedem a um gerente: fica pendente.
+   * Leitura incerta ou operação sem sentido: nada é aplicado. A resposta vira o aviso válido para o "ok".
+   */
+  async function ajustar(empresa: EmpresaAtual, d: Dono, r: RascunhoCanal, texto: string) {
+    const link = linkSistema(`/orcamentos/${r.orcamentoId}`)
+    if (!(await assistenteLigado())) return void (await avisar(empresa, `O Assistente GrafyGo está desligado (Configurações → Assistente). Abra para ajustar: ${link}`))
+    const ctxDono = { ...(await contextoUsuario(app, d.req, 'orcamentos')), veTodos: true }
+    // Feito pelo Assistente: o que as regras pedem a um gerente fica pendente (nunca liberado sozinho)
+    const ctx = { ...ctxDono, podeAprovar: false }
+    const o = await orcamentos.obter(r.orcamentoId, ctxDono)
+    if (o.status !== 'rascunho') return void (await avisar(empresa, `${textoEstado({ ...r, status: o.status, enviadoNoSistemaEm: o.enviadoEm }, new Date())} Não alterei nada.`))
+    const [produtos, formas] = await Promise.all([
+      prisma.produto.findMany({
+        where: { id: { in: o.itens.map((i) => i.produtoId) } },
+        select: { id: true, acabamentos: { where: { acabamento: { ativo: true } }, select: { acabamento: { select: { id: true, nome: true } } } } },
+      }),
+      prisma.formaPagamento.findMany({ where: { ativo: true }, select: { nome: true }, orderBy: { nome: 'asc' } }),
+    ])
+    const nomesFormas = formas.map((f) => f.nome)
+    const mensagem = itensDaMensagem(o)
+    const itens = o.itens.map((i, k) => ({
+      descricao: linhaItemMensagem(mensagem[k]!),
+      acabamentosDoProduto: produtos.find((p) => p.id === i.produtoId)?.acabamentos.map((a) => a.acabamento) ?? [],
+    }))
+    const { assinanteId, recurso } = await assistenteEmpresa.exigirLigado('intencao')
+    const leitura = await app.assistente.executar({
+      assinanteId,
+      recurso,
+      pedido: pedidoAjusteOrcamento({
+        grafica: (await nomeDaGrafica(prisma)) || empresa.nome,
+        numero: o.numero,
+        itens: itens.map((i) => ({ descricao: i.descricao, acabamentos: i.acabamentosDoProduto.map((a) => a.nome) })),
+        pagamento: resumoCondicoesPagamento({ total: o.total.toString(), sinalPercentual: o.sinalPercentual.toString(), parcelas: o.parcelas, intervaloDias: o.intervaloDias }),
+        formas: nomesFormas,
+        texto,
+      }),
+      contar: (l) => l.operacoes.length,
+    })
+    if (!leitura.ok) return void (await avisar(empresa, `${mensagemSemResultado(leitura)} Abra para ajustar: ${link}`))
+    const l = leitura.dados
+    if (l.confianca < CONFIANCA_AJUSTE || !l.operacoes.length) {
+      return void (await avisar(empresa, l.duvida ? `${l.duvida} Responda em cima do aviso, ou abra para ajustar: ${link}` : `Não entendi o ajuste. Abra para ajustar: ${link}`, { orcamentoId: o.id }))
+    }
+    const hoje = hojeISO()
+    const valido = validarAjuste(l.operacoes, { total: o.total.toString(), desconto: o.desconto.toString(), itens }, { formas: nomesFormas, hoje })
+    if (!valido.ok) return void (await avisar(empresa, `Não mudei nada: não entendi ${valido.motivo}. Abra para ajustar: ${link}`, { orcamentoId: o.id }))
+
+    // Itens novos ("acrescenta 1 wind banner"): a mesma leitura de orçamento por texto, só com o trecho novo
+    const novos: { item: ItemEditavel; rotulo: string }[] = []
+    try {
+      for (const op of l.operacoes.filter((x) => x.tipo === 'acrescentar')) novos.push(...itensDaLeitura(await ajudas.orcamentoDeTexto(op.texto!, { clienteId: o.clienteId, nome: null, whatsapp: null })))
+    } catch (erro) {
+      const msg = mensagemDeErro(erro)
+      if (!msg) throw erro
+      return void (await avisar(empresa, `Não mudei nada: ${msg}`, { orcamentoId: o.id }))
+    }
+
+    const feito: string[] = []
+    let salvo = o
+    const mexeEmItens = l.operacoes.some((x) => !['desconto_percentual', 'desconto_valor', 'total_final'].includes(x.tipo))
+    try {
+      if (mexeEmItens) {
+        const r1 = aplicarItens(editavelDoOrcamento(o), l.operacoes, { itens, formas: nomesFormas, hoje, novos })
+        salvo = await orcamentos.atualizar(o.id, orcamentoSchema.parse(payloadDoEditavel(r1.editavel)), ctx)
+        feito.push(...r1.feito)
+      }
+    } catch (erro) {
+      const msg = mensagemDeErro(erro)
+      if (!msg) throw erro
+      return void (await avisar(empresa, `Não mudei nada: ${msg} Abra para ajustar: ${link}`, { orcamentoId: o.id }))
+    }
+    // Desconto depois dos itens (o "10%" e o "faz por" valem sobre o total novo)
+    const opDesconto = l.operacoes.find((x) => ['desconto_percentual', 'desconto_valor', 'total_final'].includes(x.tipo))
+    let faltou: string | null = null
+    if (opDesconto) {
+      try {
+        const dsc = descontoDaOperacao(opDesconto, { total: salvo.total.toString(), desconto: salvo.desconto.toString() })
+        if (!dsc) faltou = 'o desconto (passaria do total)'
+        else {
+          salvo = await orcamentos.atualizar(o.id, orcamentoSchema.parse(payloadDoEditavel({ ...editavelDoOrcamento(salvo), desconto: dsc.desconto })), ctx)
+          // "Faz por 600": as regras comerciais podem mexer no total; acerta a diferença uma vez
+          if (opDesconto.tipo === 'total_final' && !new Decimal(salvo.total.toString()).eq(opDesconto.numero!)) {
+            const acerto = descontoDaOperacao(opDesconto, { total: salvo.total.toString(), desconto: salvo.desconto.toString() })
+            if (acerto) salvo = await orcamentos.atualizar(o.id, orcamentoSchema.parse(payloadDoEditavel({ ...editavelDoOrcamento(salvo), desconto: acerto.desconto })), ctx)
+          }
+          feito.push(dsc.feito)
+        }
+      } catch (erro) {
+        const msg = mensagemDeErro(erro)
+        if (!msg) throw erro
+        faltou = `o desconto (${msg.replace(/\.$/, '')})`
+      }
+    }
+    if (!feito.length) return void (await avisar(empresa, `Não mudei nada: ${faltou ?? 'não entendi o ajuste'}. Abra para ajustar: ${link}`, { orcamentoId: o.id }))
+    await prisma.$transaction((tx) =>
+      registrarAuditoria(tx, {
+        tabela: 'orcamentos',
+        registroId: o.id,
+        acao: 'editar',
+        antes: { total: o.total.toString(), desconto: o.desconto.toString(), itens: o.itens.length },
+        depois: { via: 'Assistente no WhatsApp, a pedido do dono (conversa "Você")', pedido: texto.slice(0, 500), operacoes: l.operacoes, feito, total: salvo.total.toString() },
+        usuarioId: d.id,
+      }),
+    )
+    avisarOrcamento(app, salvo, 'alterado', { origem: 'sistema', atorId: null })
+    const aviso = textoAjuste({
+      numero: salvo.numero,
+      cliente: r.cliente,
+      clienteNovo: false,
+      itens: itensDaMensagem(salvo),
+      total: salvo.total.toString(),
+      desconto: salvo.desconto.toString(),
+      conferir: faltou ? [`não apliquei ${faltou}`] : [],
+      link,
+      liberacaoPendente: salvo.liberacaoPendente,
+      feito: feito.join('; '),
+    })
+    if (await avisar(empresa, aviso, { tipo: 'aviso', orcamentoId: salvo.id })) await prisma.orcamentoWhatsapp.update({ where: { orcamentoId: salvo.id }, data: { avisadoEm: new Date() } })
   }
 
   return {

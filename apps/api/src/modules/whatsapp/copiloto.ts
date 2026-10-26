@@ -1,4 +1,4 @@
-import { formatarMoeda, listaItensMensagem, type ItemMensagem, type NotaCompraLida, type RespostaPergunta } from '@onprint/shared'
+import { formatarMoeda, linhaItemMensagem, listaItensMensagem, type ItemMensagem, type NotaCompraLida, type RespostaPergunta } from '@onprint/shared'
 import { jidNormalizado } from './enquete'
 import { normalizarResposta, variantesDoNumero } from './respostas'
 
@@ -86,8 +86,11 @@ export type ComandoVoce =
   | { tipo: 'outro' }
 
 const ENVIAR = /^(ok|okay|okk+|ok ok|blz ok|pode (mandar|enviar|ir)|manda|mande|envia|envie|enviar|manda ai|pode mandar ai|sim|isso|confirmo|confirma|confirmado)\b/
-const CANCELAR = /^(cancela|cancelar|cancelado|nao envia|nao envie|nao manda|nao mande|nao enviar|descarta|descartar|deixa|esquece)\b/
-const AJUSTE = /\b(tira|tirar|retira|remove|remover|desconto|muda|mudar|troca|trocar|altera|alterar|acrescenta|acrescentar|coloca|colocar|adiciona|adicionar|aumenta|aumentar|diminui|diminuir|corrige|corrigir)\b/
+const CANCELAR = /^(cancela|cancelar|cancelado|nao envia|nao envie|nao manda|nao mande|nao enviar|descarta|descartar|deixa (pra|para) la|deixa quieto|esquece)\b/
+const AJUSTE =
+  /\b(tira|tirar|retira|remove|remover|desconto|muda|mudar|troca|trocar|altera|alterar|acrescenta|acrescentar|coloca|colocar|adiciona|adicionar|inclui|incluir|aumenta|aumentar|diminui|diminuir|corrige|corrigir|faz por|fecha por|fecha em|deixa por)\b|\d\s*%|^mais \d/
+/** Ajuste que só vale quando a frase começa assim ("entrega pra sexta", "à vista no Pix", "com ilhós", "o banner é 3x1") */
+const AJUSTE_NO_COMECO = /^(entrega|entregar|prazo|a vista|avista|pagamento|parcela|com [a-z]{4,}|sem [a-z]{4,}|(o|a|os|as) [a-z]+ (e|sao) \d)/
 
 /** "o da Ana", "pro cliente", "esse orçamento" → "ana", "" (o que sobra identifica o orçamento) */
 const semPalavrasDeLigacao = (resto: string) =>
@@ -119,8 +122,8 @@ export function interpretarVoce(texto: string): ComandoVoce {
     const resto = semPalavrasDeLigacao(t.slice(cancela[0].length))
     return { tipo: 'cancelar', ref: resto || null }
   }
-  // Mudança no rascunho: frase curta com o verbo, sem pedir orçamento novo
-  if (AJUSTE.test(t) && palavras.length <= 14 && !/\borcamento (pra|para|pro)\b/.test(t)) return { tipo: 'ajuste' }
+  // Mudança no rascunho: frase curta com o verbo (ou que começa como ajuste), sem pedir orçamento novo
+  if ((AJUSTE.test(t) || AJUSTE_NO_COMECO.test(t)) && palavras.length <= 14 && !/\borcamento (pra|para|pro)\b/.test(t)) return { tipo: 'ajuste' }
   return { tipo: 'outro' }
 }
 
@@ -339,8 +342,30 @@ export interface AvisoOrcamento {
   total: string
   conferir: string[]
   link: string
+  /** Desconto do orçamento (Decimal da API): a linha "Desconto: −R$ …" quando houver */
+  desconto?: string
+  /** Linha antes do título ("O ORC-0112 já foi enviado; montei um novo:") */
+  antes?: string
   /** Esperando a liberação de um gerente (não sai pelo "ok") */
   liberacaoPendente?: boolean
+}
+
+/** Itens numerados (o dono pode dizer "tira o 2"): "1) 2× Banner 2,0 × 1,0 m — R$ 320,00" */
+export const listaNumerada = (itens: ItemMensagem[]) => itens.map((i, k) => `${k + 1}) ${linhaItemMensagem(i)}`).join('\n')
+
+/** O fim de todo aviso: itens numerados, desconto, total, o que conferir e como enviar (ou liberar) */
+function corpoDoAviso(a: AvisoOrcamento): string[] {
+  const linhas = [listaNumerada(a.itens)]
+  if (a.desconto && Number(a.desconto) > 0) linhas.push(`Desconto: −${formatarMoeda(a.desconto)}`)
+  linhas.push(`Total: *${formatarMoeda(a.total)}*`)
+  if (a.conferir.length) linhas.push(`Confira: ${a.conferir.join('; ')}`)
+  linhas.push('')
+  linhas.push(
+    a.liberacaoPendente
+      ? `Ele precisa da liberação de um gerente antes de sair. Abra para liberar: ${a.link}`
+      : `Responda *ok* a esta mensagem para enviar ao cliente, ou abra para ajustar: ${a.link}`,
+  )
+  return linhas
 }
 
 /** O aviso do orçamento montado (📝 ou pedido no "Você"): itens, total, o que conferir e como enviar */
@@ -353,15 +378,55 @@ export function textoAvisoOrcamento(a: AvisoOrcamento, origem: 'reacao' | 'voce'
         : origem === 'pela_referencia'
           ? `É este? ${a.numero} para ${a.cliente}:`
           : `📝 Orçamento ${a.numero} para ${a.cliente}${a.clienteNovo ? ' (novo cliente)' : ''}:`
-  const linhas = [titulo, listaItensMensagem(a.itens), `Total: *${formatarMoeda(a.total)}*`]
-  if (a.conferir.length) linhas.push(`Confira: ${a.conferir.join('; ')}`)
-  linhas.push('')
-  linhas.push(
-    a.liberacaoPendente
-      ? `Ele precisa da liberação de um gerente antes de sair. Abra para liberar: ${a.link}`
-      : `Responda *ok* a esta mensagem para enviar ao cliente, ou abra para ajustar: ${a.link}`,
-  )
-  return linhas.join('\n')
+  return [...(a.antes ? [a.antes] : []), titulo, ...corpoDoAviso(a)].join('\n')
+}
+
+/** 📝 de novo do mesmo cliente: o que entrou e o orçamento inteiro como ficou */
+export function textoAcrescimo(a: AvisoOrcamento & { novos: ItemMensagem[] }): string {
+  const quantos = a.itens.length === 1 ? '1 item' : `${a.itens.length} itens`
+  return [`➕ Acrescentei ao ${a.numero} (${a.cliente}):`, listaItensMensagem(a.novos), '', `Agora são ${quantos}:`, ...corpoDoAviso(a)].join('\n')
+}
+
+/** Ajuste pedido no "Você" ("10% de desconto", "tira o 2"): o que foi feito e o orçamento inteiro */
+export function textoAjuste(a: AvisoOrcamento & { feito: string }): string {
+  return [`✏️ ${a.numero} atualizado (${a.feito}):`, ...corpoDoAviso(a)].join('\n')
+}
+
+// ─── 📝 de novo do mesmo cliente: acrescentar ou criar outro ───
+
+/** Rascunho do mesmo cliente criado há menos que isto recebe os itens da 📝 nova (um orçamento só) */
+export const JANELA_ACRESCENTAR_MS = 12 * 3_600_000
+
+export type DestinoDaReacao = { acao: 'acrescentar'; rascunho: RascunhoCanal } | { acao: 'criar'; anterior: RascunhoCanal | null }
+
+/**
+ * A 📝 nova do mesmo cliente: o rascunho dele das últimas 12 horas ainda pendente (rascunho, não enviado, não
+ * descartado) recebe os itens no fim; se o último já foi enviado, aprovado, convertido ou descartado, nasce outro (e o
+ * aviso diz o que houve com o anterior). Editado no sistema depois do aviso continua valendo: só entram itens no fim.
+ */
+export function destinoDaReacao(doCliente: RascunhoCanal[], agora: Date): DestinoDaReacao {
+  const recentes = doCliente.filter((r) => agora.getTime() - r.criadoEm.getTime() <= JANELA_ACRESCENTAR_MS).sort((a, b) => b.criadoEm.getTime() - a.criadoEm.getTime())
+  const pendente = recentes.find(estaPendente)
+  if (pendente) return { acao: 'acrescentar', rascunho: pendente }
+  return { acao: 'criar', anterior: recentes[0] ?? null }
+}
+
+/** "O ORC-0112 já foi enviado; montei um novo:" */
+export function linhaDoAnterior(r: RascunhoCanal): string {
+  const estado = r.descartadoEm
+    ? 'foi tirado da lista'
+    : r.enviadoEm || r.status === 'enviado' || r.status === 'em_negociacao'
+      ? 'já foi enviado'
+      : r.status === 'aprovado'
+        ? 'já foi aprovado'
+        : r.status === 'convertido'
+          ? 'já virou pedido'
+          : r.status === 'recusado'
+            ? 'foi recusado'
+            : r.status === 'expirado'
+              ? 'expirou'
+              : 'não está mais como rascunho'
+  return `O ${r.numero} ${estado}; montei um novo:`
 }
 
 /** "Qual envio? 1) … 2) … Responda 1, 2 ou *todos*." */
@@ -423,7 +488,7 @@ export function textoNota(n: NotaCompraLida, link: string): string {
     ...(n.jaLancada ? [`essa nota parece já lançada (entrada ${n.jaLancada.numero})`] : []),
   ]
   if (conferir.length) linhas.push(`Confira: ${conferir.join('; ')}`)
-  linhas.push('', `Abra para conferir e registrar a entrada (nada entra no estoque sem você tocar em "Registrar entrada"): ${link}`)
+  linhas.push('', `Ela já está no sistema em Estoque › Entradas, esperando sua conferência (nada entra no estoque sem você tocar em "Registrar entrada"): ${link}`)
   return linhas.join('\n')
 }
 
@@ -436,4 +501,27 @@ export function nomeDoPedido(texto: string): string | null {
   const m = /\b(?:or[cç]amento|or[cç]a|orc)\s+(?:pra|para|pro)\s+(?:(?:a|o|os|as)\s+)?([^:,;\d\n]+)/i.exec(texto)
   const nome = m?.[1]?.replace(/\s+(?:de|com|e)\s*$/i, '').trim()
   return nome && nome.length >= 2 && nome.split(/\s+/).length <= 6 ? nome : null
+}
+
+// ─── Ajuste pelo "Você": para qual orçamento ───
+
+export type DecisaoAjuste =
+  | { acao: 'ajustar'; rascunho: RascunhoCanal }
+  /** Não está mais pendente (enviado, aprovado…): não altera, diz o estado */
+  | { acao: 'estado'; rascunho: RascunhoCanal }
+  | { acao: 'apagado' }
+  /** Vários pendentes recentes: pergunta qual (o ajuste se faz citando o aviso) */
+  | { acao: 'perguntar'; rascunhos: RascunhoCanal[] }
+  | { acao: 'nenhum' }
+
+/** A mesma regra do "ok": o orçamento do aviso citado; sem citar, só com exatamente um pendente avisado há pouco */
+export function escolherParaAjustar(ctx: { citado: AvisoCitado | null; rascunhos: RascunhoCanal[]; agora: Date }): DecisaoAjuste {
+  if (ctx.citado) {
+    const r = ctx.rascunhos.find((x) => x.orcamentoId === ctx.citado!.orcamentoId)
+    if (!r) return { acao: 'apagado' }
+    return estaPendente(r) ? { acao: 'ajustar', rascunho: r } : { acao: 'estado', rascunho: r }
+  }
+  const lista = recentes(ctx.rascunhos, ctx.agora)
+  if (lista.length === 1) return { acao: 'ajustar', rascunho: lista[0]! }
+  return lista.length > 1 ? { acao: 'perguntar', rascunhos: lista } : { acao: 'nenhum' }
 }

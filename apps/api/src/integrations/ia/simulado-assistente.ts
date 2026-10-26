@@ -64,3 +64,50 @@ export function notaCompraSimulada(_conteudo: string, anexos: AnexoIA[] = []) {
   if (anexos.some((a) => /demo/i.test(a.nome))) return NOTA_DEMO
   return { eh_nota: false, fornecedor_cnpj: null, fornecedor_nome: null, numero: null, serie: null, emissao: null, itens: [], total_nota: null, parcelas: [] }
 }
+
+// ─── Ajuste do orçamento pedido no "Você" ───
+
+/**
+ * Operações do ajuste por palavras-chave (imita o modelo nos comandos básicos): desconto em % ou em reais, "faz por",
+ * acrescentar, tirar (pelo número ou pelo nome do item), quantidade, medidas, acabamento, à vista/Pix e prazo. Itens
+ * vêm nas linhas "I1 | descrição | acabamentos…".
+ */
+export function ajusteSimulado(conteudo: string) {
+  const texto = /<ajuste_pedido>\n?([\s\S]*?)\n?<\/ajuste_pedido>/.exec(conteudo)?.[1]?.trim() ?? ''
+  const t = semAcentos(texto).toLowerCase()
+  const itens = conteudo
+    .split('\n')
+    .filter((l) => /^I\d+ \| /.test(l))
+    .map((l) => semAcentos(l.split(' | ')[1] ?? '').toLowerCase())
+  const op = (o: Record<string, unknown>) => ({ tipo: 'outro', item: null, numero: null, altura: null, texto: null, incluir: null, sinal_percentual: null, parcelas: null, forma: null, ...o })
+  /** Item pelo número ("o 2", "item 2") ou pela palavra ("os panfletos" → o item que tem "panflet") */
+  const itemDe = (trecho: string): number | null => {
+    const n = /\b(?:item\s*)?(\d{1,2})\b/.exec(trecho)
+    if (n && !/\d\s*(x|%|reais)/.test(trecho)) return Number(n[1])
+    const palavra = /\b(?:os|as|o|a)?\s*([a-z]{4,})/.exec(trecho)?.[1]
+    if (!palavra) return itens.length === 1 ? 1 : null
+    const raiz = palavra.replace(/(oes|aes|s|es)$/, '').slice(0, 6)
+    const achados = itens.map((d, k) => (d.includes(raiz) ? k + 1 : 0)).filter(Boolean)
+    return achados.length === 1 ? achados[0]! : null
+  }
+  const operacoes: ReturnType<typeof op>[] = []
+  let m: RegExpExecArray | null
+  if ((m = /(\d+(?:[.,]\d+)?)\s*%/.exec(t))) operacoes.push(op({ tipo: 'desconto_percentual', numero: Number(m[1]!.replace(',', '.')) }))
+  else if ((m = /desconto de (?:r\$\s*)?(\d+(?:[.,]\d+)?)/.exec(t))) operacoes.push(op({ tipo: 'desconto_valor', numero: Number(m[1]!.replace(',', '.')) }))
+  else if ((m = /(?:faz|fecha|fechar|deixa) (?:por|em) (?:r\$\s*)?(\d+(?:[.,]\d+)?)/.exec(t))) operacoes.push(op({ tipo: 'total_final', numero: Number(m[1]!.replace(',', '.')) }))
+  if ((m = /\b(?:acrescenta|adiciona|inclui)\s+(.+)$|\bmais\s+(\d.*)$/.exec(t))) operacoes.push(op({ tipo: 'acrescentar', texto: (m[1] ?? m[2])!.trim() }))
+  if ((m = /\b(?:tira|tirar|remove|remover|retira)\s+(.+)$/.exec(t))) operacoes.push(op({ tipo: 'remover', item: itemDe(m[1]!) }))
+  if ((m = /\bmuda\s+(.+?)\s+para\s+(\d+)\b(?!\s*x)/.exec(t))) operacoes.push(op({ tipo: 'quantidade', item: itemDe(m[1]!), numero: Number(m[2]) }))
+  if ((m = /\b(o|a)\s+([a-z]+)\s+e\s+(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/.exec(t))) {
+    operacoes.push(op({ tipo: 'medidas', item: itemDe(m[2]!), numero: Number(m[3]!.replace(',', '.')), altura: Number(m[4]!.replace(',', '.')) }))
+  }
+  if ((m = /\b(com|sem)\s+([a-z]{4,})/.exec(t)) && !/\bsem entrada\b/.test(t)) operacoes.push(op({ tipo: 'acabamento', item: itens.length === 1 ? 1 : null, texto: m[2], incluir: m[1] === 'com' }))
+  // A forma dita ("no Pix", "no boleto"): o sistema confere com as cadastradas
+  const formaDita = /\b(?:no|na|pelo|pela|em)\s+(pix|boleto|cartao|dinheiro|debito|credito|transferencia)\b/.exec(t)?.[1]
+  const forma = formaDita ? (formaDita === 'pix' ? 'Pix' : formaDita[0]!.toUpperCase() + formaDita.slice(1)) : null
+  if (/\ba vista\b|\bavista\b/.test(t)) operacoes.push(op({ tipo: 'pagamento', sinal_percentual: 100, parcelas: 0, forma }))
+  else if (forma) operacoes.push(op({ tipo: 'pagamento', forma }))
+  if ((m = /\b(?:entrega|entregar|precisa)\s+(?:pra|para|ate|na|no)?\s*(.+)$/.exec(t))) operacoes.push(op({ tipo: 'prazo', texto: m[1]!.trim() }))
+  const duvida = operacoes.some((o) => ['remover', 'quantidade', 'medidas', 'acabamento'].includes(o.tipo) && o.item === null) ? 'Qual item?' : null
+  return { operacoes: operacoes.filter((o) => o.tipo !== 'outro'), confianca: operacoes.length && !duvida ? 0.9 : 0.4, duvida }
+}

@@ -1,4 +1,4 @@
-import type { AssistenteEmpresa, ControlesAssistente, DescricaoAssistenteInput, DescricaoSugerida, NotaCompraLida, OrcamentoDeTexto, ProdutoSugerido, RegrasDeTexto, RespostaPedir } from '@onprint/shared'
+import type { AssistenteEmpresa, ControlesAssistente, DescricaoAssistenteInput, DescricaoSugerida, NotaCompraLida, NotaWhatsappPendente, OrcamentoDeTexto, ProdutoSugerido, RegrasDeTexto, RespostaPedir } from '@onprint/shared'
 import { http, upload } from './http'
 
 /** Assistente GrafyGo na empresa: controles (Configurações → Assistente) e as ajudas internas (nada é salvo por elas). */
@@ -15,6 +15,9 @@ export const assistenteApi = {
   nota: (arquivo: File) => upload<NotaCompraLida>('/assistente/pedir/nota', arquivo),
   /** Nota mandada na conversa "Você" do WhatsApp (já lida e guardada): abre a Nova entrada preenchida */
   notaWhatsapp: (id: string) => http<NotaCompraLida>(`/assistente/notas-whatsapp/${id}`),
+  /** Notas lidas pelo WhatsApp esperando conferência (faixa da tela de Entradas) */
+  notasWhatsapp: () => http<NotaWhatsappPendente[]>('/assistente/notas-whatsapp'),
+  descartarNotaWhatsapp: (id: string) => http<{ descartada: boolean }>(`/assistente/notas-whatsapp/${id}/descartar`, { method: 'POST' }),
 }
 
 /** Chave do React Query (o uso do mês muda a cada ajuda: invalide depois de usar) */

@@ -171,3 +171,23 @@ export interface EstadoDoAssistente {
   notaAssistente?: NotaCompraLida
   produtoAssistente?: string
 }
+
+// ─── Nota de compra lida pelo WhatsApp (conversa "Você"), esperando conferência em Entradas de estoque ───
+
+/** pendente: na faixa "Notas lidas pelo WhatsApp"; registrada: virou entrada; descartada: tirada da faixa */
+export const SITUACOES_NOTA_WHATSAPP = ['pendente', 'registrada', 'descartada'] as const
+export type SituacaoNotaWhatsapp = (typeof SITUACOES_NOTA_WHATSAPP)[number]
+
+/** Uma nota da faixa (o resumo da leitura guardada) */
+export interface NotaWhatsappPendente {
+  id: string
+  numero: string | null
+  fornecedor: string
+  /** Decimal da API (vNF) */
+  total: string
+  itens: number
+  /** Quando chegou pelo WhatsApp (ISO) */
+  recebidaEm: string
+  /** Já existe entrada com o mesmo número e fornecedor (lançada por outro caminho) */
+  jaLancada: { id: string; numero: string } | null
+}

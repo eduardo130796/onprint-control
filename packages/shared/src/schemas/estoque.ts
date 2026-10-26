@@ -30,6 +30,8 @@ export const entradaEstoqueSchema = z.object({
   fornecedorId: uuidOpcional,
   localId: z.string().uuid('Escolha o local.'),
   notaFiscal: textoOpcional,
+  /** Entrada conferida a partir de uma nota lida pelo WhatsApp (conversa "Você"): a nota sai da faixa de pendentes */
+  notaWhatsappId: uuidOpcional,
   dataEntrada: dataISO,
   observacoes: textoOpcional,
   itens: z.array(entradaItemSchema).min(1, 'Inclua ao menos um item.').max(200),

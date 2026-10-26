@@ -6,6 +6,7 @@ import { AppError } from '../../core/AppError'
 import { registrarAuditoria } from '../../core/auditoria'
 import { proximoNumero } from '../../core/numeracao'
 import { paginacao, paginado } from '../../core/paginacao'
+import { marcarNotaRegistrada } from '../assistente/notas-whatsapp'
 import { categoriaPorCodigo } from '../financeiro/baixa'
 import { criarCustosService } from '../produtos/custos.service'
 import { formatarProdutoRef, produtoRef } from './consultas'
@@ -173,6 +174,8 @@ export function criarEntradasService(app: FastifyInstance) {
         const contasPagar = d.contaPagar && fornecedor ? await lancarContasPagar(tx, d.contaPagar, { numero: entrada.numero, notaFiscal: d.notaFiscal ?? null, fornecedor }, usuarioId) : []
         // Nota lida pelo Assistente: lembra o código do produto neste fornecedor → insumo confirmado (próxima nota já vem certa)
         if (fornecedor) await lembrarCodigos(tx, fornecedor.id, d.memoria ?? [], new Set(itens.map((i) => i.produtoId)))
+        // Conferida a partir da nota lida pelo WhatsApp: a nota vira "registrada" e sai da faixa (uma vez só)
+        if (d.notaWhatsappId) await marcarNotaRegistrada(tx, d.notaWhatsappId, entrada.id)
         await registrarAuditoria(tx, { tabela: 'estoque_entradas', registroId: entrada.id, acao: 'criar', depois: { numero: entrada.numero, total, itens: itens.length, contasPagar }, usuarioId })
         return entrada.id
       })

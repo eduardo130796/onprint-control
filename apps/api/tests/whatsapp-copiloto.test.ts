@@ -244,7 +244,7 @@ describe('Copiloto: textos do "Você"', () => {
     expect(aviso).toBe(
       [
         '📝 Orçamento ORC-2026-0105 para Eduardo Júnior (novo cliente):',
-        '• 1× Banner 2,0 × 1,8 m — R$ 272,00',
+        '1) 1× Banner 2,0 × 1,8 m — R$ 272,00',
         'Total: *R$ 552,00*',
         'Confira: medida do banner',
         '',

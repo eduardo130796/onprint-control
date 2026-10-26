@@ -1,10 +1,11 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import type { FastifyRequest } from 'fastify'
-import type { Acao, Modulo, NotaCompraLida } from '@onprint/shared'
+import type { Acao, Modulo } from '@onprint/shared'
 import { controlesAssistenteSchema, descricaoAssistenteSchema, idParamSchema, orcamentoDeTextoSchema, pedirAssistenteSchema, produtoDeTextoSchema, regrasDeTextoSchema } from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { criarAjudasAssistente } from './ajudas.service'
 import { criarAssistenteEmpresa } from './empresa.service'
+import { criarNotasWhatsapp } from './notas-whatsapp'
 import { criarPedirService, tipoDoArquivo } from './pedir.service'
 
 const tags = ['assistente']
@@ -17,6 +18,7 @@ export const assistenteEmpresaRoutes: FastifyPluginAsyncZod = async (app) => {
   const empresa = criarAssistenteEmpresa(app)
   const ajudas = criarAjudasAssistente(app)
   const pedir = criarPedirService(app)
+  const notas = criarNotasWhatsapp(app)
   // Uma IA por clique: limite generoso por pessoa (as descrições em lote vão uma a uma)
   const limite = (max: number) => ({ rateLimit: { max, timeWindow: '1 minute' } })
 
@@ -77,15 +79,20 @@ export const assistenteEmpresaRoutes: FastifyPluginAsyncZod = async (app) => {
       return pedir.nota(request, { nome: parte.filename, mediaType, conteudo })
     },
   )
-  // Nota mandada na conversa "Você" do WhatsApp: a leitura guardada abre a "Nova entrada" preenchida (nada é registrado)
+  // Notas mandadas na conversa "Você" do WhatsApp: a faixa de Entradas (pendentes), a leitura guardada que abre a
+  // "Nova entrada" preenchida e o descarte (nada é registrado aqui: a entrada registra e marca a nota)
+  app.get('/notas-whatsapp', { onRequest: [app.exigirPermissao('estoque', 'criar')], schema: { tags, summary: 'Notas lidas pelo WhatsApp esperando conferência' } }, () =>
+    notas.pendentes(),
+  )
   app.get(
     '/notas-whatsapp/:id',
     { onRequest: [app.exigirPermissao('estoque', 'criar')], schema: { tags, summary: 'Nota de compra lida no WhatsApp (canal "Você") para a Nova entrada', params: idParamSchema } },
-    async (request) => {
-      const n = await app.prisma.notaWhatsapp.findUnique({ where: { id: request.params.id }, select: { leitura: true } })
-      if (!n) throw AppError.naoEncontrado('Nota não encontrada.')
-      return n.leitura as unknown as NotaCompraLida
-    },
+    (request) => notas.paraEntrada(request.params.id),
+  )
+  app.post(
+    '/notas-whatsapp/:id/descartar',
+    { onRequest: [app.exigirPermissao('estoque', 'criar')], schema: { tags, summary: 'Tira a nota lida pelo WhatsApp da faixa de conferência', params: idParamSchema } },
+    (request) => notas.descartar(request.params.id),
   )
   app.post(
     '/descricao',

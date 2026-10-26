@@ -21,6 +21,7 @@ export const VERSOES_PROMPTS: Record<TarefaIA, string> = {
   regras_texto: 'regras-de-texto@1',
   intencao: 'intencao-do-pedido@1',
   nota_compra: 'nota-de-compra@1',
+  ajuste_orcamento: 'ajuste-do-orcamento@1',
 }
 
 /**
@@ -37,6 +38,8 @@ export const AJUSTES_TAREFAS: Record<TarefaIA, { esforco: EsforcoIA; maxTokens: 
   intencao: { esforco: 'low', maxTokens: 1024 },
   // Ler a nota inteira (foto/PDF) com todos os itens
   nota_compra: { esforco: 'medium', maxTokens: 4096 },
+  // Ajuste do orçamento no "Você": só transformar o pedido em operações (barato)
+  ajuste_orcamento: { esforco: 'low', maxTokens: 1024 },
 }
 
 /** Telefones, documentos (8+ dígitos, com ou sem separadores) e e-mails viram marcadores antes de sair do servidor */

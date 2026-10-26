@@ -562,8 +562,13 @@ model NotaWhatsapp {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   leitura   Json
   arquivo   String?
+  /// pendente (faixa "Notas lidas pelo WhatsApp" em Entradas) | registrada (virou a entrada entrada_id) | descartada
+  situacao    String    @default("pendente")
+  resolvidaEm DateTime? @map("resolvida_em") @db.Timestamptz(3)
+  entradaId   String?   @map("entrada_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
+  @@index([situacao, createdAt])
   @@map("notas_whatsapp")
 }
 

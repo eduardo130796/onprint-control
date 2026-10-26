@@ -180,6 +180,7 @@ export function NovaEntradaPage() {
     setLendoNota(true)
     try {
       await carregarNota(await assistenteApi.nota(f))
+      setNotaWhatsappCarregada(null)
       toast.success('Nota lida. Confira e registre a entrada.')
     } catch (e) {
       toast.error((e as Error).message)
@@ -204,6 +205,8 @@ export function NovaEntradaPage() {
   // registrado sem "Registrar entrada"
   const [buscaNota] = useSearchParams()
   const [notaWhatsapp] = useState(() => buscaNota.get('notaWhatsapp'))
+  /** A nota do WhatsApp que preencheu a tela (vai junto ao registrar; outra nota lida aqui tira) */
+  const [notaWhatsappCarregada, setNotaWhatsappCarregada] = useState<string | null>(null)
   useEffect(() => {
     if (!notaWhatsapp) return
     setLendoNota(true)
@@ -211,6 +214,7 @@ export function NovaEntradaPage() {
       .notaWhatsapp(notaWhatsapp)
       .then(async (n) => {
         await carregarNota(n)
+        setNotaWhatsappCarregada(notaWhatsapp)
         toast.success('Nota do WhatsApp carregada. Confira e registre a entrada.')
       })
       .catch((e: Error) => toast.error(e.message))
@@ -283,6 +287,8 @@ export function NovaEntradaPage() {
         fornecedorId,
         localId: local,
         notaFiscal,
+        // Conferida a partir da nota lida pelo WhatsApp: ao registrar, ela sai da faixa de pendentes
+        notaWhatsappId: notaWhatsappCarregada,
         dataEntrada,
         observacoes,
         // Em embalagens: converte para a unidade de uso (a API recebe sempre a unidade de uso); o mesmo insumo em duas linhas da nota vira uma

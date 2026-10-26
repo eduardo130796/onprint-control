@@ -29,10 +29,11 @@ export async function quemAvisar(prisma: PrismaClient, vendedorId: string | null
 }
 
 /** Notificação no sino (e o aviso flutuante, com `toast`) de cada usuário */
-export async function notificarEquipe(app: App, usuarios: string[], dados: { titulo: string; mensagem: string; link: string }, toast: boolean) {
+/** `extra`: vai junto no tempo real (ex.: { estoque: true } atualiza as telas de estoque) */
+export async function notificarEquipe(app: App, usuarios: string[], dados: { titulo: string; mensagem: string; link: string }, toast: boolean, extra: object = {}) {
   for (const usuarioId of usuarios) {
     await app.prisma.notificacao.create({ data: { usuarioId, ...dados } })
-    app.tempoReal.emitir(`usuario:${usuarioId}`, 'notificacao:nova', { titulo: dados.titulo, link: dados.link, toast })
+    app.tempoReal.emitir(`usuario:${usuarioId}`, 'notificacao:nova', { titulo: dados.titulo, link: dados.link, toast, ...extra })
   }
 }
 

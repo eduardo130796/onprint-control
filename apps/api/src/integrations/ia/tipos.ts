@@ -3,7 +3,7 @@ import type { ProvedorIA as NomeProvedorIA } from '@onprint/shared'
 /** Tipos do provedor de IA (ver index.ts) */
 
 /** Tarefas conhecidas (o simulado responde cada uma com regras simples) */
-export type TarefaIA = 'classificar_resposta' | 'orcamento_texto' | 'produto_texto' | 'descricao' | 'regras_texto' | 'intencao' | 'nota_compra'
+export type TarefaIA = 'classificar_resposta' | 'orcamento_texto' | 'produto_texto' | 'descricao' | 'regras_texto' | 'intencao' | 'nota_compra' | 'ajuste_orcamento'
 
 /** Arquivo lido junto do conteúdo (foto ou PDF do DANFE): vai antes do texto, como bloco de imagem ou documento */
 export interface AnexoIA {

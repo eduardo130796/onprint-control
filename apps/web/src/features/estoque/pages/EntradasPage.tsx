@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useListagem } from '@/hooks/useListagem'
+import { NotasDoWhatsapp } from '../components/NotasDoWhatsapp'
 import { buscarTodasPaginas } from '@/lib/paginacao'
 import { formatarQuantidade } from '@/lib/quantidade'
 
@@ -110,6 +111,7 @@ export function EntradasPage() {
         }
       />
       <AbasNavegacao rotulo="Estoque" abas={ABAS_ESTOQUE} />
+      <NotasDoWhatsapp />
       <DataTable
         colunas={colunas}
         resultado={consulta.data}

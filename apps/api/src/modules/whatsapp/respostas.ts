@@ -147,6 +147,8 @@ export type Decisao =
 
 /** Texto sem citar a mensagem vale para o único orçamento aberto enviado ao número nestes dias */
 export const JANELA_RESPOSTA_MS = 30 * 86_400_000
+/** Orçamento enviado este tempo depois da última movimentação dos outros abertos do número: a resposta sem citar é dele */
+export const CONVERSA_NOVA_MS = 30 * 60_000
 /** Outra mensagem sem intenção clara no mesmo orçamento logo depois: registra, sem notificar de novo */
 export const SILENCIO_NOTIFICACAO_MS = 10 * 60_000
 /** "Já avisei a equipe" sai uma vez; outro pedido de mudança nestas horas não repete a resposta */
@@ -184,6 +186,15 @@ export function decidirResposta(r: Recebida, candidatos: OrcamentoEnviado[], opc
       // Vários envios do mesmo orçamento contam como um (fica o mais recente)
       const porOrcamento = [...abertos].sort((a, b) => b.enviadaEm.getTime() - a.enviadaEm.getTime()).filter((c, i, l) => l.findIndex((x) => x.orcamentoId === c.orcamentoId) === i)
       if (porOrcamento.length === 0) return { acao: 'ignorar', motivo: 'sem orçamento aberto para o número' }
+      const [maisNovo, ...anteriores] = porOrcamento
+      // A conversa mudou de assunto: o mais novo saiu bem depois da última movimentação dos outros, e a resposta é dele
+      // (dois orçamentos enviados juntos continuam ambíguos). Resposta que ficou "sem dono" (registrada também no mais
+      // novo) não é conversa sobre o antigo.
+      const ultimaMovimentacao = (c: OrcamentoEnviado) =>
+        Math.max(c.enviadaEm.getTime(), c.respostaEm && c.respostaIdExterno !== maisNovo?.respostaIdExterno ? c.respostaEm.getTime() : 0)
+      if (maisNovo && anteriores.length && anteriores.every((c) => maisNovo.enviadaEm.getTime() - ultimaMovimentacao(c) >= CONVERSA_NOVA_MS)) {
+        porOrcamento.splice(1)
+      }
       if (porOrcamento.length > 1) {
         if (porOrcamento.every((c) => c.respostaIdExterno === r.idMensagem)) return { acao: 'ignorar', motivo: 'repetida' }
         // Não se sabe de qual: fica registrada como resposta "a confirmar" em cada um (nunca como aprovado)

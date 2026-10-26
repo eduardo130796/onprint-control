@@ -136,6 +136,19 @@ describe('WhatsApp respostas: decisão', () => {
     expect(d).toMatchObject({ acao: 'notificar', motivo: 'varios', resposta: 'outra' })
     if (d.acao === 'notificar') expect(d.alvos.map((a) => a.numero)).toEqual(['ORC-1', 'ORC-2'])
   })
+  it('orçamento novo bem depois da última conversa sobre o antigo: a resposta sem citar é do novo', () => {
+    const hora = 3_600_000
+    // O antigo saiu há 3 h e o cliente respondeu há 2 h; o novo saiu há 10 min (caso real do teste com o celular)
+    const velho = orc({ enviadaEm: new Date(agora.getTime() - 3 * hora), resposta: 'modificacoes', respostaEm: new Date(agora.getTime() - 2 * hora) })
+    const novo = orc({ orcamentoId: 'o2', mensagemId: 'm2', numero: 'ORC-2', idExterno: 'TXT2', enqueteId: 'P2', enviadaEm: new Date(agora.getTime() - 10 * 60_000) })
+    expect(decidirResposta(texto('pode fazer'), [velho, novo], ligado)).toMatchObject({ acao: 'aprovar', alvo: { orcamentoId: 'o2' } })
+    // Uma dúvida que ficou "sem dono" foi registrada nos dois: não conta como conversa sobre o antigo
+    const duvida = { resposta: 'outra' as const, respostaEm: new Date(agora.getTime() - 5 * 60_000), respostaIdExterno: 'DUVIDA' }
+    expect(decidirResposta(texto('fechado pode fazer'), [{ ...velho, ...duvida }, { ...novo, ...duvida }], ligado)).toMatchObject({ acao: 'aprovar', alvo: { orcamentoId: 'o2' } })
+    // Enviados com poucos minutos de diferença: continua sem saber de qual
+    const junto = orc({ orcamentoId: 'o2', mensagemId: 'm2', numero: 'ORC-2', enviadaEm: new Date(agora.getTime() - 3 * hora + 5 * 60_000) })
+    expect(decidirResposta(texto('aprovado'), [orc({ enviadaEm: new Date(agora.getTime() - 3 * hora) }), junto], ligado)).toMatchObject({ acao: 'notificar', motivo: 'varios' })
+  })
   it('sem orçamento aberto para o número: conversa normal, nada acontece', () => {
     expect(decidirResposta(texto('bom dia'), [], ligado).acao).toBe('ignorar')
     expect(decidirResposta(texto('aprovado'), [orc({ status: 'rascunho' })], ligado).acao).toBe('ignorar')

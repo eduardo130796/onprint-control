@@ -1,21 +1,22 @@
 import { Check } from 'lucide-react'
-import { FORMATOS_APROVACAO, FORMATO_APROVACAO_ROTULOS, OPCOES_ENQUETE_ORCAMENTO, type FormatoAprovacao } from '@onprint/shared'
+import { FORMATOS_APROVACAO, FORMATO_APROVACAO_ROTULOS, LINHA_APROVACAO_CONVERSA, OPCOES_ENQUETE_ORCAMENTO, type FormatoAprovacao } from '@onprint/shared'
 import { cn } from '@/lib/utils'
 
 const EXPLICACAO: Record<FormatoAprovacao, string> = {
+  conversa: 'Sem enquete nem número: o cliente responde do jeito dele (“pode fazer”, “fechado”, 👍) e o sistema entende.',
   enquete: 'Depois do orçamento vai uma enquete. O cliente toca em Aprovado ou em Quero modificações.',
   numeros: 'O cliente responde 1 para aprovar ou 2 para pedir mudança. Bom para quem estranha enquete.',
 }
 
 /**
- * "Como o cliente aprova o orçamento" (tela WhatsApp): enquete ou responder 1/2, cada um com uma prévia pequena da
- * conversa. O "aprovado" escrito vale nos dois.
+ * "Como o cliente aprova o orçamento" (tela WhatsApp): conversa natural (recomendada), enquete ou responder 1/2, cada
+ * um com uma prévia pequena da conversa. O "aprovado" escrito vale em todos.
  */
 export function FormatoAprovacaoEscolha({ valor, onMudar, desabilitado }: { valor: FormatoAprovacao; onMudar: (f: FormatoAprovacao) => void; desabilitado?: boolean }) {
   return (
     <fieldset className="space-y-2">
       <legend className="text-sm font-medium text-tinta">Como o cliente aprova o orçamento</legend>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
         {FORMATOS_APROVACAO.map((f) => {
           const marcado = valor === f
           return (
@@ -30,16 +31,21 @@ export function FormatoAprovacaoEscolha({ valor, onMudar, desabilitado }: { valo
               <span className="flex items-start gap-2">
                 <input type="radio" name="formato-aprovacao" value={f} checked={marcado} disabled={desabilitado} onChange={() => onMudar(f)} className="mt-0.5 h-4 w-4 shrink-0 accent-marca" />
                 <span className="min-w-0">
-                  <span className="block text-sm font-medium text-tinta">{FORMATO_APROVACAO_ROTULOS[f]}</span>
+                  <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-tinta">
+                    {FORMATO_APROVACAO_ROTULOS[f]}
+                    {f === 'conversa' && <span className="rounded-full bg-verde/15 px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-green-800">Recomendado</span>}
+                  </span>
                   <span className="block text-xs text-texto-secundario">{EXPLICACAO[f]}</span>
                 </span>
               </span>
-              {f === 'enquete' ? <PreviaEnquete /> : <PreviaNumeros />}
+              {f === 'conversa' ? <PreviaConversa /> : f === 'enquete' ? <PreviaEnquete /> : <PreviaNumeros />}
             </label>
           )
         })}
       </div>
-      <p className="text-xs text-texto-secundario">Nos dois, escrever “aprovado” também aprova. O link de aprovação continua no fim da mensagem.</p>
+      <p className="text-xs text-texto-secundario">
+        Em todos, escrever “aprovado” também aprova; pergunta ou dúvida nunca aprova (vai para o vendedor). O link de aprovação continua no fim da mensagem.
+      </p>
     </fieldset>
   )
 }
@@ -54,6 +60,15 @@ function Conversa({ children }: { children: React.ReactNode }) {
 
 const recebida = 'mr-6 w-fit max-w-full rounded-lg rounded-tl-sm bg-white px-2 py-1 shadow-sm dark:bg-[#202c33]'
 const enviada = 'ml-auto w-fit rounded-lg rounded-tr-sm bg-[#d9fdd3] px-2 py-1 shadow-sm dark:bg-[#005c4b]'
+
+function PreviaConversa() {
+  return (
+    <Conversa>
+      <span className={recebida}>{LINHA_APROVACAO_CONVERSA}</span>
+      <span className={enviada}>Pode fazer 👍</span>
+    </Conversa>
+  )
+}
 
 function PreviaEnquete() {
   return (

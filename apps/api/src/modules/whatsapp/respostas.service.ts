@@ -15,11 +15,14 @@ import { FUSO } from './regras'
 import { controlesDaEmpresa } from '../assistente/empresa.service'
 import { contextoDoCerebro, montarCerebro } from '../assistente/cerebro'
 import { pedidoClassificarResposta, primeiroNome } from '../assistente/prompts'
+import { criarConversasWhatsapp, type EventoConversa } from './conversas.service'
 import { VIA_LENDO, notificarEquipe, quemAvisar as quemAvisarNaEmpresa } from './leituras-presas'
 import {
   JANELA_RESPOSTA_MS,
   decidirPeloAssistente,
   decidirResposta,
+  desempilharResposta,
+  empilharResposta,
   numeroDaResposta,
   vaiParaAssistente,
   variantesDoNumero,
@@ -28,6 +31,7 @@ import {
   type MotivoNotificacao,
   type OrcamentoEnviado,
   type Recebida,
+  type RespostaGuardada,
 } from './respostas'
 import type { AvisoWebhook, EventoWebhook } from './webhook'
 
@@ -51,6 +55,32 @@ const incluirOrcamento = {
 /** Resposta lida pelo Assistente GrafyGo (resposta_via; enquanto lê: VIA_LENDO) */
 const VIA_ASSISTENTE = 'assistente'
 
+/** Os campos da resposta mais recente (a que vai para respostas_anteriores quando chega outra) */
+const camposDaResposta = {
+  resposta: true,
+  respostaVia: true,
+  respostaTexto: true,
+  respostaEm: true,
+  respostaIdExterno: true,
+  respostaIntencao: true,
+  respostaConfianca: true,
+  respostaResumo: true,
+} satisfies Prisma.MensagemWhatsappSelect
+
+function respostaGuardada(m: Prisma.MensagemWhatsappGetPayload<{ select: typeof camposDaResposta }>): RespostaGuardada | null {
+  if (!m.resposta || !m.respostaEm) return null
+  return {
+    resposta: m.resposta,
+    via: m.respostaVia,
+    texto: m.respostaTexto,
+    em: m.respostaEm.toISOString(),
+    idExterno: m.respostaIdExterno,
+    intencao: m.respostaIntencao,
+    confianca: m.respostaConfianca,
+    resumo: m.respostaResumo,
+  }
+}
+
 /** "24/10/2026 10:12" no horário de Brasília */
 const dataHora = (d: Date) =>
   new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(d).replace(',', '')
@@ -64,6 +94,8 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
   const { prisma } = app
   const orcamentos = criarOrcamentosService(app)
   const automatica = criarConversaoAutomatica(app, criarConversaoService(app, orcamentos))
+  // Mensagens que não viram resposta tratada de orçamento vão para as Conversas do WhatsApp
+  const conversas = criarConversasWhatsapp(app)
 
   type Linha = Awaited<ReturnType<typeof buscarLinhas>>[number]
 
@@ -95,14 +127,18 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
 
   /**
    * Grava a resposta na linha do orçamento enviado (a tela do orçamento e a lista do WhatsApp mostram), com o que o
-   * Assistente entendeu quando foi ele quem leu (ou "lendo", enquanto a leitura não volta).
+   * Assistente entendeu quando foi ele quem leu (ou "lendo", enquanto a leitura não volta). A resposta que estava lá
+   * (de outra mensagem) vai para respostas_anteriores: uma resposta nova nunca apaga a anterior.
    */
   async function registrar(mensagemId: string, resposta: TipoRespostaWhatsapp, r: Recebida, textoResposta: string | null, assistente?: LeituraAssistente | 'lendo') {
     const via = assistente === 'lendo' ? VIA_LENDO : assistente ? VIA_ASSISTENTE : r.tipo === 'voto' ? 'enquete' : 'texto'
     const leitura = assistente && assistente !== 'lendo' ? assistente : null
+    const atual = await prisma.mensagemWhatsapp.findUnique({ where: { id: mensagemId }, select: { ...camposDaResposta, respostasAnteriores: true } })
+    const anteriores = empilharResposta(atual?.respostasAnteriores, atual ? respostaGuardada(atual) : null, r.idMensagem)
     await prisma.mensagemWhatsapp.update({
       where: { id: mensagemId },
       data: {
+        ...(anteriores ? { respostasAnteriores: anteriores as unknown as Prisma.InputJsonValue } : {}),
         resposta,
         respostaVia: via,
         respostaTexto: textoResposta?.slice(0, 500) ?? null,
@@ -113,6 +149,59 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
         respostaResumo: leitura?.resumo.slice(0, 300) ?? null,
       },
     })
+  }
+
+  /**
+   * A mensagem não era resposta do orçamento (o Assistente leu: pedido novo, pergunta de outro pedido): a resposta
+   * anterior volta para o lugar. Só se ninguém respondeu depois (a resposta gravada ainda é esta mensagem).
+   */
+  async function restaurarResposta(mensagemId: string, idMensagem: string) {
+    const atual = await prisma.mensagemWhatsapp.findUnique({ where: { id: mensagemId }, select: { respostaIdExterno: true, respostasAnteriores: true } })
+    if (!atual || atual.respostaIdExterno !== idMensagem) return
+    const { volta, ficam } = desempilharResposta(atual.respostasAnteriores)
+    await prisma.mensagemWhatsapp.update({
+      where: { id: mensagemId },
+      data: {
+        resposta: volta?.resposta ?? null,
+        // Uma anterior que ficou "lendo" volta como texto (a recuperação das leituras presas não a pega de novo)
+        respostaVia: volta?.via === VIA_LENDO ? 'texto' : (volta?.via ?? null),
+        respostaTexto: volta?.texto ?? null,
+        respostaEm: volta ? new Date(volta.em) : null,
+        respostaIdExterno: volta?.idExterno ?? null,
+        respostaIntencao: volta?.intencao ?? null,
+        respostaConfianca: volta?.confianca ?? null,
+        respostaResumo: volta?.resumo ?? null,
+        respostasAnteriores: ficam.length ? (ficam as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
+      },
+    })
+  }
+
+  /**
+   * A mensagem de texto (ou mídia) também fica nas Conversas do WhatsApp: tratada (aprovou, pediu modificação) não
+   * pede ação; o resto aparece na lista com o que já se sabe (orçamento citado, leitura do Assistente, equipe avisada)
+   */
+  async function registrarNaConversa(empresa: EmpresaAtual, e: EventoConversa, d: Decisao) {
+    switch (d.acao) {
+      case 'ignorar':
+        if (d.motivo === 'repetida') return
+        await conversas.registrar(empresa, e, d.motivo === 'já aprovado' ? { tratada: true } : {})
+        return
+      case 'aprovar':
+      case 'modificar':
+        await conversas.registrar(empresa, e, { orcamentoId: d.alvo.orcamentoId, tratada: true })
+        return
+      case 'outro_assunto':
+        await conversas.registrar(empresa, e, { leitura: d.assistente })
+        return
+      default:
+        await conversas.registrar(empresa, e, {
+          orcamentoId: d.alvos.length === 1 ? d.alvos[0]!.orcamentoId : null,
+          // Aprovação esperando a confirmação da equipe: o aviso já foi, a ação é no orçamento
+          tratada: d.motivo === 'aprovacao_manual',
+          leitura: d.assistente ?? null,
+          jaAvisada: d.avisarEquipe,
+        })
+    }
   }
 
   /**
@@ -182,6 +271,12 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
     const gravarResposta = (mensagemId: string, resposta: TipoRespostaWhatsapp) => (gravar ? registrar(mensagemId, resposta, r, escrito, d.assistente) : Promise.resolve())
     const linhaDe = (c: OrcamentoEnviado) => linhas.find((l) => l.id === c.mensagemId)!
     const autoria = { origem: 'cliente' as const, atorId: null, canal: 'whatsapp' as const }
+
+    if (d.acao === 'outro_assunto') {
+      if (gravar) await restaurarResposta(d.alvo.mensagemId, r.idMensagem)
+      avisarOrcamento(app, { ...linhaDe(d.alvo).orcamento!, pedidoId: null }, 'alterado', autoria)
+      return d
+    }
 
     if (d.acao === 'aprovar') {
       const l = linhaDe(d.alvo)
@@ -418,6 +513,8 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
       const decisao = decidirResposta(r, linhas.map(paraCandidato), opcoes)
       return aplicar(empresa, decisao, r, linhas, escolhidas?.join(', ') || null)
     }
+    // A mesma mensagem de novo (webhook repetido): já está nas Conversas
+    if (await conversas.jaRecebida(e.idMensagem)) return { acao: 'ignorar', motivo: 'repetida' } as Decisao
     // Texto: o orçamento citado (respondeu em cima da mensagem ou da enquete) e os abertos enviados ao número
     const citadas = e.citadoId ? await buscarLinhas({ OR: [{ idExterno: e.citadoId }, { enqueteId: e.citadoId }] }) : []
     const doNumero = e.numero
@@ -428,18 +525,26 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
         })
       : []
     const linhas = [...citadas, ...doNumero.filter((l) => !citadas.some((c) => c.id === l.id))]
-    if (!linhas.length) return { acao: 'ignorar', motivo: 'sem orçamento para o número' } as Decisao
+    if (!linhas.length) {
+      // Conversa normal (sem orçamento aberto para o número): vai para as Conversas do WhatsApp
+      await conversas.registrar(empresa, e)
+      return { acao: 'conversa', motivo: 'sem orçamento para o número' } as const
+    }
     const r: Recebida = { tipo: 'texto', idMensagem: e.idMensagem, texto: e.texto, citadoId: e.citadoId }
-    const decisao = decidirResposta(r, linhas.map(paraCandidato), opcoes)
-    // Texto que as regras não entenderam, de um orçamento só: o Assistente GrafyGo lê (se a empresa e a central deixam:
-    // a chave geral e "respostas do WhatsApp" em Configurações → Assistente, que é o mesmo campo da tela do WhatsApp)
-    if (vaiParaAssistente(decisao, r) && (await app.assistente.disponivel()) && funcaoLiberada(await controlesDaEmpresa(prisma), 'respostasWhatsapp')) {
+    // Assistente GrafyGo disponível (a central e a empresa deixam: a chave geral e "respostas do WhatsApp" em
+    // Configurações → Assistente, que é o mesmo campo da tela do WhatsApp): as regras só decidem o óbvio
+    const comAssistente = (await app.assistente.disponivel()) && funcaoLiberada(await controlesDaEmpresa(prisma), 'respostasWhatsapp')
+    const decisao = decidirResposta(r, linhas.map(paraCandidato), { ...opcoes, assistente: comAssistente })
+    // Texto que as regras não decidiram, de um orçamento só: o Assistente lê
+    if (comAssistente && vaiParaAssistente(decisao, r)) {
       // Registra já (o mesmo aviso do webhook repetido vira "repetida") e lê em segundo plano: o webhook não espera a IA
       await registrar(decisao.alvos[0]!.mensagemId, 'outra', r, e.texto, 'lendo')
-      acompanhar(lerComAssistente(empresa, decisao, r, linhas, e.texto, opcoes))
+      acompanhar(lerComAssistente(empresa, decisao, r, e, linhas, e.texto, opcoes))
       return { acao: 'assistente', motivo: 'lendo a resposta' } as const
     }
-    return aplicar(empresa, decisao, r, linhas, e.texto)
+    const d = await aplicar(empresa, decisao, r, linhas, e.texto)
+    await registrarNaConversa(empresa, e, d)
+    return d
   }
 
   // ─── Assistente GrafyGo: respostas fora do padrão ───
@@ -475,7 +580,15 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
    * Pede a leitura ao Assistente e aplica: aprova, modificação ou só avisa o vendedor com o resumo. Sem leitura
    * (erro, demora, limite do mês, central desligada no meio) faz o de antes: avisa a equipe. Nunca lança.
    */
-  async function lerComAssistente(empresa: EmpresaAtual, base: Extract<Decisao, { acao: 'notificar' }>, r: Extract<Recebida, { tipo: 'texto' }>, linhas: Linha[], escrito: string, opcoes: { aprovarSozinho: boolean; agora: Date }) {
+  async function lerComAssistente(
+    empresa: EmpresaAtual,
+    base: Extract<Decisao, { acao: 'notificar' }>,
+    r: Extract<Recebida, { tipo: 'texto' }>,
+    e: Extract<EventoWebhook, { tipo: 'texto' }>,
+    linhas: Linha[],
+    escrito: string,
+    opcoes: { aprovarSozinho: boolean; agora: Date },
+  ) {
     const alvo = base.alvos[0]!
     try {
       const l = linhas.find((x) => x.id === alvo.mensagemId)!
@@ -486,20 +599,24 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
       // Demorou tanto que a recuperação das leituras presas já avisou a equipe (leituras-presas.ts): não repete
       if (ultima && atual?.respostaVia !== VIA_LENDO) {
         app.log.info({ empresa: empresa.slug, orcamento: alvo.numero }, 'Leitura do Assistente voltou depois da recuperação: já tratada')
+        await registrarNaConversa(empresa, e, { ...base, avisarEquipe: true })
         return
       }
       let d: Decisao = base
       if (leitura.ok) {
         d = decidirPeloAssistente(leitura.dados, escrito, base, opcoes)
-        if (!ultima && d.acao !== 'notificar') d = { acao: 'notificar', motivo: 'assistente', alvos: [alvo], resposta: 'outra', avisarEquipe: true, assistente: leitura.dados }
+        // Outra resposta chegou enquanto lia: esta só avisa (nunca aprova); outro assunto segue para as Conversas
+        if (!ultima && d.acao !== 'notificar' && d.acao !== 'outro_assunto') d = { acao: 'notificar', motivo: 'assistente', alvos: [alvo], resposta: 'outra', avisarEquipe: true, assistente: leitura.dados }
       } else {
         app.log.info({ empresa: empresa.slug, orcamento: alvo.numero, motivo: leitura.motivo }, 'Resposta do WhatsApp sem a leitura do Assistente: só avisa a equipe')
       }
       await aplicar(empresa, d, r, linhas, escrito, ultima)
+      await registrarNaConversa(empresa, e, d)
     } catch (erro) {
       app.log.error({ err: erro, empresa: empresa.slug, orcamento: alvo.numero }, 'Assistente GrafyGo: resposta do WhatsApp não processada; avisando a equipe')
       try {
         await aplicar(empresa, base, r, linhas, escrito)
+        await registrarNaConversa(empresa, e, base)
       } catch (erro2) {
         app.log.error({ err: erro2, empresa: empresa.slug }, 'Resposta do WhatsApp não processada')
       }
@@ -545,6 +662,10 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
             if (e.tipo === 'conexao') {
               await conexao(empresa, e)
               resultados.push({ tipo: e.tipo, acao: 'conexao' })
+            } else if (e.tipo === 'midia') {
+              // Foto, áudio... sem texto: só para as Conversas (o tipo, sem o arquivo)
+              const id = await conversas.registrar(empresa, e)
+              resultados.push({ tipo: e.tipo, acao: id ? 'conversa' : 'ignorar' })
             } else {
               const d = await responder(empresa, e)
               resultados.push({ tipo: e.tipo, acao: d.acao, ...('motivo' in d ? { motivo: d.motivo } : {}) })
@@ -572,9 +693,10 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
       return contextoEmpresa.com(empresa, () => reprocessarVotosGuardados(empresa))
     },
 
-    /** Espera as leituras do Assistente em andamento (testes e desligamento) */
+    /** Espera as leituras do Assistente em andamento e cancela as das conversas agendadas (testes e desligamento) */
     async aguardarAssistente() {
       while (emAndamento.size) await Promise.all([...emAndamento])
+      await conversas.encerrar()
     },
   }
 }

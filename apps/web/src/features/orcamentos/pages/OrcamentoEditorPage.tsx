@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowLeft, CheckCircle2, Globe, MessageSquareReply, Plus, RefreshCw, Sparkles, XCircle } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle2, Globe, MessageSquareReply, MessagesSquare, Plus, RefreshCw, Sparkles, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { descreverRespostaWhatsapp, formatarDataHora, formatarDataSimples, orcamentoSchema, type EstadoDoAssistente, type OrcamentoDeTexto } from '@onprint/shared'
 import { clientesApi } from '@/api/cadastros'
 import { orcamentosApi, solicitacoesApi, type OrcamentoComAnalise } from '@/api/comercial'
+import { whatsappApi } from '@/api/whatsapp'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { CampoFormulario } from '@/components/shared/CampoFormulario'
 import { EstadoErro } from '@/components/shared/EstadoErro'
@@ -20,7 +21,7 @@ import { useAssistente } from '@/features/assistente/useAssistente'
 import { useEmpresa } from '@/features/configuracoes/hooks'
 import { useMutacao } from '@/hooks/useMutacao'
 import { usePermission } from '@/hooks/usePermission'
-import { buscarClientes } from '../buscas'
+import { CONTATO_WHATSAPP, buscarClientesEContatos, numeroDoContato } from '../buscas'
 import { AcoesOrcamento } from '../components/editor/AcoesOrcamento'
 import { ItemOrcamento } from '../components/editor/ItemOrcamento'
 import { MontarComAssistente, type Indisponivel } from '../components/editor/MontarComAssistente'
@@ -48,6 +49,7 @@ function Editor({
   clienteInicial,
   doSite,
   doAssistente,
+  daConversa,
   onAlterado,
 }: {
   orcamento?: OrcamentoComAnalise
@@ -59,6 +61,8 @@ function Editor({
   doSite?: DoSite | null
   /** "Peça ao Assistente": o pedido já lido (itens, cliente achado ou novo, prazo e observações) */
   doAssistente?: { texto: string; leitura: OrcamentoDeTexto } | null
+  /** Montado a partir de uma conversa do WhatsApp: ao salvar, a conversa fica ligada ao orçamento (e resolvida) */
+  daConversa?: { id: string } | null
 }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -167,6 +171,11 @@ function Editor({
       const payload = payloadDoForm(dados, orcamento ? undefined : solicitacaoId)
       const salvo = await salvar.mutateAsync(payload)
       queryClient.setQueryData(['orcamentos', 'detalhe', salvo.id], salvo)
+      // Da conversa do WhatsApp: liga os dois (a conversa sai da lista e o cliente fica com o número de quem escreveu)
+      if (daConversa && !orcamento) {
+        await whatsappApi.vincularConversa(daConversa.id, salvo.id).catch(() => toast.warning('O orçamento foi salvo, mas a conversa do WhatsApp não foi marcada como resolvida.'))
+        void queryClient.invalidateQueries({ queryKey: ['whatsapp'] })
+      }
       toast.success(orcamento ? 'Orçamento salvo.' : `Orçamento ${salvo.numero} criado.`)
       navigate(`/orcamentos/${salvo.id}`, { replace: true, state: { recarregar: Date.now() } })
     } catch (e) {
@@ -193,6 +202,12 @@ function Editor({
         <AcoesOrcamento orcamento={orcamento} editavel={editavel} alterado={alterado} salvando={salvar.isPending} onSalvar={() => void onSalvar()} />
       </div>
 
+      {daConversa && !orcamento && (
+        <p className="mb-4 flex items-start gap-2 rounded-xl bg-marca-suave p-3 text-sm text-marca-escuro">
+          <MessagesSquare className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>Montado a partir da conversa do WhatsApp. Confira os itens e salve: o “Enviar orçamento” vai para o número de quem escreveu, sem digitar nada.</span>
+        </p>
+      )}
       {doSite && doSite.itens.length > 0 && (
         <p className="mb-4 flex items-start gap-2 rounded-xl bg-marca-suave p-3 text-sm text-marca-escuro">
           <Globe className="mt-0.5 h-4 w-4 shrink-0" />
@@ -243,11 +258,17 @@ function Editor({
               <CampoFormulario id="orc-cliente" rotulo="Cliente *" acao={clienteSugerido ? <SeloSugerido /> : undefined}>
                 <SearchSelect
                   id="orc-cliente"
-                  chave="clientes-busca"
-                  buscar={buscarClientes}
+                  chave="clientes-e-contatos-busca"
+                  buscar={buscarClientesEContatos}
                   valor={form.cliente}
                   onChange={(c) => {
                     setClienteSugerido(false)
+                    // Contato do WhatsApp que ainda não é cliente: vira o pré-cadastro (nome e número já preenchidos)
+                    if (c?.id.startsWith(CONTATO_WHATSAPP)) {
+                      setPendente({ novo: { nome: c.rotulo, tipoPessoa: 'PF', documento: null, whatsapp: numeroDoContato(c.id), telefone: null, email: null }, candidatos: [] })
+                      atualizar({ cliente: null })
+                      return
+                    }
                     atualizar({ cliente: c })
                   }}
                   placeholder="Buscar cliente…"
@@ -414,7 +435,9 @@ export function OrcamentoEditorPage() {
   const novo = !id || id === 'novo'
   // Vindo do "Peça ao Assistente": o pedido já lido abre o editor preenchido
   const local = useLocation()
-  const doAssistente = (local.state as EstadoDoAssistente | null)?.orcamentoAssistente ?? null
+  const estadoNavegacao = local.state as EstadoDoAssistente | null
+  const doAssistente = estadoNavegacao?.orcamentoAssistente ?? null
+  const daConversa = estadoNavegacao?.conversaWhatsapp ?? null
   const consulta = useQuery({ queryKey: ['orcamentos', 'detalhe', id], queryFn: () => orcamentosApi.obter(id!), enabled: !novo })
   // Versão no formulário: com alterações não salvas, uma mudança de fora (cliente aprovou, colega editou)
   // não reseta o formulário — fica a faixa avisando, e "Recarregar" troca para a versão nova
@@ -455,7 +478,7 @@ export function OrcamentoEditorPage() {
     return (
       <>
         {voltar}
-        <Editor key={doAssistente ? local.key : 'novo'} solicitacaoId={solicitacaoId} clienteInicial={cliente.data ? { id: cliente.data.id, rotulo: cliente.data.nome } : null} doSite={doSite} doAssistente={doAssistente} />
+        <Editor key={doAssistente ? local.key : 'novo'} solicitacaoId={solicitacaoId} clienteInicial={cliente.data ? { id: cliente.data.id, rotulo: cliente.data.nome } : null} doSite={doSite} doAssistente={doAssistente} daConversa={daConversa} />
       </>
     )
   }

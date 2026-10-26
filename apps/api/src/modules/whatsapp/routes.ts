@@ -1,8 +1,19 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import type { FastifyRequest } from 'fastify'
-import { ANEXO_WHATSAPP_MAX_MB, envioWhatsappSchema, idParamSchema, mensagemPedidoQuerySchema, mensagensWhatsappQuerySchema, whatsappConfigSchema } from '@onprint/shared'
+import {
+  ANEXO_WHATSAPP_MAX_MB,
+  contatosWhatsappQuerySchema,
+  conversasWhatsappQuerySchema,
+  envioWhatsappSchema,
+  idParamSchema,
+  mensagemPedidoQuerySchema,
+  mensagensWhatsappQuerySchema,
+  vincularConversaSchema,
+  whatsappConfigSchema,
+} from '@onprint/shared'
 import { AppError } from '../../core/AppError'
 import { contextoEmpresa } from '../../core/contexto-empresa'
+import { criarConversasWhatsapp } from './conversas.service'
 import { PERMISSOES_ENVIO, criarEnvioManual, validarPdf, type DadosEnvio } from './manual'
 import { textoMensagemPedido } from './mensagem-pedido'
 import { criarWhatsappService } from './service'
@@ -37,6 +48,41 @@ export const whatsappRoutes: FastifyPluginAsyncZod = async (app) => {
   )
   app.post('/whatsapp/mensagens/:id/ignorar', { ...pode('editar'), schema: { tags, summary: 'Tira o aviso da fila', params: idParamSchema } }, (req) =>
     service.ignorar(req.params.id),
+  )
+
+  // ─── Conversas do WhatsApp (copiloto nível 1): mensagens dos clientes com as ações de um toque ───
+  const conversas = criarConversasWhatsapp(app)
+
+  app.get('/whatsapp/conversas', { ...pode('visualizar'), schema: { tags, summary: 'Conversas recebidas (abertas ou resolvidas), da mais recente', querystring: conversasWhatsappQuerySchema } }, (req) =>
+    conversas.listar(req.query),
+  )
+  app.get('/whatsapp/conversas/contagem', { ...pode('visualizar'), schema: { tags, summary: 'Quantas conversas estão abertas (contador do menu)' } }, () => conversas.contar())
+  app.post(
+    '/whatsapp/conversas/:id/orcamento',
+    { onRequest: [app.exigirPermissao('whatsapp', 'visualizar'), app.exigirPermissao('orcamentos', 'criar')], schema: { tags, summary: 'Monta o orçamento com o texto da conversa (nada é salvo)', params: idParamSchema } },
+    (req) => conversas.montarOrcamento(req.params.id),
+  )
+  app.get('/whatsapp/conversas/:id/pedidos', { ...pode('visualizar'), schema: { tags, summary: 'Pedidos em andamento do cliente e a resposta pronta', params: idParamSchema } }, (req) =>
+    conversas.pedidos(req.params.id),
+  )
+  app.post('/whatsapp/conversas/:id/resolver', { ...pode('visualizar'), schema: { tags, summary: 'Marca a conversa como resolvida', params: idParamSchema } }, (req) =>
+    conversas.resolver(req.params.id, req.user.sub),
+  )
+  app.post('/whatsapp/conversas/:id/reabrir', { ...pode('visualizar'), schema: { tags, summary: 'Desfaz o "resolvida"', params: idParamSchema } }, (req) => conversas.reabrir(req.params.id))
+  app.post(
+    '/whatsapp/conversas/:id/vincular',
+    { onRequest: [app.exigirPermissao('orcamentos', 'criar')], schema: { tags, summary: 'Liga a conversa ao orçamento montado a partir dela (e resolve)', params: idParamSchema, body: vincularConversaSchema } },
+    (req) => conversas.vincular(req.params.id, req.body.orcamentoId, req.user.sub),
+  )
+
+  /** Contatos pelo nome (sem copiar número): quem atende o WhatsApp, faz orçamento ou vê clientes */
+  async function podeVerContatos(req: FastifyRequest) {
+    await app.autenticar(req)
+    for (const [modulo, acao] of [['whatsapp', 'visualizar'], ['orcamentos', 'criar'], ['clientes', 'visualizar']] as const) if (await app.temPermissao(req, modulo, acao)) return
+    throw AppError.semPermissao()
+  }
+  app.get('/whatsapp/contatos', { onRequest: [podeVerContatos], schema: { tags, summary: 'Contatos do WhatsApp pelo nome ou número (conversas recebidas e clientes)', querystring: contatosWhatsappQuerySchema } }, (req) =>
+    conversas.contatos(req.query.busca),
   )
 
   // ─── "Enviar pelo WhatsApp" da equipe (orçamento, arte, pedido, catálogo, produto) ───

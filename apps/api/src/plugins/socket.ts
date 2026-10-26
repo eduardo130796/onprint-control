@@ -11,11 +11,13 @@ export type EventoTempoReal =
   | 'orcamento:atualizado'
   | 'solicitacao:nova'
   | 'solicitacao:atualizada'
+  // Conversas do WhatsApp (sala "whatsapp"): a lista e o contador da tela WhatsApp
+  | 'conversa:atualizada'
 
 declare module 'fastify' {
   interface FastifyInstance {
     tempoReal: {
-      /** Envia um evento para salas da empresa atual ("producao", "pedidos", "orcamentos", "usuario:{id}"). */
+      /** Envia um evento para salas da empresa atual ("producao", "pedidos", "orcamentos", "whatsapp", "usuario:{id}"). */
       emitir: (salas: string | string[], evento: EventoTempoReal, dados: object) => void
     }
   }
@@ -69,6 +71,7 @@ export const socketPlugin = fp(async (app) => {
     if (permissoes.has('producao:visualizar') || permissoes.has('pcp:visualizar')) await socket.join(sala('producao'))
     if (permissoes.has('pedidos:visualizar')) await socket.join(sala('pedidos'))
     if (permissoes.has('orcamentos:visualizar')) await socket.join(sala('orcamentos'))
+    if (permissoes.has('whatsapp:visualizar')) await socket.join(sala('whatsapp'))
   })
 
   // A cada minuto: token vencido, usuário desativado ou com papel trocado → desconecta

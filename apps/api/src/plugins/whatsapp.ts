@@ -3,6 +3,7 @@ import { contextoEmpresa } from '../core/contexto-empresa'
 import { criarProvedorWhatsapp, instanciaDaEmpresa, type ProvedorWhatsapp } from '../integrations/whatsapp'
 import { criarAvisosWhatsapp, obterConfigWhatsapp, type AvisosWhatsapp } from '../modules/whatsapp/avisos'
 import { CICLO_ENVIO_MS, criarEnvioWhatsapp } from '../modules/whatsapp/envio'
+import { criarConversasWhatsapp } from '../modules/whatsapp/conversas.service'
 import { recuperarLeiturasPresas } from '../modules/whatsapp/leituras-presas'
 import { segredoDaEmpresa, segredoDoServidor, urlDoWebhook } from '../modules/whatsapp/webhook'
 
@@ -45,7 +46,9 @@ export const whatsappPlugin = fp(async (app) => {
   if (app.config.NODE_ENV === 'test') return
   let timer: NodeJS.Timeout | undefined
 
-  // Respostas presas em "lendo" (a API reiniciou no meio da leitura do Assistente): avisa a equipe, empresa por empresa
+  // Respostas presas em "lendo" (a API reiniciou no meio da leitura do Assistente): avisa a equipe, empresa por empresa.
+  // Conversas do WhatsApp que esperavam a leitura do Assistente quando a API reiniciou: lidas agora
+  const conversas = criarConversasWhatsapp(app)
   async function recuperarLeituras() {
     let empresas
     try {
@@ -55,7 +58,10 @@ export const whatsappPlugin = fp(async (app) => {
     }
     for (const empresa of empresas) {
       try {
-        await contextoEmpresa.com(empresa, () => recuperarLeiturasPresas(app))
+        await contextoEmpresa.com(empresa, async () => {
+          await recuperarLeiturasPresas(app)
+          await conversas.classificarPendentes(empresa)
+        })
       } catch (erro) {
         app.log.warn({ err: erro, empresa: empresa.slug }, 'Leituras presas do Assistente: falhou nesta empresa')
       }

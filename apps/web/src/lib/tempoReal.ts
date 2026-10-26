@@ -46,6 +46,9 @@ export function chavesDoEvento(evento: string, dados: Partial<EventoOrcamento> &
       return ['solicitacoes', 'dashboard', 'clientes']
     case 'solicitacao:atualizada':
       return ['solicitacoes', 'dashboard']
+    // Conversas do WhatsApp: a lista e o contador (tela WhatsApp e o menu)
+    case 'conversa:atualizada':
+      return ['whatsapp']
     case 'notificacao:nova':
       return ['notificacoes', ...(dados.estoque ? ['estoque'] : [])]
     default:

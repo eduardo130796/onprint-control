@@ -61,6 +61,7 @@ export function useTempoReal(ativo: boolean) {
     socket.on('connect', () => invalidar(AO_RECONECTAR))
     socket.on('op:atualizada', () => invalidar(chavesDoEvento('op:atualizada')))
     socket.on('pedido:atualizado', () => invalidar(chavesDoEvento('pedido:atualizado')))
+    socket.on('conversa:atualizada', () => invalidar(chavesDoEvento('conversa:atualizada')))
     socket.on('orcamento:atualizado', (dados: EventoOrcamento) => {
       invalidar(chavesDoEvento('orcamento:atualizado', dados))
       avisar(avisoDoOrcamento(dados, contexto.current.eu))

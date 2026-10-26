@@ -25,6 +25,18 @@ export function classificarSimulado(conteudo: string) {
   const pergunta = original.includes('?') || /\b(da pra|da para|consegue|tem como|quando|qual|quanto|sera que)\b/.test(t)
   const aprova = /\b(otimo|perfeito|gostei|show|top|beleza|pode mandar|manda ver|fechado|bora|pode seguir|ta bom|esta bom|ficou bom|massa)\b/.test(t)
   const modifica = /\b(mudar|muda|trocar|troca|alterar|ajustar|maior|menor|outra cor|corrigir)\b/.test(t)
+  const semOrcamento = conteudo.includes('Nenhum orçamento aguardando')
+  // Preço de produto (fora do orçamento enviado ou numa conversa nova): pedido novo
+  const produto = /\b(adesivo|panfleto|banner|cartao|cartoes|placa|lona|faixa|camiseta|caneca|folder|flyer|etiqueta|convite)s?\b/.test(t)
+  if (/\b(quanto|preco|valor|orcamento|cotacao)\b/.test(t) && (produto || semOrcamento) && !modifica) {
+    return { intencao: 'novo_pedido', confianca: 0.9, resumo: `O cliente pediu preço: ${original.replace(/\s+/g, ' ').slice(0, 110)}`, tem_pergunta: pergunta }
+  }
+  if (/\b(meu pedido|o pedido|ta pronto|esta pronto|ficou pronto|ja ficou|chegou)\b/.test(t)) {
+    return { intencao: 'sobre_pedido', confianca: 0.88, resumo: 'O cliente perguntou se o pedido está pronto.', tem_pergunta: true }
+  }
+  if (semOrcamento && produto && /\b(quero|queria|preciso|gostaria|faz|fazem)\b/.test(t)) {
+    return { intencao: 'novo_pedido', confianca: 0.85, resumo: `O cliente quer: ${original.replace(/\s+/g, ' ').slice(0, 110)}`, tem_pergunta: pergunta }
+  }
   if (pergunta) {
     return { intencao: 'pergunta', confianca: 0.9, resumo: `O cliente perguntou: ${original.replace(/\s+/g, ' ').slice(0, 120)}`, tem_pergunta: true }
   }

@@ -7,15 +7,24 @@ import { EvolutionWhatsappProvider, LogWhatsappProvider, bytesDoWhatsapp } from 
 import { identidadeDasCredenciais, urlDoBancoEvolution } from '../src/integrations/whatsapp/credenciais-evolution'
 import { abrirVoto, abrirVotoComIdentidades, cifrarVoto, jidNormalizado, lerPollVote, mascararJid, opcoesDoVoto, votoBrutoParaGuardar, votoDoBruto } from '../src/modules/whatsapp/enquete'
 import {
+  CONFIANCA_OUTRO_ASSUNTO,
   JANELA_RESPOSTA_MS,
+  MAX_RESPOSTAS_ANTERIORES,
   SILENCIO_NOTIFICACAO_MS,
+  aprovacaoClara,
+  decidirPeloAssistente,
   decidirResposta,
+  desempilharResposta,
+  empilharResposta,
   intencaoDaOpcao,
   intencaoDoTexto,
   numeroDaResposta,
+  vaiParaAssistente,
   variantesDoNumero,
+  type LeituraAssistente,
   type OrcamentoEnviado,
   type Recebida,
+  type RespostaGuardada,
 } from '../src/modules/whatsapp/respostas'
 import { empresaDaInstancia, lerAvisoWebhook, numeroDoJid, segredoDaEmpresa, segredoDoServidor, urlDoWebhook } from '../src/modules/whatsapp/webhook'
 
@@ -188,6 +197,93 @@ describe('WhatsApp respostas: "Responder 1 ou 2"', () => {
     expect(decidirResposta(texto('1'), [numeros(), reenvioComEnquete], ligado)).toMatchObject({ acao: 'notificar', motivo: 'texto' })
     const reenvioNumeros = numeros({ mensagemId: 'm9', enviadaEm: new Date(agora.getTime() - 60_000) })
     expect(decidirResposta(texto('1'), [orc(), reenvioNumeros], ligado)).toMatchObject({ acao: 'aprovar', alvo: { mensagemId: 'm9' } })
+  })
+})
+
+describe('WhatsApp respostas: aprovação natural (formato conversa, sem enquete)', () => {
+  const conversa = (o: Partial<OrcamentoEnviado> = {}) => orc({ formatoResposta: 'conversa', enqueteId: null, ...o })
+  const comAssistente = { ...ligado, assistente: true }
+
+  it.each(['pode fazer', 'Pode fazer!', 'fechado', 'Fechado!', 'tá ótimo, pode mandar', 'show, pode seguir', 'aprovado', '👍', '👍🏻', '👌', '✅', '👍👍'])('"%s" aprova (com e sem o Assistente)', (t) => {
+    expect(intencaoDoTexto(t)).toBe('aprovar')
+    expect(aprovacaoClara(t)).toBe(true)
+    expect(decidirResposta(texto(t), [conversa()], ligado)).toMatchObject({ acao: 'aprovar', resposta: 'aprovado' })
+    expect(decidirResposta(texto(t), [conversa()], comAssistente)).toMatchObject({ acao: 'aprovar', resposta: 'aprovado' })
+  })
+  it.each([
+    'pode fazer?',
+    'fechado? qual o prazo?',
+    'aprovado, mas dá pra entregar sexta?',
+    'tá ótimo, quanto fica o frete?',
+    '👍 e o prazo?',
+    'show, aceita pix?',
+    'quanto fica com 2 mil?',
+    'qual o valor da entrega?',
+    'pode fazer, quanto fica o total?',
+  ])('"%s" (pergunta ou dúvida) nunca aprova', (t) => {
+    expect(intencaoDoTexto(t)).not.toBe('aprovar')
+    expect(aprovacaoClara(t)).toBe(false)
+    for (const opcoes of [ligado, comAssistente]) expect(decidirResposta(texto(t), [conversa()], opcoes).acao).not.toBe('aprovar')
+  })
+
+  it('mensagem nova do cliente (o caso real) não é modificação nem apaga a resposta anterior', () => {
+    const nova = 'Oi, boa noite, quanto é o adesivo 2x1 fosco ou perfurado para colocar no carro e mil panfletos'
+    expect(intencaoDoTexto(nova)).toBe('indefinida')
+    const jaPediu = conversa({ status: 'em_negociacao', resposta: 'modificacoes', respostaEm: new Date(agora.getTime() - 3_600_000), respostaIdExterno: 'T0' })
+    // Sem o Assistente: fica para a equipe (nunca "modificações" pelas palavras)
+    expect(decidirResposta(texto(nova, null, 'T9'), [jaPediu], ligado)).toMatchObject({ acao: 'notificar', motivo: 'texto', resposta: 'outra' })
+    // Com o Assistente: ele lê
+    const d = decidirResposta(texto(nova, null, 'T9'), [jaPediu], comAssistente)
+    expect(vaiParaAssistente(d, texto(nova, null, 'T9'))).toBe(true)
+  })
+  it('palavras genéricas ("colocar", "incluir", "aumentar") só são mudança fora de pergunta de preço', () => {
+    expect(intencaoDoTexto('pode colocar meu telefone embaixo')).toBe('modificar')
+    expect(intencaoDoTexto('dá pra aumentar o tamanho?')).toBe('modificar')
+    expect(intencaoDoTexto('quanto fica para incluir 500 cartões?')).toBe('indefinida')
+    expect(intencaoDoTexto('qual o valor para colocar ilhós')).toBe('indefinida')
+    // Pedido de mudança claro continua, mesmo com pergunta
+    expect(intencaoDoTexto('tem desconto?')).toBe('modificar')
+    expect(intencaoDoTexto('quanto fica se trocar o papel?')).toBe('modificar')
+  })
+  it('com o Assistente: as regras só decidem o óbvio (aprovação curta e clara e o 1/2 do formato números)', () => {
+    const um = [conversa()]
+    expect(decidirResposta(texto('quero mudar a cor'), um, comAssistente)).toMatchObject({ acao: 'notificar', motivo: 'texto', resposta: 'outra' })
+    const longa = 'aprovado, pode fazer igual ao do ano passado com o logo novo que mandei semana passada'
+    expect(decidirResposta(texto(longa), um, ligado).acao).toBe('aprovar')
+    expect(decidirResposta(texto(longa), um, comAssistente)).toMatchObject({ acao: 'notificar', motivo: 'texto' })
+    expect(decidirResposta(texto('aprovado, se for entregue até sexta'), um, comAssistente)).toMatchObject({ acao: 'notificar' })
+    const numeros = [orc({ formatoResposta: 'numeros', enqueteId: null })]
+    expect(decidirResposta(texto('1'), numeros, comAssistente)).toMatchObject({ acao: 'aprovar' })
+    expect(decidirResposta(texto('2'), numeros, comAssistente)).toMatchObject({ acao: 'modificar' })
+    // Voto da enquete continua igual
+    expect(decidirResposta(voto([OPCOES_ENQUETE_ORCAMENTO.modificar]), [orc()], comAssistente)).toMatchObject({ acao: 'modificar' })
+    // Fechado ou já aprovado: como antes (a equipe vê)
+    expect(decidirResposta(texto('quero mudar a cor', 'TXT1'), [conversa({ idExterno: 'TXT1', status: 'aprovado' })], comAssistente)).toMatchObject({ acao: 'notificar', motivo: 'depois_de_aprovado', resposta: 'modificacoes' })
+  })
+
+  it('leitura do Assistente: pedido novo ou pergunta de outro pedido sai do orçamento (vai para as Conversas)', () => {
+    const base = { acao: 'notificar' as const, motivo: 'texto' as const, alvos: [conversa()], resposta: 'outra' as const, avisarEquipe: true }
+    const ler = (intencao: LeituraAssistente['intencao'], confianca: number): LeituraAssistente => ({ intencao, confianca, resumo: 'O cliente pediu preço de adesivo.', temPergunta: true })
+    expect(decidirPeloAssistente(ler('novo_pedido', 0.9), 'quanto é o adesivo?', base, ligado)).toMatchObject({ acao: 'outro_assunto', alvo: { orcamentoId: 'o1' }, assistente: { intencao: 'novo_pedido' } })
+    expect(decidirPeloAssistente(ler('sobre_pedido', CONFIANCA_OUTRO_ASSUNTO), 'o outro pedido tá pronto?', base, ligado).acao).toBe('outro_assunto')
+    // Pouca certeza: avisa a equipe com o resumo, como antes
+    expect(decidirPeloAssistente(ler('novo_pedido', 0.6), 'e o adesivo?', base, ligado)).toMatchObject({ acao: 'notificar', motivo: 'assistente' })
+  })
+
+  it('respostas em sequência: a anterior vai para a lista e volta quando a nova não era resposta', () => {
+    const r = (resposta: string, idExterno: string): RespostaGuardada => ({ resposta, via: 'texto', texto: idExterno, em: agora.toISOString(), idExterno, intencao: null, confianca: null, resumo: null })
+    expect(empilharResposta(null, null, 'T1')).toBeNull()
+    // A mesma mensagem ("lendo" → leitura) não empilha
+    expect(empilharResposta(null, r('outra', 'T1'), 'T1')).toBeNull()
+    const lista = empilharResposta(null, r('modificacoes', 'T1'), 'T2')!
+    expect(lista.map((x) => x.idExterno)).toEqual(['T1'])
+    const mais = empilharResposta(lista, r('outra', 'T2'), 'T3')!
+    expect(mais.map((x) => x.idExterno)).toEqual(['T1', 'T2'])
+    expect(empilharResposta('lixo', r('outra', 'T2'), 'T3')).toHaveLength(1)
+    const muitas = Array.from({ length: MAX_RESPOSTAS_ANTERIORES + 5 }, (_, i) => r('outra', `X${i}`))
+    expect(empilharResposta(muitas, r('outra', 'Y'), 'Z')).toHaveLength(MAX_RESPOSTAS_ANTERIORES)
+    expect(desempilharResposta(mais)).toEqual({ volta: mais[1], ficam: [mais[0]] })
+    expect(desempilharResposta(null)).toEqual({ volta: null, ficam: [] })
   })
 })
 
@@ -390,20 +486,30 @@ describe('WhatsApp respostas: leitura do webhook', () => {
       }),
     )
     expect(a.instancia).toBe('grafygo-e1')
-    expect(a.eventos).toEqual([{ tipo: 'texto', idMensagem: 'ABCD', texto: 'Aprovado!', citadoId: 'TXT1', numero: '5511988887777', nome: 'Pet Feliz' }])
+    expect(a.eventos).toEqual([{ tipo: 'texto', idMensagem: 'ABCD', texto: 'Aprovado!', citadoId: 'TXT1', numero: '5511988887777', nome: 'Pet Feliz', jid: '5511988887777@s.whatsapp.net', midia: null }])
   })
   it('conta no endereçamento novo (LID): o número vem do remoteJidAlt', () => {
     const a = lerAvisoWebhook(envelope('messages.upsert', { key: { remoteJid: '987654321098765@lid', remoteJidAlt: '5511988887777@s.whatsapp.net', fromMe: false, id: 'X1' }, message: { conversation: 'ok aprovado' } }))
     expect(a.eventos[0]).toMatchObject({ tipo: 'texto', numero: '5511988887777' })
   })
-  it('nossas mensagens, grupos, status e mídia sem legenda ficam de fora', () => {
+  it('nossas mensagens, grupos, status, listas, canais e reações ficam de fora', () => {
     const fora = [
       { key: { remoteJid: '5511988887777@s.whatsapp.net', fromMe: true, id: 'A' }, message: { conversation: 'oi' } },
       { key: { remoteJid: '120363@g.us', fromMe: false, id: 'B' }, message: { conversation: 'aprovado' } },
       { key: { remoteJid: 'status@broadcast', fromMe: false, id: 'C' }, message: { conversation: 'x' } },
-      { key: { remoteJid: '5511988887777@s.whatsapp.net', fromMe: false, id: 'D' }, message: { audioMessage: { seconds: 3 } } },
+      { key: { remoteJid: '5511988887777@broadcast', fromMe: false, id: 'E' }, message: { audioMessage: { seconds: 3 } } },
+      { key: { remoteJid: '120363@newsletter', fromMe: false, id: 'F' }, message: { conversation: 'novidade' } },
+      { key: { remoteJid: '5511988887777@s.whatsapp.net', fromMe: false, id: 'G' }, message: { reactionMessage: { text: '👍', key: { id: 'TXT1' } } } },
     ]
     for (const d of fora) expect(lerAvisoWebhook(envelope('messages.upsert', d)).eventos).toEqual([])
+  })
+  it('mídia: sem legenda vira só o tipo (Conversas); com legenda, texto com o tipo; LID sem número fica no jid', () => {
+    const audio = lerAvisoWebhook(envelope('messages.upsert', { key: { remoteJid: '5511988887777@s.whatsapp.net', fromMe: false, id: 'D' }, pushName: 'Ana', message: { audioMessage: { seconds: 3 } } }))
+    expect(audio.eventos).toEqual([{ tipo: 'midia', idMensagem: 'D', midia: 'audio', numero: '5511988887777', nome: 'Ana', jid: '5511988887777@s.whatsapp.net' }])
+    const foto = lerAvisoWebhook(envelope('messages.upsert', { key: { remoteJid: '5511988887777@s.whatsapp.net', fromMe: false, id: 'H' }, message: { imageMessage: { caption: 'quanto fica um banner assim?' } } }))
+    expect(foto.eventos[0]).toMatchObject({ tipo: 'texto', texto: 'quanto fica um banner assim?', midia: 'foto' })
+    const lid = lerAvisoWebhook(envelope('messages.upsert', { key: { remoteJid: '987654321098765@lid', fromMe: false, id: 'I' }, message: { stickerMessage: {} } }))
+    expect(lid.eventos[0]).toMatchObject({ tipo: 'midia', midia: 'figurinha', numero: null, jid: '987654321098765@lid' })
   })
   it('voto cifrado (a Evolution não guarda a enquete): bytes indexados e os jids para abrir', () => {
     const a = lerAvisoWebhook(

@@ -168,6 +168,8 @@ export type RespostaPedir =
 /** Estado da navegação para o editor do orçamento, a entrada e o cadastro (o que o Assistente já montou) */
 export interface EstadoDoAssistente {
   orcamentoAssistente?: { texto: string; leitura: OrcamentoDeTexto }
+  /** Montado a partir de uma conversa do WhatsApp: ao salvar, a conversa fica ligada ao orçamento (e resolvida) */
+  conversaWhatsapp?: { id: string }
   notaAssistente?: NotaCompraLida
   produtoAssistente?: string
 }

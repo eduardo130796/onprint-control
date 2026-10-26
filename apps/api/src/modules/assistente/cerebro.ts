@@ -135,10 +135,10 @@ export async function historicoDoCliente(prisma: PrismaClient, clienteId: string
   const saldo = (c: (typeof abertas)[number]) => Number(c.valor) - Number(c.valorPago)
   return {
     nome: cliente.tipoPessoa === 'PF' ? primeiroNome(cliente.nome) : semDadosPessoais(nomeCliente(cliente)).slice(0, 80),
-    clienteDesde: cliente.createdAt.toISOString().slice(0, 10),
+    clienteDesde: hojeISO(cliente.createdAt),
     totalPedidos,
     // O último vira o resumo; o costume (itens e acabamentos repetidos) olha os 20
-    ultimosPedidos: pedidos.map((p) => ({ numero: p.numero, data: p.createdAt.toISOString().slice(0, 10), itens: itensDe(p) })),
+    ultimosPedidos: pedidos.map((p) => ({ numero: p.numero, data: hojeISO(p.createdAt), itens: itensDe(p) })),
     formasPagas: pagas.flatMap((c) => (c.formaPagamento ? [c.formaPagamento.nome] : [])),
     emAberto: abertas.reduce((s, c) => s + saldo(c), 0),
     vencido: abertas.filter((c) => c.vencimento.toISOString().slice(0, 10) < hoje).reduce((s, c) => s + saldo(c), 0),

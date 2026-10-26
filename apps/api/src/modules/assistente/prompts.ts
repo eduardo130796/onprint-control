@@ -14,7 +14,7 @@ import type { EsforcoIA, PedidoEstruturado, TarefaIA } from '../../integrations/
  */
 
 export const VERSOES_PROMPTS: Record<TarefaIA, string> = {
-  classificar_resposta: 'resposta-orcamento@2',
+  classificar_resposta: 'resposta-orcamento@3',
   orcamento_texto: 'orcamento-de-texto@4',
   produto_texto: 'produto-de-texto@2',
   descricao: 'descricao-produto@1',
@@ -76,11 +76,14 @@ export const persona = (grafica: string) =>
   `Você é o ${NOME_ASSISTENTE} da ${grafica.trim() || 'gráfica'}, assistente da equipe desta gráfica dentro do sistema GrafyGo. ` +
   'Você trabalha para a gráfica: lê o que os clientes escrevem e ajuda a equipe a entender e agir rápido, com cuidado para nunca decidir por ela quando houver dúvida.'
 
-// ─── Respostas do cliente ao orçamento no WhatsApp ───
+// ─── Mensagens do cliente no WhatsApp: resposta ao orçamento ou conversa nova ───
 
 export interface ContextoRespostaOrcamento {
   grafica: string
-  orcamento: { numero: string; itens: { descricao: string; quantidade: string; categoria: string | null }[] }
+  /** Orçamento aguardando a resposta (null = conversa nova, sem orçamento aberto: Conversas do WhatsApp) */
+  orcamento: { numero: string; itens: { descricao: string; quantidade: string; categoria: string | null }[] } | null
+  /** Pedidos em andamento do cliente ("PED-2026-0012 · Em produção · previsão 30/10"), para entender "tá pronto?" */
+  pedidos?: string[]
   /** Memória do cliente pelo cérebro da gráfica (contextoDoCerebro; vazio = não vai) */
   contexto?: string
   /** Primeiro nome do cliente (null = não vai) */
@@ -99,17 +102,21 @@ export interface ClassificacaoResposta {
 }
 
 const SISTEMA_RESPOSTA = `
-Agora você lê a resposta que um cliente mandou no WhatsApp depois de receber um orçamento da gráfica e diz à equipe o que ele quer. Você não conversa com o cliente: só classifica.
+Agora você lê a mensagem que um cliente mandou no WhatsApp da gráfica e diz à equipe o que ele quer. Você não conversa com o cliente: só classifica.
+
+Quando houver um orçamento aguardando a resposta do cliente, decida se a mensagem responde esse orçamento ou trata de outra coisa: uma mensagem nova pedindo outro produto não é resposta ao orçamento. Sem orçamento aguardando, é uma conversa nova.
 
 Classifique em uma intenção:
-- aprova: o cliente aceita o orçamento como está e quer seguir (ex.: "tá ótimo, pode mandar ver", "fechado", "pode fazer"). Só quando a aprovação é clara, sem condição, ressalva ou pergunta pendente.
-- quer_modificacoes: pede mudança em algo do orçamento (quantidade, tamanho, cor, papel, acabamento, arte, prazo, preço ou desconto).
-- pergunta: faz uma pergunta ou pede informação (prazo, entrega, pagamento, detalhes), mesmo que elogie ou diga que vai aprovar.
-- outro: qualquer outra coisa (vai pensar, agradecimento, assunto sem relação, mensagem confusa).
+- aprova: o cliente aceita o orçamento enviado como está e quer seguir (ex.: "tá ótimo, pode mandar ver", "fechado", "pode fazer", "👍"). Só quando a aprovação é clara, sem condição, ressalva ou pergunta pendente, e só com orçamento aguardando.
+- quer_modificacoes: pede mudança em algo do orçamento enviado (quantidade, tamanho, cor, papel, acabamento, arte, prazo, preço ou desconto dos itens dele).
+- novo_pedido: pede ou pergunta o preço de algo que não está no orçamento enviado (outro produto, outro serviço) — ou, sem orçamento aguardando, pede orçamento ou preço de qualquer coisa (ex.: "quanto é o adesivo 2x1 para o carro?", "faz 500 cartões?").
+- sobre_pedido: pergunta sobre um pedido já feito (se está pronto, quando fica pronto, entrega, retirada, andamento).
+- pergunta: outra pergunta ou pedido de informação (prazo, pagamento, endereço, horário, detalhes do orçamento), mesmo que elogie ou diga que vai aprovar.
+- outro: qualquer outra coisa (vai pensar, agradecimento, saudação, assunto sem relação, mensagem confusa).
 
 Preencha também:
 - confianca: de 0 a 1, o quanto você tem certeza da intenção. Na dúvida, use menos de 0.7.
-- resumo: uma linha em português, em terceira pessoa, começando com "O cliente", dizendo o que ele quer (ex.: "O cliente perguntou se dá para entregar na sexta."). Até 140 caracteres, sem inventar nada que não esteja na mensagem.
+- resumo: uma linha em português, em terceira pessoa, começando com "O cliente", dizendo o que ele quer (ex.: "O cliente perguntou se dá para entregar na sexta.", "O cliente pediu preço de adesivo 2x1 fosco e de mil panfletos."). Até 140 caracteres, sem inventar nada que não esteja na mensagem.
 - tem_pergunta: true se a mensagem tiver qualquer pergunta ou pedido de informação.
 
 Se vier <memoria_do_cliente> (o histórico do cliente na gráfica), use só para entender a mensagem; nunca para inventar o que ele não escreveu.
@@ -141,13 +148,15 @@ export function validarClassificacao(bruto: unknown): ClassificacaoResposta {
   return { intencao: v.intencao, confianca: v.confianca, resumo: v.resumo, temPergunta: v.tem_pergunta }
 }
 
-/** Conteúdo enviado ao modelo: a gráfica, o orçamento, o primeiro nome e a mensagem (sem dados pessoais) */
+/** Conteúdo enviado ao modelo: a gráfica, o orçamento (se houver), o primeiro nome e a mensagem (sem dados pessoais) */
 export function conteudoRespostaOrcamento(c: ContextoRespostaOrcamento): string {
-  const itens = c.orcamento.itens.slice(0, 15).map((i) => `- ${i.quantidade} × ${semDadosPessoais(i.descricao).slice(0, 120)}${i.categoria ? ` (${i.categoria})` : ''}`)
+  const itens = (c.orcamento?.itens ?? []).slice(0, 15).map((i) => `- ${i.quantidade} × ${semDadosPessoais(i.descricao).slice(0, 120)}${i.categoria ? ` (${i.categoria})` : ''}`)
+  const pedidos = (c.pedidos ?? []).slice(0, 5).map((p) => `- ${p}`)
   return [
     `Gráfica: ${c.grafica}`,
-    `Orçamento ${c.orcamento.numero} enviado pelo WhatsApp, aguardando a resposta do cliente.`,
+    c.orcamento ? `Orçamento ${c.orcamento.numero} enviado pelo WhatsApp, aguardando a resposta do cliente.` : 'Nenhum orçamento aguardando a resposta deste cliente: é uma conversa nova.',
     itens.length ? `Itens:\n${itens.join('\n')}` : null,
+    pedidos.length ? `Pedidos em andamento do cliente:\n${pedidos.join('\n')}` : null,
     c.cliente ? `Cliente: ${c.cliente}` : null,
     c.contexto || null,
     '',

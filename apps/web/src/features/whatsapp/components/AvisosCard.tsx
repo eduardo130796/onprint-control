@@ -133,7 +133,7 @@ export function AvisosCard({ config, podeEditar }: { config: WhatsappConfig; pod
               <div>
                 <p className="text-sm font-medium text-tinta">Aprovar sozinho quando o cliente responder Aprovado</p>
                 <p className="text-xs text-texto-secundario">
-                  {formato === 'enquete' ? 'O cliente tocou em Aprovado' : 'O cliente respondeu 1'} (ou escreveu APROVADO): o orçamento é aprovado sem ninguém clicar.
+                  {formato === 'enquete' ? 'O cliente tocou em Aprovado (ou escreveu APROVADO)' : formato === 'numeros' ? 'O cliente respondeu 1 (ou escreveu APROVADO)' : 'O cliente respondeu “pode fazer”, “fechado”, 👍…'}: o orçamento é aprovado sem ninguém clicar.
                   Desligado, o vendedor recebe o aviso e confirma. Pedido de mudança sempre avisa o vendedor.
                 </p>
               </div>

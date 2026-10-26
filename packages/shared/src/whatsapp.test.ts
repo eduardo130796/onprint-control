@@ -5,6 +5,8 @@ import {
   ANEXOS_ARTE_MAX,
   OPCOES_ENQUETE_ORCAMENTO,
   FORMATOS_APROVACAO,
+  FORMATO_APROVACAO_PADRAO,
+  LINHA_APROVACAO_CONVERSA,
   textoParaFormato,
   textoPedeNumeros,
   TEXTOS_PADRAO_MENSAGEM,
@@ -137,7 +139,21 @@ describe('preencherMensagem', () => {
     expect(textoPedeNumeros(editado)).toBe(false)
     expect(textoPedeNumeros('Para fechar, responda 1. Para mudar, responda 2.')).toBe(true)
     expect(textoPedeNumeros(base)).toBe(false)
-    expect(FORMATOS_APROVACAO).toEqual(['enquete', 'numeros'])
+    expect(FORMATOS_APROVACAO).toEqual(['conversa', 'enquete', 'numeros'])
+    expect(FORMATO_APROVACAO_PADRAO).toBe('conversa')
+  })
+  it('formato "conversa" (padrão): sem enquete nem 1/2, uma linha natural; volta para qualquer outro formato', () => {
+    const base = TEXTOS_PADRAO_MENSAGEM.orcamento_enviado
+    const conversa = textoParaFormato(base, 'conversa')
+    expect(conversa).toContain(`Válido até *{{validade}}*\n\n${LINHA_APROVACAO_CONVERSA}\n\n— {{empresa_nome}}`)
+    expect(conversa).not.toMatch(/opção|APROVADO|responda \*1/)
+    expect(textoPedeNumeros(conversa)).toBe(false)
+    expect(textoParaFormato(conversa, 'enquete')).toBe(base)
+    expect(textoParaFormato(textoParaFormato(conversa, 'numeros'), 'conversa')).toBe(conversa)
+    expect(textoParaFormato(conversa, 'conversa')).toBe(conversa)
+    // Sem a conexão (wa.me, copiar) a linha do texto também vale
+    expect(textoSemEnquete(conversa)).toContain('Responda *APROVADO* aqui mesmo ou peça o ajuste que precisar.')
+    expect(LINHA_APROVACAO_CONVERSA.length).toBeLessThan(130)
   })
   it('enquete do orçamento: pergunta com o número e duas opções; a resposta descrita para a equipe', () => {
     expect(perguntaEnqueteOrcamento('ORC-2026-0042')).toBe('Aprovar o orçamento ORC-2026-0042?')

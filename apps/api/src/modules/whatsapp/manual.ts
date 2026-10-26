@@ -41,6 +41,11 @@ export const PERMISSOES_ENVIO: Record<TipoEnvioWhatsapp, [Modulo, Acao][]> = {
   ],
   produto: [['vitrine', 'visualizar']],
   vitrine: [['vitrine', 'visualizar']],
+  // Resposta pronta das Conversas do WhatsApp ("Seu pedido fica pronto amanhã"): quem atende o WhatsApp ou vê pedidos
+  resposta_conversa: [
+    ['whatsapp', 'visualizar'],
+    ['pedidos', 'visualizar'],
+  ],
 }
 
 /** PDF anexado: confere o começo do arquivo e o tamanho; o nome que o cliente vê termina em .pdf */
@@ -60,8 +65,8 @@ export function validarPdf(conteudo: Buffer, nome: string): DocumentoWhatsapp {
  * "Enviar pelo WhatsApp" da equipe: sai na hora pela conexão da gráfica (respeita a pausa, não o horário dos avisos),
  * fica registrado em mensagens_whatsapp (manual) e tira da fila o mesmo aviso automático, se estiver esperando.
  * Primeiro o texto (com o link no fim, que mostra a prévia), depois o PDF ou os arquivos das artes (até 6).
- * Orçamento, conforme a empresa escolheu na tela WhatsApp: por último a enquete "✅ Aprovado / ✏️ Quero modificações",
- * ou nenhuma enquete e o texto pede "responda 1 / 2". O voto, o 1/2 ou um "aprovado" escrito volta pelo webhook e segue
+ * Orçamento, conforme a empresa escolheu na tela WhatsApp: na conversa natural (padrão: só o texto, o cliente responde
+ * do jeito dele), por último a enquete "✅ Aprovado / ✏️ Quero modificações", ou o texto pede "responda 1 / 2". O voto, o 1/2 ou um "aprovado" escrito volta pelo webhook e segue
  * sozinho (respostas.service.ts). A linha de aprovação padrão do texto é trocada aqui também (textoParaFormato: o diálogo
  * aberto antes de a gráfica mudar o formato não manda a linha errada); linha editada fica como veio.
  */
@@ -99,7 +104,7 @@ export function criarEnvioManual(app: FastifyInstance) {
     const formato = formatoAprovacao(config)
     const texto = ehOrcamento ? textoParaFormato(d.texto, formato) : d.texto
     // Como o orçamento saiu: "numeros" só se o texto pede mesmo o 1 (linha padrão ou editada dizendo "responda 1")
-    let formatoResposta: FormatoRespostaOrcamento | null = !ehOrcamento ? null : formato === 'enquete' ? 'enquete' : textoPedeNumeros(texto) ? 'numeros' : 'texto'
+    let formatoResposta: FormatoRespostaOrcamento | null = !ehOrcamento ? null : formato === 'numeros' ? (textoPedeNumeros(texto) ? 'numeros' : 'texto') : formato
     const base = {
       clienteId,
       pedidoId: d.pedidoId ?? null,

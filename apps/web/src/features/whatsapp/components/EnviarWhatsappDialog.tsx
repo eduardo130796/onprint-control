@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Copy, ExternalLink, FileText, ListChecks, Loader2, MessageCircle, Pencil, RotateCcw, Send, UserRound } from 'lucide-react'
+import { Copy, ExternalLink, FileText, ListChecks, Loader2, MessageCircle, MessagesSquare, Pencil, RotateCcw, Send, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   OPCOES_ENQUETE_ORCAMENTO,
@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import { Checkbox, Textarea } from '@/components/ui/form-controls'
 import { Input } from '@/components/ui/input'
 import { linkWhatsappEnvio } from '@/features/vitrine/divulgar'
+import { useDebounce } from '@/hooks/useDebounce'
 import { cn } from '@/lib/utils'
 import { BolhaWhatsapp } from './BolhaWhatsapp'
 
@@ -85,13 +86,28 @@ function Conteudo({ envio, onFechar }: { envio: EnvioWhatsapp; onFechar: () => v
   const { anexos: arquivosJuntos } = escolherAnexosArte(conectado ? selecionados.flatMap((i) => (i.arquivo ? [i.arquivo] : [])) : [])
   const vaiJunto = (i: ItemSelecaoEnvio) => Boolean(i.arquivo && arquivosJuntos.includes(i.arquivo))
   const semSelecao = Boolean(envio.selecao) && selecionados.length === 0
-  // Orçamento pela conexão: logo depois vai a enquete de aprovação, ou o texto pede "responda 1 / 2" (como a gráfica
-  // escolheu na tela WhatsApp); no wa.me e no "Copiar" não há enquete nem 1/2: a linha vira "Responda APROVADO..."
-  const formato: FormatoRespostaOrcamento = envio.tipo === 'orcamento_enviado' && conectado ? (disponivel.data?.formatoAprovacao ?? 'enquete') : 'texto'
+  // Orçamento pela conexão: na conversa natural (o cliente responde do jeito dele), com a enquete de aprovação logo
+  // depois, ou o texto pede "responda 1 / 2" (como a gráfica escolheu na tela WhatsApp). No wa.me e no "Copiar" não há
+  // enquete nem 1/2: a linha vira "Responda APROVADO..." (a da conversa natural continua, ela serve em qualquer canal)
+  const escolhido = disponivel.data?.formatoAprovacao ?? 'conversa'
+  const formato: FormatoRespostaOrcamento = envio.tipo !== 'orcamento_enviado' ? 'texto' : conectado || escolhido === 'conversa' ? escolhido : 'texto'
   const comEnquete = formato === 'enquete'
+  const semConexao = (t: string) => (formato === 'conversa' ? t : textoSemEnquete(t))
   const padrao = textoParaFormato(envio.mensagem(anexar, marcados), formato)
   const texto = editado ?? padrao
   const numero = outroNumero ? normalizarNumeroWhatsapp(digitado) : numeroCadastro
+  // "Outro número" pelo nome: quem já escreveu para a gráfica e os clientes com WhatsApp (sem copiar número)
+  const [contatoEscolhido, setContatoEscolhido] = useState<string | null>(null)
+  const termo = useDebounce(digitado.trim(), 300)
+  const porNome = /\p{L}/u.test(termo)
+  const contatos = useQuery({
+    queryKey: [...CHAVE_WHATSAPP, 'contatos', porNome ? termo : ''],
+    queryFn: () => whatsappApi.contatos(porNome ? termo : ''),
+    enabled: outroNumero && (porNome ? termo.length >= 2 : !digitado.trim()),
+    staleTime: 30_000,
+    retry: false,
+  })
+  const sugestoes = (contatos.data ?? []).slice(0, porNome ? 8 : 5)
   // Nome de exibição inteiro ("Pet Feliz", não "Pet"); só encurta nome muito longo para caber no botão
   const nome = envio.destinatario.nome.trim()
   const nomeCurto = nome.length <= 22 ? nome : `${nome.slice(0, 20).trimEnd()}…`
@@ -137,13 +153,13 @@ function Conteudo({ envio, onFechar }: { envio: EnvioWhatsapp; onFechar: () => v
   }
 
   function abrirNoWhatsapp() {
-    window.open(linkWhatsappEnvio(numero, textoSemEnquete(texto)), '_blank', 'noopener')
+    window.open(linkWhatsappEnvio(numero, semConexao(texto)), '_blank', 'noopener')
     concluir('wame')
   }
 
   async function copiar() {
     try {
-      await navigator.clipboard.writeText(textoSemEnquete(texto))
+      await navigator.clipboard.writeText(semConexao(texto))
       toast.success('Mensagem copiada. Cole no WhatsApp do cliente.')
       concluir('copiado')
     } catch {
@@ -175,7 +191,7 @@ function Conteudo({ envio, onFechar }: { envio: EnvioWhatsapp; onFechar: () => v
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-tinta">{envio.destinatario.nome}</p>
               <p className="text-xs text-texto-secundario">
-                {outroNumero ? 'Outro número' : formatarNumeroWhatsapp(numeroCadastro)}
+                {outroNumero ? (contatoEscolhido && numero ? `${contatoEscolhido} · ${formatarNumeroWhatsapp(numero)}` : 'Outro número') : formatarNumeroWhatsapp(numeroCadastro)}
               </p>
             </div>
             {numeroCadastro && (
@@ -187,15 +203,44 @@ function Conteudo({ envio, onFechar }: { envio: EnvioWhatsapp; onFechar: () => v
           {outroNumero && (
             <div className="mt-3 space-y-1">
               <Input
-                aria-label="WhatsApp com DDD"
-                inputMode="tel"
+                aria-label="Nome do contato ou WhatsApp com DDD"
                 autoFocus={Boolean(numeroCadastro)}
-                placeholder="(11) 98888-7777"
+                autoComplete="off"
+                placeholder="Nome do contato ou (11) 98888-7777"
                 value={digitado}
-                onChange={(e) => setDigitado(e.target.value)}
+                onChange={(e) => {
+                  setDigitado(e.target.value)
+                  setContatoEscolhido(null)
+                }}
               />
-              <p className={cn('text-xs', digitado && !numero ? 'text-coral-escuro' : 'text-texto-secundario')}>
-                {!numeroCadastro && !digitado ? 'Este cliente não tem WhatsApp no cadastro. Digite o número com DDD.' : digitado && !numero ? 'Número inválido: use o DDD e o número.' : 'Só para este envio (o cadastro não muda).'}
+              {!numero && sugestoes.length > 0 && (
+                <ul aria-label={porNome ? 'Contatos encontrados' : 'Quem escreveu por último'} className="max-h-48 divide-y divide-border overflow-y-auto rounded-lg border border-border">
+                  {sugestoes.map((c) => (
+                    <li key={c.numero}>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-marca-suave"
+                        onClick={() => {
+                          setDigitado(formatarNumeroWhatsapp(c.numero))
+                          setContatoEscolhido(c.nome || formatarNumeroWhatsapp(c.numero))
+                        }}
+                      >
+                        <MessagesSquare className="h-3.5 w-3.5 shrink-0 text-marca-escuro" aria-hidden="true" />
+                        <span className="min-w-0 flex-1 truncate font-medium text-tinta">{c.nome || formatarNumeroWhatsapp(c.numero)}</span>
+                        <span className="shrink-0 text-xs text-texto-secundario">{formatarNumeroWhatsapp(c.numero)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className={cn('text-xs', digitado && !numero && !porNome ? 'text-coral-escuro' : 'text-texto-secundario')}>
+                {digitado && !numero && !porNome
+                  ? 'Número inválido: use o DDD e o número.'
+                  : porNome && !numero && contatos.data && !sugestoes.length
+                    ? 'Ninguém com esse nome escreveu para a gráfica. Digite o número com DDD.'
+                    : !numeroCadastro && !digitado
+                      ? 'Este cliente não tem WhatsApp no cadastro. Digite o nome de quem já escreveu para a gráfica ou o número com DDD.'
+                      : 'Só para este envio (o cadastro não muda).'}
               </p>
             </div>
           )}
@@ -277,6 +322,12 @@ function Conteudo({ envio, onFechar }: { envio: EnvioWhatsapp; onFechar: () => v
                 Depois vai uma enquete: <strong>{OPCOES_ENQUETE_ORCAMENTO.aprovar}</strong> ou <strong>{OPCOES_ENQUETE_ORCAMENTO.modificar}</strong>. A resposta
                 volta para o orçamento sozinha.
               </span>
+            </p>
+          )}
+          {formato === 'conversa' && (
+            <p className="mt-2 flex items-start gap-2 rounded-xl bg-marca-suave p-2.5 text-xs text-marca-escuro">
+              <MessageCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>Sem enquete: o cliente responde do jeito dele (“pode fazer”, “fechado”, 👍) e a resposta volta para o orçamento sozinha. Pergunta ou dúvida vai para você.</span>
             </p>
           )}
           {formato === 'numeros' && (

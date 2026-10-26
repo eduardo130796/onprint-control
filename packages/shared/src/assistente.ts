@@ -57,13 +57,20 @@ export const RECURSO_IA_ROTULOS: Record<RecursoIA, string> = {
   teste_central: 'Teste da central',
 }
 
-/** O que o Assistente entendeu da resposta do cliente ao orçamento */
-export const INTENCOES_RESPOSTA_IA = ['aprova', 'quer_modificacoes', 'pergunta', 'outro'] as const
+/**
+ * O que o Assistente entendeu da mensagem do cliente no WhatsApp: a resposta ao orçamento enviado (aprova, quer
+ * modificações) ou outra coisa — pede/pergunta preço de algo que não está no orçamento (novo_pedido), pergunta de um
+ * pedido já feito (sobre_pedido: "tá pronto?"), dúvida (pergunta) ou outro assunto. A mesma leitura serve para as
+ * conversas que chegam sem orçamento aberto (Conversas do WhatsApp).
+ */
+export const INTENCOES_RESPOSTA_IA = ['aprova', 'quer_modificacoes', 'pergunta', 'novo_pedido', 'sobre_pedido', 'outro'] as const
 export type IntencaoRespostaIA = (typeof INTENCOES_RESPOSTA_IA)[number]
 export const INTENCAO_RESPOSTA_IA_ROTULOS: Record<IntencaoRespostaIA, string> = {
   aprova: 'Aprova',
   quer_modificacoes: 'Quer modificações',
   pergunta: 'Pergunta',
+  novo_pedido: 'Pedido novo',
+  sobre_pedido: 'Pergunta sobre pedido',
   outro: 'Outro assunto',
 }
 

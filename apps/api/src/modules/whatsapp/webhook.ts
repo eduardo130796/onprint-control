@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
-import type { EstadoConexaoWhatsapp } from '@onprint/shared'
+import type { EstadoConexaoWhatsapp, MidiaConversa } from '@onprint/shared'
 import { API_PREFIX } from '../../core/constantes'
 import { bytesDoWhatsapp } from '../../integrations/whatsapp'
 import type { VotoCifrado } from './enquete'
@@ -44,7 +44,20 @@ export type EventoWebhook =
       /** pollCreationMessageKey como chegou (diagnóstico do voto que não abre) */
       chaveEnquete?: { remoteJid: string | null; participant: string | null; fromMe: boolean | null } | null
     }
-  | { tipo: 'texto'; idMensagem: string; texto: string; citadoId: string | null; numero: string | null; nome: string | null }
+  | {
+      tipo: 'texto'
+      idMensagem: string
+      texto: string
+      citadoId: string | null
+      numero: string | null
+      nome: string | null
+      /** Conversa (remoteJid; "…@lid" quando o número não veio) */
+      jid: string
+      /** Foto/vídeo/documento com legenda: o texto é a legenda */
+      midia: MidiaConversa | null
+    }
+  /** Mídia sem texto (foto, áudio...): só entra nas Conversas do WhatsApp, com o tipo */
+  | { tipo: 'midia'; idMensagem: string; midia: MidiaConversa; numero: string | null; nome: string | null; jid: string }
 
 export interface AvisoWebhook {
   instancia: string | null
@@ -78,6 +91,18 @@ function textoDaMensagem(m: Obj): string | null {
   )
 }
 
+/** Tipo da mídia da mensagem (o arquivo não é baixado); reação, edição, apagada e afins não contam */
+export function midiaDaMensagem(m: Obj): MidiaConversa | null {
+  if (m.imageMessage) return 'foto'
+  if (m.videoMessage || m.ptvMessage) return 'video'
+  if (m.audioMessage) return 'audio'
+  if (m.documentMessage || m.documentWithCaptionMessage) return 'documento'
+  if (m.stickerMessage) return 'figurinha'
+  if (m.contactMessage || m.contactsArrayMessage) return 'contato'
+  if (m.locationMessage || m.liveLocationMessage) return 'localizacao'
+  return null
+}
+
 function citadoDe(dados: Obj, m: Obj): string | null {
   for (const fonte of [obj(dados.contextInfo), obj(obj(m.extendedTextMessage)?.contextInfo), obj(obj(m.imageMessage)?.contextInfo)]) {
     const id = texto(fonte?.stanzaId)
@@ -86,7 +111,10 @@ function citadoDe(dados: Obj, m: Obj): string | null {
   return null
 }
 
-/** Uma mensagem recebida (messages.upsert): texto do cliente ou voto na enquete; o resto (mídia, nossas, grupo) fica de fora */
+/**
+ * Uma mensagem recebida (messages.upsert): texto do cliente, voto na enquete ou mídia (só o tipo); as nossas, de grupo,
+ * status e lista de transmissão ficam de fora
+ */
 export function lerMensagem(dados: unknown, sender: string | null): EventoWebhook | null {
   const d = obj(dados)
   const key = obj(d?.key)
@@ -134,9 +162,10 @@ export function lerMensagem(dados: unknown, sender: string | null): EventoWebhoo
     }
   }
 
-  const corpo = textoDaMensagem(m)
-  if (!corpo) return null
-  return { tipo: 'texto', idMensagem: id, texto: corpo.trim().slice(0, 1000), citadoId: citadoDe(d, m), numero, nome }
+  const corpo = textoDaMensagem(m) ?? texto(obj(obj(obj(m.documentWithCaptionMessage)?.message)?.documentMessage)?.caption)
+  const midia = midiaDaMensagem(m)
+  if (!corpo) return midia ? { tipo: 'midia', idMensagem: id, midia, numero, nome, jid: remoteJid } : null
+  return { tipo: 'texto', idMensagem: id, texto: corpo.trim().slice(0, 1000), citadoId: citadoDe(d, m), numero, nome, jid: remoteJid, midia }
 }
 
 const ESTADOS: Record<string, EstadoConexaoWhatsapp> = { open: 'conectado', connecting: 'conectando', close: 'desconectado' }

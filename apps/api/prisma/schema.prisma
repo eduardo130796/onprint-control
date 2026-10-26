@@ -196,7 +196,7 @@ model EmpresaConfig {
   /// Manual do atendente (Configurações → Regras comerciais): orientações livres do dono para o Assistente; nunca
   /// mudam preço (os números ficam nas regras comerciais, aplicadas pelo sistema)
   manualAtendente          String?     @map("manual_atendente")
-  createdAt               DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdAt                DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdBy                String?     @map("created_by") @db.Uuid
 
@@ -338,8 +338,9 @@ model WhatsappConfig {
   pausado             Boolean   @default(false)
   /// Cliente respondeu "Aprovado" na conversa (enquete ou texto): aprova sozinho (e vira pedido se a empresa deixou)
   aprovarPelaResposta Boolean   @default(true) @map("aprovar_pela_resposta")
-  /// Como o cliente aprova o orçamento enviado por aqui: enquete (toca na opção) | numeros (responde 1 ou 2)
-  formatoAprovacao    String    @default("enquete") @map("formato_aprovacao")
+  /// Como o cliente aprova o orçamento enviado por aqui: conversa (responde do jeito dele, padrão) | enquete (toca na
+  /// opção) | numeros (responde 1 ou 2)
+  formatoAprovacao    String    @default("conversa") @map("formato_aprovacao")
   /// LID da conta conectada ("…@lid", sem o aparelho; credenciais da instância na Evolution): o voto da enquete no
   /// endereçamento novo é cifrado com ele como criador
   lid                 String?
@@ -363,60 +364,63 @@ enum StatusMensagemWhatsapp {
 /// Fila e histórico dos avisos (o envio respeita horário, intervalo entre mensagens e limite por hora)
 /// e dos envios feitos pela equipe ("Enviar pelo WhatsApp": saem na hora, já gravados como enviados)
 model MensagemWhatsapp {
-  id                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                  String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   /// Sem cliente: envio da equipe para outro contato (catálogo, produto)
-  clienteId          String?                @map("cliente_id") @db.Uuid
-  pedidoId           String?                @map("pedido_id") @db.Uuid
-  orcamentoId        String?                @map("orcamento_id") @db.Uuid
+  clienteId           String?                @map("cliente_id") @db.Uuid
+  pedidoId            String?                @map("pedido_id") @db.Uuid
+  orcamentoId         String?                @map("orcamento_id") @db.Uuid
   /// Arte ou pagamento que gerou o aviso (evita repetir o mesmo aviso)
-  referenciaId       String?                @map("referencia_id")
-  evento             String
+  referenciaId        String?                @map("referencia_id")
+  evento              String
   /// Enviada pela equipe (não é aviso automático)
-  manual             Boolean                @default(false)
+  manual              Boolean                @default(false)
   /// Quem enviou (envio da equipe)
-  usuarioId          String?                @map("usuario_id") @db.Uuid
-  telefone           String
-  texto              String
+  usuarioId           String?                @map("usuario_id") @db.Uuid
+  telefone            String
+  texto               String
   /// PDF que foi junto (orçamento, recibo, catálogo)
-  anexoNome          String?                @map("anexo_nome")
+  anexoNome           String?                @map("anexo_nome")
   /// Arquivos das artes que vão logo depois do texto: [{ arquivoId, nome, mime, tamanho, legenda }]
-  anexos             Json?
-  status             StatusMensagemWhatsapp @default(pendente)
-  tentativas         Int                    @default(0)
-  erro               String?
+  anexos              Json?
+  status              StatusMensagemWhatsapp @default(pendente)
+  tentativas          Int                    @default(0)
+  erro                String?
   /// Próxima tentativa depois de uma falha temporária; no aviso novo, o fim do "respiro" (ver avisos.ts)
-  proximaTentativaEm DateTime?              @map("proxima_tentativa_em") @db.Timestamptz(3)
-  enviadaEm          DateTime?              @map("enviada_em") @db.Timestamptz(3)
+  proximaTentativaEm  DateTime?              @map("proxima_tentativa_em") @db.Timestamptz(3)
+  enviadaEm           DateTime?              @map("enviada_em") @db.Timestamptz(3)
   /// Saiu dentro da mensagem deste outro aviso do mesmo pedido (uma mensagem só)
-  agrupadaComId      String?                @map("agrupada_com_id") @db.Uuid
+  agrupadaComId       String?                @map("agrupada_com_id") @db.Uuid
   /// Id da mensagem no WhatsApp (key.id da Evolution)
-  idExterno          String?                @map("id_externo")
+  idExterno           String?                @map("id_externo")
   /// Orçamento: enquete "✅ Aprovado / ✏️ Quero modificações" que saiu logo depois (id no WhatsApp, chave do voto
   /// em base64 e o jid do cliente usado no envio) — o voto chega cifrado pelo webhook e é aberto com ela
-  enqueteId          String?                @map("enquete_id")
-  enqueteSegredo     String?                @map("enquete_segredo")
-  enqueteJid         String?                @map("enquete_jid")
+  enqueteId           String?                @map("enquete_id")
+  enqueteSegredo      String?                @map("enquete_segredo")
+  enqueteJid          String?                @map("enquete_jid")
   /// A outra identidade do cliente vista no voto (o LID, quando a enquete saiu pelo número)
-  enqueteJidAlt      String?                @map("enquete_jid_alt")
+  enqueteJidAlt       String?                @map("enquete_jid_alt")
   /// Voto que não abriu, como chegou (encPayload/encIv em base64, jids vistos, chave da enquete): tentado de novo
   /// quando as identidades certas forem conhecidas (enquete.ts); null depois que abre
-  votoBruto          Json?                  @map("voto_bruto")
+  votoBruto           Json?                  @map("voto_bruto")
   /// Resposta do cliente na conversa (a mais recente): aprovado | modificacoes | outra, por enquete | texto
-  resposta           String?
-  respostaVia        String?                @map("resposta_via")
-  respostaTexto      String?                @map("resposta_texto")
-  respostaEm         DateTime?              @map("resposta_em") @db.Timestamptz(3)
+  resposta            String?
+  respostaVia         String?                @map("resposta_via")
+  respostaTexto       String?                @map("resposta_texto")
+  respostaEm          DateTime?              @map("resposta_em") @db.Timestamptz(3)
   /// Id da mensagem recebida (o mesmo aviso do webhook duas vezes não é aplicado de novo)
-  respostaIdExterno  String?                @map("resposta_id_externo")
+  respostaIdExterno   String?                @map("resposta_id_externo")
   /// Orçamento: como saiu (enquete | numeros | texto) — o "1"/"2" do cliente só vale quando saiu como numeros
-  formatoResposta    String?                @map("formato_resposta")
+  formatoResposta     String?                @map("formato_resposta")
   /// O que o Assistente GrafyGo entendeu da resposta (resposta_via "assistente"): aprova | quer_modificacoes |
   /// pergunta | outro, a confiança (0 a 1) e o resumo de uma linha
-  respostaIntencao   String?                @map("resposta_intencao")
-  respostaConfianca  Float?                 @map("resposta_confianca")
-  respostaResumo     String?                @map("resposta_resumo")
-  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  respostaIntencao    String?                @map("resposta_intencao")
+  respostaConfianca   Float?                 @map("resposta_confianca")
+  respostaResumo      String?                @map("resposta_resumo")
+  /// Respostas anteriores do cliente a este orçamento (a mais recente fica nos campos acima): [{ resposta, via, texto,
+  /// em, idExterno, intencao, confianca, resumo }], da mais antiga para a mais nova — uma resposta nova nunca apaga a outra
+  respostasAnteriores Json?                  @map("respostas_anteriores")
+  createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   cliente   Cliente?   @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   pedido    Pedido?    @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
@@ -431,6 +435,70 @@ model MensagemWhatsapp {
   @@index([idExterno])
   @@index([evento, telefone])
   @@map("mensagens_whatsapp")
+}
+
+/// Conversas do WhatsApp (copiloto nível 1): mensagens de clientes que não viraram resposta tratada de orçamento.
+/// Mensagens seguidas do mesmo contato em poucos minutos ficam numa conversa só. Nada sai sem o toque da equipe.
+model ConversaWhatsapp {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Número do remetente (55DDD…); null quando só veio o LID
+  numero       String?
+  /// Jid do remetente (o LID, quando não veio o número)
+  jid          String?
+  /// Nome do perfil no WhatsApp (pushName): o nome sugerido quando não há cliente
+  nomeWhatsapp String?   @map("nome_whatsapp")
+  clienteId    String?   @map("cliente_id") @db.Uuid
+  /// orcamento | pedido | duvida | outro
+  assunto      String    @default("outro")
+  /// regras (na hora) | assistente (lido pelo Assistente GrafyGo)
+  assuntoVia   String    @default("regras") @map("assunto_via")
+  resumo       String?
+  confianca    Float?
+  /// Esperando a leitura do Assistente (mensagens seguidas são lidas juntas, uma chamada só)
+  classificar  Boolean   @default(false)
+  /// Orçamento citado (resposta que não deu para tratar) ou montado a partir da conversa
+  orcamentoId  String?   @map("orcamento_id") @db.Uuid
+  /// aberta | resolvida
+  situacao     String    @default("aberta")
+  resolvidaEm  DateTime? @map("resolvida_em") @db.Timestamptz(3)
+  resolvidaPor String?   @map("resolvida_por") @db.Uuid
+  /// A equipe já foi avisada no sino (uma vez por conversa)
+  notificadaEm DateTime? @map("notificada_em") @db.Timestamptz(3)
+  primeiraEm   DateTime  @default(now()) @map("primeira_em") @db.Timestamptz(3)
+  ultimaEm     DateTime  @default(now()) @map("ultima_em") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  cliente   Cliente?                   @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  orcamento Orcamento?                 @relation(fields: [orcamentoId], references: [id], onDelete: SetNull)
+  mensagens ConversaMensagemWhatsapp[]
+
+  @@index([situacao, ultimaEm])
+  @@index([numero])
+  @@index([jid])
+  @@index([clienteId])
+  @@map("conversas_whatsapp")
+}
+
+/// Mensagem recebida numa conversa (texto; da mídia, só o tipo)
+model ConversaMensagemWhatsapp {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversaId  String   @map("conversa_id") @db.Uuid
+  /// key.id da mensagem no WhatsApp (o mesmo aviso do webhook duas vezes não entra de novo)
+  idExterno   String   @unique @map("id_externo")
+  texto       String?
+  /// foto | video | audio | documento | figurinha | contato | localizacao
+  midia       String?
+  /// Orçamento a que a mensagem respondeu
+  orcamentoId String?  @map("orcamento_id") @db.Uuid
+  /// Virou resposta tratada do orçamento (aprovou, pediu modificação): não pede ação na lista
+  tratada     Boolean  @default(false)
+  recebidaEm  DateTime @default(now()) @map("recebida_em") @db.Timestamptz(3)
+
+  conversa ConversaWhatsapp @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+
+  @@index([conversaId])
+  @@map("conversa_mensagens_whatsapp")
 }
 
 // ─── 8.2 Pessoas ────────────────────────────────────────────────────────────
@@ -493,6 +561,7 @@ model Cliente {
   contasReceber     ContaReceber[]
   vendasPdv         VendaPdv[]             @relation("VendaPdvCliente")
   mensagensWhatsapp MensagemWhatsapp[]
+  conversasWhatsapp ConversaWhatsapp[]
 
   @@index([situacao])
   @@index([vendedorId])
@@ -1156,6 +1225,7 @@ model Orcamento {
   pedido              Pedido?               @relation("PedidoDoOrcamento", fields: [pedidoId], references: [id], onDelete: Restrict)
   itens               OrcamentoItem[]
   mensagensWhatsapp   MensagemWhatsapp[]
+  conversasWhatsapp   ConversaWhatsapp[]
 
   @@index([status])
   @@index([clienteId])

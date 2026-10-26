@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { usePermissoes } from '@/hooks/usePermission'
 import { AvisosCard } from '../components/AvisosCard'
 import { ConexaoCard } from '../components/ConexaoCard'
+import { ConversasCard } from '../components/ConversasCard'
 import { MensagensCard } from '../components/MensagensCard'
 
 function Faixa({ icone: Icone, children, tom }: { icone: typeof Lock; children: React.ReactNode; tom: 'alerta' | 'info' }) {
@@ -19,7 +20,7 @@ function Faixa({ icone: Icone, children, tom }: { icone: typeof Lock; children: 
   )
 }
 
-/** WhatsApp: conexão do número da gráfica pelo QR code e avisos automáticos dos pedidos aos clientes. */
+/** WhatsApp: as conversas dos clientes, a conexão do número da gráfica pelo QR code e os avisos automáticos dos pedidos. */
 export function WhatsAppPage({ titulo = 'WhatsApp' }: { titulo?: string }) {
   const pode = usePermissoes()
   const podeEditar = pode('whatsapp', 'editar')
@@ -28,7 +29,7 @@ export function WhatsAppPage({ titulo = 'WhatsApp' }: { titulo?: string }) {
 
   return (
     <>
-      <PageHeader titulo={titulo} subtitulo="Avisos dos pedidos no WhatsApp do cliente, enviados pelo número da própria gráfica." />
+      <PageHeader titulo={titulo} subtitulo="Conversas dos clientes e avisos dos pedidos, pelo número da própria gráfica." />
       {consulta.isPending ? (
         <div className="space-y-4">
           <Skeleton className="h-36 w-full" />
@@ -55,6 +56,8 @@ export function WhatsAppPage({ titulo = 'WhatsApp' }: { titulo?: string }) {
               <strong>Avisos pausados.</strong> {c!.pendentes ? `${c!.pendentes} aviso(s) esperando na fila.` : 'Nenhum aviso sai enquanto estiver pausado.'}
             </Faixa>
           )}
+          {/* O dia a dia primeiro: as mensagens dos clientes com as ações de um toque */}
+          <ConversasCard conectado={c!.liberadoNoPlano && c!.estado === 'conectado' && !c!.pausado} />
           <ConexaoCard config={c!} podeEditar={podeEditar} />
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             {/* A chave remonta o formulário quando a configuração salva muda */}

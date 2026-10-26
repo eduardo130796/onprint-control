@@ -229,11 +229,16 @@ export function criarAjudasAssistente(app: FastifyInstance) {
      * "Montar com o Assistente": o pedido do cliente vira itens do catálogo com o preço do sistema. O cérebro da gráfica
      * vai junto (empresa, regras em português, manual do dono e a memória do cliente achado pelo telefone ou documento).
      * Cliente que não está no cadastro volta como "novo" (cadastrado com o orçamento); vários parecidos, para escolher.
+     * `remetente` (conversa do WhatsApp): o cliente ligado à conversa vale; sem ele, o cliente novo leva o número de quem
+     * escreveu e o nome do perfil do WhatsApp (ninguém digita o número).
      */
-    async orcamentoDeTexto(texto: string): Promise<OrcamentoDeTexto> {
+    async orcamentoDeTexto(texto: string, remetente?: { clienteId: string | null; nome: string | null; whatsapp: string | null }): Promise<OrcamentoDeTexto> {
       const { assinanteId, recurso } = await empresa.exigir('orcamentoTexto')
-      const dados = dadosDoTexto(texto)
-      const pelaFrente = await clientePeloTexto(dados)
+      const doTexto = dadosDoTexto(texto)
+      // O número de quem escreveu vem primeiro (é o WhatsApp do cliente novo)
+      const dados = remetente?.whatsapp ? { ...doTexto, telefones: [...new Set([remetente.whatsapp, ...doTexto.telefones])] } : doTexto
+      const daConversa = remetente?.clienteId ? await prisma.cliente.findFirst({ where: { id: remetente.clienteId, ativo: true }, select: selecionarCliente }) : null
+      const pelaFrente = daConversa ? { achado: daConversa, candidatos: [] } : await clientePeloTexto(dados)
       const [produtos, cerebro] = await Promise.all([
         prisma.produto.findMany({ where: { ativo: true, tipo: { in: ['produto', 'servico', 'revenda'] } }, select: selecionarProduto, orderBy: { nome: 'asc' } }),
         montarCerebro(prisma, { empresa: true, regras: true, manual: true, clienteId: pelaFrente.achado?.id ?? null }),
@@ -259,7 +264,7 @@ export function criarAjudasAssistente(app: FastifyInstance) {
           encontrado: achado ? { id: achado.id, rotulo: nomeCliente(achado) } : null,
           memoria: achado ? (cerebro.cliente && pelaFrente.achado ? cerebro.cliente.linhas : await memoria(achado.id)) : [],
           candidatos: achado ? [] : candidatos.map(opcao),
-          novo: achado || candidatos.length ? null : clienteNovo(dados, leitura.clienteNome),
+          novo: achado || candidatos.length ? null : clienteNovo(dados, leitura.clienteNome ?? remetente?.nome ?? null),
         },
         prazoDesejado: leitura.prazoDesejado,
         observacoes: leitura.observacoes,

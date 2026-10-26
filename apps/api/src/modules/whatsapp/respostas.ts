@@ -20,23 +20,51 @@ export function normalizarResposta(texto: string): string {
 }
 
 const NEGACAO = /\b(nao|n|nem|nunca|jamais|negativo|ainda)\b/
+/** Pedido de mudança claro: vale mesmo junto de pergunta ("tem desconto?", "dá pra trocar a cor?") */
 const MODIFICAR =
-  /\b(mud\w*|alter\w*|ajust\w*|modific\w*|troc\w*|corrig\w*|correc\w*|refaz\w*|refa[cz]a|diminu\w*|aument\w*|tira|tirar|retir\w*|acrescent\w*|inclu\w*|coloc\w*|errad\w*|errou|erro|outra cor|outro tamanho|desconto|mais barato)\b/
+  /\b(mud\w*|alter\w*|ajust\w*|modific\w*|troc\w*|corrig\w*|correc\w*|refaz\w*|refa[cz]a|diminu\w*|tira|tirar|retir\w*|errad\w*|errou|erro|outra cor|outro tamanho|desconto|mais barato)\b/
+/**
+ * Palavras genéricas que só contam como mudança fora de pergunta de preço: "quanto é o adesivo para colocar no carro"
+ * é pedido novo, não ajuste do orçamento enviado
+ */
+const MODIFICAR_GENERICO = /\b(aument\w*|acrescent\w*|inclu\w*|coloc\w*)\b/
+/** Pergunta de preço ou pedido de orçamento: quem pergunta quanto custa algo não está aprovando nem ajustando */
+const PERGUNTA_PRECO = /\b(quanto|quantos|quantas|valor|valores|preco|precos|orcamento|orcar|orca|cotacao|tabela)\b/
 const APROVAR = /\b(aprovad[oa]s?|aprovo|aprovamos|aprovei|aprovar|aprova|aprovadissimo)\b/
 const CONFIRMAR = /\b(pode (fazer|produzir|seguir|imprimir|rodar|mandar( fazer| ver)?|confirmar|fechar)|fechado|fechou|fechamos|manda ver|pode ser assim)\b/
 
+/** Só emoji de "ok" (👍, 👌, ✅, 🤝, 🆗, 💯, com ou sem tom de pele): aprovação curta */
+const EMOJI_APROVA = /^(?:\s*(?:\u{1F44D}|\u{1F44C}|\u2705|\u{1F91D}|\u{1F197}|\u{1F4AF})[\u{1F3FB}-\u{1F3FF}]?\uFE0F?)+\s*$/u
+
 /**
  * Intenção do texto. Conservadora: aprovar só sem negação nem pergunta e sem pedido de mudança ("aprovado, mas muda a
- * cor" é modificação; "não aprovado", "ainda não" e "aprovado?" ficam para a equipe).
+ * cor" é modificação; "não aprovado", "ainda não" e "aprovado?" ficam para a equipe). Pergunta de preço ("quanto é o
+ * adesivo para colocar no carro?") nunca é aprovação nem, pelas palavras genéricas, modificação: fica para a equipe.
  */
 export function intencaoDoTexto(texto: string): IntencaoResposta {
+  if (EMOJI_APROVA.test(texto)) return 'aprovar'
   const t = normalizarResposta(texto)
   if (!t || t.length > 300) return 'indefinida'
   if (NEGACAO.test(t)) return 'indefinida'
   if (MODIFICAR.test(t)) return 'modificar'
-  if (texto.includes('?')) return 'indefinida'
+  const precoPerguntado = PERGUNTA_PRECO.test(t)
+  if (!precoPerguntado && MODIFICAR_GENERICO.test(t)) return 'modificar'
+  if (precoPerguntado || texto.includes('?')) return 'indefinida'
   if (APROVAR.test(t) || CONFIRMAR.test(t)) return 'aprovar'
   return 'indefinida'
+}
+
+/** Ressalva que deixa a aprovação para quem lê com calma ("aprovado, mas só pago na sexta") */
+const RESSALVA = /\b(mas|porem|so que|entretanto|contanto|desde que|se|caso|antes)\b/
+
+/**
+ * Aprovação curta e clara (até 8 palavras, sem ressalva): com o Assistente GrafyGo ligado, é a única aprovação por
+ * texto que as regras decidem sozinhas; o resto ele lê.
+ */
+export function aprovacaoClara(texto: string): boolean {
+  if (intencaoDoTexto(texto) !== 'aprovar') return false
+  const t = normalizarResposta(texto)
+  return t.split(' ').filter(Boolean).length <= 8 && !RESSALVA.test(t)
 }
 
 /**
@@ -108,6 +136,11 @@ export interface LeituraAssistente {
 
 export type Decisao =
   | { acao: 'ignorar'; motivo: string }
+  /**
+   * O Assistente entendeu que a mensagem não responde o orçamento (pede outra coisa, pergunta de outro pedido): a
+   * resposta anterior do orçamento volta para o lugar e a mensagem segue para as Conversas do WhatsApp
+   */
+  | { acao: 'outro_assunto'; alvo: OrcamentoEnviado; assistente: LeituraAssistente }
   | { acao: 'aprovar'; alvo: OrcamentoEnviado; resposta: TipoRespostaWhatsapp; assistente?: LeituraAssistente }
   | { acao: 'modificar'; alvo: OrcamentoEnviado; resposta: TipoRespostaWhatsapp; responderCliente: boolean; assistente?: LeituraAssistente }
   | { acao: 'notificar'; motivo: MotivoNotificacao; alvos: OrcamentoEnviado[]; resposta: TipoRespostaWhatsapp; avisarEquipe: boolean; assistente?: LeituraAssistente }
@@ -128,7 +161,7 @@ const aprovado = (status: string) => status === 'aprovado' || status === 'conver
  * "1"/"2" sozinho só vale para o orçamento que saiu pedindo o número (formato "numeros"): o citado, ou o único aberto
  * enviado ao número nos 30 dias. Para orçamento com enquete ou só texto, o número é uma resposta qualquer (a equipe vê).
  */
-export function decidirResposta(r: Recebida, candidatos: OrcamentoEnviado[], opcoes: { aprovarSozinho: boolean; agora: Date }): Decisao {
+export function decidirResposta(r: Recebida, candidatos: OrcamentoEnviado[], opcoes: { aprovarSozinho: boolean; agora: Date; assistente?: boolean }): Decisao {
   let alvo: OrcamentoEnviado | undefined
   let intencao: IntencaoResposta
   if (r.tipo === 'voto') {
@@ -172,13 +205,22 @@ export function decidirResposta(r: Recebida, candidatos: OrcamentoEnviado[], opc
   }
   if (!aberto(alvo.status)) return { acao: 'notificar', motivo: 'fechado', alvos: [alvo], resposta, avisarEquipe: true }
 
+  // Com o Assistente GrafyGo disponível, as regras só decidem o óbvio (aprovação curta e clara, o 1/2 do formato
+  // números): pedido de mudança e aprovação comprida ou com ressalva ele lê (pode ser outro assunto)
+  const porNumero = r.tipo === 'texto' && numeroDaResposta(r.texto) !== null && alvo.formatoResposta === 'numeros'
+  if (opcoes.assistente && r.tipo === 'texto' && !porNumero && (intencao === 'modificar' || (intencao === 'aprovar' && !aprovacaoClara(r.texto)))) {
+    return { acao: 'notificar', motivo: 'texto', alvos: [alvo], resposta: 'outra', avisarEquipe: !silencioDeNotificacao(alvo, opcoes.agora) }
+  }
+
   if (intencao === 'aprovar') {
     return opcoes.aprovarSozinho ? { acao: 'aprovar', alvo, resposta } : { acao: 'notificar', motivo: 'aprovacao_manual', alvos: [alvo], resposta, avisarEquipe: true }
   }
   if (intencao === 'modificar') return { acao: 'modificar', alvo, resposta, responderCliente: !jaRespondeuModificacao(alvo, opcoes.agora) }
-  const recente = alvo.respostaEm !== null && opcoes.agora.getTime() - alvo.respostaEm.getTime() < SILENCIO_NOTIFICACAO_MS
-  return { acao: 'notificar', motivo: 'texto', alvos: [alvo], resposta, avisarEquipe: !recente }
+  return { acao: 'notificar', motivo: 'texto', alvos: [alvo], resposta, avisarEquipe: !silencioDeNotificacao(alvo, opcoes.agora) }
 }
+
+/** Outra mensagem sem intenção clara logo depois da anterior: registra, sem notificar de novo */
+const silencioDeNotificacao = (alvo: OrcamentoEnviado, agora: Date) => alvo.respostaEm !== null && agora.getTime() - alvo.respostaEm.getTime() < SILENCIO_NOTIFICACAO_MS
 
 /** "Já avisei a equipe" saiu há pouco para este orçamento (não repete) */
 const jaRespondeuModificacao = (alvo: OrcamentoEnviado, agora: Date) =>
@@ -189,6 +231,8 @@ const jaRespondeuModificacao = (alvo: OrcamentoEnviado, agora: Date) =>
 /** Certeza mínima para aprovar sozinho (e nunca com pergunta no texto) e para tratar como pedido de modificação */
 export const CONFIANCA_APROVAR = 0.85
 export const CONFIANCA_MODIFICAR = 0.8
+/** Certeza mínima para tirar a mensagem do orçamento (pedido novo, pergunta de outro pedido) e levar às Conversas */
+export const CONFIANCA_OUTRO_ASSUNTO = 0.7
 
 /**
  * A resposta vai para o Assistente: texto (não número, não voto) sem intenção clara para as regras, ligado a um único
@@ -200,8 +244,9 @@ export function vaiParaAssistente(d: Decisao, r: Recebida): d is Extract<Decisao
 
 /**
  * O que fazer com a leitura do Assistente. Age sozinho só no claro: aprova com confiança ≥ 0,85 e sem pergunta (nem no
- * texto, nem na leitura); pedido de modificação com ≥ 0,8 segue o fluxo de modificação. O resto avisa o vendedor com o
- * resumo ("Assistente: o cliente perguntou se dá para entregar sexta"). `base` é a decisão das regras (notificar).
+ * texto, nem na leitura); pedido de modificação com ≥ 0,8 segue o fluxo de modificação; pedido novo ou pergunta de
+ * outro pedido com ≥ 0,7 sai do orçamento (vai para as Conversas, sem mexer na resposta anterior). O resto avisa o
+ * vendedor com o resumo ("Assistente: o cliente perguntou se dá para entregar sexta"). `base` é a decisão das regras (notificar).
  */
 export function decidirPeloAssistente(leitura: LeituraAssistente, texto: string, base: Extract<Decisao, { acao: 'notificar' }>, opcoes: { aprovarSozinho: boolean; agora: Date }): Decisao {
   const alvo = base.alvos[0]!
@@ -210,6 +255,10 @@ export function decidirPeloAssistente(leitura: LeituraAssistente, texto: string,
     return opcoes.aprovarSozinho
       ? { acao: 'aprovar', alvo, resposta: 'aprovado', assistente: leitura }
       : { acao: 'notificar', motivo: 'aprovacao_manual', alvos: [alvo], resposta: 'aprovado', avisarEquipe: true, assistente: leitura }
+  }
+  // Pede outra coisa (preço de algo que não está no orçamento) ou pergunta de outro pedido: não é resposta deste
+  if ((leitura.intencao === 'novo_pedido' || leitura.intencao === 'sobre_pedido') && leitura.confianca >= CONFIANCA_OUTRO_ASSUNTO) {
+    return { acao: 'outro_assunto', alvo, assistente: leitura }
   }
   if (leitura.intencao === 'quer_modificacoes' && leitura.confianca >= CONFIANCA_MODIFICAR) {
     return { acao: 'modificar', alvo, resposta: 'modificacoes', responderCliente: !jaRespondeuModificacao(alvo, opcoes.agora), assistente: leitura }
@@ -225,4 +274,42 @@ export function variantesDoNumero(numero: string): string[] {
   if (/^55\d{2}9\d{8}$/.test(d)) lista.add(d.slice(0, 4) + d.slice(5))
   if (/^55\d{2}[6-9]\d{7}$/.test(d)) lista.add(`${d.slice(0, 4)}9${d.slice(4)}`)
   return [...lista]
+}
+
+// ─── Respostas em sequência: uma resposta nova nunca apaga a anterior ───
+
+/** Uma resposta guardada em mensagens_whatsapp.respostas_anteriores */
+export interface RespostaGuardada {
+  resposta: string
+  via: string | null
+  texto: string | null
+  em: string
+  idExterno: string | null
+  intencao: string | null
+  confianca: number | null
+  resumo: string | null
+}
+
+/** Quantas respostas anteriores ficam guardadas por orçamento enviado */
+export const MAX_RESPOSTAS_ANTERIORES = 20
+
+/** A lista guardada (jsonb), só com o que tem formato de resposta */
+export function respostasAnteriores(bruto: unknown): RespostaGuardada[] {
+  if (!Array.isArray(bruto)) return []
+  return bruto.filter((r): r is RespostaGuardada => Boolean(r) && typeof r === 'object' && typeof (r as RespostaGuardada).resposta === 'string' && typeof (r as RespostaGuardada).em === 'string')
+}
+
+/**
+ * Antes de gravar a resposta nova (`idNova`): a atual vai para o fim da lista. Nada a guardar (null) quando não havia
+ * resposta ou quando é a mesma mensagem de novo (o "lendo" do Assistente virando a leitura).
+ */
+export function empilharResposta(bruto: unknown, atual: RespostaGuardada | null, idNova: string): RespostaGuardada[] | null {
+  if (!atual || atual.idExterno === idNova) return null
+  return [...respostasAnteriores(bruto), atual].slice(-MAX_RESPOSTAS_ANTERIORES)
+}
+
+/** A resposta anterior volta para o lugar (a mensagem nova não era resposta): a última da lista e a lista sem ela */
+export function desempilharResposta(bruto: unknown): { volta: RespostaGuardada | null; ficam: RespostaGuardada[] } {
+  const lista = respostasAnteriores(bruto)
+  return { volta: lista.at(-1) ?? null, ficam: lista.slice(0, -1) }
 }

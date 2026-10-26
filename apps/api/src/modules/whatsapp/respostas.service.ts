@@ -745,7 +745,7 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
   return {
     /** Aviso do webhook já autenticado, dentro da empresa da instância */
     async processar(empresa: EmpresaAtual, aviso: AvisoWebhook) {
-      const resultados: { tipo: EventoWebhook['tipo']; acao: string; motivo?: string }[] = []
+      const resultados: { tipo: EventoWebhook['tipo']; acao: string; motivo?: string; jids?: (string | null)[] }[] = []
       await contextoEmpresa.com(empresa, async () => {
         for (const e of aviso.eventos) {
           try {
@@ -758,13 +758,13 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
               resultados.push({ tipo: e.tipo, acao: id ? 'conversa' : 'ignorar' })
             } else if (e.tipo === 'reacao') {
               // 📝 do dono numa mensagem do cliente: o orçamento rascunho (copiloto)
-              resultados.push({ tipo: e.tipo, ...(await copiloto.reacao(empresa, e, aviso.sender ?? null)) })
+              resultados.push({ tipo: e.tipo, ...(await copiloto.reacao(empresa, e, aviso.sender ?? null)), jids: e.jids.map(mascararJid) })
             } else if (e.tipo === 'proprio') {
               // Mensagem do próprio número: a conversa "Você" é o canal do Assistente; na conversa com o cliente, o que o
               // dono digitou fica guardado (a aprovação sozinha olha se conversaram depois do envio)
               const r = await copiloto.proprio(empresa, e, aviso.sender ?? null)
               const doDono = r.motivo === 'conversa com cliente' || r.motivo === 'assistente no WhatsApp desligado' ? await mensagensDono.registrar(e, aviso.sender ?? null) : false
-              resultados.push({ tipo: e.tipo, ...r, ...(doDono ? { acao: 'dono', motivo: 'mensagem do dono na conversa' } : {}) })
+              resultados.push({ tipo: e.tipo, ...r, ...(doDono ? { acao: 'dono', motivo: 'mensagem do dono na conversa' } : {}), jids: e.jids.map(mascararJid) })
             } else {
               const d = await responder(empresa, e)
               resultados.push({ tipo: e.tipo, acao: d.acao, ...('motivo' in d ? { motivo: d.motivo } : {}) })
@@ -784,6 +784,16 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
           }
         }
       })
+      // O que o copiloto fez com cada evento do dono (sem o texto, endereços mascarados): diagnóstico de "não respondeu
+      // nada" pelos logs (ex.: a conversa "Você" chegando por um endereço que a conta não reconhece como dela)
+      const doCopiloto = resultados.filter((r) => r.tipo === 'reacao' || r.tipo === 'proprio')
+      if (doCopiloto.length) {
+        const conta = await prisma.whatsappConfig.findFirst({ select: { numero: true, lid: true } })
+        app.log.info(
+          { empresa: empresa.slug, eventos: doCopiloto, conta: { numero: mascararJid(conta?.numero), lid: mascararJid(conta?.lid), sender: mascararJid(aviso.sender) } },
+          'Copiloto do WhatsApp',
+        )
+      }
       return resultados
     },
 

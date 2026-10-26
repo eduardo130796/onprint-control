@@ -17,7 +17,7 @@ import { contextoDoCerebro, montarCerebro } from '../assistente/cerebro'
 import { pedidoClassificarResposta, primeiroNome } from '../assistente/prompts'
 import { criarConversasWhatsapp, type EventoConversa } from './conversas.service'
 import { criarCopilotoWhatsapp } from './copiloto.service'
-import { decidirAprovacaoAutomatica, motivoDaConfirmacao, textoConfirmarAprovacao, versaoDoOrcamento, type DecisaoAprovacao } from './aprovacao'
+import { DONO_PRESENTE_MS, decidirAprovacaoAutomatica, motivoDaConfirmacao, silencioAoCliente, textoConfirmarAprovacao, versaoDoOrcamento, type DecisaoAprovacao } from './aprovacao'
 import { camposDaVersao } from './manual'
 import { criarMensagensDono } from './mensagens-dono'
 import { VIA_LENDO, notificarEquipe, quemAvisar as quemAvisarNaEmpresa } from './leituras-presas'
@@ -219,11 +219,25 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
    * Resposta curta ao cliente, na hora (é resposta a uma mensagem dele, fora da fila dos avisos). Só com o WhatsApp
    * no plano, conectado e sem pausa; fica registrada em mensagens_whatsapp ("Resposta ao cliente"). `peloAssistente`:
    * a decisão veio da leitura do Assistente — com "nunca falar com meus clientes" ligado, nada sai (a equipe responde).
+   * O dono escreveu nessa conversa nos últimos 30 minutos: ele está atendendo, a resposta pronta não sai (fica o sino).
    */
   async function responderCliente(empresa: EmpresaAtual, l: Linha, texto: string, peloAssistente = false) {
     try {
       if (!whatsappNoPlano(empresa)) return
-      if (peloAssistente && (await controlesDaEmpresa(prisma)).semClientes) return
+      const agora = new Date()
+      const [controles, doDono] = await Promise.all([controlesDaEmpresa(prisma), mensagensDono.depois(l.telefone, new Date(agora.getTime() - DONO_PRESENTE_MS))])
+      const silencio = silencioAoCliente({ peloAssistente, semClientes: controles.semClientes, ultimaDoDonoEm: doDono.at(-1)?.enviadaEm ?? null, agora })
+      if (silencio === 'sem_clientes') return
+      if (silencio === 'dono_presente') {
+        const o = l.orcamento!
+        app.log.info({ empresa: empresa.slug, orcamento: o.numero }, 'Resposta automática ao cliente não enviada: o dono está na conversa')
+        await notificar(
+          await quemAvisar(o.vendedorId),
+          { titulo: `${nomeCliente(o.cliente)}: o Assistente não respondeu no WhatsApp`, mensagem: `Você está na conversa (escreveu há pouco), então ele ficou quieto. Ia responder: “${texto.split('\n')[0]!.slice(0, 160)}”`, link: `/orcamentos/${o.id}` },
+          false,
+        )
+        return
+      }
       const config = await obterConfigWhatsapp(prisma)
       const provedor = app.whatsapp.provedor
       if (config.pausado || (!provedor.simulado && !config.conectado)) return

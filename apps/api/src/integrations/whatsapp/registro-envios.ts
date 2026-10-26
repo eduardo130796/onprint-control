@@ -1,8 +1,9 @@
 import type { ProvedorWhatsapp } from './index'
 
 /*
- * O que o próprio sistema mandou (avisos, orçamento, PDF, enquete, respostas automáticas, avisos do Assistente): tudo
- * volta pelo webhook como mensagem "fromMe", igual ao que o dono digita no celular. Este registro (em memória, por
+ * O que o próprio sistema mandou (avisos, orçamento, PDF, enquete, respostas automáticas, avisos do Assistente e as
+ * reações de confirmação no "Você"): tudo volta pelo webhook como mensagem "fromMe", igual ao que o dono digita no
+ * celular. Este registro (em memória, por
  * processo) guarda os ids devolvidos e, para o eco que chega antes de o envio devolver o id, o texto mandado a cada
  * número há pouco. Quem lê as mensagens do dono (aprovação segura) pergunta aqui antes de contar "o dono conversou".
  * O banco (mensagens_whatsapp.id_externo) cobre o que saiu antes de a API reiniciar.
@@ -82,5 +83,7 @@ export function comRegistro(provedor: ProvedorWhatsapp, registro: RegistroEnvios
     enviarDocumento: (instancia: string, numero: string, d: Parameters<ProvedorWhatsapp['enviarDocumento']>[2]) =>
       anotar(numero, d.legenda ?? null, () => provedor.enviarDocumento(instancia, numero, d)),
     enviarEnquete: (instancia: string, numero: string, pergunta: string, opcoes: string[]) => anotar(numero, null, () => provedor.enviarEnquete(instancia, numero, pergunta, opcoes)),
+    reagir: (instancia: string, chave: { remoteJid: string; fromMe: boolean; id: string }, emoji: string) =>
+      anotar(chave.remoteJid.split('@')[0]!, null, () => provedor.reagir(instancia, chave, emoji)),
   })
 }

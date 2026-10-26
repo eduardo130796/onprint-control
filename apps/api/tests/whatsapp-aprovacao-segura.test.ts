@@ -92,7 +92,7 @@ describe('Aprovação pela resposta: só o caso limpo aprova sozinho', () => {
     )
     expect(motivoDaConfirmacao(mudou)).toBe('o orçamento mudou depois do envio (o cliente viu R$ 552,00; agora está R$ 520,00)')
     expect(textoAprovadoAuto({ numero: 'ORC-2026-0112', cliente: 'Eduardo Júnior', total: '552', pedido: 'PED-2026-0070' })).toBe(
-      '✅ ORC-2026-0112 aprovado por Eduardo Júnior e virou o PED-2026-0070 (R$ 552,00). Responda *desfazer* a esta mensagem em até 10 min se não era isso.',
+      '✅ ORC-2026-0112 aprovado por Eduardo → PED-2026-0070 (R$ 552,00). *desfazer* em até 10 min.',
     )
   })
 })

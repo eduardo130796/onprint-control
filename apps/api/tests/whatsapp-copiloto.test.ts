@@ -244,11 +244,11 @@ describe('Copiloto: textos do "Você"', () => {
     expect(aviso).toBe(
       [
         '📝 Orçamento ORC-2026-0105 para Eduardo Júnior (novo cliente):',
-        '1) 1× Banner 2,0 × 1,8 m — R$ 272,00',
-        'Total: *R$ 552,00*',
+        '1) 1× Banner 2×1,8 m — R$ 272',
+        'Total: *R$ 552*',
         'Confira: medida do banner',
-        '',
-        'Responda *ok* a esta mensagem para enviar ao cliente, ou abra para ajustar: http://x/orcamentos/1',
+        'Responda *ok* para enviar · ou ajuste (ex.: "10% de desconto")',
+        'http://x/orcamentos/1',
       ].join('\n'),
     )
     expect(textoPergunta([rascunho({ orcamentoId: '105' }), rascunho({ orcamentoId: '106', numero: 'ORC-2026-0106', cliente: 'Ana', total: '320' })])).toBe(

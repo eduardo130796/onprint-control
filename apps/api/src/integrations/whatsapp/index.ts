@@ -71,6 +71,11 @@ export interface ProvedorWhatsapp {
    * null se não houver arquivo; lança ErroWhatsapp se a Evolution não conseguir baixar.
    */
   baixarMidia(instancia: string, mensagem: { key: Record<string, unknown>; message: Record<string, unknown> }): Promise<MidiaBaixada | null>
+  /**
+   * Reação (emoji) numa mensagem da conversa: a confirmação curta no canal "Você" ("ok" → ✅). `chave`: a mensagem
+   * reagida como chegou no webhook (remoteJid e id). Lança ErroWhatsapp se não sair (quem chama manda o texto).
+   */
+  reagir(instancia: string, chave: { remoteJid: string; fromMe: boolean; id: string }, emoji: string): Promise<{ id: string | null }>
   /** Fecha conexões próprias (banco da Evolution) ao desligar a API */
   fechar?(): Promise<void>
 }
@@ -158,6 +163,18 @@ export class LogWhatsappProvider implements ProvedorWhatsapp {
 
   /** Testes: o arquivo que o modo de teste "baixa" (sem ele, a mídia vem só se a mensagem trouxer o base64) */
   midiaTeste: MidiaBaixada | null = null
+
+  readonly reacoes: { instancia: string; numero: string; id: string; emoji: string }[] = []
+  /** Testes: a reação falha (o copiloto manda o texto no lugar) */
+  reacaoFalha = false
+
+  async reagir(instancia: string, chave: { remoteJid: string; fromMe: boolean; id: string }, emoji: string) {
+    if (this.reacaoFalha) throw new ErroWhatsapp('temporario', 'Reação recusada (teste).')
+    this.reacoes.push({ instancia, numero: chave.remoteJid.split('@')[0]!, id: chave.id, emoji })
+    if (this.reacoes.length > 200) this.reacoes.shift()
+    this.log?.info({ whatsapp: { instancia, reacao: emoji, mensagem: chave.id } }, 'Reação do WhatsApp não enviada (WHATSAPP_PROVEDOR=log), registrada no log')
+    return { id: `log-${randomUUID()}` }
+  }
 
   async baixarMidia(_instancia: string, mensagem: { key: Record<string, unknown>; message: Record<string, unknown> }): Promise<MidiaBaixada | null> {
     if (this.midiaTeste) return this.midiaTeste
@@ -323,6 +340,12 @@ export class EvolutionWhatsappProvider implements ProvedorWhatsapp {
     const dados = r.dados as { key?: { remoteJid?: string }; message?: { messageContextInfo?: { messageSecret?: unknown } } } | null
     const segredo = bytesDoWhatsapp(dados?.message?.messageContextInfo?.messageSecret)
     return { id, segredo: segredo?.length ? segredo.toString('base64') : null, jid: dados?.key?.remoteJid ?? null }
+  }
+
+  async reagir(instancia: string, chave: { remoteJid: string; fromMe: boolean; id: string }, emoji: string) {
+    // POST /message/sendReaction/{i} { key: { remoteJid, fromMe, id }, reaction } → 201 { key: { id }, ... } (SendReactionDto)
+    const r = await this.chamar('POST', `/message/sendReaction/${encodeURIComponent(instancia)}`, { key: { remoteJid: chave.remoteJid, fromMe: chave.fromMe, id: chave.id }, reaction: emoji })
+    return EvolutionWhatsappProvider.resultadoDoEnvio(r)
   }
 
   async baixarMidia(instancia: string, mensagem: { key: Record<string, unknown>; message: Record<string, unknown> }): Promise<MidiaBaixada | null> {

@@ -1,4 +1,4 @@
-import { formatarMoeda, linhaItemMensagem, listaItensMensagem, type ItemMensagem, type NotaCompraLida, type RespostaPergunta } from '@onprint/shared'
+import { formatarMoeda, type ItemMensagem, type NotaCompraLida, type RespostaPergunta } from '@onprint/shared'
 import { jidNormalizado } from './enquete'
 import { normalizarResposta, variantesDoNumero } from './respostas'
 
@@ -360,23 +360,54 @@ export interface AvisoOrcamento {
   liberacaoPendente?: boolean
 }
 
-/** Itens numerados (o dono pode dizer "tira o 2"): "1) 2× Banner 2,0 × 1,0 m — R$ 320,00" */
-export const listaNumerada = (itens: ItemMensagem[]) => itens.map((i, k) => `${k + 1}) ${linhaItemMensagem(i)}`).join('\n')
+// ─── Avisos curtos: o dono lê no celular, no meio das conversas ───
 
-/** O fim de todo aviso: itens numerados, desconto, total, o que conferir e como enviar (ou liberar) */
+/** Itens que aparecem no aviso; o resto vira "… e mais N" (o total continua inteiro) */
+export const MAX_ITENS_NO_AVISO = 6
+
+/** "R$ 320" (sem os centavos quando são ",00") ou "R$ 71,20" */
+export const moedaCurta = (v: string | number) => formatarMoeda(v).replace(/,00$/, '')
+
+/**
+ * Só o nome do produto, sem gramatura, medidas e especificação: "Banner em lona 440 g" → "Banner", "Panfleto 10 × 15 cm
+ * 4×0 couché 115 g" → "Panfleto", "Cartão de visita 4×4 couché 300 g" → "Cartão de visita", "Wind banner 2,5 m com
+ * base" → "Wind banner". Até 4 palavras.
+ */
+export function nomeCurto(descricao: string): string {
+  const palavras = descricao.replace(/\s*\(.*$/, '').trim().split(/\s+/)
+  const fim = palavras.findIndex((p, k) => k > 0 && (/\d/.test(p) || /^(em|com|×|x|-|—)$/i.test(p)))
+  const nome = (fim > 0 ? palavras.slice(0, fim) : palavras).slice(0, 4).join(' ')
+  return nome || descricao.trim()
+}
+
+const medidaCurta = (v: string | number | null | undefined) => (v === null || v === undefined || v === '' ? null : Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 2 }))
+
+/** "2× Banner 2×1 m — R$ 320" */
+export function linhaCurtaItem(i: ItemMensagem): string {
+  const l = medidaCurta(i.largura)
+  const a = medidaCurta(i.altura)
+  const medida = l && Number(i.largura) > 0 ? ` ${l}${a && Number(i.altura) > 0 ? `×${a}` : ''} m` : ''
+  return `${Number(i.quantidade).toLocaleString('pt-BR', { maximumFractionDigits: 3 })}× ${nomeCurto(i.descricao)}${medida} — ${moedaCurta(i.total)}`
+}
+
+/** Itens numerados (o dono pode dizer "tira o 2"), no máximo 6: "1) 2× Banner 2×1 m — R$ 320" … "… e mais 3" */
+export function listaNumerada(itens: ItemMensagem[]): string {
+  const mostrados = itens.slice(0, MAX_ITENS_NO_AVISO).map((i, k) => `${k + 1}) ${linhaCurtaItem(i)}`)
+  if (itens.length > MAX_ITENS_NO_AVISO) mostrados.push(`… e mais ${itens.length - MAX_ITENS_NO_AVISO}`)
+  return mostrados.join('\n')
+}
+
+/** Rodapé dos avisos de rascunho */
+export const RODAPE_AVISO = 'Responda *ok* para enviar · ou ajuste (ex.: "10% de desconto")'
+
+/** O fim de todo aviso: itens numerados, desconto, total, o que conferir, como enviar (ou liberar) e o link sozinho */
 function corpoDoAviso(a: AvisoOrcamento): string[] {
   const linhas = [listaNumerada(a.itens)]
-  if (a.desconto && Number(a.desconto) > 0) linhas.push(`Desconto: −${formatarMoeda(a.desconto)}`)
-  linhas.push(`Total: *${formatarMoeda(a.total)}*`)
+  if (a.desconto && Number(a.desconto) > 0) linhas.push(`Desconto: −${moedaCurta(a.desconto)}`)
+  linhas.push(`Total: *${moedaCurta(a.total)}*`)
   if (a.conferir.length) linhas.push(`Confira: ${a.conferir.join('; ')}`)
-  linhas.push('')
-  linhas.push(
-    a.liberacaoPendente
-      ? `Ele precisa da liberação de um gerente antes de sair. Abra para liberar: ${a.link}`
-      : a.acaoFinal
-        ? a.acaoFinal
-      : `Responda *ok* a esta mensagem para enviar ao cliente, ou abra para ajustar: ${a.link}`,
-  )
+  linhas.push(a.liberacaoPendente ? 'Precisa da liberação de um gerente antes de sair.' : (a.acaoFinal ?? RODAPE_AVISO))
+  linhas.push(a.link)
   return linhas
 }
 
@@ -384,7 +415,7 @@ function corpoDoAviso(a: AvisoOrcamento): string[] {
 export function textoAvisoOrcamento(a: AvisoOrcamento, origem: 'reacao' | 'voce' | 'mudou' | 'antigo' | 'pela_referencia'): string {
   const titulo =
     origem === 'mudou'
-      ? `O ${a.numero} mudou desde o aviso (total agora ${formatarMoeda(a.total)}):`
+      ? `O ${a.numero} mudou desde o aviso (total agora ${moedaCurta(a.total)}):`
       : origem === 'antigo'
         ? `O aviso do ${a.numero} é antigo. Ele está assim agora:`
         : origem === 'pela_referencia'
@@ -395,8 +426,25 @@ export function textoAvisoOrcamento(a: AvisoOrcamento, origem: 'reacao' | 'voce'
 
 /** 📝 de novo do mesmo cliente: o que entrou e o orçamento inteiro como ficou */
 export function textoAcrescimo(a: AvisoOrcamento & { novos: ItemMensagem[] }): string {
-  const quantos = a.itens.length === 1 ? '1 item' : `${a.itens.length} itens`
-  return [`➕ Acrescentei ao ${a.numero} (${a.cliente}):`, listaItensMensagem(a.novos), '', `Agora são ${quantos}:`, ...corpoDoAviso(a)].join('\n')
+  const novos = a.novos.map(linhaCurtaItem).join(' · ')
+  return [`➕ Acrescentei ao ${a.numero} (${a.cliente}): ${novos}`, ...corpoDoAviso(a)].join('\n')
+}
+
+// ─── Confirmações: reação na mensagem do dono, não mensagem nova ───
+
+export type ConfirmacaoDoDono = 'enviado' | 'reenviado' | 'cancelado' | 'desfeito'
+
+/** O emoji de cada confirmação (na própria mensagem do dono: "ok" → ✅) */
+export const REACAO_DA_CONFIRMACAO: Record<ConfirmacaoDoDono, string> = { enviado: '✅', reenviado: '✅', cancelado: '👍', desfeito: '↩️' }
+
+/**
+ * Confirmação de algo que o dono pediu e deu certo: a reação basta. Texto só quando traz informação nova (alerta do
+ * envio, como o PDF que não foi, ou a confirmação que já tinha saído ao cliente); se a reação falhar, o texto inteiro
+ * (`planoB`) vai no lugar.
+ */
+export function formaDaConfirmacao(acao: ConfirmacaoDoDono, alertas: (string | null | undefined)[]): { reacao: string; texto: string | null } {
+  const texto = alertas.filter((a): a is string => Boolean(a?.trim())).join(' ')
+  return { reacao: REACAO_DA_CONFIRMACAO[acao], texto: texto || null }
 }
 
 /** Ajuste pedido no "Você" ("10% de desconto", "tira o 2"): o que foi feito e o orçamento inteiro */

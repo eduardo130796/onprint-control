@@ -120,7 +120,9 @@ export function textoConfirmarAprovacao(a: {
 
 /** Depois da aprovação automática: o que aconteceu e o "desfazer" */
 export function textoAprovadoAuto(a: { numero: string; cliente: string; total: string; pedido: string | null }): string {
-  return `✅ ${a.numero} aprovado por ${a.cliente}${a.pedido ? ` e virou o ${a.pedido}` : ''} (${formatarMoeda(a.total)}). Responda *desfazer* a esta mensagem em até 10 min se não era isso.`
+  // Uma linha só (o "desfazer" é respondido em cima dela): o primeiro nome do cliente basta
+  const nome = a.cliente.trim().split(/\s+/)[0] ?? a.cliente
+  return `✅ ${a.numero} aprovado por ${nome}${a.pedido ? ` → ${a.pedido}` : ''} (${formatarMoeda(a.total)}). *desfazer* em até 10 min.`
 }
 
 export interface PedidoParaDesfazer {
@@ -149,5 +151,24 @@ export function impedimentoParaDesfazer(c: { avisoEm: Date; agora: Date; orcamen
   if (Number(p.valorPago) > 0 || p.contasPagas > 0) return `o pedido ${p.numero} já tem pagamento`
   if (p.opsIniciadas > 0) return `a produção do ${p.numero} já começou`
   if (p.artesMexidas > 0) return `a arte do ${p.numero} já foi mexida`
+  return null
+}
+
+// ─── Resposta automática ao cliente: o atendente se cala quando o dono está na conversa ───
+
+/** O dono escreveu na conversa há menos que isto: ele está atendendo, o sistema não responde sozinho ao cliente */
+export const DONO_PRESENTE_MS = 30 * 60_000
+
+export type MotivoDoSilencio = 'dono_presente' | 'sem_clientes'
+
+/**
+ * A resposta automática ao cliente ("Perfeito, recebemos sua aprovação", "Certo! Já avisei a equipe…") pode sair? Não,
+ * se o dono digitou algo nessa conversa nos últimos 30 minutos (ele está atendendo: a resposta pronta atravessaria a
+ * conversa dele) ou se a decisão veio do Assistente com "Nunca falar com meus clientes" ligado. Os avisos de pedido
+ * (confirmado, pronto…) não passam por aqui.
+ */
+export function silencioAoCliente(c: { peloAssistente: boolean; semClientes: boolean; ultimaDoDonoEm: Date | null; agora: Date }): MotivoDoSilencio | null {
+  if (c.peloAssistente && c.semClientes) return 'sem_clientes'
+  if (c.ultimaDoDonoEm && c.agora.getTime() - c.ultimaDoDonoEm.getTime() < DONO_PRESENTE_MS) return 'dono_presente'
   return null
 }

@@ -47,6 +47,7 @@ import {
   destinoDaReacao,
   ehReacaoDeOrcamento,
   escolherParaAjustar,
+  formaDaConfirmacao,
   escolherParaCancelar,
   escolherParaEnviar,
   interpretarVoce,
@@ -63,6 +64,7 @@ import {
   textoNota,
   textoPergunta,
   type AvisoCitado,
+  type ConfirmacaoDoDono,
   type DecisaoEnvio,
   type RascunhoCanal,
 } from './copiloto'
@@ -77,6 +79,8 @@ type EventoReacao = Extract<EventoWebhook, { tipo: 'reacao' }>
 type EventoProprio = Extract<EventoWebhook, { tipo: 'proprio' }>
 type Config = Awaited<ReturnType<typeof obterConfigWhatsapp>>
 type Dec = { toString(): string }
+/** A mensagem do dono no "Você" que recebe a reação de confirmação */
+type Gatilho = { jid: string; id: string }
 
 /** Quem age pelo canal "Você": o dono (o administrador mais antigo e ativo), com as permissões dele */
 interface Dono {
@@ -545,9 +549,22 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
   }
 
   /**
-   * Envia um rascunho ao cliente pelo mesmo caminho do "Enviar orçamento" (texto do template no formato configurado e
-   * o PDF), marca como enviado e confirma no "Você" dizendo qual. Só um envio por orçamento (marca antes de mandar).
+   * Confirmação do que o dono pediu e deu certo: reação na mensagem dele (formaDaConfirmacao); texto só com alerta.
+   * Reação que não sai (a Evolution recusou): o texto inteiro, como antes.
    */
+  async function confirmar(empresa: EmpresaAtual, gatilho: Gatilho | null, acao: ConfirmacaoDoDono, alertas: (string | null)[], planoB: string) {
+    const f = formaDaConfirmacao(acao, alertas)
+    if (gatilho) {
+      try {
+        await app.whatsapp.provedor.reagir(instanciaDaEmpresa(empresa.id), { remoteJid: gatilho.jid, fromMe: true, id: gatilho.id }, f.reacao)
+        return f.texto ? avisar(empresa, f.texto) : null
+      } catch (erro) {
+        app.log.warn({ err: erro, empresa: empresa.slug }, 'Copiloto do WhatsApp: reação no "Você" não saiu; vai o texto')
+      }
+    }
+    return avisar(empresa, f.texto ? `${planoB}\n${f.texto}` : planoB)
+  }
+
   /**
    * O orçamento ao cliente pelo mesmo caminho do "Enviar orçamento" (texto do template no formato configurado e o PDF;
    * a linha registra a versão que o cliente viu). Devolve o que avisar ao dono (PDF que não foi…) ou "". Lança no erro.
@@ -578,7 +595,11 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     return [resultado.aviso, pdf ? null : 'O PDF não foi junto: mande pelo sistema se precisar.'].filter(Boolean).join(' ')
   }
 
-  async function enviarRascunho(empresa: EmpresaAtual, d: Dono, r: RascunhoCanal) {
+  /**
+   * Envia um rascunho ao cliente pelo mesmo caminho do "Enviar orçamento" (texto do template no formato configurado e
+   * o PDF), marca como enviado e confirma com ✅ na mensagem "ok" do dono. Só um envio por orçamento (marca antes).
+   */
+  async function enviarRascunho(empresa: EmpresaAtual, d: Dono, r: RascunhoCanal, gatilho: Gatilho | null) {
     const livre: Prisma.OrcamentoWhatsappWhereInput = { OR: [{ enviadoEm: null }, { enviadoEm: { lt: new Date(Date.now() - TRAVA_ENVIO_MS) }, orcamento: { status: 'rascunho' } }] }
     const marcado = await prisma.orcamentoWhatsapp.updateMany({ where: { orcamentoId: r.orcamentoId, descartadoEm: null, ...livre }, data: { enviadoEm: new Date() } })
     if (marcado.count !== 1) return avisar(empresa, textoEstado({ ...r, enviadoEm: r.enviadoEm ?? new Date() }, new Date()))
@@ -603,7 +624,8 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
       const avisos = await enviarAoCliente(empresa, d, o, numero)
       const enviado = await orcamentos.marcarEnviado(o.id, { ...ctx, veTodos: true })
       avisarOrcamento(app, enviado, 'enviado', { origem: 'sistema', atorId: null })
-      return avisar(empresa, `✅ ${o.numero} enviado para ${r.cliente} (${formatarMoeda(o.total.toString())}).${avisos ? `\n${avisos}` : ''}`, { orcamentoId: o.id })
+      // Deu certo: ✅ na própria mensagem "ok" (texto só com alerta, como o PDF que não foi)
+      return confirmar(empresa, gatilho, 'enviado', [avisos ? `${o.numero}: ${avisos}` : null], `✅ ${o.numero} enviado para ${r.cliente} (${formatarMoeda(o.total.toString())}).`)
     } catch (erro) {
       await desfazer()
       const msg = mensagemDeErro(erro) ?? (erro instanceof ErroWhatsapp ? erro.message : null)
@@ -612,12 +634,12 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     }
   }
 
-  async function aplicarEnvio(empresa: EmpresaAtual, d: Dono, decisao: DecisaoEnvio, pergunta: { id: string } | null) {
+  async function aplicarEnvio(empresa: EmpresaAtual, d: Dono, decisao: DecisaoEnvio, pergunta: { id: string } | null, gatilho: Gatilho | null) {
     const agora = new Date()
     switch (decisao.acao) {
       case 'enviar':
         if (pergunta) await prisma.mensagemVoceWhatsapp.update({ where: { id: pergunta.id }, data: { resolvidaEm: agora } })
-        for (const r of decisao.rascunhos) await enviarRascunho(empresa, d, r)
+        for (const r of decisao.rascunhos) await enviarRascunho(empresa, d, r, gatilho)
         return
       case 'confirmar':
         await reavisar(empresa, decisao.rascunho, decisao.motivo)
@@ -774,16 +796,18 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     if (!texto) return void (await avisar(empresa, 'Por aqui eu leio texto e a foto, o PDF ou o XML da nota. Áudio ainda não.'))
     const comando = interpretarVoce(texto)
     const agora = new Date()
+    // A mensagem do dono: as confirmações viram reação nela (✅, 👍, ↩️), sem mensagem nova
+    const gatilho: Gatilho = { jid: e.jid, id: e.idMensagem }
     // Aprovação pela resposta do cliente: o aviso de "confirmar aprovação" (o "ok" APROVA; nunca reenvia sem pedir) e o
     // da aprovação automática ("desfazer"). São avisos de outro tipo que os de rascunho: cada um com o seu "ok".
     const citadoAprovacao = await avisoCitado(e.citadoId)
     switch (rotaDoComando(comando, citadoAprovacao?.tipo)) {
       case 'desfazer':
-        return desfazerAprovacao(empresa, d, citadoAprovacao?.tipo === 'aprovado_auto' ? citadoAprovacao : null, Boolean(citadoAprovacao))
+        return desfazerAprovacao(empresa, d, citadoAprovacao?.tipo === 'aprovado_auto' ? citadoAprovacao : null, Boolean(citadoAprovacao), gatilho)
       case 'aprovar':
         return aprovarPeloDono(empresa, d, citadoAprovacao!)
       case 'reenviar':
-        return reenviarVersao(empresa, d, citadoAprovacao!.orcamentoId)
+        return reenviarVersao(empresa, d, citadoAprovacao!.orcamentoId, gatilho)
       case 'nao_aprovar':
         return void (await avisar(empresa, `Certo, não aprovei. O orçamento continua esperando a sua confirmação ("Cliente aprovou pelo WhatsApp"): ${linkSistema(`/orcamentos/${citadoAprovacao!.orcamentoId}`)}`))
       case 'ajustar_aprovacao': {
@@ -803,14 +827,15 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
       const citado = await avisoCitado(e.citadoId)
       const pergunta = comando.tipo === 'escolha' ? await perguntaAberta() : null
       const lista = await rascunhos([...(citado ? [citado.orcamentoId] : []), ...(pergunta?.opcoes ?? [])])
-      return aplicarEnvio(empresa, d, escolherParaEnviar(comando, { citado, rascunhos: lista, pergunta, agora }), pergunta)
+      return aplicarEnvio(empresa, d, escolherParaEnviar(comando, { citado, rascunhos: lista, pergunta, agora }), pergunta, gatilho)
     }
     if (comando.tipo === 'cancelar') {
       const citado = await avisoCitado(e.citadoId)
       const decisao = escolherParaCancelar(comando.ref, { citado, rascunhos: await rascunhos(citado ? [citado.orcamentoId] : []), agora })
       if (decisao.acao === 'descartar') {
         await prisma.orcamentoWhatsapp.updateMany({ where: { orcamentoId: decisao.rascunho.orcamentoId, descartadoEm: null, enviadoEm: null }, data: { descartadoEm: agora } })
-        return void (await avisar(empresa, `Certo: o ${decisao.rascunho.numero} (${decisao.rascunho.cliente}) não será enviado por aqui. Ele continua no sistema como rascunho.`, { orcamentoId: decisao.rascunho.orcamentoId }))
+        // 👍 na mensagem "cancela" (o texto só se a reação não sair)
+        return void (await confirmar(empresa, gatilho, 'cancelado', [], `Certo: o ${decisao.rascunho.numero} (${decisao.rascunho.cliente}) não será enviado por aqui. Ele continua no sistema como rascunho.`))
       }
       if (decisao.acao === 'estado') return void (await avisar(empresa, textoEstado(decisao.rascunho, agora)))
       if (decisao.acao === 'apagado') return void (await avisar(empresa, 'Esse orçamento não existe mais no sistema.'))
@@ -917,7 +942,7 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
   }
 
   /** "reenvia" no aviso de aprovação a confirmar: a versão nova vai ao cliente (para ele responder sobre ela) */
-  async function reenviarVersao(empresa: EmpresaAtual, d: Dono, orcamentoId: string) {
+  async function reenviarVersao(empresa: EmpresaAtual, d: Dono, orcamentoId: string, gatilho: Gatilho | null) {
     const ctx = { ...(await contextoUsuario(app, d.req, 'orcamentos')), veTodos: true }
     const link = linkSistema(`/orcamentos/${orcamentoId}`)
     try {
@@ -931,7 +956,7 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
       await prisma.mensagemWhatsapp.updateMany({ where: { orcamentoId: o.id, aprovacaoPendente: { not: null } }, data: { aprovacaoPendente: null, aprovacaoPendenteEm: null } })
       const avisos = await enviarAoCliente(empresa, d, o, numero)
       avisarOrcamento(app, o, 'alterado', { origem: 'sistema', atorId: null })
-      await avisar(empresa, `✅ Versão nova do ${o.numero} enviada para ${nomeCliente(o.cliente)} (${formatarMoeda(o.total.toString())}). Agora é esperar a resposta.${avisos ? `\n${avisos}` : ''}`)
+      await confirmar(empresa, gatilho, 'reenviado', [avisos ? `${o.numero}: ${avisos}` : null], `✅ Versão nova do ${o.numero} enviada para ${nomeCliente(o.cliente)} (${formatarMoeda(o.total.toString())}). Agora é esperar a resposta.`)
     } catch (erro) {
       const msg = mensagemDeErro(erro) ?? (erro instanceof ErroWhatsapp ? erro.message : null)
       if (!msg) app.log.error({ err: erro, empresa: empresa.slug }, 'Copiloto do WhatsApp: reenvio do orçamento falhou')
@@ -945,7 +970,7 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
    * cancelado (pode ser aprovado de novo). A confirmação que ainda esperava na fila não sai; se já saiu, o dono fica
    * sabendo. Tudo na auditoria.
    */
-  async function desfazerAprovacao(empresa: EmpresaAtual, d: Dono, citado: AvisoCitado | null, citouOutra: boolean) {
+  async function desfazerAprovacao(empresa: EmpresaAtual, d: Dono, citado: AvisoCitado | null, citouOutra: boolean, gatilho: Gatilho | null) {
     const agora = new Date()
     let aviso = citado
     if (!aviso && !citouOutra) {
@@ -1034,11 +1059,13 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
       })
     })
     avisarOrcamento(app, { id: o.id, numero: o.numero, status: 'em_negociacao', vendedorId: o.vendedorId, pedidoId: null, cliente: o.cliente }, 'negociacao', { origem: 'equipe', atorId: d.id })
-    await avisar(
+    // ↩️ na mensagem "desfazer"; texto só se a confirmação já tinha saído ao cliente (o dono precisa falar com ele)
+    await confirmar(
       empresa,
-      `↩️ Desfeito: o ${o.numero} voltou para "em negociação"${p ? ` e o ${p.numero} foi cancelado` : ''}. ${
-        saiu ? 'Atenção: o cliente já recebeu a confirmação pelo WhatsApp; fale com ele.' : 'Nenhuma confirmação saiu para o cliente.'
-      }`,
+      gatilho,
+      'desfeito',
+      [saiu ? `${o.numero} desfeito, mas o cliente já recebeu a confirmação pelo WhatsApp; fale com ele.` : null],
+      `↩️ Desfeito: o ${o.numero} voltou para "em negociação"${p ? ` e o ${p.numero} foi cancelado` : ''}. ${saiu ? 'Atenção: o cliente já recebeu a confirmação pelo WhatsApp; fale com ele.' : 'Nenhuma confirmação saiu para o cliente.'}`,
     )
   }
 

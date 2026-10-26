@@ -88,16 +88,13 @@ describe('Várias 📝 do mesmo cliente viram um orçamento só', () => {
     })
     expect(texto).toBe(
       [
-        '➕ Acrescentei ao ORC-2026-0110 (Eduardo Júnior):',
-        '• 500× Cartão de visita — R$ 120,00',
-        '',
-        'Agora são 3 itens:',
-        '1) 2× Banner 2,0 × 1,0 m — R$ 320,00',
-        '2) 1.000× Panfleto — R$ 272,00',
-        '3) 500× Cartão de visita — R$ 120,00',
-        'Total: *R$ 712,00*',
-        '',
-        'Responda *ok* a esta mensagem para enviar ao cliente, ou abra para ajustar: http://x/orcamentos/1',
+        '➕ Acrescentei ao ORC-2026-0110 (Eduardo Júnior): 500× Cartão de visita — R$ 120',
+        '1) 2× Banner 2×1 m — R$ 320',
+        '2) 1.000× Panfleto — R$ 272',
+        '3) 500× Cartão de visita — R$ 120',
+        'Total: *R$ 712*',
+        'Responda *ok* para enviar · ou ajuste (ex.: "10% de desconto")',
+        'http://x/orcamentos/1',
       ].join('\n'),
     )
   })
@@ -283,11 +280,11 @@ describe('Ajuste pelo "Você": para qual orçamento', () => {
     expect(t).toBe(
       [
         '✏️ ORC-2026-0110 atualizado (desconto de 10%):',
-        '1) 2× Banner 2,0 × 1,0 m — R$ 712,00',
+        '1) 2× Banner 2×1 m — R$ 712',
         'Desconto: −R$ 71,20',
         'Total: *R$ 640,80*',
-        '',
-        'Responda *ok* a esta mensagem para enviar ao cliente, ou abra para ajustar: http://x/orcamentos/1',
+        'Responda *ok* para enviar · ou ajuste (ex.: "10% de desconto")',
+        'http://x/orcamentos/1',
       ].join('\n'),
     )
   })

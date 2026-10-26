@@ -176,5 +176,6 @@ export function criarEnvioWhatsapp(app: FastifyInstance, provedor: ProvedorWhats
     ciclo,
     recuperarFilas,
     processarEmpresa,
+    marcarDesconectado,
   }
 }

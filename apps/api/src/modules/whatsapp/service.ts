@@ -133,8 +133,21 @@ export function criarWhatsappService(app: FastifyInstance) {
   }
 
   return {
+    /**
+     * Configuração e conexão. Marcada como conectada, confere na hora (abrir a página é raro e precisa mostrar a
+     * verdade): fechada vira "desconectado" já; "reconectando" aparece como está, sem derrubar (o vigia decide).
+     */
     async obter() {
-      return resumo(await obterConfigWhatsapp(prisma))
+      let config = await obterConfigWhatsapp(prisma)
+      if (!config.conectado || provedor().simulado) return resumo(config)
+      try {
+        const s = await provedor().estado(instancia())
+        if (s.estado !== 'conectando') config = await registrarSituacao(config, s)
+        return resumo(config, s.estado)
+      } catch {
+        // Evolution fora do ar: mostra o último estado conhecido (a tela não pode quebrar por isso)
+        return resumo(config)
+      }
     },
 
     /** O diálogo "Enviar pelo WhatsApp" manda pela conexão ou abre o WhatsApp (último estado conhecido, sem chamar a Evolution) */

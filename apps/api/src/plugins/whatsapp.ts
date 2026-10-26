@@ -6,6 +6,7 @@ import { criarAvisosWhatsapp, obterConfigWhatsapp, type AvisosWhatsapp } from '.
 import { CICLO_ENVIO_MS, criarEnvioWhatsapp } from '../modules/whatsapp/envio'
 import { criarConversasWhatsapp } from '../modules/whatsapp/conversas.service'
 import { recuperarLeiturasPresas } from '../modules/whatsapp/leituras-presas'
+import { CICLO_VIGIA_MS, criarVigiaConexao } from '../modules/whatsapp/vigia-conexao'
 import { segredoDaEmpresa, segredoDoServidor, urlDoWebhook } from '../modules/whatsapp/webhook'
 
 declare module 'fastify' {
@@ -73,11 +74,16 @@ export const whatsappPlugin = fp(async (app) => {
     }
   }
   let timerLeituras: NodeJS.Timeout | undefined
+  // Conexão que caiu sem avisar: a tela deixa de mostrar "conectado" e os administradores são avisados
+  const vigia = criarVigiaConexao(app, provedor, envio.marcarDesconectado)
+  let timerVigia: NodeJS.Timeout | undefined
 
   app.addHook('onReady', async () => {
     void recuperarLeituras()
     timerLeituras = setInterval(() => void recuperarLeituras(), 60_000)
     timerLeituras.unref()
+    timerVigia = setInterval(() => void vigia.conferir(), CICLO_VIGIA_MS)
+    timerVigia.unref()
     // Em segundo plano: com muitas empresas a leitura das filas passaria do tempo de subida
     void envio.recuperarFilas().then(() => {
       timer = setInterval(() => void envio.ciclo(), CICLO_ENVIO_MS)
@@ -100,5 +106,6 @@ export const whatsappPlugin = fp(async (app) => {
   app.addHook('onClose', async () => {
     clearInterval(timer)
     clearInterval(timerLeituras)
+    clearInterval(timerVigia)
   })
 })

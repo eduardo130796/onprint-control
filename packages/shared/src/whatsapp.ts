@@ -50,12 +50,13 @@ export const mensagemPedidoQuerySchema = z.object({ tipo: z.enum(CATEGORIAS_MENS
  * O que está registrado em mensagens_whatsapp: aviso automático, envio da equipe ou a resposta curta que o sistema
  * manda sozinho quando o cliente responde o orçamento na conversa ("resposta_orcamento")
  */
-export type TipoMensagemWhatsapp = EventoWhatsapp | TipoEnvioWhatsapp | 'resposta_orcamento'
+export type TipoMensagemWhatsapp = EventoWhatsapp | TipoEnvioWhatsapp | 'resposta_orcamento' | 'atendimento'
 
 export const TIPO_MENSAGEM_WHATSAPP_ROTULOS: Record<TipoMensagemWhatsapp, string> = {
   ...EVENTO_WHATSAPP_ROTULOS,
   orcamento_enviado: 'Orçamento',
   resposta_orcamento: 'Resposta ao cliente',
+  atendimento: 'Atendente (ninguém respondeu)',
   pedido_acompanhamento: 'Acompanhamento do pedido',
   recibo: 'Recibo',
   catalogo: 'Catálogo',
@@ -369,6 +370,12 @@ export const whatsappConfigSchema = z
     assistenteRespostas: z.boolean().optional(),
     /** Assistente no WhatsApp: 📝 na conversa vira orçamento rascunho e a conversa "Você" vira o canal do Assistente */
     assistenteWhatsapp: z.boolean().optional(),
+    /** Atendente: ninguém respondeu o cliente nesses minutos, o Assistente atende pela gráfica (sem valores) */
+    atendenteAtivo: z.boolean().optional(),
+    atendenteEsperaMin: z.union([z.literal(3), z.literal(5), z.literal(10), z.literal(15)]).optional(),
+    /** O atendente envia o orçamento sozinho quando está tudo certo, até o limite (null = sem limite) */
+    atendenteEnvia: z.boolean().optional(),
+    atendenteLimite: z.number().positive('Use um valor maior que zero.').max(1_000_000).nullable().optional(),
   })
   .refine((v) => v.horarioInicio < v.horarioFim, { message: 'O fim precisa ser depois do início.', path: ['horarioFim'] })
 export type WhatsappConfigInput = z.input<typeof whatsappConfigSchema>
@@ -476,6 +483,12 @@ export interface WhatsappConfig {
   assistenteRespostas: boolean
   /** Assistente no WhatsApp (📝 na conversa e a conversa "Você"): desligado até a gráfica ligar */
   assistenteWhatsapp: boolean
+  /** Atendente quando ninguém responde (desligado até a gráfica ligar) e a espera em minutos */
+  atendenteAtivo: boolean
+  atendenteEsperaMin: number
+  /** Envia o orçamento sozinho quando está tudo certo, até o limite (null = sem limite) */
+  atendenteEnvia: boolean
+  atendenteLimite: number | null
   /** A GrafyGo ligou o Assistente na central (sem isso a escolha acima não tem efeito) */
   assistenteDisponivel: boolean
   /** Mensagens na fila agora */

@@ -124,3 +124,29 @@ export function ajusteSimulado(conteudo: string) {
   const duvida = operacoes.some((o) => ['remover', 'quantidade', 'medidas', 'acabamento'].includes(o.tipo) && o.item === null) ? 'Qual item?' : null
   return { operacoes: operacoes.filter((o) => o.tipo !== 'outro'), confianca: operacoes.length && !duvida ? 0.9 : 0.4, duvida }
 }
+
+/**
+ * Atendente do WhatsApp: imita o modelo nos casos comuns. "[pessoal]" na conversa = não é cliente (fica quieto);
+ * dúvida sem resposta nos dados chama a equipe; orçamento confirma o que foi anotado e pergunta o que falta.
+ */
+export function atendimentoSimulado(conteudo: string) {
+  const conversa = /<conversa>\n?([\s\S]*?)\n?<\/conversa>/.exec(conteudo)?.[1] ?? ''
+  if (conversa.includes('[pessoal]')) return { responder: false, texto: '', chamar_equipe: false, pergunta: '', reenviar_orcamento: '' }
+  const pediuDeNovo = /manda de novo|me envie novamente|reenvia/i.test(conversa) ? (/Orçamento (ORC-[\d-]+)/.exec(conteudo)?.[1] ?? '') : ''
+  if (pediuDeNovo) return { responder: true, texto: 'Claro! Te mando de novo aqui embaixo 👇', chamar_equipe: false, pergunta: '', reenviar_orcamento: pediuDeNovo }
+  const grafica = /^Gráfica: (.*)$/m.exec(conteudo)?.[1] ?? 'gráfica'
+  const nome = /^Cliente: (.*)$/m.exec(conteudo)?.[1]
+  const ola = /^Apresente-se: sim$/m.test(conteudo) ? `Oi${nome && nome !== '(sem nome)' ? `, ${nome}` : ''}! Aqui é o assistente da ${grafica} 😊\n\n` : ''
+  const assunto = /^Assunto: (.*)$/m.exec(conteudo)?.[1]
+  if (assunto === 'orcamento') {
+    const itens = [.../<rascunho>\n([\s\S]*?)\n<\/rascunho>/.exec(conteudo)?.[1]?.matchAll(/^- (.*)$/gm) ?? []].map((m) => m[1]).filter((i) => !i!.startsWith('('))
+    const falta = /<faltando>\n- (.*)$/m.exec(conteudo)?.[1]?.replace('(nada a perguntar)', '')
+    const anotei = itens.length ? `Anotei: ${itens.join(', ')}.` : 'Anotei o seu pedido.'
+    return { responder: true, texto: `${ola}${anotei}${falta ? ` Só me confirma: ${falta}?` : ''} Já já a equipe te passa o valor por aqui.`, chamar_equipe: false, pergunta: '', reenviar_orcamento: '' }
+  }
+  const ultima = [...conversa.matchAll(/^Cliente: (.*)$/gm)].at(-1)?.[1] ?? ''
+  if (/hor[aá]rio|abre|fecha/i.test(ultima) && /Horário:/.test(conteudo)) {
+    return { responder: true, texto: `${ola}${/- Horário: (.*)$/m.exec(conteudo)?.[1]}`, chamar_equipe: false, pergunta: '', reenviar_orcamento: '' }
+  }
+  return { responder: true, texto: `${ola}Vou passar para a equipe, logo te respondem por aqui.`, chamar_equipe: true, pergunta: ultima.slice(0, 200), reenviar_orcamento: '' }
+}

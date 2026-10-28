@@ -103,6 +103,33 @@ const semPalavrasDeLigacao = (resto: string) =>
     .filter((p) => p && !/^(o|a|os|as|do|da|de|dos|das|pro|pra|para|ao|esse|essa|este|esta|orcamento|cliente|ai|ja|agora|sim|pode|por|favor|pfv|pf)$/.test(p))
     .join(' ')
 
+/** "menu", "ajuda", "o que você faz?", "oi": o dono quer saber o que dá para fazer por aqui */
+export function pedeMenu(texto: string): boolean {
+  return /^(menu|ajuda|help|opcoes|comandos|inicio|o que (vc|voce) faz|o que (eu )?(posso|da pra|da para) fazer( aqui| por aqui)?|como funciona|oi+|ola|bom dia|boa tarde|boa noite)$/.test(normalizarResposta(texto))
+}
+
+/**
+ * O menu do "Você": tudo o que o dono pode fazer por aqui, com exemplos para copiar, e como está o atendente. Vai ao
+ * ligar o Assistente no WhatsApp, quando ele pede ("menu", "ajuda", "oi") e como dica quando a mensagem não foi entendida.
+ */
+export function textoMenuVoce(c: { grafica: string; atendente: { ativo: boolean; esperaMin: number; envia: boolean; limite: string | null } }): string {
+  const atendente = !c.atendente.ativo
+    ? 'desligado (ligue na página WhatsApp do sistema para eu responder o cliente quando ninguém responder)'
+    : `ligado: respondo o cliente quando ninguém responde em ${c.atendente.esperaMin} min${c.atendente.envia ? `, e envio o orçamento sozinho quando está tudo certo${c.atendente.limite ? ` (até ${moedaCurta(c.atendente.limite)})` : ''}` : ''}`
+  return [
+    `👋 Sou o Assistente GrafyGo da ${c.grafica}. Por aqui você pode:`,
+    '',
+    '📝 *Orçamento*: reaja com 📝 na mensagem do cliente, ou escreva "orçamento pra Ana: 2 banners 2x1"',
+    '✅ *Enviar ou ajustar*: em cima do aviso do orçamento, responda *ok*, "10% de desconto" ou "tira o 2"',
+    '🧾 *Nota de compra*: mande a foto, o PDF ou o XML da nota (eu preencho a entrada para você conferir)',
+    '📦 *Produtos*: "novo produto: caneca 325 ml R$ 35" ou a foto da tabela de preços com a legenda *produtos*',
+    '💬 *Perguntas*: "quem está devendo?", "quanto vendi hoje?", "pedidos para amanhã"',
+    `🤖 *Atendente*: ${atendente}`,
+    '',
+    'Mande *menu* para ver isto de novo.',
+  ].join('\n')
+}
+
 /** Entende o comando, sem IA (respostas fixas não gastam o Assistente) */
 export function interpretarVoce(texto: string): ComandoVoce {
   const original = texto.trim()

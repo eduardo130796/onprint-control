@@ -79,7 +79,9 @@ import {
   linhaDoAnterior,
   linhaDoRascunho,
   nomeDoPedido,
+  pedeMenu,
   rotaDoComando,
+  textoMenuVoce,
   selecionarMensagens,
   textoAcrescimo,
   textoAjuste,
@@ -95,6 +97,7 @@ import {
   type RascunhoCanal,
 } from './copiloto'
 import { DESFAZER_MS, impedimentoParaDesfazer, textoAprovadoAuto } from './aprovacao'
+import { esperaDoAtendente, motivoSemEnvio, textoEnviadoSozinho } from './atendente'
 import { CONFIANCA_AJUSTE, aplicarItens, descontoDaOperacao, editavelDoOrcamento, payloadDoEditavel, validarAjuste, type ItemEditavel } from './ajustes'
 import { criarEnvioManual, validarPdf } from './manual'
 import { templateDaCategoria } from './mensagem-pedido'
@@ -124,6 +127,30 @@ const incluirRascunho = {
 } satisfies Prisma.OrcamentoWhatsappInclude
 
 type LinhaRascunho = Prisma.OrcamentoWhatsappGetPayload<{ include: typeof incluirRascunho }>
+
+/**
+ * O que o atendente fez com o pedido de orçamento (para a resposta ao cliente): montou ou refez o rascunho, nada estava
+ * no catálogo (o dono recebe a pergunta do preço), o rascunho pendente é do dono (não mexe) ou não deu.
+ */
+export interface ResultadoAtendente {
+  situacao: 'montado' | 'atualizado' | 'enviado' | 'sem_catalogo' | 'dono_cuida' | 'falhou'
+  /** Itens do rascunho, sem valores ("2× Banner 2×1 m") */
+  itens: string[]
+  /** Pedidos que não estão no catálogo ("50× chaveiro") */
+  fora: string[]
+  /** O que ficou para confirmar com o cliente */
+  faltando: string[]
+}
+
+/**
+ * Envio sozinho (a gráfica ligou "enviar o orçamento quando estiver tudo certo"): o limite de valor (null = sem limite),
+ * se o cliente falou em desconto e a apresentação, que entra no lugar do "Olá" do orçamento (null = sem apresentação)
+ */
+export interface EnvioDoAtendente {
+  limite: string | null
+  negociando: boolean
+  abertura: string | null
+}
 
 /**
  * O "ok" marca o rascunho como enviado antes de mandar (trava contra dois "ok" seguidos) e desmarca se o envio falha.
@@ -294,6 +321,24 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     }
   }
 
+  /**
+   * Cliente da conversa: o do cadastro (pela conversa ou pelo número) ou o pré-cadastro com o número e o nome do perfil
+   * (sem duplicar). Cliente sem WhatsApp no cadastro fica com o número de quem escreveu (o envio vai para ele).
+   */
+  async function clienteDaConversa(
+    d: Dono,
+    conversa: { nomeWhatsapp: string | null; cliente: { id: string; nome: string; fantasia: string | null; whatsapp: string | null; ativo: boolean } | null },
+    numero: string | null,
+  ): Promise<{ id: string; rotulo: string; novo: boolean }> {
+    const doCadastro = conversa.cliente?.ativo ? conversa.cliente : await clienteDoNumero(numero)
+    const whatsapp = numeroParaCadastro(numero)
+    if (!doCadastro) return preCadastro(d, { nome: conversa.nomeWhatsapp?.trim() || `WhatsApp ${formatarTelefone(whatsapp ?? numero ?? '')}`.trim(), whatsapp })
+    if (!doCadastro.whatsapp && whatsapp && !(await prisma.cliente.findFirst({ where: { whatsapp: { in: numerosParaBusca(numero) } }, select: { id: true } }))) {
+      await prisma.cliente.update({ where: { id: doCadastro.id }, data: { whatsapp } })
+    }
+    return { id: doCadastro.id, rotulo: nomeCliente(doCadastro), novo: false }
+  }
+
   // ─── Orçamento rascunho salvo + aviso no "Você" ───
 
   /** O que o Assistente marcou para conferir, em frases curtas */
@@ -327,7 +372,7 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     empresa: EmpresaAtual,
     d: Dono,
     p: {
-      origem: 'reacao' | 'voce'
+      origem: 'reacao' | 'voce' | 'atendente'
       gatilhoId: string
       mensagemId: string | null
       texto: string
@@ -338,13 +383,15 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
       anterior?: RascunhoCanal | null
       /** Linha antes do título (ex.: "Cadastrei Chaveiro acrílico (R$ 4/un) e montei:") */
       antes?: string
+      /** Sem o aviso no "Você" (o atendente decide antes se envia sozinho ou avisa) */
+      semAviso?: boolean
     },
   ) {
     const dados = orcamentoSchema.parse({
       clienteId: p.cliente.id,
       origem: 'assistente',
       dataDesejada: p.leitura.dataDesejada ?? null,
-      observacoesInternas: notaInterna(p.leitura, p.origem === 'reacao' ? '📝 na conversa do WhatsApp' : 'pedido no WhatsApp', p.texto),
+      observacoesInternas: notaInterna(p.leitura, { reacao: '📝 na conversa do WhatsApp', voce: 'pedido no WhatsApp', atendente: 'atendente do WhatsApp: ninguém respondeu o cliente' }[p.origem], p.texto),
       itens: itensDaLeitura(p.leitura).map((n) => n.item),
     })
     const ctx = await contextoUsuario(app, d.req, 'orcamentos')
@@ -365,6 +412,7 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
       },
     })
     avisarOrcamento(app, o, 'criado', { origem: 'sistema', atorId: null })
+    if (p.semAviso) return o
     const aviso = textoAvisoOrcamento(
       {
         numero: o.numero,
@@ -379,7 +427,7 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
         antes: p.antes ?? (p.anterior ? linhaDoAnterior(p.anterior) : undefined),
         foraNoTopo: linhaForaNoTopo(fora),
       },
-      p.origem,
+      p.origem === 'voce' ? 'voce' : 'reacao',
     )
     if (await avisar(empresa, aviso, { tipo: 'aviso', orcamentoId: o.id })) await prisma.orcamentoWhatsapp.update({ where: { orcamentoId: o.id }, data: { avisadoEm: new Date() } })
     return o
@@ -520,17 +568,10 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     if (!(await assistenteLigado())) return void (await avisar(empresa, `O Assistente GrafyGo está desligado (Configurações → Assistente). Monte pelo sistema: ${linkSistema('/orcamentos/novo')}`))
 
     // Cliente: o da conversa, o do número ou o pré-cadastro com o número e o nome do perfil (sem duplicar)
-    const doCadastro = conversa.cliente?.ativo ? conversa.cliente : await clienteDoNumero(numero)
     const whatsapp = numeroParaCadastro(numero)
     let cliente: { id: string; rotulo: string; novo: boolean }
     try {
-      cliente = doCadastro
-        ? { id: doCadastro.id, rotulo: nomeCliente(doCadastro), novo: false }
-        : await preCadastro(d, { nome: conversa.nomeWhatsapp?.trim() || `WhatsApp ${formatarTelefone(whatsapp ?? numero ?? '')}`.trim(), whatsapp })
-      // Cliente sem WhatsApp no cadastro: fica com o número de quem escreveu (o envio vai para ele sem perguntar)
-      if (doCadastro && !doCadastro.whatsapp && whatsapp && !(await prisma.cliente.findFirst({ where: { whatsapp: { in: numerosParaBusca(numero) } }, select: { id: true } }))) {
-        await prisma.cliente.update({ where: { id: doCadastro.id }, data: { whatsapp } })
-      }
+      cliente = await clienteDaConversa(d, conversa, numero)
     } catch (erro) {
       return void (await avisar(empresa, mensagemDeErro(erro) ?? 'Não consegui cadastrar o cliente. Monte pelo sistema.'))
     }
@@ -667,7 +708,7 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
    * O orçamento ao cliente pelo mesmo caminho do "Enviar orçamento" (texto do template no formato configurado e o PDF;
    * a linha registra a versão que o cliente viu). Devolve o que avisar ao dono (PDF que não foi…) ou "". Lança no erro.
    */
-  async function enviarAoCliente(empresa: EmpresaAtual, d: Dono, o: Awaited<ReturnType<typeof orcamentos.obter>>, numero: string, recusados: string[] = []) {
+  async function enviarAoCliente(empresa: EmpresaAtual, d: Dono, o: Awaited<ReturnType<typeof orcamentos.obter>>, numero: string, recusados: string[] = [], abertura: string | null = null) {
     const config = await prisma.empresaConfig.findFirst({
       orderBy: { createdAt: 'asc' },
       select: { nomeFantasia: true, razaoSocial: true, cnpj: true, whatsapp: true, telefone: true, email: true, site: true, logradouro: true, numero: true, bairro: true, cidade: true, uf: true, chavePix: true, corTema: true, logoArquivoId: true },
@@ -686,7 +727,8 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
       { empresa: (await nomeDaGrafica(prisma)) || empresa.nome, linkAprovacao: link, comPdf: Boolean(pdf), recusados },
     )
     const resultado = await enviarManual(
-      { tipo: 'orcamento_enviado', telefone: numero, texto, clienteId: o.clienteId, orcamentoId: o.id },
+      // O atendente se apresentando: a apresentação no lugar da saudação ("Olá, Ana!"), na mesma mensagem
+      { tipo: 'orcamento_enviado', telefone: numero, texto: abertura ? texto.replace(/^[^\n]*/, abertura) : texto, clienteId: o.clienteId, orcamentoId: o.id },
       pdf ? validarPdf(pdf, `${o.numero} - ${nomeCliente(o.cliente)}.pdf`) : null,
       d.id,
     )
@@ -863,13 +905,22 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
       case 'ajuda':
         return void (await avisar(
           empresa,
-          l.tema ? `Tem o passo a passo na central de ajuda: ${linkSistema(`/ajuda/${l.tema}`)}` : `Veja os passo a passo na central de ajuda: ${linkSistema('/ajuda')}`,
+          l.tema ? `Tem o passo a passo na central de ajuda: ${linkSistema(`/ajuda/${l.tema}`)}` : await menuDoVoce(),
         ))
       case 'nota_compra':
         return void (await avisar(empresa, 'Mande aqui a foto, o PDF ou o XML da nota que eu preencho a entrada para você conferir.'))
       default:
-        return void (await avisar(empresa, NAO_SEI_FAZER))
+        return void (await avisar(empresa, `${NAO_SEI_FAZER} Mande *menu* para ver tudo com exemplos.`))
     }
+  }
+
+  /** O menu do "Você" com o estado atual do atendente */
+  async function menuDoVoce() {
+    const c = await obterConfigWhatsapp(prisma)
+    return textoMenuVoce({
+      grafica: (await nomeDaGrafica(prisma)) || contextoEmpresa.exigir().nome,
+      atendente: { ativo: c.atendenteAtivo, esperaMin: esperaDoAtendente(c.atendenteEsperaMin), envia: c.atendenteEnvia, limite: c.atendenteLimite?.toString() ?? null },
+    })
   }
 
   // ─── Canal "Você": a nota de compra (foto, PDF ou XML) ───
@@ -904,9 +955,13 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
       const salva = await notas.guardar(lida, arquivo.nome)
       await avisar(empresa, textoNota(lida, linkSistema(linkDaNota(salva.id))))
     } catch (erro) {
-      // Não é nota (uma tabela de preços, um cardápio de serviços?): tenta ler os produtos
-      if (erro instanceof AppError && (erro.details as { motivo?: string } | undefined)?.motivo === 'nao_e_nota' && mediaType !== 'text/xml') {
-        return produtosPeloVoce(empresa, d, { arquivo: arquivo!, semTabela: `Não li uma nota nem uma tabela de preços nessa imagem. Para nota, mande a foto mais nítida ou o XML; para produtos, escreva "tabela" na legenda. Ou lance pelo sistema: ${sistema}` })
+      // Não é nota: nada é lançado nem cadastrado por conta própria (uma foto qualquer não vira produto). Tabela de
+      // preços para cadastrar vem com a legenda "produtos" (tratada antes)
+      if (erro instanceof AppError && (erro.details as { motivo?: string } | undefined)?.motivo === 'nao_e_nota') {
+        return void (await avisar(
+          empresa,
+          `${e.midia === 'foto' ? 'Essa foto' : 'Esse arquivo'} não parece uma nota de compra, então não lancei nada. Se for uma tabela de preços para cadastrar produtos, mande de novo com a legenda *produtos*. Mande *menu* para ver o que eu faço por aqui.`,
+        ))
       }
       const msg = mensagemDeErro(erro)
       if (!msg) throw erro
@@ -1220,7 +1275,9 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     if (!d) return void app.log.warn({ empresa: empresa.slug }, 'Copiloto do WhatsApp: sem administrador ativo para o canal "Você"')
     if (e.midia === 'foto' || e.midia === 'documento') return nota(empresa, d, e)
     const texto = e.texto?.trim()
-    if (!texto) return void (await avisar(empresa, 'Por aqui eu leio texto e a foto, o PDF ou o XML da nota. Áudio ainda não.'))
+    if (!texto) return void (await avisar(empresa, 'Por aqui eu leio texto e a foto, o PDF ou o XML da nota. Áudio ainda não. Mande *menu* para ver o que eu faço.'))
+    // "menu", "ajuda", "oi" (sem citar um aviso): o que dá para fazer por aqui
+    if (pedeMenu(texto) && !e.citadoId) return void (await avisar(empresa, await menuDoVoce()))
     // Em cima do aviso de produtos lidos ("ok" cria, "cancela" descarta): não é assunto de orçamento
     const avisoProduto = e.citadoId
       ? await prisma.mensagemVoceWhatsapp.findUnique({ where: { idExterno: e.citadoId }, select: { direcao: true, tipo: true, leituraProdutoId: true, pendenciaId: true, createdAt: true } })
@@ -1637,7 +1694,212 @@ export function criarCopilotoWhatsapp(app: FastifyInstance) {
     if (await avisar(empresa, aviso, { tipo, orcamentoId: salvo.id })) await prisma.orcamentoWhatsapp.updateMany({ where: { orcamentoId: salvo.id }, data: { avisadoEm: new Date() } })
   }
 
+  // ─── Atendente (ninguém respondeu o cliente) ───
+
+  /**
+   * O atendente envia o rascunho sozinho, pelo mesmo caminho do "ok" (texto do modelo e PDF), com a mesma trava (um
+   * envio por orçamento). Devolve o orçamento enviado e os alertas, ou null se não saiu (o aviso do rascunho vai no lugar).
+   */
+  async function enviarSozinho(empresa: EmpresaAtual, d: Dono, orcamentoId: string, abertura: string | null) {
+    const marcado = await prisma.orcamentoWhatsapp.updateMany({ where: { orcamentoId, enviadoEm: null, descartadoEm: null }, data: { enviadoEm: new Date() } })
+    if (marcado.count !== 1) return null
+    const desfazer = () => prisma.orcamentoWhatsapp.update({ where: { orcamentoId }, data: { enviadoEm: null } })
+    try {
+      const ctx = { ...(await contextoUsuario(app, d.req, 'orcamentos')), veTodos: true }
+      const o = await orcamentos.obter(orcamentoId, ctx)
+      const ow = await prisma.orcamentoWhatsapp.findUnique({ where: { orcamentoId }, select: { numero: true } })
+      const numero = normalizarNumeroWhatsapp(ow?.numero ?? '') ?? normalizarNumeroWhatsapp(o.cliente.whatsapp ?? o.cliente.telefone ?? '')
+      if (o.status !== 'rascunho' || o.liberacaoPendente || !numero) {
+        await desfazer()
+        return null
+      }
+      const avisos = await enviarAoCliente(empresa, d, o, numero, [], abertura)
+      // Quem enviou foi o atendente, não uma pessoa: não conta como "a equipe está na conversa"
+      await prisma.mensagemWhatsapp.updateMany({ where: { orcamentoId: o.id, evento: 'orcamento_enviado', manual: true }, data: { manual: false } })
+      const enviado = await orcamentos.marcarEnviado(o.id, ctx)
+      avisarOrcamento(app, enviado, 'enviado', { origem: 'sistema', atorId: null })
+      return { o: enviado, avisos }
+    } catch (erro) {
+      await desfazer()
+      app.log.warn({ err: erro, empresa: empresa.slug, orcamento: orcamentoId }, 'Atendente do WhatsApp: envio sozinho falhou; fica o rascunho')
+      return null
+    }
+  }
+
+  /**
+   * O atendente entrou numa conversa de orçamento: o mesmo caminho do 📝, sem o dono. Monta o rascunho com as mensagens
+   * da conversa — ou refaz o que ele mesmo montou há pouco para esse cliente, com a conversa inteira, se ninguém mexeu
+   * nele — e avisa no "Você". Rascunho pendente do dono (ou mexido por ele): não muda nada, só conta o que chegou.
+   * Nunca envia ao cliente nem lança.
+   */
+  async function rascunhoDoAtendente(empresa: EmpresaAtual, conversaId: string, envio: EnvioDoAtendente | null = null): Promise<ResultadoAtendente> {
+    const resultado = (situacao: ResultadoAtendente['situacao'], extra: Partial<ResultadoAtendente> = {}): ResultadoAtendente => ({ situacao, itens: [], fora: [], faltando: [], ...extra })
+    try {
+      const d = await dono()
+      if (!d || !(await assistenteLigado())) return resultado('falhou')
+      const conversa = await prisma.conversaWhatsapp.findUnique({
+        where: { id: conversaId },
+        include: { mensagens: { where: { tratada: false }, orderBy: { recebidaEm: 'asc' }, take: 200 }, cliente: { select: { id: true, nome: true, fantasia: true, whatsapp: true, ativo: true } } },
+      })
+      if (!conversa) return resultado('falhou')
+      const numero = conversa.numero ? normalizarNumeroWhatsapp(conversa.numero) : null
+      const cliente = await clienteDaConversa(d, conversa, conversa.numero)
+      const ligar = async (orcamentoId: string | null) => {
+        const agora = new Date()
+        await prisma.conversaMensagemWhatsapp.updateMany({ where: { conversaId: conversa.id, tratada: false }, data: { usadaEm: agora } })
+        await prisma.conversaWhatsapp.update({ where: { id: conversa.id }, data: { orcamentoId, clienteId: conversa.clienteId ?? cliente.id, situacao: 'resolvida', resolvidaEm: agora, classificar: false } })
+        app.tempoReal.emitir('whatsapp', 'conversa:atualizada', {})
+      }
+      const doCliente = await prisma.orcamentoWhatsapp.findMany({
+        where: {
+          createdAt: { gte: new Date(Date.now() - JANELA_ACRESCENTAR_MS) },
+          OR: [{ orcamento: { clienteId: cliente.id } }, ...(numero ? [{ numero: { in: variantesDoNumero(numero) } }] : [])],
+        },
+        include: incluirRascunho,
+        orderBy: { createdAt: 'desc' },
+      })
+      const pendente = doCliente.find((l) => estaPendente(paraRascunho(l)))
+      const textoDe = (ms: { texto: string | null }[]) =>
+        ms
+          .map((m) => m.texto)
+          .filter((t): t is string => Boolean(t?.trim()))
+          .join('\n')
+      if (pendente && (pendente.origem !== 'atendente' || pendente.orcamento.updatedAt > (pendente.avisadoEm ?? pendente.createdAt))) {
+        // O rascunho é do dono (📝, "Você") ou ele já mexeu: o que o cliente mandou vai para o dono, nada muda
+        const novo = textoDe(conversa.mensagens)
+        if (novo) await avisar(empresa, `💬 ${cliente.rotulo} mandou mais no WhatsApp: “${novo.slice(0, 300)}”. Não mexi no ${pendente.orcamento.numero}: ${linkSistema(`/orcamentos/${pendente.orcamentoId}`)}`, { orcamentoId: pendente.orcamentoId })
+        await ligar(pendente.orcamentoId)
+        return resultado('dono_cuida')
+      }
+      // A conversa inteira: o que já entrou no rascunho do atendente e o que chegou agora
+      const anteriores = pendente
+        ? await prisma.conversaMensagemWhatsapp.findMany({ where: { conversa: { orcamentoId: pendente.orcamentoId, id: { not: conversa.id } }, tratada: false }, orderBy: { recebidaEm: 'asc' }, take: 200 })
+        : []
+      const texto = textoDe([...anteriores, ...conversa.mensagens]).slice(0, 3000)
+      if (texto.length < 3) return resultado('falhou')
+      const leitura = await ajudas.orcamentoDeTexto(texto, { clienteId: cliente.id, nome: conversa.nomeWhatsapp, whatsapp: numeroParaCadastro(conversa.numero) })
+      const fora = foraDaLeitura(leitura)
+      const faltando = paraConferir(leitura)
+      const extra = { fora: fora.map(rotuloFora), faltando }
+
+      if (!leitura.itens.some((i) => i.produto)) {
+        if (pendente || !fora.length) return resultado('sem_catalogo', extra)
+        // Nada no catálogo: a pergunta do preço ao dono (a resposta com o preço cadastra e monta, como no 📝)
+        const p = await prisma.pendenciaCatalogoWhatsapp.create({
+          data: {
+            gatilhoId: `atendente:${conversa.id}`,
+            mensagemId: conversa.mensagens.at(-1)?.idExterno ?? null,
+            conversaId: conversa.id,
+            clienteId: cliente.id,
+            clienteNovo: cliente.novo,
+            contato: cliente.rotulo,
+            numero,
+            texto,
+            leitura: leitura as unknown as Prisma.InputJsonValue,
+            mensagens: conversa.mensagens.map((m) => m.idExterno),
+          },
+        })
+        await avisar(empresa, `🤖 Ninguém respondeu ${cliente.rotulo}, então eu atendi (sem passar valor).\n${textoNadaNoCatalogo(fora)}`, { tipo: 'fora_pendencia', pendenciaId: p.id })
+        await ligar(null)
+        return resultado('sem_catalogo', extra)
+      }
+
+      // O aviso do rascunho no "Você" (o "ok" envia): quando não envia sozinho
+      const avisarRascunho = async (o: Awaited<ReturnType<typeof orcamentos.obter>>, antes: string) => {
+        const aviso = textoAvisoOrcamento(
+          {
+            numero: o.numero,
+            cliente: cliente.rotulo,
+            clienteNovo: cliente.novo && !pendente,
+            itens: itensDaMensagem(o),
+            total: o.total.toString(),
+            conferir: faltando,
+            link: linkSistema(`/orcamentos/${o.id}`),
+            liberacaoPendente: o.liberacaoPendente,
+            desconto: o.desconto.toString(),
+            antes,
+            foraNoTopo: linhaForaNoTopo(fora),
+          },
+          'reacao',
+        )
+        if (await avisar(empresa, aviso, { tipo: 'aviso', orcamentoId: o.id })) await prisma.orcamentoWhatsapp.update({ where: { orcamentoId: o.id }, data: { avisadoEm: new Date() } })
+      }
+
+      let o: Awaited<ReturnType<typeof orcamentos.obter>>
+      if (pendente) {
+        // Refaz o rascunho que ele mesmo montou: os itens da conversa inteira no lugar dos anteriores
+        const ctx = { ...(await contextoUsuario(app, d.req, 'orcamentos')), veTodos: true }
+        const base = editavelDoOrcamento(await orcamentos.obter(pendente.orcamentoId, ctx))
+        o = await orcamentos.atualizar(
+          pendente.orcamentoId,
+          orcamentoSchema.parse(
+            payloadDoEditavel({
+              ...base,
+              dataDesejada: leitura.dataDesejada ?? base.dataDesejada ?? null,
+              observacoesInternas: notaInterna(leitura, 'atendente do WhatsApp: ninguém respondeu o cliente', texto),
+              itens: itensDaLeitura(leitura).map((n) => n.item),
+            }),
+          ),
+          ctx,
+        )
+        await prisma.orcamentoWhatsapp.update({ where: { orcamentoId: o.id }, data: { conferir: faltando, foraDoCatalogo: fora as unknown as Prisma.InputJsonValue } })
+        avisarOrcamento(app, o, 'alterado', { origem: 'sistema', atorId: null })
+      } else {
+        o = await salvarRascunho(empresa, d, { origem: 'atendente', gatilhoId: `atendente:${conversa.id}`, mensagemId: conversa.mensagens.at(-1)?.idExterno ?? null, texto, cliente, numero, leitura, semAviso: true })
+      }
+      const itens = itensDaMensagem(o).map((i) => linhaCurtaItem(i).replace(/ — .*$/, ''))
+
+      // Envio sozinho: só com tudo certo (catálogo, nada a confirmar, sem liberação, dentro do limite, sem negociação)
+      const bloqueio = envio
+        ? motivoSemEnvio({ negociando: envio.negociando, fora: extra.fora, faltando, liberacaoPendente: o.liberacaoPendente, total: o.total.toString(), limite: envio.limite })
+        : null
+      if (envio && !bloqueio) {
+        const enviado = await enviarSozinho(empresa, d, o.id, envio.abertura)
+        if (enviado) {
+          await ligar(o.id)
+          await avisar(empresa, textoEnviadoSozinho({ numero: enviado.o.numero, cliente: cliente.rotulo, total: enviado.o.total.toString(), itens: itensDaMensagem(enviado.o), link: linkSistema(`/orcamentos/${o.id}`), alerta: enviado.avisos }), {
+            orcamentoId: o.id,
+          })
+          return resultado('enviado', { ...extra, itens })
+        }
+      }
+      const porque = envio ? ` Não enviei sozinho: ${bloqueio ?? 'o envio falhou'}.` : ''
+      await avisarRascunho(o, pendente ? `🤖 ${cliente.rotulo} completou o pedido; atualizei.${porque}` : `🤖 Ninguém respondeu ${cliente.rotulo}, então eu atendi e disse que você já passa o valor.${porque}`)
+      await ligar(o.id)
+      return resultado(pendente ? 'atualizado' : 'montado', { ...extra, itens })
+    } catch (erro) {
+      app.log.warn({ err: erro, empresa: empresa.slug, conversa: conversaId }, 'Atendente do WhatsApp: rascunho não montado')
+      return resultado('falhou')
+    }
+  }
+
   return {
+    /** Atendente: monta (ou refaz) o rascunho do pedido de orçamento e avisa no "Você" (atendente.service.ts) */
+    rascunhoDoAtendente,
+
+    /**
+     * Atendente: o cliente pediu o orçamento de novo. Reenvia pelo mesmo caminho do "ok" (texto e PDF), só se ele ainda
+     * está esperando a aprovação. Devolve se saiu. Nunca lança
+     */
+    async reenviarAoCliente(empresa: EmpresaAtual, orcamentoId: string, numero: string): Promise<boolean> {
+      try {
+        const d = await dono()
+        if (!d) return false
+        const o = await orcamentos.obter(orcamentoId, { ...(await contextoUsuario(app, d.req, 'orcamentos')), veTodos: true })
+        if (o.status !== 'enviado' && o.status !== 'em_negociacao') return false
+        await enviarAoCliente(empresa, d, o, numero)
+        return true
+      } catch (erro) {
+        app.log.warn({ err: erro, empresa: empresa.slug, orcamento: orcamentoId }, 'Atendente do WhatsApp: orçamento não reenviado')
+        return false
+      }
+    },
+
+    /** Atendente: aviso ao dono no "Você" (pediu uma pessoa, pergunta sem resposta). Só com o interruptor ligado */
+    async avisarDoAtendente(empresa: EmpresaAtual, texto: string) {
+      if (await configLigada(empresa)) await avisar(empresa, texto)
+    },
+
     /**
      * Reação do dono: só a 📝 (✍️) e com o interruptor ligado. Registra já (o mesmo aviso do webhook não cria outro
      * orçamento) e monta em segundo plano: o webhook não espera a IA.

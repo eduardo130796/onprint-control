@@ -349,6 +349,14 @@ model WhatsappConfig {
   /// Assistente no WhatsApp: 📝 numa mensagem do cliente salva o orçamento rascunho e a conversa "Você" vira o canal
   /// do Assistente (desligado até a gráfica ligar)
   assistenteWhatsapp  Boolean   @default(false) @map("assistente_whatsapp")
+  /// Atendente: ninguém respondeu o cliente em `atendenteEsperaMin` minutos, o Assistente atende pela gráfica (sem
+  /// valores; deixa o rascunho e avisa no "Você"). Desligado até a gráfica ligar
+  atendenteAtivo      Boolean   @default(false) @map("atendente_ativo")
+  atendenteEsperaMin  Int       @default(5) @map("atendente_espera_min")
+  /// Atendente envia o orçamento sozinho quando está tudo certo (catálogo, nada a confirmar, sem liberação, sem
+  /// negociação) e o total vai até `atendenteLimite` (null = sem limite). Desligado até a gráfica ligar
+  atendenteEnvia      Boolean   @default(false) @map("atendente_envia")
+  atendenteLimite     Decimal?  @map("atendente_limite") @db.Decimal(12, 2)
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -473,6 +481,11 @@ model ConversaWhatsapp {
   resolvidaPor String?   @map("resolvida_por") @db.Uuid
   /// A equipe já foi avisada no sino (uma vez por conversa)
   notificadaEm DateTime? @map("notificada_em") @db.Timestamptz(3)
+  /// Atendente: última resposta (a próxima só depois de mensagem nova do cliente), quantas e se parou de vez
+  /// (pessoa | limite | pessoal)
+  atendidaEm     DateTime? @map("atendida_em") @db.Timestamptz(3)
+  atendimentos   Int       @default(0)
+  atendenteParou String?   @map("atendente_parou")
   primeiraEm   DateTime  @default(now()) @map("primeira_em") @db.Timestamptz(3)
   ultimaEm     DateTime  @default(now()) @map("ultima_em") @db.Timestamptz(3)
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -516,7 +529,7 @@ model ConversaMensagemWhatsapp {
 model OrcamentoWhatsapp {
   id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   orcamentoId  String    @unique @map("orcamento_id") @db.Uuid
-  /// reacao (📝 numa mensagem do cliente) | voce (pedido do dono na conversa "Você")
+  /// reacao (📝 numa mensagem do cliente) | voce (pedido do dono na conversa "Você") | atendente (ninguém respondeu)
   origem       String
   /// key.id da reação ou da mensagem do dono (o mesmo aviso do webhook duas vezes não cria outro orçamento)
   gatilhoId    String    @unique @map("gatilho_id")

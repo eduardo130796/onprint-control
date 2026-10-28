@@ -102,7 +102,7 @@ export async function descartarAvisoDeArte(prisma: PrismaClient, pedidoId: strin
   })
 }
 
-async function lerArquivo(app: FastifyInstance, arquivoId: string): Promise<Buffer | null> {
+export async function lerArquivo(app: FastifyInstance, arquivoId: string): Promise<Buffer | null> {
   const arquivo = await app.prisma.arquivo.findUnique({ where: { id: arquivoId }, select: { caminho: true } })
   if (!arquivo) return null
   const partes: Buffer[] = []

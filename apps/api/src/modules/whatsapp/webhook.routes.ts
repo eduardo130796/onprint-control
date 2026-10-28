@@ -15,6 +15,29 @@ export const whatsappWebhookRoutes: FastifyPluginAsyncZod = async (app) => {
   // Leituras do Assistente GrafyGo em segundo plano terminam antes de fechar o banco
   app.addHook('onClose', () => respostas.aguardarAssistente())
 
+  // Atendente: a cada 10 segundos, as conversas de cliente sem resposta (empresas com ele ligado); já atendendo, a
+  // resposta seguinte sai entre 15 e 35 segundos depois da última mensagem do cliente
+  if (app.config.NODE_ENV !== 'test') {
+    let timer: NodeJS.Timeout | undefined
+    let rodando = false
+    const conferir = async () => {
+      if (rodando) return
+      rodando = true
+      try {
+        for (const empresa of await app.empresas.listar()) await respostas.atenderParados(empresa)
+      } catch (erro) {
+        app.log.warn({ err: erro }, 'Atendente do WhatsApp: não foi possível listar as empresas')
+      } finally {
+        rodando = false
+      }
+    }
+    app.addHook('onReady', async () => {
+      timer = setInterval(() => void conferir(), 10_000)
+      timer.unref()
+    })
+    app.addHook('onClose', async () => clearInterval(timer))
+  }
+
   app.post(
     '/whatsapp/webhook/:segredo',
     {

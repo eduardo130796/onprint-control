@@ -38,6 +38,7 @@ import {
   numerosParaBusca,
   respostaProntaDoPedido,
   soCortesia,
+  soSaudacao,
 } from './conversas'
 import { notificarEquipe, quemAvisar } from './leituras-presas'
 import { variantesDoNumero, type LeituraAssistente } from './respostas'
@@ -232,8 +233,9 @@ export function criarConversasWhatsapp(app: FastifyInstance, opcoes: { esperaMs?
         const ultima = await prisma.conversaWhatsapp.findFirst({ where: e.numero ? { numero: { in: variantesDoNumero(e.numero) } } : { jid: e.jid }, orderBy: { ultimaEm: 'desc' } })
         const cliente = ultima?.clienteId ? null : await clienteDoNumero(e.numero)
         const juntar = juntarNaConversa(ultima, agora)
-        // Conversa nova só de resposta tratada ou de cortesia ("obrigado", "ok", 👍): já nasce resolvida
-        const resolvida = !juntar && (Boolean(t.tratada) || (texto !== null && !midia && soCortesia([texto])))
+        // Conversa nova só de resposta tratada ou de cortesia ("obrigado", "ok", 👍): já nasce resolvida. A saudação
+        // ("oi", "bom dia") fica aberta: a pessoa está esperando alguém (o atendente responde com o menu)
+        const resolvida = !juntar && (Boolean(t.tratada) || (texto !== null && !midia && soCortesia([texto]) && !soSaudacao([texto])))
         let id: string
         try {
           id = await prisma.$transaction(async (tx) => {
@@ -248,7 +250,8 @@ export function criarConversasWhatsapp(app: FastifyInstance, opcoes: { esperaMs?
                       numero,
                       jid: numero ? null : e.jid,
                       nomeWhatsapp: e.nome,
-                      clienteId: cliente?.id ?? null,
+                      // O cliente da conversa anterior do mesmo número (já ligado) ou o achado pelo número agora
+                      clienteId: cliente?.id ?? ultima?.clienteId ?? null,
                       orcamentoId: t.orcamentoId ?? null,
                       situacao: resolvida ? 'resolvida' : 'aberta',
                       resolvidaEm: resolvida ? agora : null,

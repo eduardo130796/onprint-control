@@ -8,6 +8,9 @@ import { contextoEmpresa } from '../../core/contexto-empresa'
 import { paginado } from '../../core/paginacao'
 import { ErroWhatsapp, instanciaDaEmpresa, type SituacaoWhatsapp } from '../../integrations/whatsapp'
 import { formatoAprovacao, obterConfigWhatsapp, whatsappNoPlano } from './avisos'
+import { esperaDoAtendente } from './atendente'
+import { textoMenuVoce } from './copiloto'
+import { nomeDaGrafica } from '../assistente/empresa.service'
 
 type Config = Awaited<ReturnType<typeof obterConfigWhatsapp>>
 
@@ -96,8 +99,28 @@ export function criarWhatsappService(app: FastifyInstance) {
       formatoAprovacao: formatoAprovacao(config),
       assistenteRespostas: config.assistenteRespostas,
       assistenteWhatsapp: config.assistenteWhatsapp,
+      atendenteAtivo: config.atendenteAtivo,
+      atendenteEsperaMin: esperaDoAtendente(config.atendenteEsperaMin),
+      atendenteEnvia: config.atendenteEnvia,
+      atendenteLimite: config.atendenteLimite === null ? null : Number(config.atendenteLimite),
       assistenteDisponivel: await app.assistente.disponivel(),
       pendentes: await prisma.mensagemWhatsapp.count({ where: { status: 'pendente' } }),
+    }
+  }
+
+  /** O menu do "Você" ao ligar o Assistente no WhatsApp (registrado: o eco não vira comando). Nunca lança */
+  async function boasVindasNoVoce(config: Config) {
+    const empresa = contextoEmpresa.exigir()
+    if (!config.numero || (!provedor().simulado && !config.conectado)) return
+    const texto = textoMenuVoce({
+      grafica: (await nomeDaGrafica(prisma)) || empresa.nome,
+      atendente: { ativo: config.atendenteAtivo, esperaMin: esperaDoAtendente(config.atendenteEsperaMin), envia: config.atendenteEnvia, limite: config.atendenteLimite?.toString() ?? null },
+    })
+    try {
+      const r = await provedor().enviarTexto(instanciaDaEmpresa(empresa.id), config.numero, texto)
+      await prisma.mensagemVoceWhatsapp.create({ data: { idExterno: r.id ?? `local-${Date.now()}`, direcao: 'enviada', tipo: 'resposta', texto } })
+    } catch (erro) {
+      app.log.warn({ err: erro, empresa: empresa.slug }, 'Assistente no WhatsApp: o menu de boas-vindas não saiu')
     }
   }
 
@@ -178,19 +201,25 @@ export function criarWhatsappService(app: FastifyInstance) {
             ...(dados.formatoAprovacao === undefined ? {} : { formatoAprovacao: dados.formatoAprovacao }),
             ...(dados.assistenteRespostas === undefined ? {} : { assistenteRespostas: dados.assistenteRespostas }),
             ...(dados.assistenteWhatsapp === undefined ? {} : { assistenteWhatsapp: dados.assistenteWhatsapp }),
+            ...(dados.atendenteAtivo === undefined ? {} : { atendenteAtivo: dados.atendenteAtivo }),
+            ...(dados.atendenteEsperaMin === undefined ? {} : { atendenteEsperaMin: dados.atendenteEsperaMin }),
+            ...(dados.atendenteEnvia === undefined ? {} : { atendenteEnvia: dados.atendenteEnvia }),
+            ...(dados.atendenteLimite === undefined ? {} : { atendenteLimite: dados.atendenteLimite }),
           },
         })
         await registrarAuditoria(tx, {
           tabela: 'whatsapp_config',
           registroId: c.id,
           acao: 'editar',
-          antes: { eventos: antes.eventos, horarioInicio: antes.horarioInicio, horarioFim: antes.horarioFim, pausado: antes.pausado, aprovarPelaResposta: antes.aprovarPelaResposta, formatoAprovacao: antes.formatoAprovacao, assistenteRespostas: antes.assistenteRespostas, assistenteWhatsapp: antes.assistenteWhatsapp },
+          antes: { eventos: antes.eventos, horarioInicio: antes.horarioInicio, horarioFim: antes.horarioFim, pausado: antes.pausado, aprovarPelaResposta: antes.aprovarPelaResposta, formatoAprovacao: antes.formatoAprovacao, assistenteRespostas: antes.assistenteRespostas, assistenteWhatsapp: antes.assistenteWhatsapp, atendenteAtivo: antes.atendenteAtivo, atendenteEsperaMin: antes.atendenteEsperaMin, atendenteEnvia: antes.atendenteEnvia, atendenteLimite: antes.atendenteLimite?.toString() ?? null },
           depois: dados,
           usuarioId,
         })
         return c
       })
       if (antes.pausado && !depois.pausado) app.whatsapp.marcarFila(contextoEmpresa.exigir().id)
+      // Acabou de ligar o Assistente no WhatsApp: o menu chega no "Você" (o dono vê na hora o que pode fazer por lá)
+      if (!antes.assistenteWhatsapp && depois.assistenteWhatsapp) await boasVindasNoVoce(depois)
       return resumo(depois)
     },
 

@@ -23,6 +23,7 @@ export const VERSOES_PROMPTS: Record<TarefaIA, string> = {
   nota_compra: 'nota-de-compra@1',
   ajuste_orcamento: 'ajuste-do-orcamento@1',
   tabela_produtos: 'tabela-de-produtos@2',
+  atendimento: 'atendimento-whatsapp@12',
 }
 
 /**
@@ -43,6 +44,8 @@ export const AJUSTES_TAREFAS: Record<TarefaIA, { esforco: EsforcoIA; maxTokens: 
   ajuste_orcamento: { esforco: 'low', maxTokens: 1024 },
   // Tabela de preços inteira (até ~100 linhas): transcrever, sem raciocinar muito, com resposta longa
   tabela_produtos: { esforco: 'low', maxTokens: 12_000 },
+  // Atendente do WhatsApp: uma mensagem curta ao cliente
+  atendimento: { esforco: 'low', maxTokens: 1024 },
 }
 
 /** Telefones, documentos (8+ dígitos, com ou sem separadores) e e-mails viram marcadores antes de sair do servidor */

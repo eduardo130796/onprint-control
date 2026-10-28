@@ -1,12 +1,70 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2, NotebookPen } from 'lucide-react'
 import { toast } from 'sonner'
-import type { WhatsappConfig } from '@onprint/shared'
+import { formatarMoeda, type WhatsappConfig, type WhatsappConfigInput } from '@onprint/shared'
 import { CHAVE_WHATSAPP, whatsappApi } from '@/api/whatsapp'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Select } from '@/components/ui/form-controls'
+import { Input } from '@/components/ui/input'
 import { useAssistente } from '@/features/assistente/useAssistente'
 import { Interruptor } from '@/features/vitrine/components/Interruptor'
+
+const ESPERAS = [3, 5, 10, 15] as const
+type Mudanca = Pick<WhatsappConfigInput, 'assistenteWhatsapp' | 'atendenteAtivo' | 'atendenteEsperaMin' | 'atendenteEnvia' | 'atendenteLimite'>
+
+/** "500", "R$ 1.250,50" → número; vazio → null (sem limite); inválido → undefined */
+function lerLimite(texto: string): number | null | undefined {
+  const t = texto.replace(/r\$|\s/gi, '')
+  if (!t) return null
+  const n = Number(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t)
+  return Number.isFinite(n) && n > 0 ? n : undefined
+}
+
+/**
+ * Envio sozinho: o atendente manda o orçamento quando está tudo certo (itens no catálogo, nada a confirmar, sem
+ * liberação de gerente, sem o cliente pedir desconto) e o total vai até o limite. Fora disso, fica o rascunho para o ok.
+ */
+function EnvioSozinho({ config, podeEditar, salvando, onSalvar }: { config: WhatsappConfig; podeEditar: boolean; salvando: boolean; onSalvar: (m: Mudanca) => void }) {
+  const [limite, setLimite] = useState(config.atendenteLimite === null ? '' : String(config.atendenteLimite).replace('.', ','))
+  const gravarLimite = () => {
+    const v = lerLimite(limite)
+    if (v === undefined) return toast.error('Limite inválido: use um valor como 500 ou 1.200,00 (vazio = sem limite).')
+    if (v !== config.atendenteLimite) onSalvar({ atendenteLimite: v })
+  }
+  return (
+    <div className="mt-3 space-y-2 rounded-lg bg-fundo p-3">
+      <div className="flex items-start gap-3">
+        <Interruptor rotulo="Enviar o orçamento sozinho" marcado={config.atendenteEnvia} desabilitado={!podeEditar || salvando} onMudar={(v) => onSalvar({ atendenteEnvia: v })} className="mt-0.5" />
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-tinta">Enviar o orçamento sozinho quando estiver tudo certo</p>
+          <p className="text-xs text-texto-secundario">
+            Só envia com todos os itens no catálogo, nada a confirmar com o cliente, nenhuma regra pedindo liberação e sem o cliente pedir desconto. O valor é sempre o do sistema.
+            Fora disso, o orçamento fica esperando o seu ok. Você recebe no “Você” o que foi enviado.
+          </p>
+        </div>
+      </div>
+      {config.atendenteEnvia && (
+        <label className="flex flex-wrap items-center gap-2 text-xs text-texto-secundario">
+          Até
+          <Input
+            aria-label="Limite de valor para enviar sozinho"
+            className="h-8 w-32 text-xs"
+            inputMode="decimal"
+            placeholder="sem limite"
+            value={limite}
+            disabled={!podeEditar || salvando}
+            onChange={(e) => setLimite(e.target.value)}
+            onBlur={gravarLimite}
+            onKeyDown={(e) => e.key === 'Enter' && gravarLimite()}
+          />
+          por orçamento (vazio = sem limite).
+        </label>
+      )}
+    </div>
+  )
+}
 
 const PASSOS = [
   { titulo: 'Reaja com 📝', texto: 'numa mensagem do cliente pedindo preço, no celular ou no WhatsApp Web.' },
@@ -22,17 +80,21 @@ export function CopilotoCard({ config, podeEditar }: { config: WhatsappConfig; p
   const queryClient = useQueryClient()
   const assistente = useAssistente()
   const salvar = useMutation({
-    mutationFn: (ligado: boolean) =>
+    mutationFn: (mudanca: Mudanca) =>
       whatsappApi.salvar({
         eventos: config.eventos,
         horarioInicio: config.horarioInicio,
         horarioFim: config.horarioFim,
         pausado: config.pausado,
-        assistenteWhatsapp: ligado,
+        ...mudanca,
       }),
-    onSuccess: (c) => {
+    onSuccess: (c, mudanca) => {
       queryClient.setQueryData(CHAVE_WHATSAPP, c)
-      toast.success(c.assistenteWhatsapp ? 'Assistente no WhatsApp ligado.' : 'Assistente no WhatsApp desligado.')
+      if (mudanca.assistenteWhatsapp !== undefined) toast.success(c.assistenteWhatsapp ? 'Assistente no WhatsApp ligado.' : 'Assistente no WhatsApp desligado.')
+      else if (mudanca.atendenteAtivo !== undefined) toast.success(c.atendenteAtivo ? 'Atendente ligado.' : 'Atendente desligado.')
+      else if (mudanca.atendenteEnvia !== undefined) toast.success(c.atendenteEnvia ? 'O atendente envia o orçamento sozinho quando estiver tudo certo.' : 'O atendente só prepara o orçamento; o envio é com você.')
+      else if (mudanca.atendenteLimite !== undefined) toast.success(c.atendenteLimite === null ? 'Envio sozinho sem limite de valor.' : `Envio sozinho até ${formatarMoeda(c.atendenteLimite)}.`)
+      else toast.success(`O atendente entra depois de ${c.atendenteEsperaMin} minutos sem resposta.`)
     },
     onError: (e) => toast.error((e as Error).message),
   })
@@ -66,7 +128,7 @@ export function CopilotoCard({ config, podeEditar }: { config: WhatsappConfig; p
             rotulo="Assistente no WhatsApp (📝 e conversa Você)"
             marcado={config.assistenteWhatsapp}
             desabilitado={!podeEditar || salvar.isPending}
-            onMudar={(v) => salvar.mutate(v)}
+            onMudar={(v) => salvar.mutate({ assistenteWhatsapp: v })}
             className="mt-0.5"
           />
           <div className="min-w-0">
@@ -84,6 +146,41 @@ export function CopilotoCard({ config, podeEditar }: { config: WhatsappConfig; p
                 .
               </p>
             )}
+          </div>
+        </div>
+        <div className="flex items-start gap-3 rounded-xl border border-tinta/10 p-3">
+          <Interruptor
+            rotulo="Atender quando ninguém responder"
+            marcado={config.atendenteAtivo}
+            desabilitado={!podeEditar || salvar.isPending || !config.assistenteWhatsapp}
+            dica={config.assistenteWhatsapp ? undefined : 'Ligue o Assistente no WhatsApp primeiro'}
+            onMudar={(v) => salvar.mutate({ atendenteAtivo: v })}
+            className="mt-0.5"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-tinta">Atender quando ninguém responder</p>
+            <p className="text-xs text-texto-secundario">
+              Se o cliente ficar sem resposta, o Assistente atende pela gráfica: diz o que anotou, pergunta o que falta e deixa o orçamento pronto no seu “Você” para o ok (ou envia
+              sozinho, se você ligar abaixo). Quando você ou a equipe falam com o cliente, ele sai da conversa; se o cliente pedir uma pessoa, ele te chama e para.
+            </p>
+            <label className="mt-2 flex flex-wrap items-center gap-2 text-xs text-texto-secundario">
+              Entra depois de
+              <Select
+                aria-label="Minutos sem resposta"
+                className="h-8 w-28 text-xs"
+                value={config.atendenteEsperaMin}
+                disabled={!podeEditar || salvar.isPending || !config.assistenteWhatsapp}
+                onChange={(e) => salvar.mutate({ atendenteEsperaMin: Number(e.target.value) as Mudanca['atendenteEsperaMin'] })}
+              >
+                {ESPERAS.map((m) => (
+                  <option key={m} value={m}>
+                    {m} minutos
+                  </option>
+                ))}
+              </Select>
+              sem resposta.
+            </label>
+            {config.atendenteAtivo && <EnvioSozinho config={config} podeEditar={podeEditar} salvando={salvar.isPending} onSalvar={(m) => salvar.mutate(m)} />}
           </div>
         </div>
       </CardContent>

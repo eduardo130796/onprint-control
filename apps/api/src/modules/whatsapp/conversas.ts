@@ -50,6 +50,19 @@ export function assuntoPelasRegras(textos: string[], ctx: { temPedidoEmAndamento
   return 'outro'
 }
 
+/** Saudação de quem chega ("oi", "bom dia", "tudo bem?"), sem o pedido ainda */
+const SAUDACAO =
+  /^(oi+|ola|opa|e ai|eai|alo|bom dia|boa tarde|boa noite|tudo bem|tudo bom|como vai|alguem ai|tem alguem ai)( (oi|tudo bem|tudo bom|pessoal|gente|amigo|amiga|moca|moco|bom dia|boa tarde|boa noite|como vai))*$/
+
+/**
+ * Só saudação ("oi", "bom dia, tudo bem?"): a pessoa chegou e está esperando alguém. Não nasce resolvida como os
+ * agradecimentos: com o atendente ligado, ela recebe o menu (o que dá para resolver por ali)
+ */
+export function soSaudacao(textos: string[]): boolean {
+  const comTexto = textos.map(normalizarResposta).filter(Boolean)
+  return comTexto.length > 0 && comTexto.every((t) => SAUDACAO.test(t))
+}
+
 /** Só cortesia ("obrigado", "ok", "bom dia", 👍): a conversa nasce resolvida (não pede ação nem aviso) */
 export function soCortesia(textos: string[]): boolean {
   if (!textos.length) return false

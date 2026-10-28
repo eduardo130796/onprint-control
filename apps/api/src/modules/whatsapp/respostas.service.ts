@@ -16,6 +16,7 @@ import { controlesDaEmpresa } from '../assistente/empresa.service'
 import { contextoDoCerebro, montarCerebro } from '../assistente/cerebro'
 import { pedidoClassificarResposta, primeiroNome } from '../assistente/prompts'
 import { criarConversasWhatsapp, type EventoConversa } from './conversas.service'
+import { criarAtendenteWhatsapp } from './atendente.service'
 import { criarCopilotoWhatsapp } from './copiloto.service'
 import { DONO_PRESENTE_MS, decidirAprovacaoAutomatica, motivoDaConfirmacao, silencioAoCliente, textoConfirmarAprovacao, versaoDoOrcamento, type DecisaoAprovacao } from './aprovacao'
 import { camposDaVersao } from './manual'
@@ -104,6 +105,8 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
   const copiloto = criarCopilotoWhatsapp(app)
   // O que o dono digitou nas conversas com clientes (a aprovação sozinha só sai se ninguém conversou depois do envio)
   const mensagensDono = criarMensagensDono(app)
+  // Atendente: ninguém respondeu o cliente em alguns minutos, o Assistente atende (mesmo copiloto: o eco do "Você")
+  const atendente = criarAtendenteWhatsapp(app, { copiloto, mensagensDono })
 
   type Linha = Awaited<ReturnType<typeof buscarLinhas>>[number]
 
@@ -807,6 +810,9 @@ export function criarRespostasWhatsapp(app: FastifyInstance) {
     },
 
     /** Espera as leituras do Assistente em andamento e cancela as das conversas agendadas (testes e desligamento) */
+    /** Atendente: as conversas paradas da empresa (tarefa de cada minuto). Nunca lança */
+    atenderParados: (empresa: EmpresaAtual) => contextoEmpresa.com(empresa, () => atendente.atenderParados(empresa)),
+
     async aguardarAssistente() {
       while (emAndamento.size) await Promise.all([...emAndamento])
       await conversas.encerrar()

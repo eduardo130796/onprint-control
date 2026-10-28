@@ -312,6 +312,24 @@ Depois de atualizar:
    - **Assistente no WhatsApp (📝 e conversa "Você")** vem **desligado**: ligue para usar o copiloto (reagir com 📝 numa mensagem do cliente monta o orçamento; "ok" na conversa "Você" envia).
 4. **Conferir**: `onprint logs api | grep -i "migra"` sem erro; no sistema, **Produtos → Cadastrar vários** abre, e **Peça ao Assistente** (ao lado da busca) responde "quem está devendo?".
 
+#### Atendente do WhatsApp (quando ninguém responde)
+
+A migration `20261110100000_atendente_whatsapp` entra sozinha no `atualizar.sh` (só colunas novas). Na página **WhatsApp**, abaixo do "Assistente no WhatsApp", o interruptor **Atender quando ninguém responder** vem **desligado** (só liga com o Assistente no WhatsApp ligado). Ligado, se o cliente ficar sem resposta pelo tempo escolhido (3, 5, 10 ou 15 minutos; padrão 5), o Assistente responde pela gráfica. Com ele já na conversa, as respostas seguintes saem em 15 a 35 segundos.
+
+- **"Oi", "bom dia"**: um menu curto e numerado, com o que o cliente tem em aberto (orçamento esperando aprovação, pedido em andamento): ver o orçamento, ver o pedido, fazer um orçamento, receber o catálogo. Ele responde pelo número ou do jeito que o cliente escrever.
+- **Orçamento**: diz o que anotou, pergunta só o que falta e deixa o rascunho no "Você" do dono (o "ok" envia, como no 📝). O que o cliente completa depois ("só 3") atualiza o mesmo rascunho.
+- **Enviar o orçamento sozinho** (opcional, desligado, com limite de valor por orçamento): só com tudo no catálogo, nada a confirmar, nenhuma regra pedindo liberação e sem o cliente pedir desconto. O valor é sempre o do sistema; o dono recebe no "Você" o que saiu. Fora disso, fica o rascunho para o "ok" (e o aviso diz por quê).
+- **Pedido e orçamento em aberto**: responde a situação e os detalhes pelo sistema e reenvia o orçamento com o PDF quando o cliente pede.
+- **Catálogo e "vocês fazem X?"**: manda o PDF do catálogo publicado na Vitrine (e o link do site) ou as fotos dos produtos que combinam, com nome, descrição e link; depois, convida para o orçamento.
+- **Dúvidas**: só com o horário, a cidade e o "Manual do atendente" (Configurações → Regras comerciais); o que não souber, passa ao dono no "Você". "Aberto/fechado e quando abre" é calculado pelo sistema a partir do **Horário da Vitrine** (ex.: "Seg a sex, 8h às 18h · Sáb, 9h às 13h").
+- **Sai de cena** quando o dono escreve para o cliente (texto, áudio ou foto, no celular ou no WhatsApp Web) ou alguém da equipe manda mensagem pelo sistema nas últimas 2 horas. Se o cliente pedir uma pessoa, avisa o dono e para (12 horas para aquele número). Conversas pessoais (família, amigos) não são respondidas.
+
+No "Você", o dono manda **menu** (ou "ajuda", "oi") para ver tudo o que dá para fazer por lá; o menu também chega sozinho quando o "Assistente no WhatsApp" é ligado. Foto que não é nota de compra não é lançada nem vira produto (tabela de preços vai com a legenda *produtos*).
+
+**Um número de WhatsApp em um sistema só.** Se o mesmo número estiver conectado em dois lugares (ex.: produção e um computador de teste), os dois respondem e um lê os avisos do outro no "Você". Antes de testar em outro lugar, desconecte da produção.
+
+Para conferir: `onprint logs api | grep -i "Atendente do WhatsApp"` mostra cada atendimento (sem o texto das mensagens). As respostas ficam na lista de mensagens da página WhatsApp como "Atendente (ninguém respondeu)".
+
 ## 11. Restaurar um backup
 
 > **Atenção:** substitui os dados atuais pelos do backup.

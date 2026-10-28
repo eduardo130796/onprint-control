@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify'
+import { MIDIA_CONVERSA_ROTULOS } from '@onprint/shared'
 import { GUARDA_MENSAGENS_DONO_MS } from './aprovacao'
 import { ehCanalVoce } from './copiloto'
 import { obterConfigWhatsapp } from './avisos'
@@ -12,8 +13,8 @@ type EventoProprio = Extract<EventoWebhook, { tipo: 'proprio' }>
 const MAX_TEXTO = 300
 
 /**
- * Mensagens que o dono digita à mão nas conversas com clientes (celular ou WhatsApp Web): só para a aprovação segura
- * saber se "vocês conversaram depois do envio". Fica de fora a conversa "Você" e tudo o que o sistema mandou (o
+ * Mensagens que o dono digita à mão nas conversas com clientes (celular ou WhatsApp Web): para a aprovação segura
+ * saber se "vocês conversaram depois do envio" e o atendente saber que o dono está na conversa. Fica de fora a conversa "Você" e tudo o que o sistema mandou (o
  * registro dos envios em memória, mensagens_whatsapp e os avisos do Assistente). Texto curto, apagado em 30 dias.
  */
 export function criarMensagensDono(app: FastifyInstance) {
@@ -24,7 +25,8 @@ export function criarMensagensDono(app: FastifyInstance) {
     /** Guarda a mensagem do dono na conversa com o cliente. Devolve se guardou. Nunca lança para o webhook. */
     async registrar(e: EventoProprio, sender: string | null): Promise<boolean> {
       try {
-        const texto = e.texto?.trim()
+        // Áudio, foto ou figurinha do dono também é conversa (o atendente sai de cena): fica o tipo, sem o arquivo
+        const texto = e.texto?.trim() || (e.midia ? `[${MIDIA_CONVERSA_ROTULOS[e.midia] ?? 'Mídia'}]` : '')
         const numero = numeroCanonico(e.jids.map(numeroDoJid).find(Boolean) ?? null)
         if (!texto || !numero) return false
         const config = await obterConfigWhatsapp(prisma)
